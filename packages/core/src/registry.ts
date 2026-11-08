@@ -6,6 +6,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { installSdkResolver } from './sdk-resolver.ts';
 import { localize, toJsonSchema, type InterludeDefinition, type PluginDefinition, type SourceDefinition, type WidgetDefinition } from '@tessera/sdk';
 
 export interface LoadedPlugin {
@@ -71,6 +72,7 @@ export class Registry {
    */
   async loadDir(dir: string): Promise<void> {
     if (!existsSync(dir)) return;
+    installSdkResolver();
     const candidates: string[] = [];
     for (const name of readdirSync(dir)) {
       if (name === 'node_modules' || name.startsWith('.')) continue;

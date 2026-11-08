@@ -26,7 +26,7 @@ export function starterConfig(registry: Registry, o: { width?: number; height?: 
   add({ x: 16, y: 0, w: 8, h: 6 }, ['usage/rail', 'vitals/vitals', 'system/health', 'mirror/countdown'].filter(has).slice(0, 3));
   if (!has('agents/sessions')) {
     const welcome = tiles[0]?.widgets[0];
-    if (welcome) welcome.options = { text: es ? 'Hola 👋\nArrastra widgets desde la biblioteca para montar tu panel.' : 'Hi 👋\nDrag widgets from the library to build your panel.', maxSize: 54 };
+    if (welcome) welcome.options = { text: es ? 'Hola.\nArrastra widgets desde la biblioteca para montar tu panel.' : 'Hi there.\nDrag widgets from the library to build your panel.', maxSize: 54 };
   }
   page.tiles = tiles;
   screen.pages = [page];

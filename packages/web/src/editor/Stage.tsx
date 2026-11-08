@@ -332,7 +332,7 @@ export function Stage() {
             })}
           {ghost && (() => {
             const r = toPx(ghost.rect, pg.grid, W, H);
-            return <div class={`ghost ${ghost.ok ? '' : 'invalid'} ${ghost.stackOn ? 'stacking' : ''}`} style={{ left: `${(r.x / W) * 100}%`, top: `${(r.y / H) * 100}%`, width: `${(r.w / W) * 100}%`, height: `${(r.h / H) * 100}%` }}>{ghost.stackOn ? <span><Icon name="layers" size={16} /> {tr('library.dropStack')}</span> : null}</div>;
+            return <div class={`drop-ghost ${ghost.ok ? '' : 'invalid'} ${ghost.stackOn ? 'stacking' : ''}`} style={{ left: `${(r.x / W) * 100}%`, top: `${(r.y / H) * 100}%`, width: `${(r.w / W) * 100}%`, height: `${(r.h / H) * 100}%` }}>{ghost.stackOn ? <span><Icon name="layers" size={16} /> {tr('library.dropStack')}</span> : null}</div>;
           })()}
           {!live && !pg.tiles.length && !ghost && (
             <div class="stage-empty">

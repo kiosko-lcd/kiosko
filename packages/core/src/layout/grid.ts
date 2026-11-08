@@ -49,7 +49,10 @@ export interface PxRect {
 export function suggestGrid(width: number, height: number, target = 80): GridSpec {
   const rows = Math.max(2, Math.round(height / target));
   const cellH = height / rows;
-  const cols = Math.max(2, Math.round(width / cellH));
+  const raw = Math.max(2, Math.round(width / cellH));
+  // Prefer a count that splits evenly in halves, thirds or quarters (25 → 24).
+  const near = [raw, raw - 1, raw + 1].filter((n) => n >= 2);
+  const cols = [12, 6, 4].map((d) => near.find((n) => n % d === 0)).find((n) => n !== undefined) ?? raw;
   const short = Math.min(width, height);
   const gap = short >= 400 ? 10 : short >= 240 ? 6 : 4;
   return { cols, rows, gap, padding: gap };

@@ -63,21 +63,21 @@ function Toolbar() {
         </button>
       </div>
       <div class="tb-group">
-        <span class="tb-label">{tr('stage.gravity')}</span>
-        <div class="segmented small">
+        <span class="tb-label hide-md">{tr('stage.gravity')}</span>
+        <div class="segmented small" title={tr('stage.gravity')}>
           {(['none', 'up', 'left'] as Gravity[]).map((g) => (
             <button class={p.gravity === g ? 'on' : ''} title={tr(`gravity.${g}`)} onClick={() => setPage((pg) => {
               pg.gravity = g;
               pg.tiles = compact(pg.tiles, g);
             })}>
               <Icon name={g === 'none' ? 'move' : g === 'up' ? 'arrow-up-to-line' : 'arrow-left-to-line'} size={14} />
-              <span class="hide-sm">{tr(`gravity.${g}`)}</span>
+              <span class="hide-sm hide-md">{tr(`gravity.${g}`)}</span>
             </button>
           ))}
         </div>
       </div>
       <div class="tb-group">
-        <span class="tb-label">{tr('stage.density')}</span>
+        <span class="tb-label hide-md">{tr('stage.density')}</span>
         <button class="icon-btn" onClick={() => density(-1)} title="−">
           <Icon name="minus" size={14} />
         </button>
@@ -92,11 +92,11 @@ function Toolbar() {
         const r = autoPack(pg.tiles, pg.grid, pg.gravity === 'none' ? 'up' : pg.gravity);
         pg.tiles = r.items;
       })} title={tr('stage.autoArrange')}>
-        <Icon name="layout-grid" size={14} /> <span class="hide-sm">{tr('stage.autoArrange')}</span>
+        <Icon name="layout-grid" size={14} /> <span class="hide-sm hide-md">{tr('stage.autoArrange')}</span>
       </button>
       <div class="tb-spacer" />
       <button class={`btn ghost small ${showGrid.value ? 'active' : ''}`} onClick={() => (showGrid.value = !showGrid.value)} aria-pressed={showGrid.value}>
-        <Icon name="grid-3x3" size={14} /> <span class="hide-sm">{tr('stage.grid')}</span>
+        <Icon name="grid-3x3" size={14} /> <span class="hide-sm hide-md">{tr('stage.grid')}</span>
       </button>
       <button class={`btn small ${liveMode.value ? 'live-on' : 'ghost'}`} onClick={() => {
         liveMode.value = !liveMode.value;

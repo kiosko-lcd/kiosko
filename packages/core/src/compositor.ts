@@ -115,6 +115,20 @@ function redrawAt(def: WidgetDefinition<any, any>, now: number): number {
   return (Math.floor(now / step) + 1) * step;
 }
 
+/** Cuts `text` with an ellipsis to fit `maxW` with the current font (plain fillText, no tracking). */
+export function fitText(g: SKRSContext2D, text: string, maxW: number): string {
+  if (g.measureText(text).width <= maxW) return text;
+  const chars = [...text];
+  let lo = 0;
+  let hi = chars.length;
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2);
+    if (g.measureText(`${chars.slice(0, mid).join('').trimEnd()}…`).width <= maxW) lo = mid;
+    else hi = mid - 1;
+  }
+  return lo > 0 ? `${chars.slice(0, lo).join('').trimEnd()}…` : '…';
+}
+
 export function roundRect(g: SKRSContext2D, x: number, y: number, w: number, h: number, r: number): void {
   g.beginPath();
   g.roundRect(x, y, w, h, Math.max(0, Math.min(r, w / 2, h / 2)));
@@ -174,7 +188,10 @@ function paintTile(g: SKRSContext2D, input: ComposeInput, tile: Tile, rect: PxRe
   let top = rect.y + pad;
   const title = r.inst.title?.trim();
   if (title && chrome === 'card') {
-    kit.drawTracked(g, kit.truncate(g, title, rect.w - 2 * pad, { size: m.title, family: theme.fonts.sans }), rect.x + pad, rect.y + pad + m.title * 0.8, { size: m.title, family: theme.fonts.sans, color: theme.colors.inkDim });
+    g.font = `${m.title}px "${theme.fonts.sans}"`;
+    g.fillStyle = theme.colors.inkDim;
+    g.textBaseline = 'alphabetic';
+    g.fillText(fitText(g, title, rect.w - 2 * pad), rect.x + pad, rect.y + pad + m.title * 0.8);
     top = rect.y + pad + m.titleBar;
   }
   const box: Box = { x: rect.x + pad, y: top, w: Math.max(1, rect.w - 2 * pad), h: Math.max(1, rect.y + rect.h - pad - top) };
