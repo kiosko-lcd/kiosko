@@ -71,6 +71,7 @@ function TopBar() {
         </nav>
       )}
       <div class="tb-spacer" />
+      {app.value?.demo && <span class="demo-pill" title="tessera start --demo">DEMO</span>}
       <SaveState />
       <a class="icon-btn" href="https://github.com/Loksly/tessera#readme" target="_blank" rel="noreferrer" title="Docs">
         <Icon name="book-open" size={17} />

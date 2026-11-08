@@ -14,8 +14,25 @@ function item(source: string, title: string, summary: string, scene: string, ago
   return { source, title, summary, image: `demo:${scene}`, link: `https://example.org/${slug}`, published: now - agoMin * MIN };
 }
 
-export function demoDeck(now: number): NewsDeck {
-  const items: NewsItem[] = [
+const EN = (now: number): NewsItem[] => [
+  item('The Chronicle', 'Port expands its container terminal and expects to double cargo traffic within five years',
+    'Works start in spring, reclaim 40 hectares from the sea and add six cranes. The port authority estimates 2,000 direct jobs during construction.', 'harbour', 12, now, 'port-1'),
+  item('Coast Daily', 'Port expands container terminal to double cargo traffic',
+    'The project adds six cranes and 40 hectares reclaimed from the sea.', 'harbour', 25, now, 'port-2'),
+  item('News 24', 'Container terminal at the port will grow to double cargo traffic',
+    'Shipping lines welcome the decision; neighbours ask for a noise study.', 'harbour', 41, now, 'port-3'),
+  item('News 24', 'The metro will run all night during the end-of-year holidays',
+    'Main lines will stay open non-stop from 24 December to 6 January, with trains every fifteen minutes after 1 am.', 'city', 48, now, 'metro'),
+  item('The Chronicle', 'Plateau wind farm starts producing: first phase will power 90,000 homes',
+    'The 32 turbines installed so far feed the grid from this week; the second phase goes out to tender in January.', 'field', 95, now, 'wind-1'),
+  item('Coast Daily', 'Plateau wind farm starts producing late: first phase reaches 90,000 homes in winter',
+    'Developers blame the delay on a shortage of transformers.', 'field', 130, now, 'wind-2'),
+  item('Tech Today AI', 'An open language model matches the big ones at programming tasks',
+    'The team publishes weights and evaluation data; in independent tests it solves 71% of the problems, close to commercial systems.', 'city', 180, now, 'open-model'),
+];
+
+export function demoDeck(now: number, locale = 'es'): NewsDeck {
+  const items: NewsItem[] = locale.toLowerCase().startsWith('es') ? [
     item('La Crónica', 'El puerto amplía su terminal de contenedores y prevé duplicar el tráfico de mercancías en cinco años',
       'La obra, que arrancará en primavera, gana 40 hectáreas al mar y añade seis grúas. La autoridad portuaria calcula 2.000 empleos directos durante la construcción.', 'harbour', 12, now, 'puerto-1'),
     item('Diario Costa', 'El puerto amplía la terminal de contenedores para duplicar el tráfico de mercancías',
@@ -30,7 +47,7 @@ export function demoDeck(now: number): NewsDeck {
       'Los promotores atribuyen la demora a la falta de transformadores.', 'field', 130, now, 'eolico-2'),
     item('Tecnología Hoy IA', 'Un modelo de lenguaje abierto iguala a los grandes en tareas de programación',
       'El equipo publica los pesos y los datos de evaluación; en pruebas independientes resuelve el 71% de los problemas, cerca de los sistemas comerciales.', 'city', 180, now, 'modelo-abierto'),
-  ];
+  ] : EN(now);
   const stories = clusterStories(items).sort((a, b) => b.consensus - a.consensus || b.lead.published - a.lead.published);
   return { stories, updated: now - 3 * MIN, failed: [] };
 }

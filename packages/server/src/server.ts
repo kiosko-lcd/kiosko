@@ -105,6 +105,7 @@ export function startServer(o: ServerOptions) {
       status: runtime.status(),
       paths: { config: o.configPath, plugins: paths.plugins, home: paths.home },
       restartNeeded,
+      demo: runtime.demoMode,
       platform: process.platform,
     };
   }

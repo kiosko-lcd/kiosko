@@ -126,6 +126,7 @@ class ScreenRunner {
         dataOf: (inst) => this.rt.fetches.data(inst.id),
         sourcesOf: (types) => this.rt.hub.pick(types),
         log: this.rt.log,
+        demo: this.rt.demoMode,
       });
       canvas = result.canvas;
       this.nextAt = Math.min(result.nextAt, now + 60_000);
@@ -237,9 +238,15 @@ export class Runtime extends EventEmitter {
   readonly logs: LogEntry[] = [];
 
   readonly registry: Registry;
-  constructor(registry: Registry, config: Config) {
+  /**
+   * Demo mode: no source or fetch runs, every widget paints its sample data.
+   * For trying Tessera without any setup, screenshots and kiosks at fairs.
+   */
+  readonly demoMode: boolean;
+  constructor(registry: Registry, config: Config, o: { demo?: boolean } = {}) {
     super();
     this.registry = registry;
+    this.demoMode = !!o.demo;
     this.setMaxListeners(100);
     this.config = config;
     this.hub = new SourceHub(registry, this.log, (type) => this.onData({ source: type }));
@@ -291,6 +298,10 @@ export class Runtime extends EventEmitter {
         }
       }
       for (const slot of r.screen.interludes) for (const s of this.registry.interlude(slot.type)?.sources ?? []) if (slot.enabled) sources.add(s);
+    }
+    if (this.demoMode) {
+      sources.clear();
+      instances.length = 0;
     }
     this.hub.retain(sources, this.config);
     this.fetches.retain(instances);

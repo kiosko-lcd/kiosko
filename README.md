@@ -7,6 +7,8 @@ and let a tiny daemon keep the panel up to date.
 
 > 🇪🇸 Documento de diseño en castellano: [docs/es/plan.md](docs/es/plan.md)
 
+![The Tessera editor: a 1920×462 panel with the cats room and a stack of cards](docs/img/editor-cats.jpg)
+
 - **Visual editor in your browser.** Drag widgets onto a to-scale picture of
   your panel, resize them on the grid, drop one onto another to stack them.
   What you see is painted by the same code that paints the panel.
@@ -19,6 +21,23 @@ and let a tiny daemon keep the panel up to date.
   normal state.
 - **Linux, macOS and Windows.** Node.js and a browser. Fonts are bundled so a
   frame is pixel-identical on every OS.
+
+| | |
+|---|---|
+| ![AI agent sessions dashboard](docs/img/editor-dashboard.jpg) | ![News page, light editor theme](docs/img/editor-news-light.jpg) |
+| ![A 480×480 square panel](docs/img/editor-square.jpg) | ![Plugins page](docs/img/plugins.jpg) |
+
+## Try it in 30 seconds
+
+```sh
+git clone https://github.com/Loksly/tessera && cd tessera
+npm install
+npm run web:build
+node --conditions=source packages/server/src/cli.ts start --config examples/showcase.json --demo --open
+```
+
+`--demo` paints every widget with sample data and reads nothing from your
+machine, so you can explore the editor before connecting a panel.
 
 ## Quick start
 

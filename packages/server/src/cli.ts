@@ -2,7 +2,7 @@
 /**
  * `tessera` command line.
  *
- *   tessera start [--port 7420] [--host 127.0.0.1] [--config file] [--open]
+ *   tessera start [--port 7420] [--host 127.0.0.1] [--config file] [--open] [--demo]
  *   tessera render [--screen id|name] [--page id|name] [--out frame.png] [--live]
  *   tessera import-aimonitor [--from ~/.aimonitor/config.json] [--write]
  *   tessera doctor
@@ -62,7 +62,8 @@ async function main(): Promise<void> {
       const cfg = await config(reg, path);
       const host = opt('--host') ?? cfg.server.host;
       const port = Number(opt('--port') ?? cfg.server.port);
-      const rt = new Runtime(reg, cfg);
+      const rt = new Runtime(reg, cfg, { demo: flag('--demo') });
+      if (flag('--demo')) console.log('demo mode: every widget shows sample data, nothing is read');
       rt.start();
       const srv = startServer({ runtime: rt, host, port, configPath: path, version: VERSION });
       const url = `http://${host === '0.0.0.0' ? '127.0.0.1' : host}:${port}/`;

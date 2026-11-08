@@ -1,0 +1,421 @@
+{
+  "version": 1,
+  "locale": "en",
+  "theme": "midnight",
+  "workday": {
+    "days": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "start": "09:00",
+    "end": "17:00"
+  },
+  "sources": {},
+  "plugins": {
+    "disabled": []
+  },
+  "screens": [
+    {
+      "id": "trofeo",
+      "name": "Trofeo Vision",
+      "enabled": true,
+      "width": 1920,
+      "height": 462,
+      "rotate": 0,
+      "device": {
+        "driver": "virtual"
+      },
+      "pages": [
+        {
+          "id": "page-09",
+          "name": "Dashboard",
+          "enabled": true,
+          "durationMs": 300000,
+          "when": "always",
+          "grid": {
+            "cols": 24,
+            "rows": 6,
+            "gap": 10,
+            "padding": 10
+          },
+          "gravity": "none",
+          "background": {},
+          "tiles": [
+            {
+              "id": "tile-02",
+              "x": 0,
+              "y": 0,
+              "w": 24,
+              "h": 1,
+              "widgets": [
+                {
+                  "id": "w-01",
+                  "type": "agents/summary",
+                  "options": {}
+                }
+              ],
+              "rotateMs": 20000,
+              "chrome": "bare"
+            },
+            {
+              "id": "tile-04",
+              "x": 0,
+              "y": 1,
+              "w": 13,
+              "h": 5,
+              "widgets": [
+                {
+                  "id": "w-03",
+                  "type": "agents/sessions",
+                  "options": {}
+                }
+              ],
+              "rotateMs": 20000,
+              "chrome": "bare"
+            },
+            {
+              "id": "tile-06",
+              "x": 13,
+              "y": 1,
+              "w": 6,
+              "h": 5,
+              "widgets": [
+                {
+                  "id": "w-05",
+                  "type": "vitals/vitals",
+                  "options": {}
+                }
+              ],
+              "rotateMs": 20000,
+              "chrome": "bare"
+            },
+            {
+              "id": "tile-08",
+              "x": 19,
+              "y": 1,
+              "w": 5,
+              "h": 5,
+              "widgets": [
+                {
+                  "id": "w-07",
+                  "type": "usage/rail",
+                  "options": {}
+                }
+              ],
+              "rotateMs": 20000,
+              "chrome": "bare"
+            }
+          ]
+        },
+        {
+          "id": "page-0i",
+          "name": "Cats",
+          "enabled": true,
+          "durationMs": 300000,
+          "when": "always",
+          "grid": {
+            "cols": 24,
+            "rows": 6,
+            "gap": 10,
+            "padding": 10
+          },
+          "gravity": "none",
+          "background": {},
+          "tiles": [
+            {
+              "id": "tile-0b",
+              "x": 0,
+              "y": 0,
+              "w": 17,
+              "h": 6,
+              "widgets": [
+                {
+                  "id": "w-0a",
+                  "type": "cats/room",
+                  "options": {}
+                }
+              ],
+              "rotateMs": 20000,
+              "chrome": "bare"
+            },
+            {
+              "id": "tile-0h",
+              "x": 17,
+              "y": 0,
+              "w": 7,
+              "h": 6,
+              "widgets": [
+                {
+                  "id": "w-0c",
+                  "type": "weather/forecast",
+                  "options": {},
+                  "title": "Weather"
+                },
+                {
+                  "id": "w-0d",
+                  "type": "mirror/countdown",
+                  "options": {},
+                  "title": "Countdown"
+                },
+                {
+                  "id": "w-0e",
+                  "type": "mirror/onthisday",
+                  "options": {},
+                  "title": "On this day"
+                },
+                {
+                  "id": "w-0f",
+                  "type": "mirror/airquality",
+                  "options": {},
+                  "title": "Air"
+                },
+                {
+                  "id": "w-0g",
+                  "type": "gitlab/reviews",
+                  "options": {},
+                  "title": "Your reviews"
+                }
+              ],
+              "rotateMs": 20000,
+              "chrome": "card"
+            }
+          ]
+        },
+        {
+          "id": "page-0t",
+          "name": "News",
+          "enabled": true,
+          "durationMs": 300000,
+          "when": "always",
+          "grid": {
+            "cols": 24,
+            "rows": 6,
+            "gap": 10,
+            "padding": 10
+          },
+          "gravity": "none",
+          "background": {},
+          "tiles": [
+            {
+              "id": "tile-0k",
+              "x": 0,
+              "y": 0,
+              "w": 14,
+              "h": 6,
+              "widgets": [
+                {
+                  "id": "w-0j",
+                  "type": "news/headline",
+                  "options": {}
+                }
+              ],
+              "rotateMs": 20000,
+              "chrome": "bare"
+            },
+            {
+              "id": "tile-0n",
+              "x": 14,
+              "y": 0,
+              "w": 5,
+              "h": 6,
+              "widgets": [
+                {
+                  "id": "w-0l",
+                  "type": "mirror/rainmap",
+                  "options": {},
+                  "title": "Radar"
+                },
+                {
+                  "id": "w-0m",
+                  "type": "mirror/earthquakes",
+                  "options": {},
+                  "title": "Earthquakes"
+                }
+              ],
+              "rotateMs": 20000,
+              "chrome": "card"
+            },
+            {
+              "id": "tile-0p",
+              "x": 19,
+              "y": 0,
+              "w": 5,
+              "h": 3,
+              "widgets": [
+                {
+                  "id": "w-0o",
+                  "type": "core/clock",
+                  "options": {
+                    "showDate": true
+                  }
+                }
+              ],
+              "rotateMs": 20000,
+              "chrome": "bare"
+            },
+            {
+              "id": "tile-0s",
+              "x": 19,
+              "y": 3,
+              "w": 5,
+              "h": 3,
+              "widgets": [
+                {
+                  "id": "w-0q",
+                  "type": "system/health",
+                  "options": {},
+                  "title": "The PC"
+                },
+                {
+                  "id": "w-0r",
+                  "type": "mirror/nowplaying",
+                  "options": {}
+                }
+              ],
+              "rotateMs": 20000,
+              "chrome": "card"
+            }
+          ]
+        }
+      ],
+      "interludes": [
+        {
+          "id": "runner",
+          "type": "agents/runner",
+          "enabled": true,
+          "everyMs": 900000,
+          "maxSeconds": 30,
+          "options": {}
+        }
+      ],
+      "pixelShift": {
+        "enabled": true,
+        "amplitude": 2,
+        "periodMs": 480000
+      },
+      "sleepWhenIdle": false,
+      "jpegQuality": 90,
+      "maxFps": 12
+    },
+    {
+      "id": "square",
+      "name": "AIO 480",
+      "enabled": true,
+      "width": 480,
+      "height": 480,
+      "rotate": 0,
+      "device": {
+        "driver": "virtual"
+      },
+      "pages": [
+        {
+          "id": "page-12",
+          "name": "Home",
+          "enabled": true,
+          "durationMs": 300000,
+          "when": "always",
+          "grid": {
+            "cols": 6,
+            "rows": 6,
+            "gap": 6,
+            "padding": 6
+          },
+          "gravity": "none",
+          "background": {},
+          "tiles": [
+            {
+              "id": "tile-0v",
+              "x": 0,
+              "y": 0,
+              "w": 6,
+              "h": 2,
+              "widgets": [
+                {
+                  "id": "w-0u",
+                  "type": "core/clock",
+                  "options": {
+                    "showDate": false
+                  }
+                }
+              ],
+              "rotateMs": 20000,
+              "chrome": "bare"
+            },
+            {
+              "id": "tile-0x",
+              "x": 0,
+              "y": 2,
+              "w": 3,
+              "h": 4,
+              "widgets": [
+                {
+                  "id": "w-0w",
+                  "type": "core/date",
+                  "options": {}
+                }
+              ],
+              "rotateMs": 20000,
+              "chrome": "auto"
+            },
+            {
+              "id": "tile-0z",
+              "x": 3,
+              "y": 2,
+              "w": 3,
+              "h": 2,
+              "widgets": [
+                {
+                  "id": "w-0y",
+                  "type": "weather/forecast",
+                  "options": {
+                    "hours": 0,
+                    "days": 0
+                  }
+                }
+              ],
+              "rotateMs": 20000,
+              "chrome": "auto"
+            },
+            {
+              "id": "tile-11",
+              "x": 3,
+              "y": 4,
+              "w": 3,
+              "h": 2,
+              "widgets": [
+                {
+                  "id": "w-10",
+                  "type": "mirror/compliments",
+                  "options": {}
+                }
+              ],
+              "rotateMs": 20000,
+              "chrome": "auto"
+            }
+          ]
+        }
+      ],
+      "interludes": [],
+      "pixelShift": {
+        "enabled": true,
+        "amplitude": 2,
+        "periodMs": 480000
+      },
+      "sleepWhenIdle": false,
+      "jpegQuality": 90,
+      "maxFps": 12
+    }
+  ],
+  "server": {
+    "host": "127.0.0.1",
+    "port": 7420
+  },
+  "location": {
+    "latitude": 40.4168,
+    "longitude": -3.7038,
+    "name": "Madrid"
+  }
+}

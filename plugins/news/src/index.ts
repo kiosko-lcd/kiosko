@@ -98,7 +98,7 @@ export const deck = defineSource({
     if (last) return { ...last, failed: harvest.failed };
     throw new Error(`no usable news from ${feeds.length} feeds (${harvest.failed.join(', ') || 'none configured'})`);
   },
-  demo: ({ now }) => demoDeck(now),
+  demo: ({ now, locale }) => demoDeck(now, locale),
 });
 
 function saveDeck(file: string, d: NewsDeck, log: (m: string) => void): void {
@@ -170,8 +170,8 @@ function painter(ctx: RenderContext<unknown, unknown>, g: Parameters<typeof draw
 
 const demoOf = (url: string | null) => (url?.startsWith(DEMO_PHOTO) ? url.slice(DEMO_PHOTO.length) : null);
 
-function demoShot(o: { rotateMs: number; offset: number }, now: number) {
-  const d = demoDeck(now);
+function demoShot(o: { rotateMs: number; offset: number }, now: number, locale = 'es') {
+  const d = demoDeck(now, locale);
   const s = storyAt(d.stories, now, o.rotateMs, o.offset)!;
   return { data: { link: s.lead.link, photo: s.lead.image }, sources: { 'news/deck': d, 'weather/current': demoCornerWeather(now) } };
 }
@@ -206,7 +206,7 @@ export const headline = defineWidget({
     const weather = ctx.sources['weather/current'] as Weather | undefined;
     drawHeadline(p, now.story, photoFor(now.photo), demoOf(now.photo), ctx.box, weather, { contrast: ctx.options.contrast, corner: ctx.options.corner });
   },
-  demo: ({ options, now }) => demoShot(options, now),
+  demo: ({ options, now, locale }) => demoShot(options, now, locale),
 });
 
 export const column = defineWidget({
@@ -238,7 +238,7 @@ export const column = defineWidget({
     const weather = ctx.sources['weather/current'] as Weather | undefined;
     drawColumn(p, now.story, photoFor(now.photo), demoOf(now.photo), ctx.box, ctx.theme.radius, weather, ctx.options.corner);
   },
-  demo: ({ options, now }) => demoShot(options, now),
+  demo: ({ options, now, locale }) => demoShot(options, now, locale),
 });
 
 export default definePlugin({

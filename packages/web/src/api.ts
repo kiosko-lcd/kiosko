@@ -84,6 +84,7 @@ export interface AppState {
   status: Status;
   paths: { config: string; plugins: string; home: string };
   restartNeeded: boolean;
+  demo: boolean;
   platform: string;
 }
 
