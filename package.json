@@ -1,0 +1,35 @@
+{
+  "name": "tessera-monorepo",
+  "private": true,
+  "type": "module",
+  "description": "Tessera: a widget mosaic for small always-on USB LCD panels (Thermalright Trofeo Vision and friends), with a visual editor and plugins.",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "workspaces": [
+    "packages/agent-sessions",
+    "packages/lcd-canvas-kit",
+    "packages/trcc-client",
+    "packages/weather-astro",
+    "packages/sdk",
+    "packages/core",
+    "packages/server",
+    "packages/web",
+    "plugins/*"
+  ],
+  "scripts": {
+    "start": "node --conditions=source packages/server/src/cli.ts start",
+    "dev": "npm run web:build && node --conditions=source packages/server/src/cli.ts start --open",
+    "web:build": "node packages/web/build.mjs",
+    "web:watch": "node packages/web/build.mjs --watch",
+    "check": "tsc -p tsconfig.json && tsc -p packages/web/tsconfig.json",
+    "test": "node --conditions=source --test \"packages/*/src/**/*.test.ts\" \"plugins/*/src/**/*.test.ts\"",
+    "gallery": "node --conditions=source packages/server/src/cli.ts gallery --out docs/gallery",
+    "build": "npm run web:build"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "typescript": "^5.9.3"
+  }
+}

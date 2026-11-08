@@ -1,0 +1,14 @@
+{
+  "name": "@tessera/server",
+  "version": "0.1.0",
+  "description": "Tessera daemon: drives the panels and serves the visual editor.",
+  "type": "module",
+  "license": "MIT",
+  "bin": { "tessera": "./dist/cli.js" },
+  "exports": { ".": { "source": "./src/index.ts", "default": "./dist/index.js" } },
+  "dependencies": {
+    "@tessera/core": "0.1.0",
+    "@tessera/sdk": "0.1.0",
+    "@tessera/web": "0.1.0"
+  }
+}

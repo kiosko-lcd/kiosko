@@ -1,0 +1,42 @@
+{
+  "name": "@loksly/trcc-client",
+  "version": "0.1.0",
+  "description": "Dependency-free Node client for the REST API of `trcc serve` (Thermalright USB LCD panels on Linux).",
+  "type": "module",
+  "license": "MIT",
+  "author": "Loksly",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Loksly/aimonitor.git",
+    "directory": "packages/trcc-client"
+  },
+  "keywords": [
+    "thermalright",
+    "trcc",
+    "lcd",
+    "usb",
+    "trofeo-vision"
+  ],
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "!src/**/*.test.ts",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "node --conditions=source --import tsx --test 'src/**/*.test.ts'",
+    "check": "tsc -p tsconfig.json --noEmit"
+  }
+}

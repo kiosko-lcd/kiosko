@@ -1,0 +1,12 @@
+{
+  "name": "@tessera/web",
+  "version": "0.1.0",
+  "description": "Tessera visual editor (static files served by @tessera/server).",
+  "type": "module",
+  "license": "MIT",
+  "files": ["dist"],
+  "devDependencies": {
+    "preact": "^10.27.0",
+    "esbuild": "^0.25.0"
+  }
+}

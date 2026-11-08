@@ -1,0 +1,20 @@
+{
+  "name": "@tessera/sdk",
+  "version": "0.1.0",
+  "description": "Plugin SDK for Tessera: define widgets, data sources and interludes for small always-on LCD panels.",
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": { "source": "./src/index.ts", "types": "./dist/index.d.ts", "default": "./dist/index.js" }
+  },
+  "files": ["dist", "src", "!src/**/*.test.ts", "README.md"],
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc -p tsconfig.json --noEmit"
+  },
+  "peerDependencies": {
+    "@napi-rs/canvas": ">=0.1.65 <2",
+    "@loksly/lcd-canvas-kit": "*"
+  }
+}

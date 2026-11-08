@@ -1,0 +1,58 @@
+{
+  "name": "@loksly/agent-sessions",
+  "version": "0.1.0",
+  "description": "A tiny file protocol for the state of AI coding sessions (Claude Code, Gemini CLI\u2026): a zero-dependency hook that writes it and helpers to read it.",
+  "type": "module",
+  "license": "MIT",
+  "author": "Loksly",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Loksly/aimonitor.git",
+    "directory": "packages/agent-sessions"
+  },
+  "keywords": [
+    "claude-code",
+    "gemini-cli",
+    "hooks",
+    "ai-agents",
+    "status",
+    "dashboard"
+  ],
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./git": {
+      "source": "./src/git.ts",
+      "types": "./dist/git.d.ts",
+      "default": "./dist/git.js"
+    },
+    "./cli": {
+      "source": "./src/cli.ts",
+      "types": "./dist/cli.d.ts",
+      "default": "./dist/cli.js"
+    },
+    "./schema.json": "./schema/session-record.schema.json"
+  },
+  "files": [
+    "dist",
+    "src",
+    "!src/**/*.test.ts",
+    "schema",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json && chmod +x dist/cli.js",
+    "test": "node --conditions=source --import tsx --test 'src/**/*.test.ts'",
+    "check": "tsc -p tsconfig.json --noEmit"
+  },
+  "bin": {
+    "agent-sessions-hook": "./dist/cli.js"
+  }
+}

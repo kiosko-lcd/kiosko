@@ -1,0 +1,10 @@
+{
+  "name": "@tessera/plugin-core",
+  "version": "0.1.0",
+  "description": "Basic Tessera widgets: clock, date, text, image and a separator.",
+  "type": "module",
+  "license": "MIT",
+  "exports": { ".": { "source": "./src/index.ts", "default": "./dist/index.js" } },
+  "tessera": { "plugin": "./dist/index.js" },
+  "peerDependencies": { "@tessera/sdk": "*" }
+}

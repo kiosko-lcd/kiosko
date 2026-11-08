@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Loksly/aimonitor/packages/agent-sessions/schema/session-record.schema.json",
+  "title": "Agent session record",
+  "description": "One AI coding session, as written by the agent-sessions hook to <sessions dir>/<session_id>.json.",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "session_id",
+    "provider",
+    "state",
+    "detail",
+    "project",
+    "since",
+    "updated",
+    "event"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "session_id": {
+      "type": "string"
+    },
+    "provider": {
+      "type": "string",
+      "description": "claude, gemini, or another CLI name."
+    },
+    "state": {
+      "enum": [
+        "permission",
+        "waiting",
+        "ready",
+        "active",
+        "idle"
+      ],
+      "description": "From most to least urgent: blocked on a permission prompt, waiting for input, finished its turn, working, just started."
+    },
+    "detail": {
+      "type": "string",
+      "maxLength": 240,
+      "description": "Tool call or message, secrets redacted."
+    },
+    "project": {
+      "type": "string",
+      "description": "Basename of cwd."
+    },
+    "cwd": {
+      "type": "string"
+    },
+    "since": {
+      "type": "number",
+      "description": "When it entered the current state, ms epoch."
+    },
+    "started": {
+      "type": "number",
+      "description": "When the session started, ms epoch."
+    },
+    "updated": {
+      "type": "number",
+      "description": "Last write, ms epoch."
+    },
+    "event": {
+      "type": "string",
+      "description": "Hook event that produced the record."
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 20,
+      "description": "Files edited or written, absolute, most recent first."
+    },
+    "lastFailed": {
+      "type": "boolean"
+    },
+    "failStreak": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "talkStreak": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "duck": {
+      "type": "boolean",
+      "description": "talkStreak reached 2 at some point in this session."
+    },
+    "compactAt": {
+      "type": "number",
+      "description": "Last context compaction, ms epoch."
+    },
+    "todos": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "TODO/FIXME added during the session."
+    },
+    "testsFailed": {
+      "type": "boolean"
+    }
+  },
+  "additionalProperties": true
+}

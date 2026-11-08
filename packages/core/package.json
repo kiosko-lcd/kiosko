@@ -1,0 +1,19 @@
+{
+  "name": "@tessera/core",
+  "version": "0.1.0",
+  "description": "Tessera runtime: grid layout engine, plugin host, compositor and panel drivers.",
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": { "source": "./src/index.ts", "default": "./dist/index.js" },
+    "./layout": { "source": "./src/layout/index.ts", "default": "./dist/layout/index.js" },
+    "./model": { "source": "./src/config/model.ts", "default": "./dist/config/model.js" }
+  },
+  "dependencies": {
+    "@loksly/lcd-canvas-kit": "0.1.0",
+    "@loksly/trcc-client": "0.1.0",
+    "@napi-rs/canvas": "^1.0.10",
+    "@tessera/sdk": "0.1.0",
+    "dejavu-fonts-ttf": "^2.37.3"
+  }
+}

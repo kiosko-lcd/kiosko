@@ -1,0 +1,50 @@
+{
+  "name": "@loksly/lcd-canvas-kit",
+  "version": "0.1.0",
+  "description": "Drawing helpers for small always-on LCD panels on @napi-rs/canvas: tracked text, small caps, word wrap, sparklines, pixel shift against image retention, weather and moon icons.",
+  "type": "module",
+  "license": "MIT",
+  "author": "Loksly",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Loksly/aimonitor.git",
+    "directory": "packages/lcd-canvas-kit"
+  },
+  "keywords": [
+    "canvas",
+    "napi-rs",
+    "lcd",
+    "dashboard",
+    "sparkline",
+    "burn-in",
+    "weather-icons"
+  ],
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "!src/**/*.test.ts",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "node --conditions=source --import tsx --test 'src/**/*.test.ts'",
+    "check": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@loksly/weather-astro": "0.1.0"
+  },
+  "peerDependencies": {
+    "@napi-rs/canvas": ">=0.1.65 <2"
+  }
+}

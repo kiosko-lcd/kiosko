@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "customConditions": ["source"]
+  },
+  "include": ["packages/*/src/**/*.ts", "plugins/*/src/**/*.ts"],
+  "exclude": ["node_modules", "**/dist", "packages/web", "packages/trcc-client/src/*.test.ts", "packages/weather-astro/src/*.test.ts"]
+}
