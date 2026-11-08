@@ -4,5 +4,6 @@
  */
 import type { PluginDefinition } from '@tessera/sdk';
 import core from '@tessera/plugin-core';
+import legacy from '@tessera/plugin-legacy';
 
-export const BUILTIN_PLUGINS: PluginDefinition[] = [core];
+export const BUILTIN_PLUGINS: PluginDefinition[] = [core, legacy];

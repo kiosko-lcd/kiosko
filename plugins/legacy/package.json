@@ -1,0 +1,10 @@
+{
+  "name": "@tessera/plugin-legacy",
+  "version": "0.1.0",
+  "description": "Runs aimonitor / MagicMirror²-style modules (defineModule) as Tessera widgets, for a painless migration.",
+  "type": "module",
+  "license": "MIT",
+  "exports": { ".": { "source": "./src/index.ts", "default": "./dist/index.js" } },
+  "tessera": { "plugin": "./dist/index.js" },
+  "peerDependencies": { "@tessera/sdk": "*" }
+}
