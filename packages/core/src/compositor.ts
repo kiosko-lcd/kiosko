@@ -10,7 +10,7 @@ import { localize, validate, type Box, type RenderContext, type Theme, type Widg
 import { toPx, type PxRect } from './layout/grid.ts';
 import { nextTurnAt, pickInStack } from './layout/stack.ts';
 import { whenMatches, type Config, type Page, type Screen, type Tile, type WidgetInstance } from './config/model.ts';
-import { CANVAS, baseContext, kit, type LogFn } from './env.ts';
+import { CANVAS, baseContext, kit, resolveLocale, type LogFn } from './env.ts';
 import { registerFonts } from './fonts.ts';
 import type { Registry } from './registry.ts';
 
@@ -30,6 +30,8 @@ export interface ComposeInput {
   preview?: boolean;
   /** Use each widget's demo data where there's no real data yet. */
   demo?: boolean;
+  /** Also its demo options (gallery thumbnails only). */
+  demoOptions?: boolean;
   /** Force which widget a tile shows (editor: the one selected in its stack). */
   forceShown?: Record<string, string>;
   log?: LogFn;
@@ -75,15 +77,16 @@ interface Resolved {
 function resolve(input: ComposeInput, inst: WidgetInstance): Resolved | null {
   const def = input.registry.widget(inst.type);
   if (!def) return null;
-  const options = def.options ? (validate(def.options, inst.options).value as Record<string, unknown>) : {};
+  let options = def.options ? (validate(def.options, inst.options).value as Record<string, unknown>) : {};
   let data = input.dataOf(inst);
   let sources = input.sourcesOf(def.sources);
   if (input.demo && def.demo) {
-    const needData = data === undefined && !!def.fetch;
+    const needData = data === undefined;
     const needSources = (def.sources ?? []).some((s) => sources[s] === undefined);
-    if (needData || needSources) {
+    if (needData || needSources || input.demoOptions) {
       try {
-        const d = def.demo({ options, now: input.now });
+        const d = def.demo({ options, now: input.now, locale: resolveLocale(input.cfg) });
+        if (input.demoOptions && d.options && def.options) options = validate(def.options, { ...d.options, ...inst.options }).value as Record<string, unknown>;
         if (needData) data = d.data;
         if (needSources) sources = { ...(d.sources ?? {}), ...Object.fromEntries(Object.entries(sources).filter(([, v]) => v !== undefined)) };
       } catch {
@@ -293,6 +296,7 @@ export function composeWidget(o: {
     sourcesOf: (types) => Object.fromEntries((types ?? []).map((t) => [t, o.sources?.[t]])),
     preview: true,
     demo: o.data === undefined,
+    demoOptions: !o.options || !Object.keys(o.options).length,
     noShift: true,
   });
 }

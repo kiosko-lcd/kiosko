@@ -1,0 +1,15 @@
+{
+  "name": "@tessera/plugin-cats",
+  "version": "0.1.0",
+  "description": "The cats room from aimonitor: every AI agent session is a cat, and the one that needs you comes forward. Plus a quarter-hour lightsaber duel.",
+  "type": "module",
+  "license": "MIT",
+  "exports": { ".": { "source": "./src/index.ts", "default": "./dist/index.js" } },
+  "tessera": { "plugin": "./dist/index.js" },
+  "peerDependencies": {
+    "@tessera/sdk": "*",
+    "@loksly/agent-sessions": "*",
+    "@loksly/lcd-canvas-kit": "*",
+    "@loksly/weather-astro": "*"
+  }
+}

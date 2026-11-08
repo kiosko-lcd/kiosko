@@ -387,3 +387,4 @@ select.input { cursor: pointer; }
 .page-card-meta { display: flex; align-items: center; gap: 6px; padding: 5px 6px 5px 10px; font-size: 12.5px; font-weight: 650; }
 .page-card-meta .page-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pages-bar > .tb-label { align-self: center; }
+.lib-item { flex: none; }

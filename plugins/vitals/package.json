@@ -1,0 +1,10 @@
+{
+  "name": "@tessera/plugin-vitals",
+  "version": "0.1.0",
+  "description": "Machine vitals column: CPU temperature, CPU, RAM and disk, per-core bars and disk fill.",
+  "type": "module",
+  "license": "MIT",
+  "exports": { ".": { "source": "./src/index.ts", "default": "./dist/index.js" } },
+  "tessera": { "plugin": "./dist/index.js" },
+  "peerDependencies": { "@tessera/sdk": "*" }
+}

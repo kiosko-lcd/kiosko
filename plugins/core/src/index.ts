@@ -48,8 +48,10 @@ export const clock = defineWidget({
     g.font = `${size}px "${theme.fonts.monoBold}"`;
     g.fillText(text, x, base);
     if (dateH) {
-      const ds = kit.fitSize(g, dateText, box.w * 0.96, { size: dateH, family: theme.fonts.sans, tracking: 1 }, 8);
-      kit.drawTracked(g, dateText, x, base + dateH * 1.35, { size: ds, family: theme.fonts.sans, color: theme.colors.inkDim, align: options.align, tracking: 1 });
+      const ds = Math.min(dateH, fit(g, dateText, theme.fonts.sans, box.w * 0.96, dateH));
+      g.font = `${ds}px "${theme.fonts.sans}"`;
+      g.fillStyle = theme.colors.inkDim;
+      g.fillText(dateText, x, base + dateH * 1.35);
     }
     g.textAlign = 'left';
   },
@@ -87,8 +89,12 @@ export const date = defineWidget({
       const week = Math.ceil(((t0.getTime() - Date.UTC(t0.getUTCFullYear(), 0, 1)) / 86_400_000 + 1) / 7);
       line += ` · ${locale.startsWith('es') ? 'sem' : 'wk'} ${week}`;
     }
-    const ls = kit.fitSize(g, line, box.w * 0.96, { size: ms, family: theme.fonts.sans }, 8);
-    kit.drawTracked(g, line, box.x + box.w / 2, bottom, { size: ls, family: theme.fonts.sans, color: theme.colors.inkDim, align: 'center' });
+    const ls = Math.min(ms, fit(g, line, theme.fonts.sans, box.w * 0.96, ms));
+    g.font = `${ls}px "${theme.fonts.sans}"`;
+    g.fillStyle = theme.colors.inkDim;
+    g.textAlign = 'center';
+    g.fillText(line, box.x + box.w / 2, bottom);
+    g.textAlign = 'left';
   },
 });
 

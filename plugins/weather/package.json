@@ -1,0 +1,10 @@
+{
+  "name": "@tessera/plugin-weather",
+  "version": "0.1.0",
+  "description": "Weather from Open-Meteo (no API key) as a shared source, and a forecast card: now, the next hours and days, and the moon.",
+  "type": "module",
+  "license": "MIT",
+  "exports": { ".": { "source": "./src/index.ts", "default": "./dist/index.js" } },
+  "tessera": { "plugin": "./dist/index.js" },
+  "peerDependencies": { "@tessera/sdk": "*", "@loksly/weather-astro": "*" }
+}

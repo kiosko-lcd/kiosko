@@ -1,0 +1,11 @@
+{
+  "name": "@tessera/plugin-agents",
+  "version": "0.1.0",
+  "description": "AI coding agents on the panel: session tiles that light up when one needs you, a summary strip and an 8-bit runner interlude.",
+  "type": "module",
+  "license": "MIT",
+  "exports": { ".": { "source": "./src/index.ts", "default": "./dist/index.js" } },
+  "tessera": { "plugin": "./dist/index.js" },
+  "dependencies": { "@loksly/agent-sessions": "*" },
+  "peerDependencies": { "@tessera/sdk": "*" }
+}

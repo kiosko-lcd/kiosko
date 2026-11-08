@@ -1,0 +1,10 @@
+{
+  "name": "@tessera/plugin-usage",
+  "version": "0.1.0",
+  "description": "Claude Code usage from ccusage: limit windows or spend against caps, tokens by model and spend per 5-hour block.",
+  "type": "module",
+  "license": "MIT",
+  "exports": { ".": { "source": "./src/index.ts", "default": "./dist/index.js" } },
+  "tessera": { "plugin": "./dist/index.js" },
+  "peerDependencies": { "@tessera/sdk": "*" }
+}

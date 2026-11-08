@@ -166,12 +166,12 @@ class ScreenRunner {
     const def = this.rt.registry.interlude(due.type);
     if (!def) return false;
     const sources = this.rt.hub.pick(def.sources);
-    if (!force && def.skip?.({ sources, now })) {
+    const options = def.options ? validate(def.options, due.options).value : {};
+    if (!force && def.skip?.({ sources, now, options })) {
       this.rt.log(`screen:${this.screen.name}`, `interlude ${due.type} skipped (busy)`);
       return false;
     }
     const [plugin] = due.type.split('/');
-    const options = def.options ? validate(def.options, due.options).value : {};
     const seed = Math.floor(now / Math.max(60_000, due.everyMs));
     const player = await def.prepare({ ...baseContext(this.rt.config, plugin!, this.rt.log, now), options, width: this.screen.width, height: this.screen.height, seed, theme: this.rt.theme(), canvas: CANVAS, sources });
     if (!player || player.frames <= 0) return false;
@@ -186,7 +186,7 @@ class ScreenRunner {
     for (let i = 0; i < frames && this.interlude; i++) {
       g.save();
       try {
-        player.draw(g, i);
+        await player.draw(g, i);
       } catch (err) {
         this.rt.log(due.type, `frame ${i} failed: ${err instanceof Error ? err.message : String(err)}`);
         break;

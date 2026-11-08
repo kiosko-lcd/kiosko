@@ -156,9 +156,11 @@ export interface WidgetDefinition<OF extends ObjectField<any> = ObjectField<any>
   idle?: (ctx: StateContext<Infer<OF>, D>) => boolean;
   /**
    * Sample data for the gallery, the editor and the tests, so a widget can
-   * be seen before it's configured (no tokens, no network).
+   * be seen before it's configured (no tokens, no network). `options` are
+   * sample options used only for gallery thumbnails (e.g. a few countdown
+   * dates), never for a widget the user placed.
    */
-  demo?: (ctx: { options: Infer<OF>; now: number }) => { data?: D; sources?: Record<string, unknown> };
+  demo?: (ctx: { options: Infer<OF>; now: number; locale: string }) => { data?: D; sources?: Record<string, unknown>; options?: Partial<Infer<OF>> };
 }
 
 export interface SourceContext<O> extends BaseContext {
@@ -181,14 +183,14 @@ export interface SourceDefinition<OF extends ObjectField<any> = ObjectField<any>
    * data, return a function that stops watching.
    */
   watch?: (ctx: SourceContext<Infer<OF>>, emit: (data: D) => void) => () => void;
-  demo?: (ctx: { now: number }) => D;
+  demo?: (ctx: { now: number; locale: string }) => D;
 }
 
 export interface InterludePlayer {
   /** Number of frames. */
   frames: number;
-  /** Paints frame `i` on a canvas of the full panel size. */
-  draw: (g: Graphics, i: number) => void;
+  /** Paints frame `i` on a canvas of the full panel size. May be async (to decode a prerendered frame). */
+  draw: (g: Graphics, i: number) => void | Promise<void>;
 }
 
 export interface InterludeContext<O> extends BaseContext {
@@ -214,7 +216,7 @@ export interface InterludeDefinition<OF extends ObjectField<any> = ObjectField<a
   /** Builds the animation. May be slow (it runs before playing, not during). */
   prepare: (ctx: InterludeContext<Infer<OF>>) => Promise<InterludePlayer | null>;
   /** Don't interrupt now (someone waits for a permission, a meeting is about to start). */
-  skip?: (ctx: { sources: Record<string, unknown>; now: number }) => boolean;
+  skip?: (ctx: { sources: Record<string, unknown>; now: number; options: Infer<OF> }) => boolean;
 }
 
 export interface PluginDefinition {

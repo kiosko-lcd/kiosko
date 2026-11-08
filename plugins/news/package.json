@@ -1,0 +1,10 @@
+{
+  "name": "@tessera/plugin-news",
+  "version": "0.1.0",
+  "description": "Press headlines from RSS feeds, no keys and no AI: stories grouped across outlets, a full-bleed photo frame and a news column.",
+  "type": "module",
+  "license": "MIT",
+  "exports": { ".": { "source": "./src/index.ts", "default": "./dist/index.js" } },
+  "tessera": { "plugin": "./dist/index.js" },
+  "peerDependencies": { "@tessera/sdk": "*", "@loksly/weather-astro": "*" }
+}
