@@ -1,6 +1,7 @@
 /** The editor view: library | stage + pages | inspector. */
 import { autoPack, compact, rescale, suggestGrid, type Gravity } from '@tessera/core/layout';
-import { newPage, type Page } from '@tessera/core/model';
+import { newPage, type Page, type Screen } from '@tessera/core/model';
+import { useEffect, useState } from 'preact/hooks';
 import { api } from '../api.ts';
 import { Icon } from '../icons.tsx';
 import { tr } from '../i18n.ts';
@@ -123,24 +124,27 @@ function PagesBar() {
       <span class="tb-label">{tr('pages.title')}</span>
       <div class="pages">
         {s.pages.map((p) => (
-          <div class={`page-tab ${current?.id === p.id ? 'on' : ''} ${p.enabled === false ? 'off' : ''}`} onClick={() => {
+          <div class={`page-card ${current?.id === p.id ? 'on' : ''} ${p.enabled === false ? 'off' : ''}`} onClick={() => {
             pageId.value = p.id;
             selectedTile.value = null;
           }} role="tab" aria-selected={current?.id === p.id} tabIndex={0}>
-            {onPanel === p.id && <span class="dot live" title={tr('pages.onPanel')} />}
-            <span class="page-name">{p.name}</span>
-            <span class="page-count">{p.tiles.length}</span>
-            <button class={`icon-btn tiny ${pinned === p.id ? 'pinned' : ''}`} title={pinned === p.id ? tr('pages.unpin') : tr('pages.pin')} onClick={(e) => {
-              e.stopPropagation();
-              const next = pinned === p.id ? null : p.id;
-              setScreen((sc) => {
-                if (next) sc.pinnedPage = next;
-                else delete sc.pinnedPage;
-              });
-              void api.pin(s.id, next);
-            }}>
-              <Icon name={pinned === p.id ? 'pin' : 'pin-off'} size={12} />
-            </button>
+            <PageThumb screen={s} pageId={p.id} />
+            <div class="page-card-meta">
+              {onPanel === p.id && <span class="dot live" title={tr('pages.onPanel')} />}
+              <span class="page-name">{p.name}</span>
+              <span class="page-count">{p.tiles.length}</span>
+              <button class={`icon-btn tiny ${pinned === p.id ? 'pinned' : ''}`} title={pinned === p.id ? tr('pages.unpin') : tr('pages.pin')} onClick={(e) => {
+                e.stopPropagation();
+                const next = pinned === p.id ? null : p.id;
+                setScreen((sc) => {
+                  if (next) sc.pinnedPage = next;
+                  else delete sc.pinnedPage;
+                });
+                void api.pin(s.id, next);
+              }}>
+                <Icon name={pinned === p.id ? 'pin' : 'pin-off'} size={12} />
+              </button>
+            </div>
           </div>
         ))}
         <button class="icon-btn" title={tr('pages.add')} onClick={() => {
@@ -177,6 +181,36 @@ function PagesBar() {
           <Icon name={pinned ? 'pin' : 'repeat'} size={12} /> {pinned ? s.pages.find((p) => p.id === pinned)?.name : tr('pages.rotation')}
         </span>
       )}
+    </div>
+  );
+}
+
+/** A small live picture of a page, refreshed shortly after it changes. */
+function PageThumb({ screen: s, pageId: id }: { screen: Screen; pageId: string }) {
+  const [url, setUrl] = useState<string | null>(null);
+  const key = JSON.stringify([s.width, s.height, s.pages.find((p) => p.id === id)]);
+  useEffect(() => {
+    let alive = true;
+    const t = setTimeout(async () => {
+      try {
+        const r = await api.preview(s, id);
+        if (!alive) return URL.revokeObjectURL(r.url);
+        setUrl((old) => {
+          if (old) setTimeout(() => URL.revokeObjectURL(old), 1000);
+          return r.url;
+        });
+      } catch {
+        /* retried on the next change */
+      }
+    }, 700);
+    return () => {
+      alive = false;
+      clearTimeout(t);
+    };
+  }, [key]);
+  return (
+    <div class="page-thumb" style={{ aspectRatio: `${s.width} / ${s.height}` }}>
+      {url && <img src={url} alt="" draggable={false} />}
     </div>
   );
 }
