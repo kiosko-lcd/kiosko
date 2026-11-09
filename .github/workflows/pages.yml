@@ -32,6 +32,10 @@ jobs:
       - run: npm install --no-audit --no-fund
       - run: npm run dev:link
       - run: node --conditions=source packages/server/src/cli.ts gallery --out site
+      # The editor running in the browser with sample data, https://kioskolcd.dev/demo/
+      # (end-to-end check: scripts/demo-check-docker.sh).
+      - name: Browser demo
+        run: node packages/web/build.mjs --demo --out site/demo
       # The config's JSON Schema at its stable address, https://kioskolcd.dev/schema/v1/config.json
       # (with the official plugins). The custom domain is also set in Settings → Pages.
       - name: Config schema and domain

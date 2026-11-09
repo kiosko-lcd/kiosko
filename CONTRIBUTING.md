@@ -14,6 +14,11 @@ Thanks for wanting to make Kiosko better.
 - **README screenshots:** `scripts/screenshots-docker.sh` retakes
   `docs/img/*.jpg` from the showcase config in demo mode, inside the official
   Playwright container (needs Docker; nothing is installed on your machine).
+- **Browser demo** (`https://kioskolcd.dev/demo/`): after touching the editor,
+  the core or a plugin, `scripts/demo-check-docker.sh` builds it and drives it
+  in Chromium, Firefox and WebKit, the same way. A plugin must not do Node
+  work (files, processes, sockets) when it is imported or when it paints its
+  demo data: the demo runs it in a browser.
 
 Conventions: TypeScript run directly by Node (type stripping, so no enums,
 namespaces or constructor parameter properties), ESM only, `.ts` extensions

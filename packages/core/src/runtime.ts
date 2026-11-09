@@ -426,7 +426,23 @@ export class Runtime extends EventEmitter {
     });
   }
 
-  thumbnail(type: string, width: number, height: number, options: Record<string, unknown> = {}, title?: string): Buffer {
-    return composeWidget({ cfg: this.config, registry: this.registry, theme: this.theme(), type, width, height, options, ...(title ? { title } : {}) }).canvas.toBuffer('image/png');
+  /**
+   * A widget alone with its demo data. `look` paints it in a theme and
+   * language other than the current config's: the editor asks for the ones
+   * it is showing, which may not have reached the runtime yet.
+   */
+  thumbnail(type: string, width: number, height: number, options: Record<string, unknown> = {}, title?: string, look: ThumbnailLook = {}): Buffer {
+    const cfg = withLook(this.config, look);
+    return composeWidget({ cfg, registry: this.registry, theme: themeById(cfg.theme), type, width, height, options, ...(title ? { title } : {}) }).canvas.toBuffer('image/png');
   }
+}
+
+/** Theme and language for a thumbnail; unset ones come from the config. */
+export interface ThumbnailLook {
+  theme?: string;
+  locale?: string;
+}
+
+export function withLook<C extends { theme: string; locale: string }>(cfg: C, look: ThumbnailLook): C {
+  return { ...cfg, ...(look.theme ? { theme: look.theme } : {}), ...(look.locale ? { locale: look.locale } : {}) };
 }

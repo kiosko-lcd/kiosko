@@ -195,9 +195,9 @@ function TileInspector({ t }: { t: Tile }) {
               <label class="field-label">{tr('inspector.refreshEvery')}</label>
               <div class="row">
                 <DurationInput value={w.intervalMs ?? info.intervalMs ?? 600_000} min={5000} onChange={(v) => setWidget((x) => (x.intervalMs = v), `int-${w.id}`)} />
-                <button class="btn ghost small" onClick={() => api.refreshWidget(w.id)}>
+                {!KIOSKO_DEMO && <button class="btn ghost small" onClick={() => api.refreshWidget(w.id)}>
                   <Icon name="refresh-cw" size={14} /> {tr('inspector.refreshNow')}
-                </button>
+                </button>}
               </div>
             </>
           )}

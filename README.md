@@ -27,6 +27,14 @@ and let a tiny daemon keep the panel up to date.
 | ![AI agent sessions dashboard](docs/img/editor-dashboard.jpg) | ![News page, light editor theme](docs/img/editor-news-light.jpg) |
 | ![A 480×480 square panel](docs/img/editor-square.jpg) | ![Plugins page](docs/img/plugins.jpg) |
 
+## Try it in your browser
+
+**<https://kioskolcd.dev/demo/>**: the real editor, running entirely in your
+browser with sample data. Lay out the sample screens, add widgets, switch
+themes and languages; nothing is installed and your changes stay in that
+browser. What needs a machine (a real panel, plugins from npm, live data) is
+switched off there.
+
 ## Try it in 30 seconds
 
 ```sh
@@ -119,7 +127,8 @@ editor's **Plugins** page or with `kiosko plugins add <id>`.
 | [gitlab](https://github.com/kiosko-lcd/kiosko-plugin-gitlab) | pipelines and merge requests waiting for your review |
 
 Every official widget, painted with its sample data: run `kiosko gallery`
-(published to GitHub Pages by the `Gallery` workflow).
+(published to GitHub Pages by the `Gallery` workflow, together with the
+[browser demo](https://kioskolcd.dev/demo/)).
 
 ## Write a widget
 
@@ -194,7 +203,15 @@ npm test             # node:test, no extra runner
 npm run check        # TypeScript, strict
 npm run web:watch    # rebuild the editor on change
 node --conditions=source scripts/render-widgets.ts --plugin core --out tmp/w
+npm run web:demo     # the static browser demo, into site/demo
+scripts/demo-check-docker.sh   # build it and drive it in Chromium, Firefox and WebKit (Docker)
 ```
+
+The browser demo is the editor built with `KIOSKO_DEMO`: its API
+(`packages/web/src/demo/transport.ts`) runs Kiosko's own runtime and plugins
+in a Web Worker (`packages/web/demo/`), with `@napi-rs/canvas` and the
+`node:*` modules swapped for browser stand-ins at bundle time. The normal
+editor build doesn't carry any of it.
 
 Layout: `packages/sdk` (plugin contract), `packages/core` (grid engine,
 runtime, compositor, drivers), `packages/server` (HTTP API, CLI),

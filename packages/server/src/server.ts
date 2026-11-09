@@ -179,11 +179,12 @@ export function startServer(o: ServerOptions) {
       const type = url.searchParams.get('type') ?? '';
       const w = Math.max(40, Math.min(1920, Number(url.searchParams.get('w')) || 480));
       const h = Math.max(40, Math.min(1080, Number(url.searchParams.get('h')) || 300));
-      const key = `${runtime.config.theme}|${type}|${w}x${h}|${runtime.config.locale}`;
+      const look = { theme: url.searchParams.get('theme') || undefined, locale: url.searchParams.get('locale') || undefined };
+      const key = `${look.theme ?? runtime.config.theme}|${type}|${w}x${h}|${look.locale ?? runtime.config.locale}`;
       let buf = thumbs.get(key);
       if (!buf) {
         if (!runtime.registry.widget(type)) return json(res, 404, { error: 'unknown widget' });
-        buf = runtime.thumbnail(type, w, h);
+        buf = runtime.thumbnail(type, w, h, {}, undefined, look);
         thumbs.set(key, buf);
       }
       res.writeHead(200, { 'content-type': 'image/png', 'cache-control': 'max-age=60' });

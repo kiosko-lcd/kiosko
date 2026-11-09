@@ -5,6 +5,7 @@ import { tr } from './i18n.ts';
 import { app, boot, config, go, online, pageId, saveError, saving, screen, screenId, selectedTile, status, toast, view, type View } from './store.ts';
 import { Screens } from './views/Screens.tsx';
 import { Logs, Plugins, Settings } from './views/Others.tsx';
+import { DemoBanner, demoBootError } from './demo/ui.tsx';
 
 const NAV: { id: View; icon: string }[] = [
   { id: 'editor', icon: 'layout-dashboard' },
@@ -71,7 +72,7 @@ function TopBar() {
         </nav>
       )}
       <div class="tb-spacer" />
-      {app.value?.demo && <span class="demo-pill" title="kiosko start --demo">DEMO</span>}
+      {!KIOSKO_DEMO && app.value?.demo && <span class="demo-pill" title="kiosko start --demo">DEMO</span>}
       <SaveState />
       <a class="icon-btn" href="https://github.com/kiosko-lcd/kiosko#readme" target="_blank" rel="noreferrer" title="Docs">
         <Icon name="book-open" size={17} />
@@ -103,8 +104,13 @@ function App() {
   }
   const v = view.value;
   return (
-    <div class="shell">
-      <TopBar />
+    <div class={KIOSKO_DEMO ? 'shell demo' : 'shell'}>
+      {KIOSKO_DEMO ? (
+        <>
+          <DemoBanner />
+          <TopBar />
+        </>
+      ) : <TopBar />}
       <Rail />
       <div class="content">
         {v === 'editor' && <Editor />}
@@ -129,5 +135,5 @@ function App() {
 
 render(<App />, document.getElementById('app')!);
 boot().catch((err) => {
-  document.getElementById('app')!.innerHTML = `<div class="boot-error"><h1>Kiosko</h1><p>Cannot reach the Kiosko service: ${String(err)}</p></div>`;
+  document.getElementById('app')!.innerHTML = KIOSKO_DEMO ? demoBootError(err) : `<div class="boot-error"><h1>Kiosko</h1><p>Cannot reach the Kiosko service: ${String(err)}</p></div>`;
 });

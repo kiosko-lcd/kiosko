@@ -1,0 +1,36 @@
+/* Browser demo: the editor's styles plus the demo banner and notes. */
+@import '../styles.css';
+
+.shell.demo { grid-template-rows: auto 56px 1fr; }
+.shell.demo .rail, .shell.demo .content { grid-row: 3; }
+
+.demo-banner {
+  grid-column: 1 / -1; display: flex; align-items: center; gap: 6px 12px; flex-wrap: wrap;
+  padding: 5px 16px; font-size: 12.5px; color: var(--text-2);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 14%, var(--bg-2)), color-mix(in srgb, var(--accent-2) 8%, var(--bg-2)));
+  border-bottom: 1px solid var(--line);
+}
+.demo-kicker {
+  display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border-radius: 999px;
+  background: var(--accent-soft); color: var(--text); font-weight: 700; font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase;
+}
+.demo-text { flex: 1 1 320px; min-width: 0; }
+.demo-links { display: inline-flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.demo-links a { display: inline-flex; align-items: center; gap: 4px; font-weight: 600; text-decoration: none; }
+.demo-links a:hover { text-decoration: underline; }
+.demo-reset { padding: 0; font-size: 12.5px; }
+
+.demo-note { display: flex; gap: 6px; align-items: flex-start; margin: 6px 0; }
+.demo-note .icon { margin-top: 2px; color: var(--accent-2); }
+.menu-item[disabled], .btn[disabled] { cursor: not-allowed; }
+
+@media (max-width: 760px) {
+  .demo-banner { padding: 5px 12px; font-size: 11.5px; }
+  .demo-text { flex-basis: 100%; order: 3; }
+}
+/* Phones: the rail moves to the bottom (styles.css); one more row on top for the banner. */
+@media (max-width: 720px) {
+  .shell.demo { grid-template-rows: auto 52px minmax(0, 1fr) 62px; }
+  .shell.demo .content { grid-row: 3; }
+  .shell.demo .rail { grid-row: 4; }
+}

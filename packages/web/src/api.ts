@@ -123,7 +123,8 @@ export const api = {
     const tiles = JSON.parse(decodeURIComponent(r.headers.get('x-kiosko-tiles') ?? '%5B%5D'));
     return { url: URL.createObjectURL(await r.blob()), tiles };
   },
-  thumbnailUrl: (type: string, w: number, h: number, v = '') => `/api/thumbnail?type=${encodeURIComponent(type)}&w=${Math.round(w)}&h=${Math.round(h)}&v=${encodeURIComponent(v)}`,
+  thumbnailUrl: (type: string, w: number, h: number, look: { theme?: string; locale?: string } = {}) =>
+    `/api/thumbnail?type=${encodeURIComponent(type)}&w=${Math.round(w)}&h=${Math.round(h)}&theme=${encodeURIComponent(look.theme ?? '')}&locale=${encodeURIComponent(look.locale ?? '')}`,
   liveFrameUrl: (screenId: string, at: number) => `/api/screens/${encodeURIComponent(screenId)}/frame.jpg?at=${at}`,
   pin: (screenId: string, pageId: string | null) => fetch(`/api/screens/${encodeURIComponent(screenId)}/pin`, { method: 'POST', headers: H, body: JSON.stringify({ pageId }) }).then((r) => ok(r)),
   playInterlude: (screenId: string, slotId: string) => fetch(`/api/screens/${encodeURIComponent(screenId)}/interlude`, { method: 'POST', headers: H, body: JSON.stringify({ slotId }) }).then((r) => ok(r)),

@@ -10,6 +10,7 @@ import { Inspector } from './Inspector.tsx';
 import { Library } from './Library.tsx';
 import { Stage } from './Stage.tsx';
 import { TEMPLATES, available, pageFromTemplate } from './templates.ts';
+import { DemoLiveOff } from '../demo/ui.tsx';
 
 export function Editor() {
   const s = screen.value;
@@ -101,12 +102,12 @@ function Toolbar() {
       <button class={`btn ghost small ${showGrid.value ? 'active' : ''}`} onClick={() => (showGrid.value = !showGrid.value)} aria-pressed={showGrid.value}>
         <Icon name="grid-3x3" size={14} /> <span class="hide-sm hide-md">{tr('stage.grid')}</span>
       </button>
-      <button class={`btn small ${liveMode.value ? 'live-on' : 'ghost'}`} onClick={() => {
+      {KIOSKO_DEMO ? <DemoLiveOff label={tr('stage.live')} /> : <button class={`btn small ${liveMode.value ? 'live-on' : 'ghost'}`} onClick={() => {
         liveMode.value = !liveMode.value;
         if (liveMode.value) selectedTile.value = null;
       }} aria-pressed={liveMode.value}>
         <span class={`dot ${liveMode.value ? 'pulse' : ''}`} /> {liveMode.value ? tr('stage.live') : tr('stage.editing')}
-      </button>
+      </button>}
     </div>
   );
 }

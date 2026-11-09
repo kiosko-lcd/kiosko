@@ -7,6 +7,7 @@ import { DurationInput, SchemaForm, Toggle } from '../forms/SchemaForm.tsx';
 import { Icon } from '../icons.tsx';
 import { tr } from '../i18n.ts';
 import { app, config, draftScreen, edit, go, lastFrame, notify, pageId, screenId, status } from '../store.ts';
+import { DemoFrame, dt, exportScreen } from '../demo/ui.tsx';
 
 export function Screens() {
   const cfg = config.value!;
@@ -61,9 +62,16 @@ function AddScreen({ onAdd }: { onAdd: (p?: { width: number; height: number; nam
             </button>
           ))}
           <div class="popover-sep" />
-          <button class="menu-item" onClick={async () => setFound((await api.discover()).trcc)}>
+          {KIOSKO_DEMO ? (
+            <>
+              <button class="menu-item" disabled title={dt('discover')}>
+                <Icon name="radar" size={16} /> <span>{tr('screens.detect')}</span> <small>trcc</small>
+              </button>
+              <div class="muted small pad">{dt('discover')}</div>
+            </>
+          ) : <button class="menu-item" onClick={async () => setFound((await api.discover()).trcc)}>
             <Icon name="radar" size={16} /> <span>{tr('screens.detect')}</span> <small>trcc</small>
-          </button>
+          </button>}
           {found && !found.length && <div class="muted small pad">{tr('screens.noneDetected')}</div>}
           {found?.map((f) => (
             <button class="menu-item" onClick={() => {
@@ -125,9 +133,13 @@ function ScreenCard({ s }: { s: Screen }) {
         }}>
           <Icon name="pencil-ruler" size={14} /> {tr('nav.editor')}
         </button>
-        <a class="btn ghost small" href={`/api/screens/export?id=${encodeURIComponent(s.id)}`} download>
+        {KIOSKO_DEMO ? (
+          <button class="btn ghost small" onClick={() => exportScreen(s.id)}>
+            <Icon name="download" size={14} /> {tr('screens.export')}
+          </button>
+        ) : <a class="btn ghost small" href={`/api/screens/export?id=${encodeURIComponent(s.id)}`} download>
           <Icon name="download" size={14} /> {tr('screens.export')}
-        </a>
+        </a>}
         <Toggle checked={s.enabled} onChange={(v) => set((x) => (x.enabled = v))} />
       </div>
       <LiveThumb s={s} />
@@ -233,12 +245,16 @@ function ScreenCard({ s }: { s: Screen }) {
             <DurationInput value={slot.everyMs} min={60_000} onChange={(v) => setSlot((x) => (x.everyMs = v), `ev-${slot.id}`)} />
             <span class="muted small">{tr('screens.maxSeconds')}</span>
             <input class="input num" type="number" min={1} max={600} value={slot.maxSeconds} onChange={(e) => setSlot((x) => (x.maxSeconds = Number((e.target as HTMLInputElement).value) || 30))} />
-            <button class="btn ghost small" onClick={() => {
+            {KIOSKO_DEMO ? (
+              <button class="btn ghost small" disabled title={dt('interlude')}>
+                <Icon name="play" size={14} /> {tr('screens.play')}
+              </button>
+            ) : <button class="btn ghost small" onClick={() => {
               void api.playInterlude(s.id, slot.id);
               notify(tr('stage.interlude'));
             }}>
               <Icon name="play" size={14} /> {tr('screens.play')}
-            </button>
+            </button>}
             <button class="icon-btn danger" onClick={() => set((x) => (x.interludes = x.interludes.filter((y) => y.id !== slot.id)))}>
               <Icon name="trash-2" size={14} />
             </button>
@@ -280,7 +296,7 @@ function LiveThumb({ s }: { s: Screen }) {
   const at = f?.at ?? status.value?.screens.find((x) => x.id === s.id)?.lastFrameAt ?? null;
   return (
     <div class="live-thumb" style={{ aspectRatio: `${s.width} / ${s.height}`, maxWidth: s.width >= s.height ? '100%' : '320px' }}>
-      {at ? <img src={api.liveFrameUrl(s.id, at)} alt="" /> : <div class="panel-loading" />}
+      {KIOSKO_DEMO ? <DemoFrame screen={s} pageId={f?.pageId} at={at} /> : at ? <img src={api.liveFrameUrl(s.id, at)} alt="" /> : <div class="panel-loading" />}
       {f?.interlude && <span class="live-badge"><Icon name="clapperboard" size={13} /> {tr('stage.interlude')}</span>}
       {f?.sleeping && <span class="live-badge"><Icon name="moon" size={13} /> {tr('stage.sleeping')}</span>}
     </div>

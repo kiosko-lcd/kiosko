@@ -1,35 +1,54 @@
 // Bundles the editor with esbuild into dist/ (served by @kiosko/server).
+//
+//   node packages/web/build.mjs [--watch]
+//   node packages/web/build.mjs --demo [--out site/demo]   static browser demo (see demo/build.mjs)
 import { build, context } from 'esbuild';
 import { cpSync, mkdirSync, rmSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const out = join(here, 'dist');
-const watch = process.argv.includes('--watch');
-rmSync(out, { recursive: true, force: true });
-mkdirSync(out, { recursive: true });
-cpSync(join(here, 'public'), out, { recursive: true });
+const args = process.argv.slice(2);
+const watch = args.includes('--watch');
+const demo = args.includes('--demo');
+const outArg = args.includes('--out') ? args[args.indexOf('--out') + 1] : undefined;
 
-const options = {
-  entryPoints: { app: join(here, 'src/main.tsx'), styles: join(here, 'src/styles.css') },
-  outdir: join(out, 'assets'),
-  bundle: true,
-  format: 'esm',
-  target: ['es2022', 'chrome110', 'firefox115', 'safari16'],
-  jsx: 'automatic',
-  jsxImportSource: 'preact',
-  conditions: ['source'],
-  minify: !watch,
-  sourcemap: watch ? 'inline' : false,
-  legalComments: 'linked',
-  logLevel: 'info',
-  loader: { '.svg': 'text' },
-};
+/**
+ * The editor's esbuild options. `KIOSKO_DEMO` is a compile-time constant:
+ * false here, so the demo-only branches in src/ are dropped from this build.
+ */
+function editorOptions(outdir, { demo = false } = {}) {
+  return {
+    entryPoints: { app: join(here, 'src/main.tsx'), styles: join(here, 'src/styles.css') },
+    outdir,
+    bundle: true,
+    format: 'esm',
+    target: ['es2022', 'chrome110', 'firefox115', 'safari16'],
+    jsx: 'automatic',
+    jsxImportSource: 'preact',
+    conditions: ['source'],
+    minify: !watch,
+    sourcemap: watch ? 'inline' : false,
+    legalComments: 'linked',
+    logLevel: 'info',
+    loader: { '.svg': 'text' },
+    define: { KIOSKO_DEMO: String(demo) },
+  };
+}
 
-if (watch) {
-  const ctx = await context(options);
-  await ctx.watch();
+if (demo) {
+  const { buildDemo } = await import('./demo/build.mjs');
+  await buildDemo({ out: resolve(outArg ?? join(here, 'dist-demo')), editorOptions });
 } else {
-  await build(options);
+  const out = outArg ? resolve(outArg) : join(here, 'dist');
+  rmSync(out, { recursive: true, force: true });
+  mkdirSync(out, { recursive: true });
+  cpSync(join(here, 'public'), out, { recursive: true });
+  const options = editorOptions(join(out, 'assets'));
+  if (watch) {
+    const ctx = await context(options);
+    await ctx.watch();
+  } else {
+    await build(options);
+  }
 }

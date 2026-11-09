@@ -5,6 +5,7 @@ import { Icon } from '../icons.tsx';
 import { loc, tr } from '../i18n.ts';
 import { app, config, widgets } from '../store.ts';
 import { addWidgetSomewhere, dragging } from './Stage.tsx';
+import { DemoThumb } from '../demo/ui.tsx';
 
 const CAT_ICON: Record<string, string> = {
   agents: 'bot',
@@ -27,7 +28,7 @@ export function Library() {
     const needle = q.trim().toLowerCase();
     return all.filter((w) => (cat === 'all' || w.category === cat) && (!needle || `${w.name} ${w.description} ${w.tags.join(' ')} ${w.type} ${w.plugin.name}`.toLowerCase().includes(needle)));
   }, [q, cat, widgets.value]);
-  const themeKey = `${config.value?.theme}-${config.value?.locale}`;
+  const look = { theme: config.value?.theme, locale: config.value?.locale };
   return (
     <aside class="library panel">
       <div class="panel-head">
@@ -77,7 +78,7 @@ export function Library() {
               title={w.description}
             >
               <div class="lib-thumb" style={{ aspectRatio: `${tw} / ${th}` }}>
-                <img loading="lazy" src={api.thumbnailUrl(w.type, Math.min(pref.w, 960), Math.min(pref.h, 480), themeKey)} alt="" draggable={false} />
+                {KIOSKO_DEMO ? <DemoThumb type={w.type} w={Math.min(pref.w, 960)} h={Math.min(pref.h, 480)} look={look} /> : <img loading="lazy" src={api.thumbnailUrl(w.type, Math.min(pref.w, 960), Math.min(pref.h, 480), look)} alt="" draggable={false} />}
               </div>
               <div class="lib-meta">
                 <div class="lib-name">

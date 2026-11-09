@@ -5,6 +5,7 @@ import { SchemaForm, Toggle } from '../forms/SchemaForm.tsx';
 import { Icon } from '../icons.tsx';
 import { fmtMs, tr } from '../i18n.ts';
 import { app, config, edit, logs, notify, reloadState, setUiTheme, status, uiTheme } from '../store.ts';
+import { DemoNote } from '../demo/ui.tsx';
 
 export function Plugins() {
   const a = app.value!;
@@ -129,7 +130,15 @@ export default definePlugin({
             <Icon name="package-plus" size={16} /> {tr('plugins.install')}
           </h3>
           <p class="muted small">{tr('plugins.installWarn')}</p>
-          <form class="row" onSubmit={async (e) => {
+          {KIOSKO_DEMO ? (
+            <>
+              <DemoNote k="installHint" />
+              <div class="row">
+                <input class="input mono" placeholder={tr('plugins.installPh')} disabled />
+                <button class="btn primary" disabled>{tr('common.add')}</button>
+              </div>
+            </>
+          ) : <form class="row" onSubmit={async (e) => {
             e.preventDefault();
             if (!name.trim()) return;
             setBusy(true);
@@ -147,7 +156,7 @@ export default definePlugin({
             <button class="btn primary" disabled={busy}>
               {busy ? tr('plugins.installing') : tr('common.add')}
             </button>
-          </form>
+          </form>}
         </section>
         <section class="card">
           <h3>
@@ -266,7 +275,12 @@ export function Settings() {
           <h3>
             <Icon name="database" size={16} /> {tr('settings.sources')}
           </h3>
-          <p class="muted small">{tr('settings.sourcesHint')}</p>
+          {KIOSKO_DEMO ? (
+            <>
+              <p class="muted small">{tr('settings.sourcesHint')}</p>
+              <DemoNote k="sources" />
+            </>
+          ) : <p class="muted small">{tr('settings.sourcesHint')}</p>}
           <div class="sources">
             {sources.map((s) => {
               const st = status.value?.sources.find((x) => x.type === s.type);

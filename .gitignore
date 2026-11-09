@@ -5,3 +5,5 @@ dist/
 Thumbs.db
 .kiosko/
 /tmp/
+dist-demo/
+/site/

@@ -8,6 +8,9 @@ import { join } from 'node:path';
 import { composeWidget, normalize, type Registry } from '@kiosko/core';
 import { localize, themeById } from '@kiosko/sdk';
 
+/** The editor running in the browser with sample data (built by the Pages workflow next to the gallery). */
+const DEMO_URL = 'https://kioskolcd.dev/demo/';
+
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 
 export function buildGallery(registry: Registry, o: { out: string; locale?: string; theme?: string; now?: number }): number {
@@ -48,7 +51,8 @@ figure{margin:0;background:var(--panel);border:1px solid var(--line);border-radi
 figure .shot{background:#000;display:grid;place-items:center;padding:8px}figure img{display:block;max-width:100%;height:auto}figcaption{padding:10px 12px;display:flex;flex-wrap:wrap;gap:4px 8px;align-items:baseline}
 figcaption code{color:#22d3ee;font-size:12px}figcaption span{flex-basis:100%;color:var(--dim);font-size:13px}
 a{color:#22d3ee}
-</style></head><body><header><h1>Kiosko widget gallery</h1><p>${count} widgets, painted with their demo data by the same code that drives the panels. <a href="https://github.com/kiosko-lcd/kiosko">Kiosko on GitHub</a></p></header><main>${sections.join('')}</main></body></html>`,
+a.try{display:inline-block;margin-top:10px;padding:8px 14px;border-radius:10px;background:linear-gradient(135deg,#8b5cf6,#22d3ee);color:#fff;font-weight:600;text-decoration:none}
+</style></head><body><header><h1>Kiosko widget gallery</h1><p>${count} widgets, painted with their demo data by the same code that drives the panels. <a href="https://github.com/kiosko-lcd/kiosko">Kiosko on GitHub</a></p><p><a class="try" href="${DEMO_URL}">Try the editor in your browser →</a></p></header><main>${sections.join('')}</main></body></html>`,
   );
   return count;
 }
