@@ -12,6 +12,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { Registry, Runtime, loadConfig, paths, saveConfig, type Config } from '@tessera/core';
 import { BUILTIN_PLUGINS } from './builtin.ts';
 import { importAimonitor } from './import-aimonitor.ts';
+import { runService, servicePlan } from './service.ts';
 import { startServer } from './server.ts';
 import { starterConfig } from './starter.ts';
 
@@ -22,6 +23,7 @@ const USAGE = `Tessera ${VERSION}: a widget mosaic for USB LCD panels
   tessera render [--screen id|name] [--page id|name] [--out frame.png] [--live]
   tessera import-aimonitor [--from ~/.aimonitor/config.json] [--write]
   tessera doctor
+  tessera service install|uninstall|print   (start with your session)
   tessera version`;
 const argv = process.argv.slice(2);
 const cmd = argv[0] && !argv[0].startsWith('-') ? argv[0] : 'start';
@@ -143,6 +145,12 @@ async function main(): Promise<void> {
         const missing = s.pages.flatMap((p) => p.tiles.flatMap((t) => t.widgets.filter((w) => !reg.widget(w.type)).map((w) => w.type)));
         console.log(`screen  ${s.name} ${s.width}×${s.height} ${s.device.driver}${missing.length ? `  ✗ unknown widgets: ${[...new Set(missing)].join(', ')}` : ''}`);
       }
+      return;
+    }
+    case 'service': {
+      const pass = ['--port', '--host', '--config'].flatMap((f) => (opt(f) ? [f, opt(f)!] : []));
+      const env: Record<string, string> = process.env.TESSERA_HOME ? { TESSERA_HOME: process.env.TESSERA_HOME } : {};
+      runService(argv[1] ?? 'print', servicePlan({ args: pass, env }));
       return;
     }
     case 'help':

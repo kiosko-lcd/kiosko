@@ -42,10 +42,12 @@ machine, so you can explore the editor before connecting a panel.
 ## Quick start
 
 ```sh
-git clone https://github.com/Loksly/tessera && cd tessera
-npm install
-npm run dev          # builds the editor and opens http://127.0.0.1:7420
+npm install -g tessera-lcd     # Node.js 22.18 or newer
+tessera start --open           # editor at http://127.0.0.1:7420
+tessera service install        # optional: start it with your session
 ```
+
+From a clone: `npm install && npm run dev`.
 
 A first run creates a virtual screen with a few widgets, so there's something
 to play with before any hardware is connected. Then go to **Screens → Add
@@ -131,6 +133,7 @@ tessera start [--port 7420] [--host 127.0.0.1] [--open]
 tessera render [--screen name] [--page name] [--out frame.png] [--live]
 tessera import-aimonitor [--from ~/.aimonitor/config.json] [--write]
 tessera doctor
+tessera service install      # start with your session (systemd / launchd / Task Scheduler)
 ```
 
 ## Coming from aimonitor
