@@ -4,11 +4,12 @@
  *
  *   tessera start [--port 7420] [--host 127.0.0.1] [--config file] [--open] [--demo]
  *   tessera render [--screen id|name] [--page id|name] [--out frame.png] [--live]
- *   tessera import-aimonitor [--from ~/.aimonitor/config.json] [--write]
+ *   tessera import-aimonitor [--from ~/.aimonitor/config.json] [--with-secrets] [--write]
  *   tessera doctor
  */
 import { spawn } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { Registry, Runtime, loadConfig, paths, saveConfig, type Config } from '@tessera/core';
 import { BUILTIN_PLUGINS } from './builtin.ts';
 import { buildGallery } from './gallery.ts';
@@ -22,7 +23,7 @@ const USAGE = `Tessera ${VERSION}: a widget mosaic for USB LCD panels
 
   tessera start [--port 7420] [--host 127.0.0.1] [--config file] [--open] [--demo]
   tessera render [--screen id|name] [--page id|name] [--out frame.png] [--live]
-  tessera import-aimonitor [--from ~/.aimonitor/config.json] [--write]
+  tessera import-aimonitor [--from ~/.aimonitor/config.json] [--with-secrets] [--write]
   tessera doctor
   tessera gallery [--out gallery] [--locale en] [--theme midnight]
   tessera service install|uninstall|print   (start with your session)
@@ -124,7 +125,10 @@ async function main(): Promise<void> {
         process.exit(1);
       }
       const reg = await registry();
-      const { config: imported, notes } = importAimonitor(JSON.parse(readFileSync(from, 'utf8')), reg);
+      const modePath = join(dirname(from), 'modo');
+      const modeOverride = existsSync(modePath) ? readFileSync(modePath, 'utf8') : null;
+      const { config: imported, notes } = importAimonitor(JSON.parse(readFileSync(from, 'utf8')), reg, modeOverride, { withSecrets: flag('--with-secrets') });
+      if (modeOverride) notes.push(`mode from ${modePath}: ${modeOverride.trim()}`);
       for (const n of notes) console.log(`- ${n}`);
       if (flag('--write')) {
         if (existsSync(path)) writeFileSync(`${path}.bak`, readFileSync(path));

@@ -61,3 +61,14 @@ test('never copies calendar URLs', () => {
   assert.ok(!JSON.stringify(config).includes('secret.ics'));
   assert.ok(notes.some((n) => /calendar/.test(n) && /NOT copied/.test(n)));
 });
+
+test('the mode file wins over scene.mode', () => {
+  const { config } = importAimonitor(OLD, new Registry(), 'gatos\n');
+  const main = config.screens[0]!;
+  assert.equal(main.pinnedPage, main.pages[1]!.id);
+});
+
+test('--with-secrets copies the ICS URLs into the calendar source', () => {
+  const { config } = importAimonitor(OLD, new Registry(), null, { withSecrets: true });
+  assert.deepEqual((config.sources['calendar/events'] as { urls: string[] }).urls, ['https://outlook.example/secret.ics']);
+});

@@ -92,7 +92,11 @@ function columnsPage(name: string, width: number, height: number, mods: OldModul
   return { id: newId('page'), name, enabled: true, durationMs: 10 * 60_000, when: 'always', grid, gravity: 'left', background: {}, tiles };
 }
 
-export function importAimonitor(old: Old, reg: Registry): { config: Config; notes: string[] } {
+/**
+ * @param modeOverride contents of `~/.aimonitor/modo`, which wins over
+ *   `scene.mode` in aimonitor (`gatos`, `tablero`, `alternar`).
+ */
+export function importAimonitor(old: Old, reg: Registry, modeOverride?: string | null, o: { withSecrets?: boolean } = {}): { config: Config; notes: string[] } {
   const notes: string[] = [];
   const width = Number(old.width) || 1920;
   const height = Number(old.height) || 462;
@@ -121,7 +125,8 @@ export function importAimonitor(old: Old, reg: Registry): { config: Config; note
   if (cardWidgets.length) catsTiles.push(T(side === 'right' ? 17 : 0, 0, 7, 6, cardWidgets, 'card', old.timesheet?.alternateMs || 30_000));
   const cats: Page = { id: newId('page'), name: 'Cats', enabled: true, durationMs: old.scene?.alternateMs ?? 10 * 60_000, when: 'always', grid, gravity: 'none', background: {}, tiles: catsTiles };
 
-  const mode = old.scene?.mode ?? 'tablero';
+  const override = (modeOverride ?? '').trim().toLowerCase();
+  const mode = ['gatos', 'tablero', 'alternar'].includes(override) ? override : (old.scene?.mode ?? 'tablero');
   const main: Screen = {
     id: newId('screen'),
     name: 'Trofeo Vision',
@@ -157,7 +162,13 @@ export function importAimonitor(old: Old, reg: Registry): { config: Config; note
   const sources: Config['sources'] = {};
   if (old.usage) sources['usage/ccusage'] = { bin: old.usage.bin ?? 'ccusage', mode: old.usage.mode ?? 'max', dailyCap: old.usage.dailyCap, monthlyCap: old.usage.monthlyCap };
   sources['agents/sessions'] = { dir: '~/.aimonitor/sessions', ...(old.zombieMs ? { zombieMs: old.zombieMs } : {}), ...(old.staleMs ? { staleMs: old.staleMs } : {}) };
-  if (old.calendar?.enabled) notes.push('calendar: your ICS URLs were NOT copied (they are secrets); add them in Settings → Data sources → Calendar');
+  if (old.calendar?.enabled) {
+    const urls = ([] as string[]).concat(old.calendar.icsUrl ?? []).filter((u) => typeof u === 'string' && u.trim());
+    if (o.withSecrets && urls.length) {
+      sources['calendar/events'] = { urls, ...(Array.isArray(old.calendar.ignorePatterns) ? { ignore: old.calendar.ignorePatterns } : {}) };
+      notes.push(`calendar: ${urls.length} ICS URL(s) copied (--with-secrets); the config file is written with mode 0600`);
+    } else notes.push('calendar: your ICS URLs were NOT copied (they are secrets); add them in Settings → Data sources → Calendar, or import with --with-secrets');
+  }
   if (old.timesheet?.enabled) notes.push('timesheet (GitLab hours) is not ported yet');
   const ws = old.timesheet?.workday;
   const config = normalize({

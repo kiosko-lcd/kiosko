@@ -31,8 +31,12 @@ export function servicePlan(o: { node?: string; cli?: string; args?: string[]; e
   // Running from source needs the `source` condition; the bundle doesn't care.
   const nodeArgs = cli.endsWith('.ts') ? ['--conditions=source'] : [];
   const args = [...nodeArgs, cli, 'start', ...(o.args ?? [])];
-  const env = o.env ?? {};
   const os = o.os ?? platform();
+  // Services don't read your shell profile: give them a PATH where plugins
+  // find the CLIs they call (glab, ccusage, docker, trcc…) and node itself.
+  const sep = os === 'win32' ? ';' : ':';
+  const path = [dirname(node), join(homedir(), '.local', 'bin'), ...(os === 'darwin' ? ['/opt/homebrew/bin'] : []), '/usr/local/bin', '/usr/bin', '/bin'].join(sep);
+  const env = { ...(os === 'win32' ? {} : { PATH: path }), ...(o.env ?? {}) };
   if (os === 'darwin') {
     const file = join(homedir(), 'Library', 'LaunchAgents', 'dev.tessera.plist');
     const content = `<?xml version="1.0" encoding="UTF-8"?>
@@ -46,12 +50,12 @@ ${[node, ...args].map((a) => `    <string>${xml(a)}</string>`).join('\n')}
   </array>
   <key>EnvironmentVariables</key>
   <dict>
-    <key>TESSERA_QUIET</key><string>1</string>
 ${Object.entries(env).map(([k, v]) => `    <key>${xml(k)}</key><string>${xml(v)}</string>`).join('\n')}
   </dict>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>
   <key>ProcessType</key><string>Background</string>
+  <key>StandardOutPath</key><string>${xml(join(homedir(), 'Library', 'Logs', 'tessera.log'))}</string>
   <key>StandardErrorPath</key><string>${xml(join(homedir(), 'Library', 'Logs', 'tessera.log'))}</string>
 </dict>
 </plist>
@@ -76,9 +80,9 @@ After=network-online.target
 [Service]
 Type=simple
 ExecStart=${[node, ...args].map(q).join(' ')}
-Environment=TESSERA_QUIET=1
 ${Object.entries(env).map(([k, v]) => `Environment=${k}=${q(v)}`).join('\n')}
-Restart=on-failure
+# Logs go to the journal: journalctl --user -u tessera
+Restart=always
 RestartSec=5
 # Painting is cheap but bursty; keep it from competing with your work.
 Nice=10
