@@ -97,6 +97,7 @@ function Toolbar() {
         <Icon name="layout-grid" size={14} /> <span class="hide-sm hide-md">{tr('stage.autoArrange')}</span>
       </button>
       <div class="tb-spacer" />
+      <Shortcuts />
       <button class={`btn ghost small ${showGrid.value ? 'active' : ''}`} onClick={() => (showGrid.value = !showGrid.value)} aria-pressed={showGrid.value}>
         <Icon name="grid-3x3" size={14} /> <span class="hide-sm hide-md">{tr('stage.grid')}</span>
       </button>
@@ -235,6 +236,38 @@ function AddPage({ onAdd }: { onAdd: (p: Page) => void }) {
             }}>
               <Icon name={t.icon} size={16} /> <span>{tr(`tpl.${t.id}`)}</span>
             </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const KEYS: [string, Parameters<typeof tr>[0]][] = [
+  ['←↑→↓', 'keys.move'],
+  ['⇧ + ←↑→↓', 'keys.resize'],
+  ['Supr / ⌫', 'keys.delete'],
+  ['Ctrl/⌘ + D', 'keys.duplicate'],
+  ['Ctrl/⌘ + Z', 'keys.undo'],
+  ['Ctrl/⌘ + ⇧ + Z', 'keys.redo'],
+  ['Esc', 'keys.deselect'],
+];
+
+function Shortcuts() {
+  const [open, setOpen] = useState(false);
+  return (
+    <div class="add-page">
+      <button class="icon-btn" title={tr('keys.title')} aria-expanded={open} onClick={() => setOpen(!open)}>
+        <Icon name="keyboard" size={16} />
+      </button>
+      {open && (
+        <div class="popover keys" onMouseLeave={() => setOpen(false)}>
+          <div class="popover-title">{tr('keys.title')}</div>
+          {KEYS.map(([k, label]) => (
+            <div class="key-row">
+              <kbd>{k}</kbd>
+              <span>{tr(label)}</span>
+            </div>
           ))}
         </div>
       )}

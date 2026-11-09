@@ -175,6 +175,14 @@ const en = {
   'tpl.news': 'News and weather',
   'tpl.clock': 'Clock and calendar',
   'tpl.system': 'System monitor',
+  'keys.title': 'Keyboard shortcuts',
+  'keys.move': 'Move the selected tile',
+  'keys.resize': 'Resize it',
+  'keys.delete': 'Delete it',
+  'keys.duplicate': 'Duplicate it',
+  'keys.undo': 'Undo',
+  'keys.redo': 'Redo',
+  'keys.deselect': 'Deselect',
 } as const;
 
 type Key = keyof typeof en;
@@ -353,6 +361,14 @@ const es: Record<Key, string> = {
   'tpl.news': 'Noticias y tiempo',
   'tpl.clock': 'Reloj y calendario',
   'tpl.system': 'Monitor del sistema',
+  'keys.title': 'Atajos de teclado',
+  'keys.move': 'Mover la tesela seleccionada',
+  'keys.resize': 'Cambiar su tamaño',
+  'keys.delete': 'Borrarla',
+  'keys.duplicate': 'Duplicarla',
+  'keys.undo': 'Deshacer',
+  'keys.redo': 'Rehacer',
+  'keys.deselect': 'Quitar la selección',
 };
 
 export type TKey = Key;
