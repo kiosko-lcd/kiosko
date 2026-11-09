@@ -15,6 +15,13 @@ import { suggestGrid, type Gravity, type GridSpec } from '../layout/grid.ts';
 
 export const CONFIG_VERSION = 1;
 
+/**
+ * The stable address of the config's JSON Schema (`kiosko config schema`
+ * prints the same with the plugins installed here). `saveConfig` writes it as
+ * `$schema`, so editors validate and complete the file on their own.
+ */
+export const CONFIG_SCHEMA_ID = 'https://kioskolcd.dev/schema/v1/config.json';
+
 export type Rotation = 0 | 90 | 180 | 270;
 
 export type DeviceConfig =
@@ -105,6 +112,8 @@ export interface Screen {
 }
 
 export interface Config {
+  /** JSON Schema of the file, for editors. Kept as written; `CONFIG_SCHEMA_ID` when missing. */
+  $schema?: string;
   version: number;
   /** `auto` = from the OS. */
   locale: string;

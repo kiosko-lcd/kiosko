@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { defaultsOf, t, toJsonSchema, validate } from './schema.ts';
+import { defaultsOf, risksOf, t, toJsonSchema, validate } from './schema.ts';
 import { localize } from './i18n.ts';
 
 const S = t.object({
@@ -42,4 +42,26 @@ test('localize picks the language, then English', () => {
   assert.equal(localize(x, 'es-ES'), 'Reloj');
   assert.equal(localize(x, 'fr'), 'Clock');
   assert.equal(localize('plain', 'es'), 'plain');
+});
+
+test('toJsonSchema exports English titles, secrets and risks', () => {
+  const F = t.object({
+    token: t.string({ secret: true, label: { en: 'Token', es: 'Token' }, help: { en: 'An API key.', es: 'Una clave.' } }),
+    bin: t.string({ default: 'glab', risk: 'exec' }),
+    src: t.string({ format: 'url', risk: ['network', 'path'] }),
+    plain: t.string(),
+  });
+  const js = toJsonSchema(F) as { properties: Record<string, Record<string, unknown>> };
+  assert.equal(js.properties.token!.title, 'Token');
+  assert.match(js.properties.token!.description as string, /^An API key\. Secret: leave it empty/);
+  assert.equal(js.properties.token!['x-secret'], true);
+  assert.equal(js.properties.bin!['x-risk'], 'exec');
+  assert.deepEqual(js.properties.src!['x-risk'], ['network', 'path']);
+  // Empty or placeholder URLs must stay valid in editors: no `format: uri`.
+  assert.equal(js.properties.src!.format, undefined);
+  assert.equal(js.properties.plain!['x-risk'], undefined);
+  assert.equal(js.properties.plain!['x-secret'], undefined);
+  assert.deepEqual(risksOf(F.props.src), ['network', 'path']);
+  assert.deepEqual(risksOf(js.properties.bin!), ['exec']);
+  assert.deepEqual(risksOf(F.props.plain), []);
 });

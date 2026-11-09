@@ -76,6 +76,28 @@ The grid is fixed (a panel doesn't scroll): 24×6 cells on a 1920×462 panel,
 panel is refused rather than losing a tile. **Auto-arrange** packs everything
 masonry-style.
 
+## Let an AI write your config
+
+Everything lives in one `config.json`, described by a JSON Schema at a stable
+address: **<https://kioskolcd.dev/schema/v1/config.json>**. Kiosko writes it
+as `"$schema"` at the top of the file, so editors validate and complete it,
+and you can point an AI assistant at it: "write a Kiosko config.json for a
+1920×462 panel with my next meeting, GitLab reviews and the news, following
+this schema". Then check it and review it before it's used:
+
+```sh
+kiosko config validate ai-config.json          # errors with JSON paths, ready to paste back to the AI
+kiosko config import ai-config.json            # dry run: changes, a PNG per page, risky values, secrets
+kiosko config import ai-config.json --apply    # backs up the current config, then uses the new one
+```
+
+The review lists every value that **runs a program, contacts a host or reads
+a path**, marking the ones your current config doesn't have; nothing runs
+while you look (previews paint sample data). Secrets left empty or as
+placeholders keep your current values, and never follow a changed host. With
+`--apply`, a running Kiosko takes the new config at once. Details:
+[docs/config-schema.md](docs/config-schema.md).
+
 ## Plugins
 
 Two plugins ship inside Kiosko: `core` (clock, calendar day, text note,
@@ -140,6 +162,9 @@ urgency, idle, interludes and themes.
 kiosko start [--port 7420] [--host 127.0.0.1] [--open]
 kiosko render [--screen name] [--page name] [--out frame.png] [--live]
 kiosko import-aimonitor [--from ~/.aimonitor/config.json] [--write]
+kiosko config schema [--out file]              # JSON Schema of config.json, with your plugins
+kiosko config validate <file> [--json]
+kiosko config import <file> [--apply]
 kiosko doctor
 kiosko plugins [list|add <id>|link <folder>|remove <id>]
 kiosko service install      # start with your session (systemd / launchd / Task Scheduler)

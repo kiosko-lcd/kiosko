@@ -56,8 +56,8 @@ interface Data {
 }
 
 const optionsSchema = t.object({
-  module: t.string({ label: { en: 'Module (name or path)', es: 'Módulo (nombre o ruta)' }, placeholder: 'pizarra', help: { en: 'Looked up in the folder below unless absolute.', es: 'Se busca en la carpeta de abajo salvo que sea absoluta.' } }),
-  dir: t.string({ default: '~/.aimonitor/modules', format: 'path', label: { en: 'Modules folder', es: 'Carpeta de módulos' }, advanced: true }),
+  module: t.string({ risk: 'exec', label: { en: 'Module (name or path)', es: 'Módulo (nombre o ruta)' }, placeholder: 'pizarra', help: { en: 'Looked up in the folder below unless absolute.', es: 'Se busca en la carpeta de abajo salvo que sea absoluta.' } }),
+  dir: t.string({ default: '~/.aimonitor/modules', format: 'path', risk: 'exec', label: { en: 'Modules folder', es: 'Carpeta de módulos' }, advanced: true }),
   config: t.map({ label: { en: 'Module config (key → value)', es: 'Config del módulo (clave → valor)' }, help: { en: 'Simple values only; numbers and true/false are converted.', es: 'Sólo valores simples; números y true/false se convierten.' } }),
   json: t.string({ multiline: true, label: { en: 'Module config as JSON', es: 'Config del módulo en JSON' }, help: { en: 'For lists and nested values. Wins over the table above.', es: 'Para listas y valores anidados. Manda sobre la tabla de arriba.' }, advanced: true }),
 });

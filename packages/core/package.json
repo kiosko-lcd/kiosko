@@ -19,6 +19,11 @@
       "source": "./src/config/model.ts",
       "types": "./dist/config/model.d.ts",
       "default": "./dist/config/model.js"
+    },
+    "./config": {
+      "source": "./src/config/tools.ts",
+      "types": "./dist/config/tools.d.ts",
+      "default": "./dist/config/tools.js"
     }
   },
   "dependencies": {

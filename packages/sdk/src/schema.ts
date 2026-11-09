@@ -9,7 +9,22 @@
  * `toJsonSchema` exports a standard JSON Schema (draft 2020-12) with `x-ui`
  * hints, so tools that don't speak TypeScript can still validate a config.
  */
-import type { Localized } from './i18n.ts';
+import { localize, type Localized } from './i18n.ts';
+
+/**
+ * What a value of a field lets Kiosko do as the user, so a config written by
+ * someone else (or by an AI) can be reviewed before it runs:
+ *
+ *   - `exec`: runs a program or loads code (a command, an ssh host, a module);
+ *   - `network`: contacts a host (a URL, an API host, a feed);
+ *   - `path`: reads (or writes) a local file or folder.
+ *
+ * A list when it depends on the value, e.g. `['network', 'path']` for "a URL
+ * or a file": a value that looks like a URL counts as `network`, any other as
+ * the next one. Only free values need it; a switch that turns on a fixed tool
+ * (read git status) doesn't.
+ */
+export type Risk = 'exec' | 'network' | 'path';
 
 interface Common<T> {
   /** Shown above the input in the editor. */
@@ -19,6 +34,8 @@ interface Common<T> {
   default: T;
   /** Hide in the editor unless "advanced" is toggled. */
   advanced?: boolean;
+  /** See `Risk`. Exported as `x-risk`; `kiosko config import` lists these values before applying a config. */
+  risk?: Risk | readonly Risk[];
 }
 
 export interface StringField extends Common<string> {
@@ -174,13 +191,32 @@ function coerce(f: Field, v: unknown, path: string, issues: ValidationIssue[]): 
   }
 }
 
-/** Standard JSON Schema with `x-ui` hints, for tools outside TypeScript. */
+/** Appended to the description of secret fields in the JSON Schema. */
+export const SECRET_NOTE = 'Secret: leave it empty (or a placeholder such as "<token>"). Kiosko keeps the value it already has, or asks for it in the editor.';
+
+/**
+ * Standard JSON Schema (draft 2020-12) with `x-ui` hints, for tools outside
+ * TypeScript: `title`/`description` in English, `x-secret` on secrets and
+ * `x-risk` (see `Risk`) on values that run programs, contact hosts or read
+ * paths. URLs carry no `format` keyword: an empty value or a placeholder is
+ * valid (a secret URL is filled in later), and editors would flag both.
+ */
 export function toJsonSchema(f: Field): Record<string, unknown> {
   const ui = { label: f.label, help: f.help, advanced: f.advanced };
-  const base: Record<string, unknown> = { default: f.default, 'x-ui': ui };
+  const secret = f.kind === 'string' && !!f.secret;
+  const help = f.help === undefined ? undefined : localize(f.help, 'en');
+  const description = secret ? [help, SECRET_NOTE].filter(Boolean).join(' ') : help;
+  const base: Record<string, unknown> = {
+    ...(f.label === undefined ? {} : { title: localize(f.label, 'en') }),
+    ...(description ? { description } : {}),
+    default: f.default,
+    'x-ui': ui,
+    ...(secret ? { 'x-secret': true } : {}),
+    ...(f.risk === undefined ? {} : { 'x-risk': typeof f.risk === 'string' ? f.risk : [...f.risk] }),
+  };
   switch (f.kind) {
     case 'string':
-      return { ...base, type: 'string', ...(f.format === 'url' ? { format: 'uri' } : f.format === 'date' ? { format: 'date' } : {}), 'x-ui': { ...ui, secret: f.secret, multiline: f.multiline, placeholder: f.placeholder, format: f.format } };
+      return { ...base, type: 'string', ...(f.format === 'date' ? { format: 'date' } : {}), ...(f.maxLength ? { maxLength: f.maxLength } : {}), 'x-ui': { ...ui, secret: f.secret, multiline: f.multiline, placeholder: f.placeholder, format: f.format } };
     case 'color':
       return { ...base, type: 'string', 'x-ui': { ...ui, widget: 'color' } };
     case 'number':
@@ -196,4 +232,11 @@ export function toJsonSchema(f: Field): Record<string, unknown> {
     case 'object':
       return { ...base, type: 'object', properties: Object.fromEntries(Object.entries(f.props as Record<string, Field>).map(([k, sub]) => [k, toJsonSchema(sub)])) };
   }
+}
+
+/** The risks of a field, as a list (empty when it has none). */
+export function risksOf(f: { risk?: Risk | readonly Risk[] } | { 'x-risk'?: unknown }): Risk[] {
+  const r = 'risk' in f ? f.risk : (f as { 'x-risk'?: unknown })['x-risk'];
+  const list = typeof r === 'string' ? [r] : Array.isArray(r) ? r : [];
+  return list.filter((x): x is Risk => x === 'exec' || x === 'network' || x === 'path');
 }

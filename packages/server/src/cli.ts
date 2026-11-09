@@ -5,6 +5,7 @@
  *   kiosko start [--port 7420] [--host 127.0.0.1] [--config file] [--open] [--demo]
  *   kiosko render [--screen id|name] [--page id|name] [--out frame.png] [--live]
  *   kiosko import-aimonitor [--from ~/.aimonitor/config.json] [--with-secrets] [--write]
+ *   kiosko config schema|validate|import …   (see config-cli.ts)
  *   kiosko doctor
  */
 import { spawn } from 'node:child_process';
@@ -12,7 +13,9 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { Registry, Runtime, loadConfig, paths, saveConfig, type Config } from '@kiosko/core';
 import { BUILTIN_PLUGINS, OFFICIAL_PLUGINS } from './builtin.ts';
+import { configCommand } from './config-cli.ts';
 import { pluginsCommand } from './plugins-cli.ts';
+import { writePreview } from './preview.ts';
 import { buildGallery } from './gallery.ts';
 import { importAimonitor } from './import-aimonitor.ts';
 import { runService, servicePlan } from './service.ts';
@@ -25,6 +28,9 @@ const USAGE = `Kiosko ${VERSION}: a widget mosaic for USB LCD panels
   kiosko start [--port 7420] [--host 127.0.0.1] [--config file] [--open] [--demo]
   kiosko render [--screen id|name] [--page id|name] [--out frame.png] [--live]
   kiosko import-aimonitor [--from ~/.aimonitor/config.json] [--with-secrets] [--write]
+  kiosko config schema [--out file]          JSON Schema of config.json, with your plugins
+  kiosko config validate <file> [--json]     check a config (e.g. one an AI wrote)
+  kiosko config import <file> [--apply]      review it (changes, preview, risky values) and use it
   kiosko doctor
   kiosko gallery [--out gallery] [--locale en] [--theme midnight]
   kiosko plugins [list|add <id>…|link <folder>…|remove <id>…]
@@ -122,12 +128,11 @@ async function main(): Promise<void> {
           await new Promise((r) => setTimeout(r, 250));
         }
       }
-      const r = rt.preview(screen, page, { demo: !flag('--live') });
       const out = opt('--out') ?? 'frame.png';
-      writeFileSync(out, r.canvas.toBuffer('image/png'));
+      const problems = writePreview(rt, screen, page, out, { demo: !flag('--live') });
       rt.stop();
       console.log(`${out}  ${screen.width}×${screen.height}  page "${page.name}"`);
-      for (const t of r.tiles) if (t.error) console.log(`  tile ${t.id}: ${t.error}`);
+      for (const p of problems) console.log(`  ${p}`);
       return;
     }
     case 'import-aimonitor': {
@@ -182,6 +187,11 @@ async function main(): Promise<void> {
     case 'plugins': {
       process.env.KIOSKO_QUIET ??= '1';
       await pluginsCommand(argv.slice(1), registry);
+      return;
+    }
+    case 'config': {
+      process.env.KIOSKO_QUIET ??= '1';
+      process.exitCode = await configCommand(argv.slice(1), { registry, configPath: path });
       return;
     }
     case 'help':

@@ -141,7 +141,7 @@ export const image = defineWidget({
   chrome: 'bare',
   size: { min: { w: 60, h: 60 }, preferred: { w: 400, h: 300 } },
   options: t.object({
-    src: t.string({ format: 'url', placeholder: 'https://… or /path/to/image.png', label: { en: 'Image (path or URL)', es: 'Imagen (ruta o URL)' } }),
+    src: t.string({ format: 'url', risk: ['network', 'path'], placeholder: 'https://… or /path/to/image.png', label: { en: 'Image (path or URL)', es: 'Imagen (ruta o URL)' } }),
     fit: t.enum(['cover', 'contain'] as const, { label: { en: 'Fit', es: 'Ajuste' }, labels: { cover: { en: 'Fill (crop)', es: 'Llenar (recorta)' }, contain: { en: 'Whole image', es: 'Imagen entera' } } }),
     dim: t.number({ default: 0, min: 0, max: 0.9, step: 0.05, slider: true, label: { en: 'Darken', es: 'Oscurecer' }, help: { en: 'Keeps a photo from outshining everything else.', es: 'Para que una foto no deslumbre al resto.' } }),
   }),

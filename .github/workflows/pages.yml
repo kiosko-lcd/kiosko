@@ -26,12 +26,18 @@ jobs:
       - name: Clone the official plugins next to Kiosko
         run: |
           mkdir -p ../kiosko-plugins
-          for p in agents cats system vitals usage weather calendar news mirror gitlab; do
+          for p in agents cats system vitals usage weather calendar news mirror gitlab github calls timesheet llm gpu; do
             git clone --depth 1 "https://github.com/${{ github.repository_owner }}/kiosko-plugin-$p" "../kiosko-plugins/kiosko-plugin-$p" || echo "no kiosko-plugin-$p"
           done
       - run: npm install --no-audit --no-fund
       - run: npm run dev:link
       - run: node --conditions=source packages/server/src/cli.ts gallery --out site
+      # The config's JSON Schema at its stable address, https://kioskolcd.dev/schema/v1/config.json
+      # (with the official plugins). The custom domain is also set in Settings → Pages.
+      - name: Config schema and domain
+        run: |
+          node --conditions=source packages/server/src/cli.ts config schema --out site/schema/v1/config.json
+          echo kioskolcd.dev > site/CNAME
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site

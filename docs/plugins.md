@@ -99,7 +99,7 @@ Rules of thumb that come from running these panels 24/7:
 ## Options schema (`t`)
 
 ```js
-t.string({ default, label, help, placeholder, multiline, secret, format: 'url'|'path'|'time'|'date' })
+t.string({ default, label, help, placeholder, multiline, secret, format: 'url'|'path'|'time'|'date', risk })
 t.number({ default, min, max, step, unit, slider })   t.integer({...})
 t.duration({ default })            // milliseconds, edited as s/min/h
 t.boolean({ default })
@@ -111,6 +111,15 @@ t.list(item, { max })              t.object({ ...fields })      t.map()   // str
 Every field takes `label`, `help` and `advanced` (hidden behind "Advanced").
 `secret: true` masks the value in the editor. Unknown keys in the user's config
 are kept, wrong types fall back to the default; `validate` never throws.
+
+Mark with `risk` the options whose value makes Kiosko act on the user's
+behalf: `'exec'` runs a program or loads code (a command, an ssh host),
+`'network'` contacts a host (a URL, an API host, a feed), `'path'` reads a
+local file or folder; a list such as `['network', 'path']` when it depends on
+the value (an image path or URL). They become `x-risk` in the
+[config schema](config-schema.md), and `kiosko config import` lists every such
+value before applying a config someone else (or an AI) wrote. Switches that
+turn on a fixed tool (read git status) don't need it.
 
 ## Shared sources
 
