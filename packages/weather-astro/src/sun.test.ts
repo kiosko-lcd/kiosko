@@ -14,9 +14,9 @@ test('sun: Greenwich at the summer solstice (checked against NOAA)', { skip: Int
 
 test('sun: day length at a mid-latitude place follows the seasons', () => {
   const len = (iso: string) => { const s = sunTimes(new Date(iso), 38.3452, -0.4810)!; return s.set - s.rise; };
-  near(len('2026-06-21T12:00:00Z'), 14 + 40 / 60, 10);
-  near(len('2026-12-21T12:00:00Z'), 9 + 38 / 60, 10);
-  near(len('2026-09-23T12:00:00Z'), 12 + 8 / 60, 10);
+  near(len('2026-06-21T12:00:00Z'), 14 + 48 / 60, 10);
+  near(len('2026-12-21T12:00:00Z'), 9 + 33 / 60, 10);
+  near(len('2026-09-23T12:00:00Z'), 12 + 9 / 60, 10);
 });
 
 test('sun: daylight saving moves local time, not the sun', { skip: Intl.DateTimeFormat().resolvedOptions().timeZone !== 'Europe/Madrid' ? 'depends on the time zone' : false }, () => {
