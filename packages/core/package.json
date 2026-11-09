@@ -5,9 +5,21 @@
   "type": "module",
   "license": "MIT",
   "exports": {
-    ".": { "source": "./src/index.ts", "default": "./dist/index.js" },
-    "./layout": { "source": "./src/layout/index.ts", "default": "./dist/layout/index.js" },
-    "./model": { "source": "./src/config/model.ts", "default": "./dist/config/model.js" }
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./layout": {
+      "source": "./src/layout/index.ts",
+      "types": "./dist/layout/index.d.ts",
+      "default": "./dist/layout/index.js"
+    },
+    "./model": {
+      "source": "./src/config/model.ts",
+      "types": "./dist/config/model.d.ts",
+      "default": "./dist/config/model.js"
+    }
   },
   "dependencies": {
     "@loksly/lcd-canvas-kit": "0.1.0",
@@ -15,5 +27,26 @@
     "@napi-rs/canvas": "^1.0.10",
     "@tessera/sdk": "0.1.0",
     "dejavu-fonts-ttf": "^2.37.3"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "files": [
+    "dist",
+    "src",
+    "!src/**/*.test.ts",
+    "README.md",
+    "LICENSE"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Loksly/tessera.git",
+    "directory": "packages/core"
+  },
+  "author": "Loksly",
+  "engines": {
+    "node": ">=22.18"
   }
 }

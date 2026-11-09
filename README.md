@@ -76,23 +76,27 @@ The grid is fixed (a panel doesn't scroll): 24×6 cells on a 1920×462 panel,
 panel is refused rather than losing a tile. **Auto-arrange** packs everything
 masonry-style.
 
-## Built-in plugins
+## Plugins
+
+Two plugins ship inside Tessera: `core` (clock, calendar day, text note,
+picture) and `legacy` (runs [aimonitor](https://github.com/Loksly/aimonitor)
+custom modules unchanged). The official ones live in their own repositories
+and come with `npm install -g tessera-lcd`; add or remove them from the
+editor's **Plugins** page or with `tessera plugins add <id>`.
 
 | Plugin | Gives you |
 |---|---|
-| `core` | clock, calendar day, text note, picture (file or URL) |
-| `agents` | Claude Code / Gemini CLI sessions as tiles that light up when they need you, a status strip, and the 8-bit runner interlude |
-| `cats` | the cats room: each agent session is a cat; whatever needs you walks to the front |
-| `usage` | Claude usage from `ccusage`: limit windows, tokens by model, 5-hour block spend |
-| `system`, `vitals` | CPU, cores, temperature, RAM, disks, failed units |
-| `weather` | current weather and forecast (Open-Meteo, no key) |
-| `calendar` | next meeting countdown and today's agenda from published ICS calendars (Outlook, Google…) |
-| `news` | headlines from RSS feeds with press photos, grouped across outlets |
-| `mirror` | countdown, compliments, tasks, now playing, on this day, air quality, earthquakes, rain radar |
-| `gitlab` | pipelines and merge requests waiting for your review |
-| `legacy` | runs [aimonitor](https://github.com/Loksly/aimonitor) custom modules unchanged |
+| [agents](https://github.com/Loksly/tessera-plugin-agents) | Claude Code / Gemini CLI sessions as tiles that light up when they need you, a status strip, and the 8-bit runner interlude |
+| [cats](https://github.com/Loksly/tessera-plugin-cats) | the cats room: each agent session is a cat; whatever needs you walks to the front |
+| [usage](https://github.com/Loksly/tessera-plugin-usage) | Claude usage from `ccusage`: limit windows, tokens by model, 5-hour block spend |
+| [system](https://github.com/Loksly/tessera-plugin-system), [vitals](https://github.com/Loksly/tessera-plugin-vitals) | CPU, cores, temperature, RAM, disks, failed units |
+| [weather](https://github.com/Loksly/tessera-plugin-weather) | current weather and forecast (Open-Meteo, no key) |
+| [calendar](https://github.com/Loksly/tessera-plugin-calendar) | next meeting countdown and today's agenda from published ICS calendars |
+| [news](https://github.com/Loksly/tessera-plugin-news) | headlines from RSS feeds with press photos, grouped across outlets |
+| [mirror](https://github.com/Loksly/tessera-plugin-mirror) | countdown, compliments, tasks, now playing, on this day, air quality, earthquakes, rain radar |
+| [gitlab](https://github.com/Loksly/tessera-plugin-gitlab) | pipelines and merge requests waiting for your review |
 
-Every built-in widget, painted with its sample data: run `tessera gallery`
+Every official widget, painted with its sample data: run `tessera gallery`
 (published to GitHub Pages by the `Gallery` workflow).
 
 ## Write a widget
@@ -137,6 +141,7 @@ tessera start [--port 7420] [--host 127.0.0.1] [--open]
 tessera render [--screen name] [--page name] [--out frame.png] [--live]
 tessera import-aimonitor [--from ~/.aimonitor/config.json] [--write]
 tessera doctor
+tessera plugins [list|add <id>|link <folder>|remove <id>]
 tessera service install      # start with your session (systemd / launchd / Task Scheduler)
 ```
 
@@ -166,11 +171,24 @@ npm run web:watch    # rebuild the editor on change
 node --conditions=source scripts/render-widgets.ts --plugin core --out tmp/w
 ```
 
-Monorepo layout: `packages/sdk` (plugin contract), `packages/core` (grid
-engine, runtime, compositor, drivers), `packages/server` (HTTP API, CLI),
-`packages/web` (editor, Preact), `plugins/*` (built-in plugins), plus the
-reusable libraries `agent-sessions`, `trcc-client`, `weather-astro` and
-`lcd-canvas-kit`.
+Layout: `packages/sdk` (plugin contract), `packages/core` (grid engine,
+runtime, compositor, drivers), `packages/server` (HTTP API, CLI),
+`packages/web` (editor, Preact), `plugins/core` and `plugins/legacy`, the
+libraries `agent-sessions`, `trcc-client`, `weather-astro` and
+`lcd-canvas-kit`, and `contrib/usb-sender` (one USB sender per panel by serial
+number, for several identical panels).
+
+To work on Tessera and the official plugins together, clone them side by side
+and link them:
+
+```sh
+git clone https://github.com/Loksly/tessera
+mkdir tessera-plugins && cd tessera-plugins
+for p in agents cats system vitals usage weather calendar news mirror gitlab; do
+  git clone https://github.com/Loksly/tessera-plugin-$p
+done
+cd ../tessera && npm install && npm run dev:link
+```
 
 ## License
 
