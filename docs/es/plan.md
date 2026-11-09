@@ -341,33 +341,69 @@ Lo que cambia en el camino:
 
 ---
 
-## 6. Hoja de ruta
+## 6. Estado y hoja de ruta
 
-**Hecho en esta primera tanda**: SDK, motor de rejilla con tests, runtime por
-eventos, compositor, drivers virtual/trcc/fichero, servidor con SSE, CLI,
-importador, editor completo (escenario, biblioteca, inspector con formularios
-automáticos, páginas, pantallas, plugins, ajustes, actividad), temas, i18n
-es/en, plugins incluidos (ver §5), compatibilidad con módulos de aimonitor.
+### Hecho
 
-**Siguiente**:
+- **SDK** (`@tessera/sdk`): widgets, fuentes, interludios, esquema de opciones
+  `t` → tipos + validación + formulario + JSON Schema, temas, i18n.
+- **Motor de mosaico** con tests: rejilla sugerida por resolución (24×6 en
+  1920×462), colocación con empuje y rechazo, gravedad, compactación,
+  `autoPack` (masonry), reescalado de densidad, pilas con turno y urgencia,
+  páginas por turnos o fijadas.
+- **Runtime** por eventos, compositor único, drivers `virtual`, `trcc` y
+  `file`, rotación de montaje, antiquemado, reposo, interludios.
+- **Servidor** (API + SSE + estáticos, protegido contra CSRF/DNS rebinding) y
+  **CLI**: `start [--demo]`, `render`, `import-aimonitor`, `doctor`,
+  `service install|uninstall|print` (systemd, launchd, Programador de tareas).
+- **Editor**: escenario a escala con bisel, rejilla, mover/redimensionar con
+  teclado y ratón, arrastrar desde la biblioteca, apilar soltando encima,
+  tira de páginas con miniaturas vivas, **plantillas de página** adaptadas a
+  la forma del panel, inspector con formularios automáticos y **estado de los
+  datos** de cada widget, pantallas (detección por trcc), plugins (activar,
+  instalar de npm), ajustes (5 temas de panel, editor claro/oscuro, idioma,
+  ubicación, jornada, fuentes de datos), actividad; responsive hasta móvil;
+  autoguardado con deshacer/rehacer.
+- **Plugins portados**: `agents` (fuente de sesiones, casillas, cabecera,
+  interludio de plataformas), `cats` (habitación, duelo), `usage`, `system`,
+  `vitals`, `weather`, `news`, `mirror` (8 tarjetas), `gitlab`, `core`,
+  `legacy` (tus módulos de aimonitor, la pizarra incluida).
+- **Modo demo** (`--demo`) y `examples/showcase.json` para probar sin nada
+  configurado; capturas del README hechas así (sin datos personales).
+- **Distribución**: un solo paquete npm (`tessera-lcd`) generado con esbuild
+  (`npm run dist`), probado instalado fuera del repo, con plugins externos de
+  un solo fichero funcionando sin `npm install` gracias a un *hook* de
+  resolución.
+- **CI** en GitHub Actions: Linux, macOS y Windows × Node 22/24, con prueba del
+  paquete.
+- Documentación: README (en), guía de plugins (en), este plan (es),
+  CONTRIBUTING, plantillas de issues y PR.
 
-1. Portar lo pendiente: agenda/próxima reunión (ICS), horas e imputación
-   (GitLab), el gato del runner y los gestos animados de los gatos (necesita
-   «animaciones de widget»: hoy sólo hay interludios a pantalla completa).
-2. Animaciones dentro de una tesela (`animate` en el SDK) con presupuesto de
-   fps por pantalla.
-3. Emisor USB propio por número de serie (hoy: `trcc serve` o el
-   `news-sender.py` de aimonitor leyendo el `frame.jpg`), y PR aguas arriba a
+### Pendiente
+
+1. Agenda y próxima reunión (ICS) — en curso como plugin `calendar`.
+2. Horas e imputación (GitLab) y el gato del runner: dependen de servicios muy
+   tuyos (foco, popup de imputar); propuesta: plugin aparte, no en el repo
+   público.
+3. Animaciones dentro de una tesela (gestos de los gatos, paseos): requiere
+   ampliar el SDK con `animate` y un presupuesto de fps por pantalla.
+4. Vídeos propios como interludio (`easterEgg.source` con ffmpeg).
+5. Emisor USB propio por número de serie y PR aguas arriba a
    `thermalright-trcc-linux` para `--serial`.
-4. Empaquetado: `npx tessera`, servicio systemd/launchd/Windows, y un
-   envoltorio de escritorio (Tauri) con icono en la bandeja.
-5. Galería pública de maquetas exportadas y de plugins (`tessera-plugin-*`).
-6. Tests de interfaz (Playwright) y de conformidad de plugins.
+6. Envoltorio de escritorio (Tauri) con icono en la bandeja.
+7. Galería pública de maquetas exportadas y de plugins.
 
-**Decisiones abiertas para ti**:
+### Decisiones abiertas para ti
 
-- Nombre (`Tessera` es provisional) y scope de npm (`@tessera/*` hay que
-  reclamarlo; alternativa `@loksly/tessera-*`).
-- Si los plugins personales (gitlab, horas, imputación) van en el repo público
-  o en uno tuyo aparte.
-- Licencia (MIT como aimonitor, propuesto).
+- **Nombre**: `Tessera` es provisional (el paquete npm está como
+  `tessera-lcd`; `tessera` a secas está cogido). Los paquetes internos usan
+  `@tessera/*`, que no se publican por separado en esta versión.
+- **Publicar**: no he creado el repositorio en GitHub ni publicado en npm;
+  el README ya asume `Loksly/tessera` y `npm install -g tessera-lcd`.
+- **Plugins personales** (gitlab con tus alias, horas, imputación): en el
+  repo público van genéricos; tu configuración se queda en tu
+  `config.json`.
+- **Licencia**: MIT, como aimonitor.
+- **Firma de commits**: tu git firma con GPG y aquí no había pinentry; los
+  commits de este repo van sin firmar (`git rebase --exec 'git commit --amend
+  --no-edit -S' --root` los firma todos si quieres).
