@@ -1,4 +1,5 @@
 import { test } from 'node:test';
+import { join } from 'node:path';
 import assert from 'node:assert';
 import { MAX_FILES, touchedFiles } from './touched.ts';
 
@@ -17,7 +18,7 @@ test('Touched files: read-only tools do not count', () => {
 });
 
 test('Touched files: relative paths, notebooks and Gemini tools', () => {
-  assert.deepStrictEqual(touchedFiles(undefined, 'PreToolUse', 'write_file', { file_path: 'src/x.ts' }, '/r'), ['/r/src/x.ts']);
+  assert.deepStrictEqual(touchedFiles(undefined, 'PreToolUse', 'write_file', { file_path: 'src/x.ts' }, '/r'), [join('/r', 'src/x.ts')]);
   assert.deepStrictEqual(touchedFiles(undefined, 'PreToolUse', 'NotebookEdit', { notebook_path: '/r/n.ipynb' }, '/r'), ['/r/n.ipynb']);
   assert.deepStrictEqual(touchedFiles(undefined, 'PreToolUse', 'MultiEdit', { file_path: '/r/m.ts' }, '/r'), ['/r/m.ts']);
 });

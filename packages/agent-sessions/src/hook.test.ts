@@ -21,7 +21,7 @@ const STORY: [Record<string, unknown>, Partial<SessionRecord>][] = [
   [ev({ hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command: 'npm test' } }), { state: 'active', detail: 'Bash: npm test' }],
   [ev({ hook_event_name: 'PostToolUse', tool_name: 'Bash', tool_input: { command: 'npm test' }, tool_response: { stdout: 'ℹ fail 1', exit_code: 1 } }), { testsFailed: true, lastFailed: true, failStreak: 1 }],
   [ev({ hook_event_name: 'PostToolUseFailure', tool_name: 'Bash', tool_input: { command: 'git rebase main' } }), { failStreak: 2 }],
-  [ev({ hook_event_name: 'PostToolUse', tool_name: 'Edit', tool_input: { file_path: 'src/a.ts', new_string: '// TODO: x\n// FIXME y' } }), { todos: 2, files: ['/work/repo/src/a.ts'] }],
+  [ev({ hook_event_name: 'PostToolUse', tool_name: 'Edit', tool_input: { file_path: 'src/a.ts', new_string: '// TODO: x\n// FIXME y' } }), { todos: 2, files: [join(cwd, 'src/a.ts')] }],
   [ev({ hook_event_name: 'Notification', notification_type: 'permission_prompt' }), { state: 'permission', detail: 'Permission prompt' }],
   [ev({ hook_event_name: 'Notification', notification_type: 'idle_prompt' }), { state: 'waiting', detail: 'Idle prompt' }],
   [ev({ hook_event_name: 'Stop', last_assistant_message: 'Done.' }), { state: 'ready', detail: 'Done.' }],
