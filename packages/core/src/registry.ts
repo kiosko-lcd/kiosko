@@ -3,7 +3,7 @@
  * the plugins folder (`<home>/plugins`), either as a folder or installed from
  * npm (`tessera-plugin-*`). Types are addressed as `plugin/thing`.
  */
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { installSdkResolver } from './sdk-resolver.ts';
@@ -73,6 +73,16 @@ export class Registry {
   async loadDir(dir: string): Promise<void> {
     if (!existsSync(dir)) return;
     installSdkResolver();
+    // A plain `index.js` with `import` statements must load as ESM even if
+    // some package.json further up says otherwise.
+    const marker = join(dir, 'package.json');
+    if (!existsSync(marker)) {
+      try {
+        writeFileSync(marker, `${JSON.stringify({ name: 'tessera-user-plugins', private: true, type: 'module' }, null, 2)}\n`);
+      } catch {
+        /* read-only: .mjs plugins still work */
+      }
+    }
     const candidates: string[] = [];
     for (const name of readdirSync(dir)) {
       if (name === 'node_modules' || name.startsWith('.')) continue;

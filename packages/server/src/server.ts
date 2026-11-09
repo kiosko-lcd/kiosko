@@ -41,6 +41,9 @@ export interface ServerOptions {
 }
 
 function webRoot(): string {
+  // The published bundle carries the editor next to the CLI.
+  const bundled = join(import.meta.dirname, 'web');
+  if (existsSync(join(bundled, 'index.html'))) return bundled;
   try {
     return join(dirname(require.resolve('@tessera/web/package.json')), 'dist');
   } catch {

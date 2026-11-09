@@ -16,6 +16,13 @@ import { startServer } from './server.ts';
 import { starterConfig } from './starter.ts';
 
 const VERSION = '0.1.0';
+const USAGE = `Tessera ${VERSION}: a widget mosaic for USB LCD panels
+
+  tessera start [--port 7420] [--host 127.0.0.1] [--config file] [--open] [--demo]
+  tessera render [--screen id|name] [--page id|name] [--out frame.png] [--live]
+  tessera import-aimonitor [--from ~/.aimonitor/config.json] [--write]
+  tessera doctor
+  tessera version`;
 const argv = process.argv.slice(2);
 const cmd = argv[0] && !argv[0].startsWith('-') ? argv[0] : 'start';
 const flag = (name: string) => argv.includes(name);
@@ -138,12 +145,17 @@ async function main(): Promise<void> {
       }
       return;
     }
+    case 'help':
+    case '--help':
+    case '-h':
+      console.log(USAGE);
+      return;
     case 'version':
     case '--version':
       console.log(VERSION);
       return;
     default:
-      console.log(readFileSync(new URL(import.meta.url), 'utf8').split('\n').slice(2, 10).join('\n').replace(/^ \*\s?/gm, ''));
+      console.log(USAGE);
   }
 }
 

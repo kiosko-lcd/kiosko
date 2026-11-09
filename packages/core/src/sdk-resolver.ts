@@ -5,9 +5,14 @@
  * works without `npm install`, and every plugin shares one SDK (and one
  * canvas: images from another copy of @napi-rs/canvas can't be drawn).
  */
+import { existsSync } from 'node:fs';
 import module from 'node:module';
+import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 const SHARED = ['@tessera/sdk', '@loksly/lcd-canvas-kit', '@loksly/weather-astro', '@napi-rs/canvas'];
+/** In the published bundle these live next to the CLI instead of in node_modules. */
+const BUNDLED: Record<string, string> = { '@tessera/sdk': 'sdk.js', '@loksly/lcd-canvas-kit': 'kit.js', '@loksly/weather-astro': 'weather-astro.js' };
 let installed = false;
 
 export function installSdkResolver(): void {
@@ -15,6 +20,11 @@ export function installSdkResolver(): void {
   installed = true;
   const urls = new Map<string, string>();
   for (const name of SHARED) {
+    const local = BUNDLED[name] ? join(import.meta.dirname, BUNDLED[name]) : null;
+    if (local && existsSync(local)) {
+      urls.set(name, pathToFileURL(local).href);
+      continue;
+    }
     try {
       urls.set(name, import.meta.resolve(name));
     } catch {
