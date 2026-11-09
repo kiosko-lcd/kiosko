@@ -6,7 +6,7 @@
  */
 import { createCanvas, loadImage, type Canvas, type Image, type SKRSContext2D } from '@napi-rs/canvas';
 import { pixelShift } from '@loksly/lcd-canvas-kit';
-import { localize, validate, type Box, type RenderContext, type Theme, type WidgetDefinition } from '@tessera/sdk';
+import { localize, validate, type Box, type Redraw, type RenderContext, type Theme, type WidgetDefinition } from '@tessera/sdk';
 import { toPx, type PxRect } from './layout/grid.ts';
 import { nextTurnAt, pickInStack } from './layout/stack.ts';
 import { whenMatches, type Config, type Page, type Screen, type Tile, type WidgetInstance } from './config/model.ts';
@@ -111,8 +111,8 @@ function safe<T>(fn: (() => T) | undefined, fallback: T): T {
 }
 
 /** Next time a widget wants to be repainted on its own. */
-function redrawAt(def: WidgetDefinition<any, any>, now: number): number {
-  const r = def.redraw ?? 'never';
+function redrawAt(def: WidgetDefinition<any, any>, now: number, state: ReturnType<typeof stateCtx>): number {
+  const r = (typeof def.redraw === 'function' ? safe(() => (def.redraw as (c: typeof state) => Redraw)(state), 'never' as Redraw) : def.redraw) ?? 'never';
   if (r === 'never') return Infinity;
   const step = r === 'second' ? 1000 : r === 'minute' ? 60_000 : Math.max(250, r.everyMs);
   return (Math.floor(now / step) + 1) * step;
@@ -185,7 +185,7 @@ function paintTile(g: SKRSContext2D, input: ComposeInput, tile: Tile, rect: PxRe
     return;
   }
   idles.push(safe(() => r.def.idle?.(stateCtx(r, now, working)) ?? false, false));
-  nextAt.v = Math.min(nextAt.v, redrawAt(r.def, now));
+  nextAt.v = Math.min(nextAt.v, redrawAt(r.def, now, stateCtx(r, now, working)));
 
   const pad = chrome === 'card' ? m.pad : 0;
   let top = rect.y + pad;

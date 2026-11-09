@@ -144,7 +144,8 @@ export interface WidgetDefinition<OF extends ObjectField<any> = ObjectField<any>
   intervalMs?: number;
   /** Paint. Synchronous and fast: load images in `fetch` and paint them here. */
   render: (g: Graphics, ctx: RenderContext<Infer<OF>, D>) => void;
-  redraw?: Redraw;
+  /** Also a function, when the cadence depends on the options or the data (a carousel every `rotateMs`). */
+  redraw?: Redraw | ((ctx: StateContext<Infer<OF>, D>) => Redraw);
   /** Has nothing to show right now (nothing playing, no rain): skipped in its cell's rotation. */
   visible?: (ctx: StateContext<Infer<OF>, D>) => boolean;
   /** Needs the user now (a meeting about to start): takes its cell over while true. */

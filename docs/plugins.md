@@ -70,7 +70,7 @@ export default definePlugin({ id: 'crypto', name: 'Crypto', version: '1.0.0', wi
 | `sources` | Ids of shared sources (`'system/vitals'`, `'agents/sessions'`, `'weather/current'`…) whose data arrives in `ctx.sources`. |
 | `fetch(ctx)` | Async, in Node, per widget instance, every `intervalMs`. Never blocks a frame. Throw on failure: the last good data stays. |
 | `render(g, ctx)` | Synchronous and fast. Paint inside `ctx.box`; the tile is clipped for you. |
-| `redraw` | `'never'` (default: only when data changes), `'minute'`, `'second'` or `{ everyMs }`. Fewer frames are fewer USB transfers. |
+| `redraw` | `'never'` (default: only when data changes), `'minute'`, `'second'` or `{ everyMs }`, or a function of `{ options, data, now }` returning one of those. Fewer frames are fewer USB transfers; `{ everyMs: 250 }` is a cheap way to animate, but it repaints the whole page each time. |
 | `visible(ctx)` | `false` when there's nothing to show: the widget is skipped in its tile's rotation. |
 | `urgent(ctx)` | `true` while it needs the user: it keeps its tile. |
 | `idle(ctx)` | `true` when there's nothing worth lighting the panel for (with *sleep when idle*, the panel goes black when every widget agrees). |
