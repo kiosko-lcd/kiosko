@@ -83,6 +83,8 @@ export function startServer(o: ServerOptions) {
   const clients = new Set<ServerResponse>();
   const thumbs = new Map<string, Buffer>();
   let restartNeeded = false;
+  /** Bumped on every save, so a stale editor tab can't overwrite newer changes. */
+  let rev = Date.now();
 
   const send = (event: string, data: unknown) => {
     const line = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
@@ -99,6 +101,7 @@ export function startServer(o: ServerOptions) {
     const locale = resolveLocale(runtime.config);
     return {
       version: o.version,
+      rev,
       locale,
       config: runtime.config,
       catalog: runtime.registry.catalog(locale),
@@ -125,10 +128,16 @@ export function startServer(o: ServerOptions) {
     if (p === '/api/state' && m === 'GET') return json(res, 200, state());
 
     if (p === '/api/config' && m === 'PUT') {
-      const cfg = normalize(await body(req));
+      const b = (await body(req)) as { config?: unknown; baseRev?: number };
+      // Old clients send the bare config; new ones say which revision they edited.
+      const raw = b && typeof b === 'object' && 'config' in b ? b.config : b;
+      if (typeof b?.baseRev === 'number' && b.baseRev !== rev) return json(res, 409, { error: 'the configuration changed elsewhere', rev, config: runtime.config });
+      const cfg = normalize(raw);
       saveConfig(cfg, o.configPath);
+      rev++;
       runtime.apply(cfg);
-      return json(res, 200, { ok: true, config: runtime.config });
+      send('config', { rev, by: req.headers['x-tessera-client'] ?? null });
+      return json(res, 200, { ok: true, rev, config: runtime.config });
     }
 
     if (p === '/api/events' && m === 'GET') {
@@ -229,7 +238,9 @@ export function startServer(o: ServerOptions) {
       else disabled.add(id);
       const cfg = { ...runtime.config, plugins: { disabled: [...disabled] } };
       saveConfig(cfg, o.configPath);
+      rev++;
       runtime.apply(cfg);
+      send('config', { rev, by: null });
       return json(res, 200, state());
     }
 

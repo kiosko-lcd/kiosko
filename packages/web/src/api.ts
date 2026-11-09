@@ -75,6 +75,7 @@ export interface Status {
 
 export interface AppState {
   version: string;
+  rev: number;
   locale: string;
   config: Config;
   catalog: PluginInfo[];
@@ -89,6 +90,8 @@ export interface AppState {
 }
 
 const H = { 'content-type': 'application/json', 'x-tessera': '1' };
+/** Identifies this tab, so it can ignore the "config changed" echo of its own saves. */
+export const CLIENT_ID = Math.random().toString(36).slice(2, 10);
 
 async function ok<T>(r: Response): Promise<T> {
   if (!r.ok) {
@@ -105,7 +108,14 @@ async function ok<T>(r: Response): Promise<T> {
 
 export const api = {
   state: () => fetch('/api/state').then((r) => ok<AppState>(r)),
-  saveConfig: (config: Config) => fetch('/api/config', { method: 'PUT', headers: H, body: JSON.stringify(config) }).then((r) => ok<{ ok: true; config: Config }>(r)),
+  async saveConfig(config: Config, baseRev: number): Promise<{ ok: true; rev: number } | { conflict: true; rev: number; config: Config }> {
+    const r = await fetch('/api/config', { method: 'PUT', headers: { ...H, 'x-tessera-client': CLIENT_ID }, body: JSON.stringify({ config, baseRev }) });
+    if (r.status === 409) {
+      const b = (await r.json()) as { rev: number; config: Config };
+      return { conflict: true, rev: b.rev, config: b.config };
+    }
+    return ok<{ ok: true; rev: number }>(r);
+  },
   async preview(screen: Screen, pageId: string, forceShown?: Record<string, string>, demo = true): Promise<{ url: string; tiles: { id: string; shown: string | null; error?: string }[] }> {
     const r = await fetch('/api/preview', { method: 'POST', headers: H, body: JSON.stringify({ screen, pageId, forceShown, demo }) });
     if (!r.ok) throw new Error(`preview ${r.status}`);
@@ -132,13 +142,14 @@ export interface FrameEvent {
 }
 
 /** Server-sent events, reconnecting on their own. */
-export function connectEvents(h: { frame?: (e: FrameEvent) => void; log?: (e: { at: number; scope: string; message: string }) => void; status?: (s: Status) => void; online?: (on: boolean) => void }): () => void {
+export function connectEvents(h: { config?: (e: { rev: number; by: string | null }) => void; frame?: (e: FrameEvent) => void; log?: (e: { at: number; scope: string; message: string }) => void; status?: (s: Status) => void; online?: (on: boolean) => void }): () => void {
   let es: EventSource | null = null;
   let closed = false;
   const open = () => {
     es = new EventSource('/api/events');
     es.addEventListener('hello', () => h.online?.(true));
     es.addEventListener('frame', (e) => h.frame?.(JSON.parse((e as MessageEvent).data)));
+    es.addEventListener('config', (e) => h.config?.(JSON.parse((e as MessageEvent).data)));
     es.addEventListener('log', (e) => h.log?.(JSON.parse((e as MessageEvent).data)));
     es.addEventListener('status', (e) => h.status?.(JSON.parse((e as MessageEvent).data)));
     es.onerror = () => {

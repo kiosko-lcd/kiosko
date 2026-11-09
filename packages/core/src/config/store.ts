@@ -2,7 +2,7 @@
  * Reading and writing the config file. The file holds secrets (calendar
  * URLs, tokens), so it's written with 0600 and atomically.
  */
-import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { paths } from '../paths.ts';
 import { suggestGrid } from '../layout/grid.ts';
@@ -66,6 +66,15 @@ export function loadConfig(path = paths.config): { config: Config; exists: boole
 
 export function saveConfig(config: Config, path = paths.config): void {
   mkdirSync(dirname(path), { recursive: true });
+  // One step back, always: a mistaken save is one `mv` away from undone.
+  if (existsSync(path)) {
+    try {
+      copyFileSync(path, `${path}.bak`);
+      chmodSync(`${path}.bak`, 0o600);
+    } catch {
+      /* best effort */
+    }
+  }
   const tmp = `${path}.tmp`;
   writeFileSync(tmp, `${JSON.stringify(config, null, 2)}\n`, { mode: 0o600 });
   renameSync(tmp, path);

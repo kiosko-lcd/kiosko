@@ -5,7 +5,7 @@
  */
 import { batch, computed, signal } from '@preact/signals';
 import type { Config, Page, Screen, Tile, WidgetInstance } from '@tessera/core/model';
-import { api, connectEvents, type AppState, type FrameEvent, type PluginInfo, type Status, type WidgetInfo } from './api.ts';
+import { CLIENT_ID, api, connectEvents, type AppState, type FrameEvent, type PluginInfo, type Status, type WidgetInfo } from './api.ts';
 
 export type View = 'editor' | 'screens' | 'plugins' | 'settings' | 'logs';
 
@@ -90,6 +90,8 @@ const future: string[] = [];
 export const canUndo = signal(false);
 export const canRedo = signal(false);
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
+/** Server revision of the config this tab is editing. */
+let rev = 0;
 
 function scheduleSave(): void {
   saving.value = 'pending';
@@ -99,7 +101,20 @@ function scheduleSave(): void {
     if (!c) return;
     saving.value = 'saving';
     try {
-      await api.saveConfig(c);
+      const r = await api.saveConfig(c, rev);
+      if ('conflict' in r) {
+        // Someone else (another tab, a hand edit) saved first: take theirs.
+        rev = r.rev;
+        config.value = r.config;
+        past.length = 0;
+        future.length = 0;
+        canUndo.value = false;
+        canRedo.value = false;
+        saving.value = 'idle';
+        notify(locale.value.startsWith('es') ? 'La configuración cambió en otra pestaña: recargada.' : 'The configuration changed in another tab: reloaded.', 'error');
+        return;
+      }
+      rev = r.rev;
       saving.value = 'saved';
       saveError.value = null;
     } catch (err) {
@@ -174,6 +189,7 @@ export async function boot(): Promise<void> {
   document.documentElement.dataset.theme = uiTheme.value;
   addEventListener('hashchange', () => (view.value = readView()));
   const s = await api.state();
+  rev = s.rev;
   batch(() => {
     app.value = s;
     config.value = s.config;
@@ -182,6 +198,16 @@ export async function boot(): Promise<void> {
     pageId.value = s.config.screens[0]?.pages[0]?.id ?? null;
   });
   connectEvents({
+    config: (e) => {
+      if (e.by === CLIENT_ID || e.rev <= rev) return;
+      // Changed elsewhere. With nothing pending here, follow it quietly.
+      if (saving.value === 'pending' || saving.value === 'saving') return;
+      void api.state().then((st) => {
+        rev = st.rev;
+        app.value = st;
+        config.value = st.config;
+      });
+    },
     frame: (f) => (lastFrame.value = { ...lastFrame.value, [f.screenId]: f }),
     log: (e) => (logs.value = [...logs.value.slice(-299), e]),
     status: (st) => (status.value = st),
