@@ -23,7 +23,10 @@ export function Screens() {
           <h1>{tr('screens.title')}</h1>
           <p class="muted">{tr('screens.subtitle')}</p>
         </div>
-        <AddScreen onAdd={add} />
+        <div class="row">
+          <ImportLayout />
+          <AddScreen onAdd={add} />
+        </div>
       </header>
       <div class="cards-col">
         {cfg.screens.map((s) => (
@@ -281,5 +284,47 @@ function LiveThumb({ s }: { s: Screen }) {
       {f?.interlude && <span class="live-badge"><Icon name="clapperboard" size={13} /> {tr('stage.interlude')}</span>}
       {f?.sleeping && <span class="live-badge"><Icon name="moon" size={13} /> {tr('stage.sleeping')}</span>}
     </div>
+  );
+}
+
+/** Re-ids everything so an imported layout never collides with what's there. */
+function freshIds(s: Screen): Screen {
+  const copy = JSON.parse(JSON.stringify(s)) as Screen;
+  copy.id = newId('screen');
+  for (const p of copy.pages) {
+    const old = p.id;
+    p.id = newId('page');
+    if (copy.pinnedPage === old) copy.pinnedPage = p.id;
+    for (const t of p.tiles) {
+      t.id = newId('tile');
+      for (const w of t.widgets) w.id = newId('w');
+    }
+  }
+  for (const i of copy.interludes ?? []) i.id = newId('interlude');
+  return copy;
+}
+
+function ImportLayout() {
+  return (
+    <label class="btn ghost" title={tr('screens.importHint')}>
+      <Icon name="upload" size={16} /> {tr('screens.import')}
+      <input type="file" accept="application/json,.json" hidden onChange={async (e) => {
+        const file = (e.target as HTMLInputElement).files?.[0];
+        (e.target as HTMLInputElement).value = '';
+        if (!file) return;
+        try {
+          const j = JSON.parse(await file.text()) as { tessera?: string; screen?: Screen };
+          if (j.tessera !== 'screen' || !j.screen?.pages) throw new Error(tr('screens.importBad'));
+          const s = freshIds({ ...j.screen, device: { driver: 'virtual' }, enabled: true });
+          edit((d) => d.screens.push(s));
+          screenId.value = s.id;
+          pageId.value = s.pages[0]?.id ?? null;
+          const missing = [...new Set(s.pages.flatMap((p) => p.tiles.flatMap((t) => t.widgets.map((w) => w.type))))].filter((t) => !app.value?.catalog.some((c) => c.widgets.some((w) => w.type === t)));
+          notify(missing.length ? `${tr('screens.imported')} ${tr('screens.importMissing')} ${missing.join(', ')}` : tr('screens.imported'), missing.length ? 'error' : 'ok');
+        } catch (err) {
+          notify(err instanceof Error ? err.message : String(err), 'error');
+        }
+      }} />
+    </label>
   );
 }
