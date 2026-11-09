@@ -11,6 +11,9 @@ Thanks for wanting to make Kiosko better.
   `npm run check && npm test`. For widgets, render them with
   `node --conditions=source scripts/render-widgets.ts --plugin <id>` and look
   at the PNGs at their smallest declared size.
+- **README screenshots:** `scripts/screenshots-docker.sh` retakes
+  `docs/img/*.jpg` from the showcase config in demo mode, inside the official
+  Playwright container (needs Docker; nothing is installed on your machine).
 
 Conventions: TypeScript run directly by Node (type stripping, so no enums,
 namespaces or constructor parameter properties), ESM only, `.ts` extensions
