@@ -167,5 +167,5 @@ export function importAimonitor(old: Old, reg: Registry): { config: Config; note
     sources,
     screens,
   });
-  return { config, notes };
+  return { config, notes: [...new Set(notes)] };
 }
