@@ -116,6 +116,8 @@ function scheduleSave(): void {
       }
       rev = r.rev;
       saving.value = 'saved';
+      // Plugin texts come translated in the catalogue: fetch it again in the new language.
+      if (c.locale !== app.value?.config.locale) await reloadState();
       saveError.value = null;
     } catch (err) {
       saving.value = 'error';
