@@ -1,6 +1,6 @@
 /** The editor view: library | stage + pages | inspector. */
-import { autoPack, compact, rescale, suggestGrid, type Gravity } from '@tessera/core/layout';
-import { newPage, type Page, type Screen } from '@tessera/core/model';
+import { autoPack, compact, rescale, suggestGrid, type Gravity } from '@kiosko/core/layout';
+import { newPage, type Page, type Screen } from '@kiosko/core/model';
 import { useEffect, useState } from 'preact/hooks';
 import { api } from '../api.ts';
 import { Icon } from '../icons.tsx';

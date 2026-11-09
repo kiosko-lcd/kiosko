@@ -1,5 +1,5 @@
 /**
- * Turns every folder in ../tessera-plugins into a publishable plugin repo:
+ * Turns every folder in ../kiosko-plugins into a publishable plugin repo:
  * package.json, esbuild build, tsconfig, CI, licence, .gitignore and a README
  * generated from the plugin definition itself (widgets, sources, options,
  * screenshots rendered with demo data). Safe to run again: it overwrites only
@@ -10,35 +10,35 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { Registry, composeWidget, normalize } from '@tessera/core';
-import { localize, themeById, type Field, type PluginDefinition } from '@tessera/sdk';
-import core from '@tessera/plugin-core';
+import { Registry, composeWidget, normalize } from '@kiosko/core';
+import { localize, themeById, type Field, type PluginDefinition } from '@kiosko/sdk';
+import core from '@kiosko/plugin-core';
 
 const args = process.argv.slice(2);
 const oi = args.indexOf('--owner');
 const owner = oi >= 0 && args[oi + 1] ? args[oi + 1]! : 'Loksly';
 const root = resolve(import.meta.dirname, '..');
-const pluginsRoot = resolve(root, '../tessera-plugins');
+const pluginsRoot = resolve(root, '../kiosko-plugins');
 const L = (x: Parameters<typeof localize>[0]) => localize(x, 'en');
 const rootPkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as { version: string };
 const VERSION = rootPkg.version;
 
-/** What each plugin needs outside Tessera, said once in its README. */
+/** What each plugin needs outside Kiosko, said once in its README. */
 const REQUIREMENTS: Record<string, string[]> = {
-  agents: ['A hook that writes agent session files. With Claude Code, add `agent-sessions-hook` (from [`@loksly/agent-sessions`](https://github.com/Loksly/tessera/tree/main/packages/agent-sessions)) to your `settings.json` hooks; sessions land in `~/.aimonitor/sessions` by default.'],
-  cats: ['The `agents/sessions` source from [tessera-plugin-agents](../tessera-plugin-agents) (each session is a cat).', 'Optional: `weather/current` from [tessera-plugin-weather](../tessera-plugin-weather) for the sky in the window.'],
+  agents: ['A hook that writes agent session files. With Claude Code, add `agent-sessions-hook` (from [`@loksly/agent-sessions`](https://github.com/kiosko-lcd/kiosko/tree/main/packages/agent-sessions)) to your `settings.json` hooks; sessions land in `~/.aimonitor/sessions` by default.'],
+  cats: ['The `agents/sessions` source from [kiosko-plugin-agents](../kiosko-plugin-agents) (each session is a cat).', 'Optional: `weather/current` from [kiosko-plugin-weather](../kiosko-plugin-weather) for the sky in the window.'],
   usage: ['[`ccusage`](https://github.com/ryoppippi/ccusage) on the `PATH` (`npm install -g ccusage`).'],
   gitlab: ['[`glab`](https://gitlab.com/gitlab-org/cli) logged in, or a personal access token with `read_api` in the source options.'],
   system: ['Works everywhere; CPU temperature and failed units are read on Linux only.'],
-  vitals: ['The `system/vitals` source from [tessera-plugin-system](../tessera-plugin-system).'],
-  weather: ['Your location in Tessera → Settings (Open-Meteo, no key needed).'],
+  vitals: ['The `system/vitals` source from [kiosko-plugin-system](../kiosko-plugin-system).'],
+  weather: ['Your location in Kiosko → Settings (Open-Meteo, no key needed).'],
   calendar: ['The ICS address of a published calendar (Outlook: *Settings → Calendar → Shared calendars → Publish*; Google: *Secret address in iCal format*). Treat it as a password.'],
   news: ['Internet access to the RSS feeds (Spanish outlets by default; any RSS/Atom feed with images works).'],
-  mirror: ['Location in Tessera → Settings for air quality, earthquakes and the rain radar. *Now playing* reads MPRIS (Linux).'],
+  mirror: ['Location in Kiosko → Settings for air quality, earthquakes and the rain radar. *Now playing* reads MPRIS (Linux).'],
 };
 
-/** Modules every plugin gets from the Tessera that loads it (see core/sdk-resolver.ts): never bundled. */
-const HOST = ['@tessera/sdk', '@loksly/lcd-canvas-kit', '@loksly/weather-astro', '@napi-rs/canvas'];
+/** Modules every plugin gets from the Kiosko that loads it (see core/sdk-resolver.ts): never bundled. */
+const HOST = ['@kiosko/sdk', '@loksly/lcd-canvas-kit', '@loksly/weather-astro', '@napi-rs/canvas'];
 
 function importsOf(dir: string): Set<string> {
   const out = new Set<string>();
@@ -53,8 +53,8 @@ function importsOf(dir: string): Set<string> {
 }
 
 const VERSIONS: Record<string, string> = {
-  '@tessera/sdk': `^${VERSION}`,
-  '@tessera/core': `^${VERSION}`,
+  '@kiosko/sdk': `^${VERSION}`,
+  '@kiosko/core': `^${VERSION}`,
   '@loksly/agent-sessions': '^0.1.0',
   '@loksly/lcd-canvas-kit': '^0.1.0',
   '@loksly/weather-astro': '^0.1.0',
@@ -106,7 +106,7 @@ jobs:
       - run: npm run build
 `;
 
-const buildMjs = `// Bundles the plugin into dist/index.js. What Tessera itself provides to
+const buildMjs = `// Bundles the plugin into dist/index.js. What Kiosko itself provides to
 // every plugin (the SDK, the drawing kit, the canvas) stays external: the
 // host resolves those imports to its own copies at load time.
 import { build } from 'esbuild';
@@ -151,7 +151,7 @@ registry.add(core);
 const loaded: { dir: string; def: PluginDefinition }[] = [];
 for (const name of readdirSync(pluginsRoot).sort()) {
   const dir = join(pluginsRoot, name);
-  if (!name.startsWith('tessera-plugin-') || !existsSync(join(dir, 'src', 'index.ts'))) continue;
+  if (!name.startsWith('kiosko-plugin-') || !existsSync(join(dir, 'src', 'index.ts'))) continue;
   const def = (await import(pathToFileURL(join(dir, 'src', 'index.ts')).href)).default as PluginDefinition;
   registry.add(def, dir);
   loaded.push({ dir, def });
@@ -165,9 +165,9 @@ for (const { dir, def } of loaded) {
   const id = def.id;
   const repo = basename(dir);
   const imports = importsOf(dir);
-  const devDependencies: Record<string, string> = { '@tessera/sdk': VERSIONS['@tessera/sdk']!, '@types/node': '^24.0.0', esbuild: '^0.25.0', typescript: '^5.9.3' };
-  for (const m of imports) if (VERSIONS[m] && m !== '@tessera/sdk') devDependencies[m] = VERSIONS[m]!;
-  if (imports.has('@napi-rs/canvas') || imports.has('@tessera/core')) devDependencies['@napi-rs/canvas'] = VERSIONS['@napi-rs/canvas']!;
+  const devDependencies: Record<string, string> = { '@kiosko/sdk': VERSIONS['@kiosko/sdk']!, '@types/node': '^24.0.0', esbuild: '^0.25.0', typescript: '^5.9.3' };
+  for (const m of imports) if (VERSIONS[m] && m !== '@kiosko/sdk') devDependencies[m] = VERSIONS[m]!;
+  if (imports.has('@napi-rs/canvas') || imports.has('@kiosko/core')) devDependencies['@napi-rs/canvas'] = VERSIONS['@napi-rs/canvas']!;
   const old = existsSync(join(dir, 'package.json')) ? (JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8')) as { description?: string }) : {};
   const pkg = {
     name: repo,
@@ -176,12 +176,12 @@ for (const { dir, def } of loaded) {
     type: 'module',
     license: 'MIT',
     author: 'Loksly',
-    keywords: ['tessera', 'tessera-plugin', 'lcd', 'widgets', ...new Set((def.widgets ?? []).map((w) => w.category ?? 'info'))],
+    keywords: ['kiosko', 'kiosko-plugin', 'lcd', 'widgets', ...new Set((def.widgets ?? []).map((w) => w.category ?? 'info'))],
     homepage: `https://github.com/${owner}/${repo}#readme`,
     repository: { type: 'git', url: `git+https://github.com/${owner}/${repo}.git` },
     bugs: { url: `https://github.com/${owner}/${repo}/issues` },
     exports: { '.': { source: './src/index.ts', default: './dist/index.js' } },
-    tessera: { plugin: './dist/index.js', id },
+    kiosko: { plugin: './dist/index.js', id },
     files: ['dist', 'README.md', 'LICENSE'],
     engines: { node: '>=22.18' },
     scripts: {
@@ -200,7 +200,7 @@ for (const { dir, def } of loaded) {
   mkdirSync(join(dir, '.github', 'workflows'), { recursive: true });
   writeFileSync(join(dir, '.github', 'workflows', 'ci.yml'), ciYml);
 
-  // Screenshots, painted with demo data by Tessera's own compositor.
+  // Screenshots, painted with demo data by Kiosko's own compositor.
   mkdirSync(join(dir, 'docs'), { recursive: true });
   const shots: string[] = [];
   for (const w of def.widgets ?? []) {
@@ -221,12 +221,12 @@ ${L(w.description)}
 ${w.sources?.length ? `Uses: ${w.sources.map((s) => `\`${s}\``).join(', ')}.\n\n` : ''}${optionsTable(w.options)}`);
   const sources = (def.sources ?? []).map((s) => `### ${L(s.name)} — \`${id}/${s.id}\`
 
-${L(s.description)}${s.intervalMs ? ` Read every ${s.intervalMs >= 60_000 ? `${s.intervalMs / 60_000} min` : `${s.intervalMs / 1000} s`} while a widget uses it.` : ''} Options are set once in Tessera → Settings → Data sources.
+${L(s.description)}${s.intervalMs ? ` Read every ${s.intervalMs >= 60_000 ? `${s.intervalMs / 60_000} min` : `${s.intervalMs / 1000} s`} while a widget uses it.` : ''} Options are set once in Kiosko → Settings → Data sources.
 
 ${optionsTable(s.options)}`);
   const interludes = (def.interludes ?? []).map((i) => `### ${L(i.name)} — \`${id}/${i.id}\`
 
-${L(i.description)} Add it in Tessera → Screens → Interludes.
+${L(i.description)} Add it in Kiosko → Screens → Interludes.
 
 ${optionsTable(i.options)}`);
   const req = REQUIREMENTS[id] ?? [];
@@ -234,19 +234,19 @@ ${optionsTable(i.options)}`);
 
 ${L(def.description)}
 
-A plugin for [Tessera](https://github.com/${owner}/tessera), the widget mosaic for small USB LCD panels.
+A plugin for [Kiosko](https://github.com/${owner}/kiosko), the widget mosaic for small USB LCD panels.
 
 ${shots[0] ?? ''}
 
 ## Install
 
-In Tessera, **Plugins → Install from npm** → \`${repo}\`, then restart Tessera. Or from a terminal:
+In Kiosko, **Plugins → Install from npm** → \`${repo}\`, then restart Kiosko. Or from a terminal:
 
 \`\`\`sh
-npm install --prefix ~/.config/tessera/plugins ${repo}
+npm install --prefix ~/.config/kiosko/plugins ${repo}
 \`\`\`
 
-(macOS: \`~/Library/Application Support/Tessera/plugins\`, Windows: \`%APPDATA%\\Tessera\\plugins\`.)
+(macOS: \`~/Library/Application Support/Kiosko/plugins\`, Windows: \`%APPDATA%\\Kiosko\\plugins\`.)
 ${req.length ? `\n## Requirements\n\n${req.map((r) => `- ${r}`).join('\n')}\n` : ''}
 ${widgets.length ? `## Widgets\n\n${widgets.join('\n')}` : ''}
 ${sources.length ? `## Data sources\n\n${sources.join('\n')}` : ''}
@@ -257,14 +257,14 @@ ${interludes.length ? `## Interludes\n\n${interludes.join('\n')}` : ''}
 npm install
 npm test          # node:test
 npm run check     # TypeScript
-npm run build     # dist/index.js, what Tessera loads
+npm run build     # dist/index.js, what Kiosko loads
 \`\`\`
 
-To try it in a running Tessera without publishing: \`tessera plugins link .\` and restart Tessera.
+To try it in a running Kiosko without publishing: \`kiosko plugins link .\` and restart Kiosko.
 
-Working on Tessera and its plugins together: clone them side by side
-(\`tessera/\` and \`tessera-plugins/${repo}/\`) and run \`npm install\` in
-\`tessera/\`; its workspaces link every plugin found in \`../tessera-plugins\`.
+Working on Kiosko and its plugins together: clone them side by side
+(\`kiosko/\` and \`kiosko-plugins/${repo}/\`) and run \`npm install\` in
+\`kiosko/\`; its workspaces link every plugin found in \`../kiosko-plugins\`.
 
 ## License
 

@@ -3,7 +3,7 @@
  * server-sent events (new frames, logs, status). No framework: node:http.
  *
  * It listens on 127.0.0.1 by default. Because the API can install plugins
- * (code), every mutating request must carry `X-Tessera: 1` (a custom header
+ * (code), every mutating request must carry `X-Kiosko: 1` (a custom header
  * a foreign web page can't send without a CORS preflight, which we never
  * grant) and the Host header must be the one we listen on (DNS rebinding).
  */
@@ -12,10 +12,10 @@ import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'no
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { createRequire } from 'node:module';
 import { dirname, extname, join, normalize as normPath, resolve } from 'node:path';
-import { THEMES } from '@tessera/sdk';
-import { CATEGORIES } from '@tessera/sdk';
+import { THEMES } from '@kiosko/sdk';
+import { CATEGORIES } from '@kiosko/sdk';
 import { OFFICIAL_PLUGINS } from './builtin.ts';
-import { PANEL_PRESETS, discoverTrcc, normalize, paths, resolveLocale, saveConfig, type Config, type FrameInfo, type Runtime, type Screen } from '@tessera/core';
+import { PANEL_PRESETS, discoverTrcc, normalize, paths, resolveLocale, saveConfig, type Config, type FrameInfo, type Runtime, type Screen } from '@kiosko/core';
 
 const require = createRequire(import.meta.url);
 
@@ -46,7 +46,7 @@ function webRoot(): string {
   const bundled = join(import.meta.dirname, 'web');
   if (existsSync(join(bundled, 'index.html'))) return bundled;
   try {
-    return join(dirname(require.resolve('@tessera/web/package.json')), 'dist');
+    return join(dirname(require.resolve('@kiosko/web/package.json')), 'dist');
   } catch {
     return resolve(import.meta.dirname, '../../web/dist');
   }
@@ -125,7 +125,7 @@ export function startServer(o: ServerOptions) {
   async function api(req: IncomingMessage, res: ServerResponse, url: URL): Promise<void> {
     const p = url.pathname;
     const m = req.method ?? 'GET';
-    if (m !== 'GET' && req.headers['x-tessera'] !== '1') return json(res, 403, { error: 'missing X-Tessera header' });
+    if (m !== 'GET' && req.headers['x-kiosko'] !== '1') return json(res, 403, { error: 'missing X-Kiosko header' });
 
     if (p === '/api/state' && m === 'GET') return json(res, 200, state());
 
@@ -138,7 +138,7 @@ export function startServer(o: ServerOptions) {
       saveConfig(cfg, o.configPath);
       rev++;
       runtime.apply(cfg);
-      send('config', { rev, by: req.headers['x-tessera-client'] ?? null });
+      send('config', { rev, by: req.headers['x-kiosko-client'] ?? null });
       return json(res, 200, { ok: true, rev, config: runtime.config });
     }
 
@@ -160,7 +160,7 @@ export function startServer(o: ServerOptions) {
       const f = runtime.lastFrame(decodeURIComponent(mm[1]!));
       if (!f) return json(res, 404, { error: 'no frame yet' });
       const buf = f.image();
-      res.writeHead(200, { 'content-type': 'image/jpeg', 'cache-control': 'no-store', 'content-length': String(buf.length), 'x-tessera-at': String(f.at) });
+      res.writeHead(200, { 'content-type': 'image/jpeg', 'cache-control': 'no-store', 'content-length': String(buf.length), 'x-kiosko-at': String(f.at) });
       return void res.end(buf);
     }
 
@@ -172,7 +172,7 @@ export function startServer(o: ServerOptions) {
       const page = screen.pages.find((x) => x.id === b.pageId) ?? screen.pages[0];
       if (!page) return json(res, 400, { error: 'no page' });
       const r = runtime.preview(screen, page, { ...(b.forceShown ? { forceShown: b.forceShown } : {}), demo: b.demo ?? true });
-      return png(res, r.canvas.toBuffer('image/png'), { 'x-tessera-tiles': encodeURIComponent(JSON.stringify(r.tiles)) });
+      return png(res, r.canvas.toBuffer('image/png'), { 'x-kiosko-tiles': encodeURIComponent(JSON.stringify(r.tiles)) });
     }
 
     if (p === '/api/thumbnail' && m === 'GET') {
@@ -223,7 +223,7 @@ export function startServer(o: ServerOptions) {
       if (!/^(@[a-z0-9][\w.-]*\/)?[a-z0-9][\w.-]*(@[\w.^~<>=-]+)?$/i.test(name)) return json(res, 400, { error: 'not a valid npm package name' });
       mkdirSync(paths.plugins, { recursive: true });
       const pkg = join(paths.plugins, 'package.json');
-      if (!existsSync(pkg)) writeFileSync(pkg, JSON.stringify({ name: 'tessera-user-plugins', private: true, type: 'module' }, null, 2));
+      if (!existsSync(pkg)) writeFileSync(pkg, JSON.stringify({ name: 'kiosko-user-plugins', private: true, type: 'module' }, null, 2));
       const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
       execFile(npm, ['install', '--no-audit', '--no-fund', '--ignore-scripts', name], { cwd: paths.plugins, timeout: 180_000, shell: process.platform === 'win32' }, (err, stdout, stderr) => {
         if (err) return json(res, 500, { error: (stderr || err.message).slice(-2000) });
@@ -252,8 +252,8 @@ export function startServer(o: ServerOptions) {
       const id = url.searchParams.get('id') ?? '';
       const s = findScreen(runtime.config, id);
       if (!s || !safeId(id)) return json(res, 404, { error: 'unknown screen' });
-      res.writeHead(200, { 'content-type': 'application/json', 'content-disposition': `attachment; filename="tessera-${id}.json"` });
-      return void res.end(JSON.stringify({ tessera: 'screen', version: 1, screen: { ...s, device: { driver: 'virtual' } } }, null, 2));
+      res.writeHead(200, { 'content-type': 'application/json', 'content-disposition': `attachment; filename="kiosko-${id}.json"` });
+      return void res.end(JSON.stringify({ kiosko: 'screen', version: 1, screen: { ...s, device: { driver: 'virtual' } } }, null, 2));
     }
 
     return json(res, 404, { error: 'not found' });

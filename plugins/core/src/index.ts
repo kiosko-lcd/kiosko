@@ -2,7 +2,7 @@
  * Basic widgets that every panel wants: a clock, the date, a note, a picture.
  * Also the reference for plugin authors: small, typed and with demo data.
  */
-import { definePlugin, defineWidget, t, type Graphics, type RenderContext } from '@tessera/sdk';
+import { definePlugin, defineWidget, t, type Graphics, type RenderContext } from '@kiosko/sdk';
 
 const pad2 = (n: number) => String(n).padStart(2, '0');
 
@@ -178,7 +178,7 @@ export default definePlugin({
   name: { en: 'Essentials', es: 'Básicos' },
   version: '0.1.0',
   description: { en: 'Clock, date, notes and pictures.', es: 'Reloj, fecha, notas e imágenes.' },
-  author: 'Tessera',
+  author: 'Kiosko',
   license: 'MIT',
   icon: 'box',
   widgets: [clock, date, text, image],

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Pushes Tessera and every plugin repo to GitHub.
+# Pushes Kiosko and every plugin repo to GitHub.
 #
 #   scripts/publish-github.sh <owner> [--create]
 #
@@ -12,11 +12,11 @@ set -euo pipefail
 owner="${1:?usage: scripts/publish-github.sh <owner> [--create]}"
 create="${2:-}"
 root="$(cd "$(dirname "$0")/.." && pwd)"
-plugins="$(cd "$root/../tessera-plugins" 2>/dev/null && pwd || true)"
+plugins="$(cd "$root/../kiosko-plugins" 2>/dev/null && pwd || true)"
 
 repos=("$root")
 if [[ -n "$plugins" ]]; then
-  for d in "$plugins"/tessera-plugin-*/; do repos+=("${d%/}"); done
+  for d in "$plugins"/kiosko-plugin-*/; do repos+=("${d%/}"); done
 fi
 
 echo "Owner: $owner"

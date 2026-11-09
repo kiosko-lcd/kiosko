@@ -1,6 +1,6 @@
 /**
  * A form generated from a plugin's options schema (JSON Schema + `x-ui`
- * hints from @tessera/sdk's `t` builder). Plugins get a good editor for free.
+ * hints from @kiosko/sdk's `t` builder). Plugins get a good editor for free.
  */
 import { useState } from 'preact/hooks';
 import type { JsonSchema } from '../api.ts';

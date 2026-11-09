@@ -1,6 +1,6 @@
 {
-  "name": "Tessera",
-  "short_name": "Tessera",
+  "name": "Kiosko",
+  "short_name": "Kiosko",
   "description": "Widget mosaic for small USB LCD panels",
   "start_url": "/",
   "display": "standalone",

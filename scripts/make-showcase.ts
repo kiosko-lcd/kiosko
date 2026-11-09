@@ -5,7 +5,7 @@
  *   node --conditions=source packages/server/src/cli.ts start --config examples/showcase.json --demo
  */
 import { writeFileSync } from 'node:fs';
-import { normalize, type Page, type Screen, type Tile, type WidgetInstance } from '@tessera/core';
+import { normalize, type Page, type Screen, type Tile, type WidgetInstance } from '@kiosko/core';
 
 let n = 0;
 const id = (p: string) => `${p}-${(++n).toString(36).padStart(2, '0')}`;

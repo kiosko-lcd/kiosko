@@ -1,12 +1,12 @@
 /**
- * `tessera gallery --out dir`: every widget of every installed plugin,
+ * `kiosko gallery --out dir`: every widget of every installed plugin,
  * painted with its demo data, plus an index.html. For GitHub Pages and for
  * plugin authors who want to see their widgets next to the others.
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { composeWidget, normalize, type Registry } from '@tessera/core';
-import { localize, themeById } from '@tessera/sdk';
+import { composeWidget, normalize, type Registry } from '@kiosko/core';
+import { localize, themeById } from '@kiosko/sdk';
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 
@@ -36,7 +36,7 @@ export function buildGallery(registry: Registry, o: { out: string; locale?: stri
   }
   writeFileSync(
     join(o.out, 'index.html'),
-    `<!doctype html><html lang="${locale}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Tessera widget gallery</title>
+    `<!doctype html><html lang="${locale}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Kiosko widget gallery</title>
 <style>
 :root{color-scheme:dark;--bg:#0a0d13;--panel:#121722;--line:rgba(255,255,255,.08);--text:#e7ecf4;--dim:#a3adbf}
 body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
@@ -48,7 +48,7 @@ figure{margin:0;background:var(--panel);border:1px solid var(--line);border-radi
 figure .shot{background:#000;display:grid;place-items:center;padding:8px}figure img{display:block;max-width:100%;height:auto}figcaption{padding:10px 12px;display:flex;flex-wrap:wrap;gap:4px 8px;align-items:baseline}
 figcaption code{color:#22d3ee;font-size:12px}figcaption span{flex-basis:100%;color:var(--dim);font-size:13px}
 a{color:#22d3ee}
-</style></head><body><header><h1>Tessera widget gallery</h1><p>${count} widgets, painted with their demo data by the same code that drives the panels. <a href="https://github.com/Loksly/tessera">Tessera on GitHub</a></p></header><main>${sections.join('')}</main></body></html>`,
+</style></head><body><header><h1>Kiosko widget gallery</h1><p>${count} widgets, painted with their demo data by the same code that drives the panels. <a href="https://github.com/kiosko-lcd/kiosko">Kiosko on GitHub</a></p></header><main>${sections.join('')}</main></body></html>`,
   );
   return count;
 }

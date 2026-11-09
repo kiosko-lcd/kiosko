@@ -1,7 +1,7 @@
 {
-  "name": "@tessera/web",
+  "name": "@kiosko/web",
   "version": "0.1.0",
-  "description": "Tessera visual editor (static files served by @tessera/server).",
+  "description": "Kiosko visual editor (static files served by @kiosko/server).",
   "type": "module",
   "license": "MIT",
   "files": [

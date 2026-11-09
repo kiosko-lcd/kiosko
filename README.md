@@ -1,4 +1,4 @@
-# Tessera
+# Kiosko
 
 **A widget mosaic for small always-on USB LCD panels**: Thermalright Trofeo
 Vision and its 1920×462 siblings, square AIO screens, cheap 320×240 displays…
@@ -7,7 +7,7 @@ and let a tiny daemon keep the panel up to date.
 
 > 🇪🇸 Documento de diseño en castellano: [docs/es/plan.md](docs/es/plan.md)
 
-![The Tessera editor: a 1920×462 panel with the cats room and a stack of cards](docs/img/editor-cats.jpg)
+![The Kiosko editor: a 1920×462 panel with the cats room and a stack of cards](docs/img/editor-cats.jpg)
 
 - **Visual editor in your browser.** Drag widgets onto a to-scale picture of
   your panel, resize them on the grid, drop one onto another to stack them.
@@ -30,7 +30,7 @@ and let a tiny daemon keep the panel up to date.
 ## Try it in 30 seconds
 
 ```sh
-git clone https://github.com/Loksly/tessera && cd tessera
+git clone https://github.com/kiosko-lcd/kiosko && cd kiosko
 npm install
 npm run web:build
 node --conditions=source packages/server/src/cli.ts start --config examples/showcase.json --demo --open
@@ -42,9 +42,9 @@ machine, so you can explore the editor before connecting a panel.
 ## Quick start
 
 ```sh
-npm install -g tessera-lcd     # Node.js 22.18 or newer
-tessera start --open           # editor at http://127.0.0.1:7420
-tessera service install        # optional: start it with your session
+npm install -g kiosko     # Node.js 22.18 or newer
+kiosko start --open           # editor at http://127.0.0.1:7420
+kiosko service install        # optional: start it with your session
 ```
 
 From a clone: `npm install && npm run dev`.
@@ -57,7 +57,7 @@ screen**, pick your panel model and its connection:
 |---|---|
 | **Virtual** | No hardware: the editor shows it, nothing else. |
 | **trcc serve** | Linux with [thermalright-trcc-linux](https://github.com/Lexonight1/thermalright-trcc-linux) running `trcc serve`. |
-| **Frame file** | Tessera writes `frame.jpg` atomically; an external sender (e.g. one bound to a USB serial number, for several identical panels) pushes it to the glass. |
+| **Frame file** | Kiosko writes `frame.jpg` atomically; an external sender (e.g. one bound to a USB serial number, for several identical panels) pushes it to the glass. |
 
 ## Concepts
 
@@ -78,35 +78,35 @@ masonry-style.
 
 ## Plugins
 
-Two plugins ship inside Tessera: `core` (clock, calendar day, text note,
+Two plugins ship inside Kiosko: `core` (clock, calendar day, text note,
 picture) and `legacy` (runs [aimonitor](https://github.com/Loksly/aimonitor)
 custom modules unchanged). The official ones live in their own repositories
-and come with `npm install -g tessera-lcd`; add or remove them from the
-editor's **Plugins** page or with `tessera plugins add <id>`.
+and come with `npm install -g kiosko`; add or remove them from the
+editor's **Plugins** page or with `kiosko plugins add <id>`.
 
 | Plugin | Gives you |
 |---|---|
-| [agents](https://github.com/Loksly/tessera-plugin-agents) | Claude Code / Gemini CLI sessions as tiles that light up when they need you, a status strip, and the 8-bit runner interlude |
-| [cats](https://github.com/Loksly/tessera-plugin-cats) | the cats room: each agent session is a cat; whatever needs you walks to the front |
-| [usage](https://github.com/Loksly/tessera-plugin-usage) | Claude usage from `ccusage`: limit windows, tokens by model, 5-hour block spend |
-| [system](https://github.com/Loksly/tessera-plugin-system), [vitals](https://github.com/Loksly/tessera-plugin-vitals) | CPU, cores, temperature, RAM, disks, failed units |
-| [weather](https://github.com/Loksly/tessera-plugin-weather) | current weather and forecast (Open-Meteo, no key) |
-| [calendar](https://github.com/Loksly/tessera-plugin-calendar) | next meeting countdown and today's agenda from published ICS calendars |
-| [news](https://github.com/Loksly/tessera-plugin-news) | headlines from RSS feeds with press photos, grouped across outlets |
-| [mirror](https://github.com/Loksly/tessera-plugin-mirror) | countdown, compliments, tasks, now playing, on this day, air quality, earthquakes, rain radar |
-| [gitlab](https://github.com/Loksly/tessera-plugin-gitlab) | pipelines and merge requests waiting for your review |
+| [agents](https://github.com/kiosko-lcd/kiosko-plugin-agents) | Claude Code / Gemini CLI sessions as tiles that light up when they need you, a status strip, and the 8-bit runner interlude |
+| [cats](https://github.com/kiosko-lcd/kiosko-plugin-cats) | the cats room: each agent session is a cat; whatever needs you walks to the front |
+| [usage](https://github.com/kiosko-lcd/kiosko-plugin-usage) | Claude usage from `ccusage`: limit windows, tokens by model, 5-hour block spend |
+| [system](https://github.com/kiosko-lcd/kiosko-plugin-system), [vitals](https://github.com/kiosko-lcd/kiosko-plugin-vitals) | CPU, cores, temperature, RAM, disks, failed units |
+| [weather](https://github.com/kiosko-lcd/kiosko-plugin-weather) | current weather and forecast (Open-Meteo, no key) |
+| [calendar](https://github.com/kiosko-lcd/kiosko-plugin-calendar) | next meeting countdown and today's agenda from published ICS calendars |
+| [news](https://github.com/kiosko-lcd/kiosko-plugin-news) | headlines from RSS feeds with press photos, grouped across outlets |
+| [mirror](https://github.com/kiosko-lcd/kiosko-plugin-mirror) | countdown, compliments, tasks, now playing, on this day, air quality, earthquakes, rain radar |
+| [gitlab](https://github.com/kiosko-lcd/kiosko-plugin-gitlab) | pipelines and merge requests waiting for your review |
 
-Every official widget, painted with its sample data: run `tessera gallery`
+Every official widget, painted with its sample data: run `kiosko gallery`
 (published to GitHub Pages by the `Gallery` workflow).
 
 ## Write a widget
 
-Put this in `~/.config/tessera/plugins/hello/index.js` (macOS:
-`~/Library/Application Support/Tessera/plugins`, Windows:
-`%APPDATA%\Tessera\plugins`) and restart:
+Put this in `~/.config/kiosko/plugins/hello/index.js` (macOS:
+`~/Library/Application Support/Kiosko/plugins`, Windows:
+`%APPDATA%\Kiosko\plugins`) and restart:
 
 ```js
-import { definePlugin, defineWidget, t } from '@tessera/sdk';
+import { definePlugin, defineWidget, t } from '@kiosko/sdk';
 
 export default definePlugin({
   id: 'hello',
@@ -137,17 +137,17 @@ urgency, idle, interludes and themes.
 ## Command line
 
 ```
-tessera start [--port 7420] [--host 127.0.0.1] [--open]
-tessera render [--screen name] [--page name] [--out frame.png] [--live]
-tessera import-aimonitor [--from ~/.aimonitor/config.json] [--write]
-tessera doctor
-tessera plugins [list|add <id>|link <folder>|remove <id>]
-tessera service install      # start with your session (systemd / launchd / Task Scheduler)
+kiosko start [--port 7420] [--host 127.0.0.1] [--open]
+kiosko render [--screen name] [--page name] [--out frame.png] [--live]
+kiosko import-aimonitor [--from ~/.aimonitor/config.json] [--write]
+kiosko doctor
+kiosko plugins [list|add <id>|link <folder>|remove <id>]
+kiosko service install      # start with your session (systemd / launchd / Task Scheduler)
 ```
 
 ## Coming from aimonitor
 
-`tessera import-aimonitor --write` converts `~/.aimonitor/config.json`: the
+`kiosko import-aimonitor --write` converts `~/.aimonitor/config.json`: the
 dashboard and the cats room become two pages of one screen (pinned or
 alternating as before), each extra screen keeps its columns as stacks, the
 quarter-hour runner becomes an interlude and your own modules run through the
@@ -156,7 +156,7 @@ quarter-hour runner becomes an interlude and your own modules run through the
 ## Security
 
 The editor listens on `127.0.0.1` only. Mutating requests need an
-`X-Tessera: 1` header (a foreign web page can't send it without a CORS
+`X-Kiosko: 1` header (a foreign web page can't send it without a CORS
 preflight, which is never granted) and the `Host` header is checked against
 DNS rebinding. Plugins run with your user's permissions: install only what
 you trust. `config.json` is written with mode 0600 because widget options may
@@ -178,16 +178,16 @@ libraries `agent-sessions`, `trcc-client`, `weather-astro` and
 `lcd-canvas-kit`, and `contrib/usb-sender` (one USB sender per panel by serial
 number, for several identical panels).
 
-To work on Tessera and the official plugins together, clone them side by side
+To work on Kiosko and the official plugins together, clone them side by side
 and link them:
 
 ```sh
-git clone https://github.com/Loksly/tessera
-mkdir tessera-plugins && cd tessera-plugins
+git clone https://github.com/kiosko-lcd/kiosko
+mkdir kiosko-plugins && cd kiosko-plugins
 for p in agents cats system vitals usage weather calendar news mirror gitlab; do
-  git clone https://github.com/Loksly/tessera-plugin-$p
+  git clone https://github.com/kiosko-lcd/kiosko-plugin-$p
 done
-cd ../tessera && npm install && npm run dev:link
+cd ../kiosko && npm install && npm run dev:link
 ```
 
 ## License

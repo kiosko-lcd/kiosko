@@ -1,10 +1,10 @@
 /**
- * `tessera service install|uninstall|print`: start Tessera with the session,
+ * `kiosko service install|uninstall|print`: start Kiosko with the session,
  * the native way on each OS.
  *
- *   Linux    systemd user unit  ~/.config/systemd/user/tessera.service
- *   macOS    LaunchAgent        ~/Library/LaunchAgents/dev.tessera.plist
- *   Windows  Scheduled task "Tessera" at logon (schtasks), hidden window
+ *   Linux    systemd user unit  ~/.config/systemd/user/kiosko.service
+ *   macOS    LaunchAgent        ~/Library/LaunchAgents/dev.kiosko.plist
+ *   Windows  Scheduled task "Kiosko" at logon (schtasks), hidden window
  *
  * The command line is built from the running Node and CLI paths, so it keeps
  * working with nvm, Homebrew or a portable Node.
@@ -38,12 +38,12 @@ export function servicePlan(o: { node?: string; cli?: string; args?: string[]; e
   const path = [dirname(node), join(homedir(), '.local', 'bin'), ...(os === 'darwin' ? ['/opt/homebrew/bin'] : []), '/usr/local/bin', '/usr/bin', '/bin'].join(sep);
   const env = { ...(os === 'win32' ? {} : { PATH: path }), ...(o.env ?? {}) };
   if (os === 'darwin') {
-    const file = join(homedir(), 'Library', 'LaunchAgents', 'dev.tessera.plist');
+    const file = join(homedir(), 'Library', 'LaunchAgents', 'dev.kiosko.plist');
     const content = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>Label</key><string>dev.tessera</string>
+  <key>Label</key><string>dev.kiosko</string>
   <key>ProgramArguments</key>
   <array>
 ${[node, ...args].map((a) => `    <string>${xml(a)}</string>`).join('\n')}
@@ -55,8 +55,8 @@ ${Object.entries(env).map(([k, v]) => `    <key>${xml(k)}</key><string>${xml(v)}
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>
   <key>ProcessType</key><string>Background</string>
-  <key>StandardOutPath</key><string>${xml(join(homedir(), 'Library', 'Logs', 'tessera.log'))}</string>
-  <key>StandardErrorPath</key><string>${xml(join(homedir(), 'Library', 'Logs', 'tessera.log'))}</string>
+  <key>StandardOutPath</key><string>${xml(join(homedir(), 'Library', 'Logs', 'kiosko.log'))}</string>
+  <key>StandardErrorPath</key><string>${xml(join(homedir(), 'Library', 'Logs', 'kiosko.log'))}</string>
 </dict>
 </plist>
 `;
@@ -67,21 +67,21 @@ ${Object.entries(env).map(([k, v]) => `    <key>${xml(k)}</key><string>${xml(v)}
     return {
       kind: 'schtasks',
       content: cmd,
-      enable: [['schtasks', '/Create', '/F', '/SC', 'ONLOGON', '/RL', 'LIMITED', '/TN', 'Tessera', '/TR', cmd], ['schtasks', '/Run', '/TN', 'Tessera']],
-      disable: [['schtasks', '/End', '/TN', 'Tessera'], ['schtasks', '/Delete', '/F', '/TN', 'Tessera']],
+      enable: [['schtasks', '/Create', '/F', '/SC', 'ONLOGON', '/RL', 'LIMITED', '/TN', 'Kiosko', '/TR', cmd], ['schtasks', '/Run', '/TN', 'Kiosko']],
+      disable: [['schtasks', '/End', '/TN', 'Kiosko'], ['schtasks', '/Delete', '/F', '/TN', 'Kiosko']],
     };
   }
-  const file = join(process.env.XDG_CONFIG_HOME ?? join(homedir(), '.config'), 'systemd', 'user', 'tessera.service');
+  const file = join(process.env.XDG_CONFIG_HOME ?? join(homedir(), '.config'), 'systemd', 'user', 'kiosko.service');
   const q = (a: string) => (/[\s"\\]/.test(a) ? `"${a.replace(/(["\\])/g, '\\$1')}"` : a);
   const content = `[Unit]
-Description=Tessera: widgets for USB LCD panels
+Description=Kiosko: widgets for USB LCD panels
 After=network-online.target
 
 [Service]
 Type=simple
 ExecStart=${[node, ...args].map(q).join(' ')}
 ${Object.entries(env).map(([k, v]) => `Environment=${k}=${q(v)}`).join('\n')}
-# Logs go to the journal: journalctl --user -u tessera
+# Logs go to the journal: journalctl --user -u kiosko
 Restart=always
 RestartSec=5
 # Painting is cheap but bursty; keep it from competing with your work.
@@ -90,7 +90,7 @@ Nice=10
 [Install]
 WantedBy=default.target
 `;
-  return { kind: 'systemd', file, content, enable: [['systemctl', '--user', 'daemon-reload'], ['systemctl', '--user', 'enable', '--now', 'tessera.service']], disable: [['systemctl', '--user', 'disable', '--now', 'tessera.service']] };
+  return { kind: 'systemd', file, content, enable: [['systemctl', '--user', 'daemon-reload'], ['systemctl', '--user', 'enable', '--now', 'kiosko.service']], disable: [['systemctl', '--user', 'disable', '--now', 'kiosko.service']] };
 }
 
 export function runService(action: string, plan: ServicePlan): void {
@@ -107,7 +107,7 @@ export function runService(action: string, plan: ServicePlan): void {
       console.log(`written ${plan.file}`);
     }
     for (const c of plan.enable) execFileSync(c[0]!, c.slice(1), { stdio: 'inherit' });
-    console.log('Tessera will start with your session. Editor: http://127.0.0.1:7420/');
+    console.log('Kiosko will start with your session. Editor: http://127.0.0.1:7420/');
     return;
   }
   if (action === 'uninstall') {
@@ -122,5 +122,5 @@ export function runService(action: string, plan: ServicePlan): void {
     console.log('removed');
     return;
   }
-  console.log('usage: tessera service install|uninstall|print');
+  console.log('usage: kiosko service install|uninstall|print');
 }

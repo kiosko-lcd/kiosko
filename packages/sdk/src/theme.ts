@@ -45,10 +45,10 @@ export interface Theme {
 
 /** Font families registered by the runtime (see core/fonts.ts). */
 export const FONT_FAMILIES: ThemeFonts = {
-  sans: 'TesseraSans',
-  sansBold: 'TesseraSansBold',
-  mono: 'TesseraMono',
-  monoBold: 'TesseraMonoBold',
+  sans: 'KioskoSans',
+  sansBold: 'KioskoSansBold',
+  mono: 'KioskoMono',
+  monoBold: 'KioskoMonoBold',
 };
 
 const base = { fonts: FONT_FAMILIES, radius: 12, titleSize: 30 };

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-# Tessera USB frame sender (from aimonitor's scripts/news-sender.py). It
+# Kiosko USB frame sender (from aimonitor's scripts/news-sender.py). It
 # keeps ONE panel, chosen by USB serial number, showing the `frame.jpg` that
-# Tessera's "file" connection writes. See README.md next to this file.
+# Kiosko's "file" connection writes. See README.md next to this file.
 """Mantiene el panel de noticias encendido con el último fotograma compuesto.
 
 Por qué existe este proceso, y por qué es de Python
@@ -64,13 +64,13 @@ más. Es lo que se retrasa, como mucho, un fotograma de una animación."""
 RECONNECT_WAIT_S = 3.0
 MAX_CONSECUTIVE_FAILURES = 40
 
-log = logging.getLogger("tessera.sender")
+log = logging.getLogger("kiosko.sender")
 
 
 def state_dir() -> Path:
-    # Tessera: one folder per panel, ~/.config/tessera/senders/<name>.
-    if os.environ.get("TESSERA_SENDER_DIR"):
-        return Path(os.environ["TESSERA_SENDER_DIR"])
+    # Kiosko: one folder per panel, ~/.config/kiosko/senders/<name>.
+    if os.environ.get("KIOSKO_SENDER_DIR"):
+        return Path(os.environ["KIOSKO_SENDER_DIR"])
     base = os.environ.get("AIMONITOR_DIR") or str(Path.home() / ".aimonitor")
     return Path(os.environ.get("AIMONITOR_NEWS_DIR") or str(Path(base) / "news"))
 

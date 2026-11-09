@@ -1,4 +1,4 @@
-// Bundles the editor with esbuild into dist/ (served by @tessera/server).
+// Bundles the editor with esbuild into dist/ (served by @kiosko/server).
 import { build, context } from 'esbuild';
 import { cpSync, mkdirSync, rmSync } from 'node:fs';
 import { dirname, join } from 'node:path';

@@ -1,7 +1,7 @@
 /** Screens (physical panels): connection, resolution, rotation, burn-in care and interludes. */
 import { useState } from 'preact/hooks';
-import { rescale, suggestGrid } from '@tessera/core/layout';
-import { newId, newScreen, type DeviceConfig, type Screen } from '@tessera/core/model';
+import { rescale, suggestGrid } from '@kiosko/core/layout';
+import { newId, newScreen, type DeviceConfig, type Screen } from '@kiosko/core/model';
 import { api } from '../api.ts';
 import { DurationInput, SchemaForm, Toggle } from '../forms/SchemaForm.tsx';
 import { Icon } from '../icons.tsx';
@@ -164,7 +164,7 @@ function ScreenCard({ s }: { s: Screen }) {
           <label class="field-label">{tr('screens.driver')}</label>
           <div class="segmented">
             {(['virtual', 'trcc', 'file'] as const).map((d) => (
-              <button class={dev.driver === d ? 'on' : ''} onClick={() => setDevice(d === 'trcc' ? { driver: 'trcc', url: 'http://127.0.0.1:8099' } : d === 'file' ? { driver: 'file', dir: '~/.config/tessera/frames/' + s.id } : { driver: 'virtual' })}>
+              <button class={dev.driver === d ? 'on' : ''} onClick={() => setDevice(d === 'trcc' ? { driver: 'trcc', url: 'http://127.0.0.1:8099' } : d === 'file' ? { driver: 'file', dir: '~/.config/kiosko/frames/' + s.id } : { driver: 'virtual' })}>
                 <Icon name={d === 'virtual' ? 'monitor' : d === 'trcc' ? 'usb' : 'file-image'} size={13} /> {tr(`driver.${d}`)}
               </button>
             ))}
@@ -313,8 +313,8 @@ function ImportLayout() {
         (e.target as HTMLInputElement).value = '';
         if (!file) return;
         try {
-          const j = JSON.parse(await file.text()) as { tessera?: string; screen?: Screen };
-          if (j.tessera !== 'screen' || !j.screen?.pages) throw new Error(tr('screens.importBad'));
+          const j = JSON.parse(await file.text()) as { kiosko?: string; screen?: Screen };
+          if (j.kiosko !== 'screen' || !j.screen?.pages) throw new Error(tr('screens.importBad'));
           const s = freshIds({ ...j.screen, device: { driver: 'virtual' }, enabled: true });
           edit((d) => d.screens.push(s));
           screenId.value = s.id;

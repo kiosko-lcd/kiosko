@@ -5,7 +5,7 @@
 import { mkdirSync } from 'node:fs';
 import { createCanvas, loadImage } from '@napi-rs/canvas';
 import * as kit from '@loksly/lcd-canvas-kit';
-import { localize, type BaseContext, type CanvasApi, type Localized } from '@tessera/sdk';
+import { localize, type BaseContext, type CanvasApi, type Localized } from '@kiosko/sdk';
 import type { Config } from './config/model.ts';
 import { paths } from './paths.ts';
 

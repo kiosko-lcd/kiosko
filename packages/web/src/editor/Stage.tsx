@@ -5,8 +5,8 @@
  */
 import { useComputed, useSignal, useSignalEffect } from '@preact/signals';
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { cellsFor, collisions, fit, inBounds, place, toPx, type GridItem, type Rect } from '@tessera/core/layout';
-import { newTile, newWidget, type Page, type Tile } from '@tessera/core/model';
+import { cellsFor, collisions, fit, inBounds, place, toPx, type GridItem, type Rect } from '@kiosko/core/layout';
+import { newTile, newWidget, type Page, type Tile } from '@kiosko/core/model';
 import { api } from '../api.ts';
 import { Icon } from '../icons.tsx';
 import { tr } from '../i18n.ts';

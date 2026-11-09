@@ -1,4 +1,4 @@
-# Writing Tessera plugins
+# Writing Kiosko plugins
 
 A plugin is one ES module whose default export is `definePlugin({...})`. It can
 contribute **widgets** (paint inside a tile), **sources** (shared data) and
@@ -9,21 +9,21 @@ contract, so `plugins/*` in this repository are the best examples.
 
 | OS | Folder |
 |---|---|
-| Linux | `~/.config/tessera/plugins/` (or `$XDG_CONFIG_HOME/tessera/plugins`) |
-| macOS | `~/Library/Application Support/Tessera/plugins/` |
-| Windows | `%APPDATA%\Tessera\plugins\` |
+| Linux | `~/.config/kiosko/plugins/` (or `$XDG_CONFIG_HOME/kiosko/plugins`) |
+| macOS | `~/Library/Application Support/Kiosko/plugins/` |
+| Windows | `%APPDATA%\Kiosko\plugins\` |
 
 Each plugin is a folder with an `index.js` (or a `package.json` whose
-`"tessera": { "plugin": "./entry.js" }` or `main` points at it), or a package
-installed there with npm named `tessera-plugin-*`. Restart Tessera after adding
-one. `import … from '@tessera/sdk'` (and `@loksly/lcd-canvas-kit`,
-`@loksly/weather-astro`, `@napi-rs/canvas`) resolve to Tessera's own copies, so
+`"kiosko": { "plugin": "./entry.js" }` or `main` points at it), or a package
+installed there with npm named `kiosko-plugin-*`. Restart Kiosko after adding
+one. `import … from '@kiosko/sdk'` (and `@loksly/lcd-canvas-kit`,
+`@loksly/weather-astro`, `@napi-rs/canvas`) resolve to Kiosko's own copies, so
 a plugin needs no `npm install` of its own.
 
 ## A widget
 
 ```js
-import { definePlugin, defineWidget, t } from '@tessera/sdk';
+import { definePlugin, defineWidget, t } from '@kiosko/sdk';
 
 const bitcoin = defineWidget({
   id: 'price',                                   // type becomes `crypto/price`
@@ -115,7 +115,7 @@ are kept, wrong types fall back to the default; `validate` never throws.
 ## Shared sources
 
 ```js
-import { defineSource } from '@tessera/sdk';
+import { defineSource } from '@kiosko/sdk';
 
 export const queue = defineSource({
   id: 'queue',
@@ -133,7 +133,7 @@ A source runs only while some enabled widget declares it, once for all of them.
 ## Interludes
 
 ```js
-import { defineInterlude } from '@tessera/sdk';
+import { defineInterlude } from '@kiosko/sdk';
 
 export const fireworks = defineInterlude({
   id: 'fireworks',
@@ -162,7 +162,7 @@ its tile without breaking the rest of the frame.
 
 ## Publishing
 
-Name the package `tessera-plugin-<name>`, add `"tessera": { "plugin": "./index.js" }`
-to its `package.json`, and list `@tessera/sdk` as a peer dependency. Users
+Name the package `kiosko-plugin-<name>`, add `"kiosko": { "plugin": "./index.js" }`
+to its `package.json`, and list `@kiosko/sdk` as a peer dependency. Users
 install it from **Plugins → Install from npm** (installed with
 `--ignore-scripts`).

@@ -1,7 +1,7 @@
 {
-  "name": "@tessera/sdk",
+  "name": "@kiosko/sdk",
   "version": "0.1.0",
-  "description": "Plugin SDK for Tessera: define widgets, data sources and interludes for small always-on LCD panels.",
+  "description": "Plugin SDK for Kiosko: define widgets, data sources and interludes for small always-on LCD panels.",
   "type": "module",
   "license": "MIT",
   "exports": {
@@ -32,7 +32,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Loksly/tessera.git",
+    "url": "git+https://github.com/kiosko-lcd/kiosko.git",
     "directory": "packages/sdk"
   },
   "author": "Loksly"

@@ -23,11 +23,11 @@ jobs:
         with:
           node-version: 24
           cache: npm
-      - name: Clone the official plugins next to Tessera
+      - name: Clone the official plugins next to Kiosko
         run: |
-          mkdir -p ../tessera-plugins
+          mkdir -p ../kiosko-plugins
           for p in agents cats system vitals usage weather calendar news mirror gitlab; do
-            git clone --depth 1 "https://github.com/${{ github.repository_owner }}/tessera-plugin-$p" "../tessera-plugins/tessera-plugin-$p" || echo "no tessera-plugin-$p"
+            git clone --depth 1 "https://github.com/${{ github.repository_owner }}/kiosko-plugin-$p" "../kiosko-plugins/kiosko-plugin-$p" || echo "no kiosko-plugin-$p"
           done
       - run: npm install --no-audit --no-fund
       - run: npm run dev:link

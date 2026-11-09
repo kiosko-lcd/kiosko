@@ -23,13 +23,13 @@ jobs:
       - run: npm run check
       - run: npm test
         env:
-          TESSERA_QUIET: '1'
+          KIOSKO_QUIET: '1'
       - name: Package and smoke-test the CLI
         shell: bash
         run: |
           node scripts/build-dist.mjs
-          node dist/tessera/cli.js doctor --config examples/showcase.json
-          node dist/tessera/cli.js render --config examples/showcase.json --page Cats --out cats.png
+          node dist/kiosko/cli.js doctor --config examples/showcase.json
+          node dist/kiosko/cli.js render --config examples/showcase.json --page Cats --out cats.png
       - uses: actions/upload-artifact@v4
         if: matrix.os == 'ubuntu-latest' && matrix.node == 24
         with:

@@ -1,4 +1,4 @@
-# Tessera: plan de diseño
+# Kiosko: plan de diseño
 
 *De aimonitor (un tablero fijo para un Trofeo Vision) a un sistema de widgets
 con editor visual que cualquiera pueda instalar en su panel.*
@@ -10,8 +10,8 @@ lo que queda pendiente. El código que lo implementa está en este mismo repo.
 
 ## 0. Resumen en diez líneas
 
-1. **Proyecto nuevo** (`tessera`, nombre provisional) en vez de seguir
-   cargando aimonitor: aimonitor es un producto personal muy afinado; Tessera
+1. **Proyecto nuevo** (`kiosko`, nombre provisional) en vez de seguir
+   cargando aimonitor: aimonitor es un producto personal muy afinado; Kiosko
    es la plataforma. Se reaprovechan las cuatro librerías ya separadas
    (`agent-sessions`, `trcc-client`, `weather-astro`, `lcd-canvas-kit`).
 2. **Una pantalla = una rejilla fija** (p. ej. 24×6 en 1920×462) donde cada
@@ -34,9 +34,9 @@ lo que queda pendiente. El código que lo implementa está en este mismo repo.
 8. **Las vistas actuales se traducen a plugins** con el mismo contrato que uno
    de terceros, y un adaptador ejecuta sin tocarlos los módulos propios de
    aimonitor (la pizarra).
-9. `tessera import-aimonitor` convierte la config actual entera.
+9. `kiosko import-aimonitor` convierte la config actual entera.
 10. Pendiente de decidir por ti: nombre definitivo, scope de npm, y si
-    aimonitor pasa a ser «Tessera + plugins de Loksly» o sigue aparte.
+    aimonitor pasa a ser «Kiosko + plugins de Loksly» o sigue aparte.
 
 ---
 
@@ -50,8 +50,8 @@ lo que queda pendiente. El código que lo implementa está en este mismo repo.
 | Público | Quien tenga *este* panel y *este* flujo | Cualquier panel USB, cualquier uso |
 | Riesgo | Romper el panel que usas a diario | Ninguno: conviven |
 
-aimonitor sigue funcionando tal cual mientras Tessera madura. Cuando Tessera
-cubra lo que usas a diario, `tessera import-aimonitor --write` hace el cambio.
+aimonitor sigue funcionando tal cual mientras Kiosko madura. Cuando Kiosko
+cubra lo que usas a diario, `kiosko import-aimonitor --write` hace el cambio.
 
 ---
 
@@ -146,7 +146,7 @@ se envía (cada frame cuesta USB y, con `trcc serve`, una copia en disco).
 ### 3.1 Contrato
 
 ```ts
-import { definePlugin, defineWidget, defineSource, t } from '@tessera/sdk';
+import { definePlugin, defineWidget, defineSource, t } from '@kiosko/sdk';
 
 export const countdown = defineWidget({
   id: 'countdown',
@@ -198,11 +198,11 @@ export default definePlugin({ id: 'mirror', name: 'Mirror cards', version: '1.0.
 ### 3.3 Distribución de plugins
 
 - Incluidos: `plugins/*` del repo.
-- Propios: una carpeta (o un `.js`) en `~/.config/tessera/plugins/` (macOS:
-  `~/Library/Application Support/Tessera/plugins`, Windows:
-  `%APPDATA%\Tessera\plugins`). Un *hook* de resolución hace que
-  `import … from '@tessera/sdk'` funcione **sin `npm install`**.
-- De npm: paquetes `tessera-plugin-*`, instalables desde la página Plugins
+- Propios: una carpeta (o un `.js`) en `~/.config/kiosko/plugins/` (macOS:
+  `~/Library/Application Support/Kiosko/plugins`, Windows:
+  `%APPDATA%\Kiosko\plugins`). Un *hook* de resolución hace que
+  `import … from '@kiosko/sdk'` funcione **sin `npm install`**.
+- De npm: paquetes `kiosko-plugin-*`, instalables desde la página Plugins
   (con `--ignore-scripts` y aviso de que se ejecutan con tus permisos).
 - Compatibilidad: `legacy/module` ejecuta un `defineModule` de aimonitor sin
   cambios (la pizarra con MathJax incluida).
@@ -283,7 +283,7 @@ export default definePlugin({ id: 'mirror', name: 'Mirror cards', version: '1.0.
 | POST | `/api/plugins/install` · `/:id/enabled` | instalar · activar |
 
 Seguridad: escucha en 127.0.0.1; las mutaciones exigen la cabecera
-`X-Tessera: 1` (otra web no puede mandarla sin un *preflight* CORS que nunca
+`X-Kiosko: 1` (otra web no puede mandarla sin un *preflight* CORS que nunca
 se concede) y se comprueba `Host` contra DNS rebinding. Instalar plugins usa
 `--ignore-scripts` y sólo acepta nombres de paquete.
 
@@ -291,7 +291,7 @@ se concede) y se comprueba `Host` contra DNS rebinding. Instalar plugins usa
 
 ## 5. Traducción de las vistas actuales a plugins
 
-| aimonitor | Tessera | Tipo |
+| aimonitor | Kiosko | Tipo |
 |---|---|---|
 | Tablero: casillas de sesiones (`render.ts`, `select.ts`) | `agents/sessions` + fuente `agents/sessions` | widget + fuente |
 | Cabecera (RAM · consolas · te esperan · reloj) | `agents/summary` | widget |
@@ -322,12 +322,12 @@ Lo que cambia en el camino:
 - Los textos fijos en castellano pasan a elegirse por `ctx.locale`.
 - Las rutas `~/.aimonitor/...` pasan a ser opciones con ese valor por defecto
   (compatibles con el hook ya instalado).
-- La columna de tarjetas dentro de la escena de gatos desaparece: en Tessera
+- La columna de tarjetas dentro de la escena de gatos desaparece: en Kiosko
   es una tesela con su pila al lado de la escena, configurable en el editor.
 
 ### 5.1 Importador
 
-`tessera import-aimonitor [--from ~/.aimonitor/config.json] [--write]`:
+`kiosko import-aimonitor [--from ~/.aimonitor/config.json] [--write]`:
 
 - Pantalla principal con dos páginas, **Dashboard** (cabecera, sesiones,
   vitales, consumo) y **Cats** (habitación + pila con tus `modules`), fijadas o
@@ -345,7 +345,7 @@ Lo que cambia en el camino:
 
 ### Hecho
 
-- **SDK** (`@tessera/sdk`): widgets, fuentes, interludios, esquema de opciones
+- **SDK** (`@kiosko/sdk`): widgets, fuentes, interludios, esquema de opciones
   `t` → tipos + validación + formulario + JSON Schema, temas, i18n.
 - **Motor de mosaico** con tests: rejilla sugerida por resolución (24×6 en
   1920×462), colocación con empuje y rechazo, gravedad, compactación,
@@ -371,7 +371,7 @@ Lo que cambia en el camino:
   `legacy` (tus módulos de aimonitor, la pizarra incluida).
 - **Modo demo** (`--demo`) y `examples/showcase.json` para probar sin nada
   configurado; capturas del README hechas así (sin datos personales).
-- **Distribución**: un solo paquete npm (`tessera-lcd`) generado con esbuild
+- **Distribución**: un solo paquete npm (`kiosko`) generado con esbuild
   (`npm run dist`), probado instalado fuera del repo, con plugins externos de
   un solo fichero funcionando sin `npm install` gracias a un *hook* de
   resolución.
@@ -395,11 +395,11 @@ Lo que cambia en el camino:
 
 ### Decisiones abiertas para ti
 
-- **Nombre**: `Tessera` es provisional (el paquete npm está como
-  `tessera-lcd`; `tessera` a secas está cogido). Los paquetes internos usan
-  `@tessera/*`, que no se publican por separado en esta versión.
+- **Nombre**: `Kiosko` es provisional (el paquete npm está como
+  `kiosko`; `kiosko` a secas está cogido). Los paquetes internos usan
+  `@kiosko/*`, que no se publican por separado en esta versión.
 - **Publicar**: no he creado el repositorio en GitHub ni publicado en npm;
-  el README ya asume `Loksly/tessera` y `npm install -g tessera-lcd`.
+  el README ya asume `kiosko-lcd/kiosko` y `npm install -g kiosko`.
 - **Plugins personales** (gitlab con tus alias, horas, imputación): en el
   repo público van genéricos; tu configuración se queda en tu
   `config.json`.

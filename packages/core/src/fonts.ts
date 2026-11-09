@@ -7,7 +7,7 @@ import { existsSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { GlobalFonts } from '@napi-rs/canvas';
-import { FONT_FAMILIES } from '@tessera/sdk';
+import { FONT_FAMILIES } from '@kiosko/sdk';
 
 const require = createRequire(import.meta.url);
 let done = false;

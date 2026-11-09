@@ -1,13 +1,13 @@
 /**
  * The catalogue of plugins: the built-in ones plus whatever the user drops in
  * the plugins folder (`<home>/plugins`), either as a folder or installed from
- * npm (`tessera-plugin-*`). Types are addressed as `plugin/thing`.
+ * npm (`kiosko-plugin-*`). Types are addressed as `plugin/thing`.
  */
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { installSdkResolver } from './sdk-resolver.ts';
-import { localize, toJsonSchema, type InterludeDefinition, type PluginDefinition, type SourceDefinition, type WidgetDefinition } from '@tessera/sdk';
+import { localize, toJsonSchema, type InterludeDefinition, type PluginDefinition, type SourceDefinition, type WidgetDefinition } from '@kiosko/sdk';
 
 export interface LoadedPlugin {
   def: PluginDefinition;
@@ -67,8 +67,8 @@ export class Registry {
 
   /**
    * Loads external plugins from `dir`: each subfolder whose package.json has
-   * `"tessera": { "plugin": "./entry.js" }` (or a `main`), plus packages
-   * installed there with npm (`node_modules/tessera-plugin-*`).
+   * `"kiosko": { "plugin": "./entry.js" }` (or a `main`), plus packages
+   * installed there with npm (`node_modules/kiosko-plugin-*`).
    */
   async loadDir(dir: string): Promise<void> {
     if (!existsSync(dir)) return;
@@ -78,7 +78,7 @@ export class Registry {
     const marker = join(dir, 'package.json');
     if (!existsSync(marker)) {
       try {
-        writeFileSync(marker, `${JSON.stringify({ name: 'tessera-user-plugins', private: true, type: 'module' }, null, 2)}\n`);
+        writeFileSync(marker, `${JSON.stringify({ name: 'kiosko-user-plugins', private: true, type: 'module' }, null, 2)}\n`);
       } catch {
         /* read-only: .mjs plugins still work */
       }
@@ -92,8 +92,8 @@ export class Registry {
     if (existsSync(nm)) {
       for (const name of readdirSync(nm)) {
         if (name.startsWith('@')) {
-          for (const sub of readdirSync(join(nm, name))) if (sub.startsWith('tessera-plugin-')) candidates.push(join(nm, name, sub));
-        } else if (name.startsWith('tessera-plugin-')) candidates.push(join(nm, name));
+          for (const sub of readdirSync(join(nm, name))) if (sub.startsWith('kiosko-plugin-')) candidates.push(join(nm, name, sub));
+        } else if (name.startsWith('kiosko-plugin-')) candidates.push(join(nm, name));
       }
     }
     for (const folder of candidates) await this.loadFolder(folder);
@@ -108,12 +108,12 @@ export class Registry {
       const pkgPath = join(folder, 'package.json');
       let entry = ['index.mjs', 'index.js'].map((f) => join(folder, f)).find(existsSync);
       if (existsSync(pkgPath)) {
-        const pkg = JSON.parse(readFileSync(pkgPath, 'utf8')) as { main?: string; tessera?: { plugin?: string } };
-        const rel = pkg.tessera?.plugin ?? pkg.main;
+        const pkg = JSON.parse(readFileSync(pkgPath, 'utf8')) as { main?: string; kiosko?: { plugin?: string } };
+        const rel = pkg.kiosko?.plugin ?? pkg.main;
         if (rel) entry = join(folder, rel);
       }
       if (!entry || !existsSync(entry)) {
-        this.problems.push({ origin: folder, message: 'no entry point (package.json "tessera.plugin", "main" or index.js)' });
+        this.problems.push({ origin: folder, message: 'no entry point (package.json "kiosko.plugin", "main" or index.js)' });
         return;
       }
       await this.loadEntry(entry, folder);

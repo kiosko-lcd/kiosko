@@ -11,6 +11,6 @@ labels: bug
 **Panel and setup**
 - Panel model / resolution:
 - Connection (virtual, trcc serve, frame file):
-- OS and Node version (`tessera doctor` output helps):
+- OS and Node version (`kiosko doctor` output helps):
 
 **Steps to reproduce**

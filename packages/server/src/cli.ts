@@ -1,16 +1,16 @@
 #!/usr/bin/env node
 /**
- * `tessera` command line.
+ * `kiosko` command line.
  *
- *   tessera start [--port 7420] [--host 127.0.0.1] [--config file] [--open] [--demo]
- *   tessera render [--screen id|name] [--page id|name] [--out frame.png] [--live]
- *   tessera import-aimonitor [--from ~/.aimonitor/config.json] [--with-secrets] [--write]
- *   tessera doctor
+ *   kiosko start [--port 7420] [--host 127.0.0.1] [--config file] [--open] [--demo]
+ *   kiosko render [--screen id|name] [--page id|name] [--out frame.png] [--live]
+ *   kiosko import-aimonitor [--from ~/.aimonitor/config.json] [--with-secrets] [--write]
+ *   kiosko doctor
  */
 import { spawn } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { Registry, Runtime, loadConfig, paths, saveConfig, type Config } from '@tessera/core';
+import { Registry, Runtime, loadConfig, paths, saveConfig, type Config } from '@kiosko/core';
 import { BUILTIN_PLUGINS, OFFICIAL_PLUGINS } from './builtin.ts';
 import { pluginsCommand } from './plugins-cli.ts';
 import { buildGallery } from './gallery.ts';
@@ -20,16 +20,16 @@ import { startServer } from './server.ts';
 import { starterConfig } from './starter.ts';
 
 const VERSION = '0.1.0';
-const USAGE = `Tessera ${VERSION}: a widget mosaic for USB LCD panels
+const USAGE = `Kiosko ${VERSION}: a widget mosaic for USB LCD panels
 
-  tessera start [--port 7420] [--host 127.0.0.1] [--config file] [--open] [--demo]
-  tessera render [--screen id|name] [--page id|name] [--out frame.png] [--live]
-  tessera import-aimonitor [--from ~/.aimonitor/config.json] [--with-secrets] [--write]
-  tessera doctor
-  tessera gallery [--out gallery] [--locale en] [--theme midnight]
-  tessera plugins [list|add <id>…|link <folder>…|remove <id>…]
-  tessera service install|uninstall|print   (start with your session)
-  tessera version`;
+  kiosko start [--port 7420] [--host 127.0.0.1] [--config file] [--open] [--demo]
+  kiosko render [--screen id|name] [--page id|name] [--out frame.png] [--live]
+  kiosko import-aimonitor [--from ~/.aimonitor/config.json] [--with-secrets] [--write]
+  kiosko doctor
+  kiosko gallery [--out gallery] [--locale en] [--theme midnight]
+  kiosko plugins [list|add <id>…|link <folder>…|remove <id>…]
+  kiosko service install|uninstall|print   (start with your session)
+  kiosko version`;
 const argv = process.argv.slice(2);
 const cmd = argv[0] && !argv[0].startsWith('-') ? argv[0] : 'start';
 const flag = (name: string) => argv.includes(name);
@@ -91,7 +91,7 @@ async function main(): Promise<void> {
       rt.start();
       const srv = startServer({ runtime: rt, host, port, configPath: path, version: VERSION });
       const url = `http://${host === '0.0.0.0' ? '127.0.0.1' : host}:${port}/`;
-      console.log(`Tessera ${VERSION} — editor at ${url}`);
+      console.log(`Kiosko ${VERSION} — editor at ${url}`);
       console.log(`config: ${path}`);
       if (flag('--open')) openBrowser(url);
       const stop = () => {
@@ -104,7 +104,7 @@ async function main(): Promise<void> {
       return;
     }
     case 'render': {
-      process.env.TESSERA_QUIET ??= '1';
+      process.env.KIOSKO_QUIET ??= '1';
       const reg = await registry();
       const cfg = loadConfig(path).config;
       const want = opt('--screen');
@@ -155,7 +155,7 @@ async function main(): Promise<void> {
     case 'doctor': {
       const reg = await registry();
       const { config: cfg, exists, error } = loadConfig(path);
-      console.log(`Tessera ${VERSION} on ${process.platform}/${process.arch}, Node ${process.version}`);
+      console.log(`Kiosko ${VERSION} on ${process.platform}/${process.arch}, Node ${process.version}`);
       console.log(`config  ${path} ${exists ? (error ? `INVALID: ${error}` : 'ok') : '(not created yet)'}`);
       console.log(`plugins ${reg.list().map((p) => p.def.id).join(', ')}`);
       for (const p of reg.problems) console.log(`  ✗ ${p.origin}: ${p.message}`);
@@ -167,12 +167,12 @@ async function main(): Promise<void> {
     }
     case 'service': {
       const pass = ['--port', '--host', '--config'].flatMap((f) => (opt(f) ? [f, opt(f)!] : []));
-      const env: Record<string, string> = process.env.TESSERA_HOME ? { TESSERA_HOME: process.env.TESSERA_HOME } : {};
+      const env: Record<string, string> = process.env.KIOSKO_HOME ? { KIOSKO_HOME: process.env.KIOSKO_HOME } : {};
       runService(argv[1] ?? 'print', servicePlan({ args: pass, env }));
       return;
     }
     case 'gallery': {
-      process.env.TESSERA_QUIET ??= '1';
+      process.env.KIOSKO_QUIET ??= '1';
       const reg = await registry();
       const out = opt('--out') ?? 'gallery';
       const n = buildGallery(reg, { out, locale: opt('--locale') ?? 'en', theme: opt('--theme') ?? 'midnight' });
@@ -180,7 +180,7 @@ async function main(): Promise<void> {
       return;
     }
     case 'plugins': {
-      process.env.TESSERA_QUIET ??= '1';
+      process.env.KIOSKO_QUIET ??= '1';
       await pluginsCommand(argv.slice(1), registry);
       return;
     }

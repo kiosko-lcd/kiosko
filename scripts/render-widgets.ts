@@ -9,8 +9,8 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { Registry, composeWidget, normalize } from '@tessera/core';
-import { themeById } from '@tessera/sdk';
+import { Registry, composeWidget, normalize } from '@kiosko/core';
+import { themeById } from '@kiosko/sdk';
 import { BUILTIN_PLUGINS } from '../packages/server/src/builtin.ts';
 
 const args = process.argv.slice(2);

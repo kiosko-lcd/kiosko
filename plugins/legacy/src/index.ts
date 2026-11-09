@@ -9,7 +9,7 @@ import { existsSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { isAbsolute, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { definePlugin, defineWidget, t, type Box, type CanvasApi, type Graphics, type Theme } from '@tessera/sdk';
+import { definePlugin, defineWidget, t, type Box, type CanvasApi, type Graphics, type Theme } from '@kiosko/sdk';
 
 interface LegacyModule {
   name: string;
@@ -42,7 +42,7 @@ async function load(path: string): Promise<LegacyModule> {
   return m;
 }
 
-/** The colours and fonts an aimonitor module expects, from the Tessera theme. */
+/** The colours and fonts an aimonitor module expects, from the Kiosko theme. */
 export function legacyLook(theme: Theme) {
   return {
     fonts: { condensed: theme.fonts.sans, condensedBold: theme.fonts.sansBold, mono: theme.fonts.mono, monoBold: theme.fonts.monoBold },
@@ -117,7 +117,7 @@ export default definePlugin({
   name: { en: 'aimonitor compatibility', es: 'Compatibilidad aimonitor' },
   version: '0.1.0',
   description: { en: 'Run your aimonitor custom modules as widgets.', es: 'Tus módulos propios de aimonitor, como widgets.' },
-  author: 'Tessera',
+  author: 'Kiosko',
   license: 'MIT',
   icon: 'puzzle',
   widgets: [module],

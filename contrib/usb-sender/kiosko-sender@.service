@@ -1,0 +1,21 @@
+[Unit]
+Description=Kiosko USB sender for panel %i
+After=graphical-session.target
+
+# One instance per physical panel: `systemctl --user enable --now kiosko-sender@panel1`.
+# Its folder (~/.config/kiosko/senders/%i/config.json) holds the panel's USB
+# serial, the mounted rotation (a check only: Kiosko already rotates) and
+# where Kiosko writes its frame. Several identical panels share VID:PID, so
+# each sender opens its own by serial and never "whatever panel is there".
+
+[Service]
+Type=simple
+Environment=KIOSKO_SENDER_DIR=%h/.config/kiosko/senders/%i
+# The sender reuses trcc's LY protocol modules: run it with trcc's Python.
+ExecStart=%h/.local/pipx/venvs/trcc-linux/bin/python %h/.local/lib/kiosko/kiosko-sender.py
+Restart=always
+RestartSec=5
+TimeoutStopSec=15
+
+[Install]
+WantedBy=default.target

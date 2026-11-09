@@ -1,7 +1,7 @@
 /**
- * Third-party plugins import `@tessera/sdk` (and the drawing kit) but live
+ * Third-party plugins import `@kiosko/sdk` (and the drawing kit) but live
  * in a folder with no node_modules. This resolve hook points those imports
- * at the copies Tessera itself runs with, so a plugin is a single file that
+ * at the copies Kiosko itself runs with, so a plugin is a single file that
  * works without `npm install`, and every plugin shares one SDK (and one
  * canvas: images from another copy of @napi-rs/canvas can't be drawn).
  */
@@ -10,9 +10,9 @@ import module from 'node:module';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-const SHARED = ['@tessera/sdk', '@loksly/lcd-canvas-kit', '@loksly/weather-astro', '@napi-rs/canvas'];
+const SHARED = ['@kiosko/sdk', '@loksly/lcd-canvas-kit', '@loksly/weather-astro', '@napi-rs/canvas'];
 /** In the published bundle these live next to the CLI instead of in node_modules. */
-const BUNDLED: Record<string, string> = { '@tessera/sdk': 'sdk.js', '@loksly/lcd-canvas-kit': 'kit.js', '@loksly/weather-astro': 'weather-astro.js' };
+const BUNDLED: Record<string, string> = { '@kiosko/sdk': 'sdk.js', '@loksly/lcd-canvas-kit': 'kit.js', '@loksly/weather-astro': 'weather-astro.js' };
 let installed = false;
 
 export function installSdkResolver(): void {

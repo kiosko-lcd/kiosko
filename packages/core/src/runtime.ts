@@ -10,7 +10,7 @@
  * time and, with `trcc serve`, a copy on disk.
  */
 import { EventEmitter } from 'node:events';
-import { themeById, validate, type Theme } from '@tessera/sdk';
+import { themeById, validate, type Theme } from '@kiosko/sdk';
 import type { Canvas } from '@napi-rs/canvas';
 import { composePage, composeWidget, rotateCanvas, type ComposeResult, type TileCache } from './compositor.ts';
 import { isWorking, whenMatches, widgetsOf, type Config, type Page, type Screen, type WidgetInstance } from './config/model.ts';
@@ -256,7 +256,7 @@ export class Runtime extends EventEmitter {
   readonly registry: Registry;
   /**
    * Demo mode: no source or fetch runs, every widget paints its sample data.
-   * For trying Tessera without any setup, screenshots and kiosks at fairs.
+   * For trying Kiosko without any setup, screenshots and kiosks at fairs.
    */
   readonly demoMode: boolean;
   constructor(registry: Registry, config: Config, o: { demo?: boolean } = {}) {
@@ -274,7 +274,7 @@ export class Runtime extends EventEmitter {
     this.logs.push(e);
     if (this.logs.length > 500) this.logs.splice(0, this.logs.length - 500);
     this.emit('log', e);
-    if (process.env.TESSERA_QUIET !== '1') console.log(`[${new Date(e.at).toISOString().slice(11, 19)}] ${scope}: ${message}`);
+    if (process.env.KIOSKO_QUIET !== '1') console.log(`[${new Date(e.at).toISOString().slice(11, 19)}] ${scope}: ${message}`);
   };
 
   theme(): Theme {

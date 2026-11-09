@@ -6,7 +6,7 @@
  */
 import { createCanvas, loadImage, type Canvas, type Image, type SKRSContext2D } from '@napi-rs/canvas';
 import { pixelShift } from '@loksly/lcd-canvas-kit';
-import { localize, validate, type Box, type Redraw, type RenderContext, type Theme, type WidgetDefinition } from '@tessera/sdk';
+import { localize, validate, type Box, type Redraw, type RenderContext, type Theme, type WidgetDefinition } from '@kiosko/sdk';
 import { toPx, type PxRect } from './layout/grid.ts';
 import { nextTurnAt, pickInStack } from './layout/stack.ts';
 import { whenMatches, type Config, type Page, type Screen, type Tile, type WidgetInstance } from './config/model.ts';

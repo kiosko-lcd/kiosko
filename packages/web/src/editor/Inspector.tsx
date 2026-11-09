@@ -1,6 +1,6 @@
 /** Right-hand panel: the selected tile, its widget stack and the widget's options; or the page settings. */
 import { useState } from 'preact/hooks';
-import type { Tile, When } from '@tessera/core/model';
+import type { Tile, When } from '@kiosko/core/model';
 import { api } from '../api.ts';
 import { DurationInput, SchemaForm, Toggle } from '../forms/SchemaForm.tsx';
 import { Icon } from '../icons.tsx';

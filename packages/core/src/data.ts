@@ -3,7 +3,7 @@
  * pace, never blocking a frame. A change in any of them marks the screens
  * that show it as dirty (see Runtime).
  */
-import { validate, type SourceDefinition, type WidgetDefinition } from '@tessera/sdk';
+import { validate, type SourceDefinition, type WidgetDefinition } from '@kiosko/sdk';
 import type { Config, WidgetInstance } from './config/model.ts';
 import { CANVAS, baseContext, type LogFn } from './env.ts';
 import type { Registry } from './registry.ts';

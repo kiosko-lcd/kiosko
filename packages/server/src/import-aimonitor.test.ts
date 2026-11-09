@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { Registry } from '@tessera/core';
+import { Registry } from '@kiosko/core';
 import { importAimonitor } from './import-aimonitor.ts';
 
 const OLD = {

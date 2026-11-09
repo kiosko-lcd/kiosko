@@ -1,9 +1,9 @@
 {
-  "name": "tessera-monorepo",
+  "name": "kiosko-monorepo",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Tessera: a widget mosaic for small always-on USB LCD panels (Thermalright Trofeo Vision and friends), with a visual editor and plugins.",
+  "description": "Kiosko: a widget mosaic for small always-on USB LCD panels (Thermalright Trofeo Vision and friends), with a visual editor and plugins.",
   "license": "MIT",
   "engines": {
     "node": ">=22.18"
@@ -18,7 +18,7 @@
     "packages/server",
     "packages/web",
     "plugins/*",
-    "../tessera-plugins/*"
+    "../kiosko-plugins/*"
   ],
   "scripts": {
     "start": "node --conditions=source packages/server/src/cli.ts start",

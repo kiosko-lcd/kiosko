@@ -48,7 +48,7 @@ function TopBar() {
     <header class="topbar">
       <div class="brand" onClick={() => go('editor')}>
         <Logo />
-        <span>Tessera</span>
+        <span>Kiosko</span>
       </div>
       {view.value === 'editor' && screens.length > 0 && (
         <nav class="screen-tabs" aria-label={tr('screens.title')}>
@@ -71,9 +71,9 @@ function TopBar() {
         </nav>
       )}
       <div class="tb-spacer" />
-      {app.value?.demo && <span class="demo-pill" title="tessera start --demo">DEMO</span>}
+      {app.value?.demo && <span class="demo-pill" title="kiosko start --demo">DEMO</span>}
       <SaveState />
-      <a class="icon-btn" href="https://github.com/Loksly/tessera#readme" target="_blank" rel="noreferrer" title="Docs">
+      <a class="icon-btn" href="https://github.com/kiosko-lcd/kiosko#readme" target="_blank" rel="noreferrer" title="Docs">
         <Icon name="book-open" size={17} />
       </a>
     </header>
@@ -129,5 +129,5 @@ function App() {
 
 render(<App />, document.getElementById('app')!);
 boot().catch((err) => {
-  document.getElementById('app')!.innerHTML = `<div class="boot-error"><h1>Tessera</h1><p>Cannot reach the Tessera service: ${String(err)}</p></div>`;
+  document.getElementById('app')!.innerHTML = `<div class="boot-error"><h1>Kiosko</h1><p>Cannot reach the Kiosko service: ${String(err)}</p></div>`;
 });

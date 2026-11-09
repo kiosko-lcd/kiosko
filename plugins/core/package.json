@@ -1,10 +1,10 @@
 {
-  "name": "@tessera/plugin-core",
+  "name": "@kiosko/plugin-core",
   "version": "0.1.0",
-  "description": "Basic Tessera widgets: clock, date, text, image and a separator.",
+  "description": "Basic Kiosko widgets: clock, date, text, image and a separator.",
   "type": "module",
   "license": "MIT",
   "exports": { ".": { "source": "./src/index.ts", "default": "./dist/index.js" } },
-  "tessera": { "plugin": "./dist/index.js" },
-  "peerDependencies": { "@tessera/sdk": "*" }
+  "kiosko": { "plugin": "./dist/index.js" },
+  "peerDependencies": { "@kiosko/sdk": "*" }
 }

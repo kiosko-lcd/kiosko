@@ -3,8 +3,8 @@
  * page grid of whatever screen they're used on. Widgets whose plugin isn't
  * installed are left out; a tile left empty is dropped.
  */
-import { compact, suggestGrid } from '@tessera/core/layout';
-import { newPage, newTile, newWidget, type Page, type Tile } from '@tessera/core/model';
+import { compact, suggestGrid } from '@kiosko/core/layout';
+import { newPage, newTile, newWidget, type Page, type Tile } from '@kiosko/core/model';
 
 interface Frac {
   x: number;

@@ -1,12 +1,12 @@
 # Contributing
 
-Thanks for wanting to make Tessera better.
+Thanks for wanting to make Kiosko better.
 
 - **New widget?** Most ideas fit in a plugin, and plugins don't need to live in
-  this repository: publish it as `tessera-plugin-<name>` (see
+  this repository: publish it as `kiosko-plugin-<name>` (see
   [docs/plugins.md](docs/plugins.md)). Built-in plugins are for things most
   panel owners want.
-- **Bug?** Open an issue with the output of `tessera doctor`.
+- **Bug?** Open an issue with the output of `kiosko doctor`.
 - **Code:** `npm install`, then `npm run dev`. Before a pull request:
   `npm run check && npm test`. For widgets, render them with
   `node --conditions=source scripts/render-widgets.ts --plugin <id>` and look

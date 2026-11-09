@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { createCanvas } from '@napi-rs/canvas';
-import { DEFAULT_THEME, definePlugin, defineWidget, t } from '@tessera/sdk';
+import { DEFAULT_THEME, definePlugin, defineWidget, t } from '@kiosko/sdk';
 import { composePage, composeWidget, rotateCanvas } from './compositor.ts';
 import type { Page } from './config/model.ts';
 import { normalize as norm } from './config/store.ts';
@@ -87,7 +87,7 @@ test('rotateCanvas swaps dimensions for 90/270 and keeps them for 180', () => {
 });
 
 test('the file device writes frame.jpg atomically and counts frames', async () => {
-  const dir = mkdtempSync(join(tmpdir(), 'tessera-'));
+  const dir = mkdtempSync(join(tmpdir(), 'kiosko-'));
   const dev = openDevice({ driver: 'file', dir }, () => undefined);
   await dev.send(Buffer.from('frame-1'));
   await dev.send(Buffer.from('frame-2'));

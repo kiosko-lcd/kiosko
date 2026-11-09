@@ -4,7 +4,7 @@
  * the server shortly after (debounced), so there's no "Save" button to forget.
  */
 import { batch, computed, signal } from '@preact/signals';
-import type { Config, Page, Screen, Tile, WidgetInstance } from '@tessera/core/model';
+import type { Config, Page, Screen, Tile, WidgetInstance } from '@kiosko/core/model';
 import { CLIENT_ID, api, connectEvents, type AppState, type FrameEvent, type PluginInfo, type Status, type WidgetInfo } from './api.ts';
 
 export type View = 'editor' | 'screens' | 'plugins' | 'settings' | 'logs';
@@ -35,7 +35,7 @@ function readView(): View {
 }
 function readUiTheme(): 'dark' | 'light' {
   try {
-    const v = localStorage.getItem('tessera.ui');
+    const v = localStorage.getItem('kiosko.ui');
     if (v === 'dark' || v === 'light') return v;
   } catch {
     /* private mode */
@@ -46,7 +46,7 @@ export function setUiTheme(t: 'dark' | 'light'): void {
   uiTheme.value = t;
   document.documentElement.dataset.theme = t;
   try {
-    localStorage.setItem('tessera.ui', t);
+    localStorage.setItem('kiosko.ui', t);
   } catch {
     /* ignore */
   }

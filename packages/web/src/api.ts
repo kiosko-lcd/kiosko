@@ -1,5 +1,5 @@
-/** Thin client of the Tessera server API. */
-import type { Config, Screen } from '@tessera/core/model';
+/** Thin client of the Kiosko server API. */
+import type { Config, Screen } from '@kiosko/core/model';
 
 export interface WidgetInfo {
   type: string;
@@ -90,7 +90,7 @@ export interface AppState {
   platform: string;
 }
 
-const H = { 'content-type': 'application/json', 'x-tessera': '1' };
+const H = { 'content-type': 'application/json', 'x-kiosko': '1' };
 /** Identifies this tab, so it can ignore the "config changed" echo of its own saves. */
 export const CLIENT_ID = Math.random().toString(36).slice(2, 10);
 
@@ -110,7 +110,7 @@ async function ok<T>(r: Response): Promise<T> {
 export const api = {
   state: () => fetch('/api/state').then((r) => ok<AppState>(r)),
   async saveConfig(config: Config, baseRev: number): Promise<{ ok: true; rev: number } | { conflict: true; rev: number; config: Config }> {
-    const r = await fetch('/api/config', { method: 'PUT', headers: { ...H, 'x-tessera-client': CLIENT_ID }, body: JSON.stringify({ config, baseRev }) });
+    const r = await fetch('/api/config', { method: 'PUT', headers: { ...H, 'x-kiosko-client': CLIENT_ID }, body: JSON.stringify({ config, baseRev }) });
     if (r.status === 409) {
       const b = (await r.json()) as { rev: number; config: Config };
       return { conflict: true, rev: b.rev, config: b.config };
@@ -120,7 +120,7 @@ export const api = {
   async preview(screen: Screen, pageId: string, forceShown?: Record<string, string>, demo = true): Promise<{ url: string; tiles: { id: string; shown: string | null; error?: string }[] }> {
     const r = await fetch('/api/preview', { method: 'POST', headers: H, body: JSON.stringify({ screen, pageId, forceShown, demo }) });
     if (!r.ok) throw new Error(`preview ${r.status}`);
-    const tiles = JSON.parse(decodeURIComponent(r.headers.get('x-tessera-tiles') ?? '%5B%5D'));
+    const tiles = JSON.parse(decodeURIComponent(r.headers.get('x-kiosko-tiles') ?? '%5B%5D'));
     return { url: URL.createObjectURL(await r.blob()), tiles };
   },
   thumbnailUrl: (type: string, w: number, h: number, v = '') => `/api/thumbnail?type=${encodeURIComponent(type)}&w=${Math.round(w)}&h=${Math.round(h)}&v=${encodeURIComponent(v)}`,

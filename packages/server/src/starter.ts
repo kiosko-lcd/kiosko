@@ -3,7 +3,7 @@
  * what's installed, so the editor never opens on an empty canvas. Only
  * widgets whose plugin is present are used.
  */
-import { newPage, newScreen, newTile, newWidget, normalize, type Config, type Registry, type Tile } from '@tessera/core';
+import { newPage, newScreen, newTile, newWidget, normalize, type Config, type Registry, type Tile } from '@kiosko/core';
 
 export function starterConfig(registry: Registry, o: { width?: number; height?: number; locale?: string } = {}): Config {
   const width = o.width ?? 1920;

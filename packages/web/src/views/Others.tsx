@@ -12,7 +12,7 @@ export function Plugins() {
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
   const snippet = `// ${a.paths.plugins}/hello/index.js
-import { definePlugin, defineWidget, t } from '@tessera/sdk';
+import { definePlugin, defineWidget, t } from '@kiosko/sdk';
 
 export default definePlugin({
   id: 'hello', name: 'Hello', version: '1.0.0',
@@ -298,7 +298,7 @@ export function Settings() {
             <dd class="mono">{a.paths.plugins}</dd>
           </dl>
           <p class="muted small">
-            Tessera {a.version} · {a.platform}
+            Kiosko {a.version} · {a.platform}
           </p>
         </section>
         <section class="card">
@@ -306,7 +306,7 @@ export function Settings() {
             <Icon name="arrow-right-left" size={16} /> {tr('settings.import')}
           </h3>
           <p class="muted small">{tr('settings.importHint')}</p>
-          <pre class="code">tessera import-aimonitor --write</pre>
+          <pre class="code">kiosko import-aimonitor --write</pre>
         </section>
       </div>
     </div>
