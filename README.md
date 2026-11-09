@@ -19,8 +19,13 @@ and let a tiny daemon keep the panel up to date.
   identical frames are never re-sent, pixel shift against burn-in, black
   panel when everything is idle, a semaphore palette where darkness is the
   normal state.
-- **Linux, macOS and Windows.** Node.js and a browser. Fonts are bundled so a
-  frame is pixel-identical on every OS.
+- **The editor runs anywhere; the panel, on Linux for now.** The editor, the
+  server and the painting run on Linux, macOS and Windows (Node.js and a
+  browser; fonts are bundled so a frame is pixel-identical on every OS).
+  Sending frames to the USB panel goes through
+  [thermalright-trcc-linux](https://github.com/Lexonight1/thermalright-trcc-linux),
+  so today that part is Linux only. macOS and Windows are on the
+  [roadmap](#roadmap).
 
 | | |
 |---|---|
@@ -48,6 +53,11 @@ node --conditions=source packages/server/src/cli.ts start --config examples/show
 machine, so you can explore the editor before connecting a panel.
 
 ## Quick start
+
+> **Not on npm yet.** Until the first release, run it from a clone as in
+> [Try it in 30 seconds](#try-it-in-30-seconds), without `--demo` and with
+> `node --conditions=source packages/server/src/cli.ts` in place of `kiosko`.
+> Once it is published:
 
 ```sh
 npm install -g kiosko     # Node.js 22.18 or newer
@@ -231,6 +241,17 @@ for p in agents cats system vitals usage weather calendar news mirror gitlab; do
 done
 cd ../kiosko && npm install && npm run dev:link
 ```
+
+## Roadmap
+
+- **Panels on macOS and Windows**: talk to the panel over USB from Node
+  itself, so neither `trcc-linux` nor Python is needed (on Linux too).
+- **First npm release** of `kiosko`, the SDK and the official plugins.
+- **One-file builds and installers**: a Homebrew tap for macOS, winget and an
+  installer for Windows.
+- **Configure with AI** from the editor: a prompt with what Kiosko detected
+  on your machine, the [config schema](docs/config-schema.md) and an
+  authoring guide, then `kiosko config import` to review and apply.
 
 ## License
 
