@@ -75,7 +75,7 @@ export const TEMPLATES: Template[] = [
     wide: [
       { x: 0, y: 0, w: 0.5, h: 1, widgets: [['core/clock', { showDate: true }]], chrome: 'bare' },
       { x: 0.5, y: 0, w: 0.2, h: 1, widgets: ['core/date'] },
-      { x: 0.7, y: 0, w: 0.3, h: 1, widgets: ['weather/forecast', 'mirror/compliments'] },
+      { x: 0.7, y: 0, w: 0.3, h: 1, widgets: ['calendar/next', 'weather/forecast', 'mirror/compliments'] },
     ],
     square: [
       { x: 0, y: 0, w: 1, h: 1 / 3, widgets: [['core/clock', { showDate: false }]], chrome: 'bare' },

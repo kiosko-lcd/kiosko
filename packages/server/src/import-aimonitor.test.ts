@@ -59,5 +59,5 @@ test('extra screens keep shared columns as stacks and weights as widths', () => 
 test('never copies calendar URLs', () => {
   const { config, notes } = importAimonitor(OLD, new Registry());
   assert.ok(!JSON.stringify(config).includes('secret.ics'));
-  assert.ok(notes.some((n) => /calendar/.test(n)));
+  assert.ok(notes.some((n) => /calendar/.test(n) && /NOT copied/.test(n)));
 });

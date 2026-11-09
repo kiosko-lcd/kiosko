@@ -29,10 +29,11 @@ export const MODULE_MAP: Record<string, string> = {
   reviews: 'gitlab/reviews',
   syshealth: 'system/health',
   noticias: 'news/column',
+  agenda: 'calendar/agenda',
 };
 
 /** Built-in aimonitor modules that depend on aimonitor-only services and have no widget yet. */
-const NOT_PORTED = new Set(['agenda', 'imputacion', 'horas', 'runner']);
+const NOT_PORTED = new Set(['imputacion', 'horas', 'runner']);
 
 interface OldModule {
   module: string;
@@ -156,7 +157,7 @@ export function importAimonitor(old: Old, reg: Registry): { config: Config; note
   const sources: Config['sources'] = {};
   if (old.usage) sources['usage/ccusage'] = { bin: old.usage.bin ?? 'ccusage', mode: old.usage.mode ?? 'max', dailyCap: old.usage.dailyCap, monthlyCap: old.usage.monthlyCap };
   sources['agents/sessions'] = { dir: '~/.aimonitor/sessions', ...(old.zombieMs ? { zombieMs: old.zombieMs } : {}), ...(old.staleMs ? { staleMs: old.staleMs } : {}) };
-  if (old.calendar?.enabled) notes.push('calendar (next meeting) is not ported yet: your ICS URLs were NOT copied');
+  if (old.calendar?.enabled) notes.push('calendar: your ICS URLs were NOT copied (they are secrets); add them in Settings → Data sources → Calendar');
   if (old.timesheet?.enabled) notes.push('timesheet (GitLab hours) is not ported yet');
   const ws = old.timesheet?.workday;
   const config = normalize({

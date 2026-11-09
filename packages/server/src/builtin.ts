@@ -4,6 +4,7 @@
  */
 import type { PluginDefinition } from '@tessera/sdk';
 import agents from '@tessera/plugin-agents';
+import calendar from '@tessera/plugin-calendar';
 import cats from '@tessera/plugin-cats';
 import core from '@tessera/plugin-core';
 import gitlab from '@tessera/plugin-gitlab';
@@ -15,4 +16,4 @@ import usage from '@tessera/plugin-usage';
 import vitals from '@tessera/plugin-vitals';
 import weather from '@tessera/plugin-weather';
 
-export const BUILTIN_PLUGINS: PluginDefinition[] = [core, agents, cats, system, vitals, usage, weather, news, mirror, gitlab, legacy];
+export const BUILTIN_PLUGINS: PluginDefinition[] = [core, agents, cats, system, vitals, usage, weather, calendar, news, mirror, gitlab, legacy];

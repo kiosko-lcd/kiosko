@@ -86,6 +86,7 @@ masonry-style.
 | `usage` | Claude usage from `ccusage`: limit windows, tokens by model, 5-hour block spend |
 | `system`, `vitals` | CPU, cores, temperature, RAM, disks, failed units |
 | `weather` | current weather and forecast (Open-Meteo, no key) |
+| `calendar` | next meeting countdown and today's agenda from published ICS calendars (Outlook, Google…) |
 | `news` | headlines from RSS feeds with press photos, grouped across outlets |
 | `mirror` | countdown, compliments, tasks, now playing, on this day, air quality, earthquakes, rain radar |
 | `gitlab` | pipelines and merge requests waiting for your review |

@@ -366,7 +366,8 @@ Lo que cambia en el camino:
   autoguardado con deshacer/rehacer.
 - **Plugins portados**: `agents` (fuente de sesiones, casillas, cabecera,
   interludio de plataformas), `cats` (habitación, duelo), `usage`, `system`,
-  `vitals`, `weather`, `news`, `mirror` (8 tarjetas), `gitlab`, `core`,
+  `vitals`, `weather`, `calendar` (próxima reunión y agenda desde ICS, con
+  caché sin URLs en claro), `news`, `mirror` (8 tarjetas), `gitlab`, `core`,
   `legacy` (tus módulos de aimonitor, la pizarra incluida).
 - **Modo demo** (`--demo`) y `examples/showcase.json` para probar sin nada
   configurado; capturas del README hechas así (sin datos personales).
@@ -381,17 +382,16 @@ Lo que cambia en el camino:
 
 ### Pendiente
 
-1. Agenda y próxima reunión (ICS) — en curso como plugin `calendar`.
-2. Horas e imputación (GitLab) y el gato del runner: dependen de servicios muy
+1. Horas e imputación (GitLab) y el gato del runner: dependen de servicios muy
    tuyos (foco, popup de imputar); propuesta: plugin aparte, no en el repo
    público.
-3. Animaciones dentro de una tesela (gestos de los gatos, paseos): requiere
+2. Animaciones dentro de una tesela (gestos de los gatos, paseos): requiere
    ampliar el SDK con `animate` y un presupuesto de fps por pantalla.
-4. Vídeos propios como interludio (`easterEgg.source` con ffmpeg).
-5. Emisor USB propio por número de serie y PR aguas arriba a
+3. Vídeos propios como interludio (`easterEgg.source` con ffmpeg).
+4. Emisor USB propio por número de serie y PR aguas arriba a
    `thermalright-trcc-linux` para `--serial`.
-6. Envoltorio de escritorio (Tauri) con icono en la bandeja.
-7. Galería pública de maquetas exportadas y de plugins.
+5. Envoltorio de escritorio (Tauri) con icono en la bandeja.
+6. Galería pública de maquetas exportadas y de plugins.
 
 ### Decisiones abiertas para ti
 
