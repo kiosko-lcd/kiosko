@@ -5,10 +5,11 @@ import { useEffect, useState } from 'preact/hooks';
 import { api } from '../api.ts';
 import { Icon } from '../icons.tsx';
 import { tr } from '../i18n.ts';
-import { canRedo, canUndo, draftPage, draftScreen, edit, go, lastFrame, liveMode, page, pageId, redo, screen, selectedTile, showGrid, status, undo } from '../store.ts';
+import { canRedo, canUndo, widgets, draftPage, draftScreen, edit, go, lastFrame, liveMode, page, pageId, redo, screen, selectedTile, showGrid, status, undo } from '../store.ts';
 import { Inspector } from './Inspector.tsx';
 import { Library } from './Library.tsx';
 import { Stage } from './Stage.tsx';
+import { TEMPLATES, available, pageFromTemplate } from './templates.ts';
 
 export function Editor() {
   const s = screen.value;
@@ -147,14 +148,12 @@ function PagesBar() {
             </div>
           </div>
         ))}
-        <button class="icon-btn" title={tr('pages.add')} onClick={() => {
-          const np = newPage(`${tr('inspector.page')} ${s.pages.length + 1}`, s.width, s.height);
-          setScreen((sc) => sc.pages.push(np));
-          pageId.value = np.id;
-        }}>
-          <Icon name="plus" size={15} />
-        </button>
       </div>
+      <AddPage onAdd={(np) => {
+        setScreen((sc) => sc.pages.push(np));
+        pageId.value = np.id;
+        selectedTile.value = null;
+      }} />
       <div class="tb-spacer" />
       {current && (
         <>
@@ -211,6 +210,34 @@ function PageThumb({ screen: s, pageId: id }: { screen: Screen; pageId: string }
   return (
     <div class="page-thumb" style={{ aspectRatio: `${s.width} / ${s.height}` }}>
       {url && <img src={url} alt="" draggable={false} />}
+    </div>
+  );
+}
+
+function AddPage({ onAdd }: { onAdd: (p: Page) => void }) {
+  const [open, setOpen] = useState(false);
+  const s = screen.value!;
+  const has = (t: string) => widgets.value.has(t);
+  const titleOf = (t: string) => widgets.value.get(t)?.name;
+  return (
+    <div class="add-page">
+      <button class="icon-btn" title={tr('pages.add')} aria-expanded={open} onClick={() => setOpen(!open)}>
+        <Icon name="plus" size={15} />
+      </button>
+      {open && (
+        <div class="popover up" onMouseLeave={() => setOpen(false)}>
+          <div class="popover-title">{tr('pages.template')}</div>
+          {TEMPLATES.filter((t) => available(t, has)).map((t) => (
+            <button class="menu-item" onClick={() => {
+              const name = t.id === 'blank' ? `${tr('inspector.page')} ${s.pages.length + 1}` : tr(`tpl.${t.id}`);
+              onAdd(t.id === 'blank' ? newPage(name, s.width, s.height) : pageFromTemplate(t, name, s.width, s.height, has, titleOf));
+              setOpen(false);
+            }}>
+              <Icon name={t.icon} size={16} /> <span>{tr(`tpl.${t.id}`)}</span>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

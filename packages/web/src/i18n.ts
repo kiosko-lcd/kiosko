@@ -164,6 +164,17 @@ const en = {
   'toast.added': 'Added',
   'toast.stacked': 'Stacked in the tile',
   'toast.installed': 'Installed. Restart Tessera to load it.',
+  'data.demo': 'Demo mode: sample data',
+  'data.own': 'own data',
+  'data.updated': 'updated',
+  'data.waiting': 'waiting for the first reading… (the preview shows sample data)',
+  'pages.template': 'Start from',
+  'tpl.blank': 'Blank',
+  'tpl.agents': 'AI agents dashboard',
+  'tpl.cats': 'Cats room',
+  'tpl.news': 'News and weather',
+  'tpl.clock': 'Clock and calendar',
+  'tpl.system': 'System monitor',
 } as const;
 
 type Key = keyof typeof en;
@@ -331,6 +342,17 @@ const es: Record<Key, string> = {
   'toast.added': 'Añadido',
   'toast.stacked': 'Apilado en la tesela',
   'toast.installed': 'Instalado. Reinicia Tessera para cargarlo.',
+  'data.demo': 'Modo demo: datos de muestra',
+  'data.own': 'datos propios',
+  'data.updated': 'actualizado',
+  'data.waiting': 'esperando la primera lectura… (la vista previa enseña datos de muestra)',
+  'pages.template': 'Empezar con',
+  'tpl.blank': 'En blanco',
+  'tpl.agents': 'Tablero de agentes IA',
+  'tpl.cats': 'Habitación de gatos',
+  'tpl.news': 'Noticias y tiempo',
+  'tpl.clock': 'Reloj y calendario',
+  'tpl.system': 'Monitor del sistema',
 };
 
 export type TKey = Key;

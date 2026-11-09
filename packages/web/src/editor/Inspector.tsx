@@ -5,7 +5,7 @@ import { api } from '../api.ts';
 import { DurationInput, SchemaForm, Toggle } from '../forms/SchemaForm.tsx';
 import { Icon } from '../icons.tsx';
 import { tr } from '../i18n.ts';
-import { draftPage, draftTile, edit, page, screen, selectedTile, selectedWidget, tile, widget, widgets } from '../store.ts';
+import { app, draftPage, draftTile, edit, page, screen, selectedTile, selectedWidget, status, tile, widget, widgets } from '../store.ts';
 import { deleteTile, duplicateTile } from './Stage.tsx';
 
 export function Inspector() {
@@ -189,6 +189,7 @@ function TileInspector({ t }: { t: Tile }) {
           )}
           <h3>{tr('inspector.when')}</h3>
           <Segmented value={w.when ?? 'always'} options={whenOptions()} onChange={(v) => setWidget((x) => (x.when = v === 'always' ? undefined : v))} />
+          <DataStatus id={w.id} sources={info?.sources ?? []} hasFetch={!!info?.hasFetch} />
           {info?.hasFetch && (
             <>
               <label class="field-label">{tr('inspector.refreshEvery')}</label>
@@ -240,6 +241,28 @@ export function WidgetPicker({ onPick, onCancel }: { onPick: (type: string) => v
           </button>
         ))}
       </div>
+    </div>
+  );
+}
+
+/** Where the widget's data stands: own fetch and shared sources, live from the server. */
+function DataStatus({ id, sources, hasFetch }: { id: string; sources: string[]; hasFetch: boolean }) {
+  if (!hasFetch && !sources.length) return null;
+  if (app.value?.demo) return <div class="data-status demo"><Icon name="flask-conical" size={13} /> {tr('data.demo')}</div>;
+  const st = status.value;
+  const rows = [
+    ...(hasFetch ? [st?.fetches.find((f) => f.id === id) ?? { type: tr('data.own'), ok: true, error: null, updatedAt: null }] : []),
+    ...sources.map((s) => st?.sources.find((x) => x.type === s) ?? { type: s, ok: true, error: null, updatedAt: null }),
+  ];
+  return (
+    <div class="data-status">
+      {rows.map((r) => (
+        <div class={`data-row ${r.ok ? (r.updatedAt ? 'ok' : 'wait') : 'bad'}`} title={r.error ?? ''}>
+          <span class="dot" />
+          <code>{'type' in r ? r.type : ''}</code>
+          <span>{!r.ok ? r.error : r.updatedAt ? `${tr('data.updated')} ${new Date(r.updatedAt).toLocaleTimeString()}` : tr('data.waiting')}</span>
+        </div>
+      ))}
     </div>
   );
 }
