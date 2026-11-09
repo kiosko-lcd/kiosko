@@ -11,4 +11,4 @@ import legacy from '@kiosko/plugin-legacy';
 export const BUILTIN_PLUGINS: PluginDefinition[] = [core, legacy];
 
 /** Official plugins, by id → npm package. Shown in the editor's Plugins page and bundled with the npm package. */
-export const OFFICIAL_PLUGINS: { id: string; npm: string }[] = ['agents', 'cats', 'system', 'vitals', 'usage', 'weather', 'calendar', 'news', 'mirror', 'gitlab'].map((id) => ({ id, npm: `kiosko-plugin-${id}` }));
+export const OFFICIAL_PLUGINS: { id: string; npm: string }[] = ['agents', 'cats', 'system', 'vitals', 'usage', 'weather', 'calendar', 'news', 'mirror', 'gitlab', 'github', 'calls', 'timesheet', 'llm', 'gpu'].map((id) => ({ id, npm: `kiosko-plugin-${id}` }));
