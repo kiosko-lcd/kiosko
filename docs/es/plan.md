@@ -404,6 +404,13 @@ Lo que cambia en el camino:
   repo público van genéricos; tu configuración se queda en tu
   `config.json`.
 - **Licencia**: MIT, como aimonitor.
+- **Arte del interludio**: el corredor de aimonitor reproducía de cerca el
+  nivel 1-1 de Super Mario Bros. (marcador «WORLD 1-1», bloques «?», tubería
+  verde, mástil y castillo). Para publicarlo lo he hecho original y a juego
+  con el producto: marcador «RELEASE vX.Y», bloques de código `</>`,
+  conductos de cable, antena con baliza y un centro de datos al final. En el
+  duelo de los gatos, «lightsaber» (marca de Lucasfilm) pasa a «espadas
+  láser». Tu aimonitor sigue como estaba.
 - **Firma de commits**: tu git firma con GPG y aquí no había pinentry; los
   commits de este repo van sin firmar (`git rebase --exec 'git commit --amend
   --no-edit -S' --root` los firma todos si quieres).
