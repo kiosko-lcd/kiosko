@@ -1,5 +1,5 @@
 /**
- * The lightsaber duel: two cats in profile, standing, in a fencing
+ * The laser-sword duel: two cats in profile, standing, in a fencing
  * guard. It shows up in two places in cat mode:
  *
  *   - short (~6 s), when two sessions step on an uncommitted file: they

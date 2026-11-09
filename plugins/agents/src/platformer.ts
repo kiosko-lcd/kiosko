@@ -407,9 +407,17 @@ export interface RunnerTexts {
   world: string;
   time: string;
   retry: string;
+  /** Shown under `world`: a release number, so every slot has its own. */
+  level?: string;
 }
 
-export const DEFAULT_TEXTS: RunnerTexts = { title: 'TESSERA', world: 'WORLD', time: 'TIME', retry: 'TRY AGAIN' };
+export const DEFAULT_TEXTS: RunnerTexts = { title: 'TESSERA', world: 'RELEASE', time: 'TIME', retry: 'TRY AGAIN', level: 'V1.0' };
+
+/** A release number per seed: "V3.7". */
+export function levelFor(seed: number): string {
+  const n = Math.abs(Math.floor(seed));
+  return `V${(n % 9) + 1}.${Math.floor(n / 9) % 10}`;
+}
 
 /**
  * 5×7 font for the HUD. A smoothed typeface next to block sprites looks very
@@ -454,6 +462,9 @@ const GLYPHS: Record<string, string> = {
   '8': '01110 10001 10001 01110 10001 10001 01110',
   '9': '01110 10001 10001 01111 00001 00010 01100',
   '?': '01110 10001 00001 00110 00100 00000 00100',
+  '<': '00010 00100 01000 10000 01000 00100 00010',
+  '>': '01000 00100 00010 00001 00010 00100 01000',
+  '/': '00001 00010 00010 00100 01000 01000 10000',
   '!': '00100 00100 00100 00100 00100 00000 00100',
   '.': '00000 00000 00000 00000 00000 00000 00100',
   '-': '00000 00000 00000 11111 00000 00000 00000',
@@ -549,7 +560,7 @@ function drawRetryCard(g: Graphics, width: number, height: number, texts: Runner
     while (px > 1 && pixelWidth(pixelSafe(text), px) > width * 0.9) px--;
     return px;
   };
-  const head = `${texts.world} 1-1`;
+  const head = `${texts.world} ${texts.level ?? DEFAULT_TEXTS.level}`;
   const px = fit(head, 6);
   drawPixelText(g, head, cx - pixelWidth(pixelSafe(head), px) / 2, height * 0.26, px, '#FFFFFF');
   // The runner's head and the lives left, centred as a group.
@@ -605,32 +616,39 @@ function drawBlock(g: Graphics, b: Block, sx: number, y: number, frameIndex: num
     g.fillRect(sx + (T * 3) / 4 - 2, y + T / 2 + 2, 4, T / 2 - 2);
     return;
   }
-  // Surprise block: it blinks, half the charm of the original.
+  // Code block: a `</>` tile that pulses, the dev twist on the bonus block.
   const lit = Math.floor(frameIndex / 3) % 4;
-  g.fillStyle = ['#E8A21C', '#FFB020', '#E8A21C', '#B87A10'][lit]!;
+  g.fillStyle = ['#7C5CFF', '#8F74FF', '#7C5CFF', '#6346E0'][lit]!;
   g.fillRect(sx, y, T + 1, T);
-  g.fillStyle = '#7A4E08';
+  g.fillStyle = '#2E1A7A';
   g.fillRect(sx, y, T, 4);
   g.fillRect(sx, y + T - 4, T, 4);
   g.fillRect(sx, y, 4, T);
   g.fillRect(sx + T - 4, y, 4, T);
-  drawPixelText(g, '?', sx + T / 2 - 10, y + T / 2 - 14, 4, '#7A4E08');
+  const tag = '</>';
+  drawPixelText(g, tag, sx + (T - pixelWidth(tag, 3)) / 2, y + T / 2 - 10, 3, '#EDE9FF');
 }
 
+/** A metal cable duct: something to jump over that belongs in a server room. */
 function drawPipe(g: Graphics, p: Pipe, sx: number): void {
   const top = p.top * T;
   const h = (GROUND_ROW - p.top) * T;
-  g.fillStyle = '#04380F';
+  g.fillStyle = '#1E293B';
   g.fillRect(sx - 4, top - 4, 2 * T + 8, h + 4);
-  g.fillStyle = '#00A800';
+  g.fillStyle = '#64748B';
   g.fillRect(sx + 6, top + T * 0.42, 2 * T - 12, h - T * 0.42);
   g.fillRect(sx, top, 2 * T, T * 0.42);
-  g.fillStyle = '#00D000';
+  g.fillStyle = '#94A3B8';
   g.fillRect(sx + 12, top + 6, 14, T * 0.42 - 12);
   g.fillRect(sx + 18, top + T * 0.42, 12, h - T * 0.42);
-  g.fillStyle = '#006000';
+  g.fillStyle = '#334155';
   g.fillRect(sx + 2 * T - 16, top, 10, T * 0.42);
   g.fillRect(sx + 2 * T - 22, top + T * 0.42, 10, h - T * 0.42);
+  // Vent slots on the cap and a status LED.
+  g.fillStyle = '#1E293B';
+  for (let i = 0; i < 4; i++) g.fillRect(sx + 34 + i * 18, top + 10, 10, 4);
+  g.fillStyle = '#34D399';
+  g.fillRect(sx + 2 * T - 34, top + 9, 6, 6);
 }
 
 /** Clouds and hills at a slower pace, for depth. */
@@ -674,44 +692,75 @@ function drawBackdrop(g: Graphics, camera: number, width: number): void {
 }
 
 function drawFlagAndCastle(g: Graphics, f: Frame, width: number): void {
+  // The finish line: a lattice radio mast the runner slides down…
   const poleX = LEVEL.flagCol * T - f.camera + T * 0.4;
   if (poleX > -80 && poleX < width + 80) {
-    g.fillStyle = '#00A800';
-    g.fillRect(poleX, 1.6 * T, 8, GROUND_ROW * T - 1.6 * T);
-    g.fillStyle = '#DADADA';
-    g.fillRect(poleX - 10, 1.4 * T, 28, 20);
-    // The flag comes down with the runner while it slides.
+    const top = 1.6 * T;
+    const bottom = GROUND_ROW * T;
+    g.fillStyle = '#94A3B8';
+    g.fillRect(poleX - 6, top, 4, bottom - top);
+    g.fillRect(poleX + 10, top, 4, bottom - top);
+    g.fillStyle = '#64748B';
+    for (let y = top + 10; y < bottom; y += 26) {
+      g.fillRect(poleX - 6, y, 20, 3);
+      g.save();
+      g.translate(poleX - 4, y + 3);
+      g.rotate(Math.atan2(23, 16));
+      g.fillRect(0, 0, 28, 2);
+      g.restore();
+    }
+    // Beacon on top, blinking.
+    g.fillStyle = f.index % 8 < 4 ? '#F5453D' : '#7A1F1B';
+    g.fillRect(poleX - 4, top - 14, 16, 14);
+    // The pennant comes down with the runner while it slides.
     const drop = f.phase === 'run' ? 0 : Math.min(1, (f.heroY - 2.2 * T) / (GROUND_ROW * T - 2.2 * T));
     const fy = 1.9 * T + drop * (GROUND_ROW * T - 2.9 * T);
-    g.fillStyle = '#2E8A82';
+    g.fillStyle = '#22D3EE';
     g.beginPath();
-    g.moveTo(poleX, fy);
-    g.lineTo(poleX - 62, fy + 22);
-    g.lineTo(poleX, fy + 44);
+    g.moveTo(poleX - 6, fy);
+    g.lineTo(poleX - 66, fy + 22);
+    g.lineTo(poleX - 6, fy + 44);
     g.closePath();
     g.fill();
   }
 
+  // …and the data centre where the release ships.
   const cx = LEVEL.castleCol * T - f.camera;
   if (cx > -400 && cx < width + 400) {
     const cw = CASTLE_W;
     const top = CASTLE_TOP;
-    g.fillStyle = '#C84C0C';
-    g.fillRect(cx, top, cw, GROUND_ROW * T - top);
-    g.fillStyle = '#8A3308';
-    // Battlements.
-    for (let i = 0; i < 5; i++) if (i % 2 === 0) g.fillRect(cx + i * (cw / 5), top - 22, cw / 5, 22);
-    g.fillRect(cx + cw / 2 - T * 0.45, GROUND_ROW * T - T * 1.4, T * 0.9, T * 1.4);
-    g.fillStyle = '#2A1A12';
-    g.fillRect(cx + cw / 2 - T * 0.3, GROUND_ROW * T - T * 1.1, T * 0.6, T * 1.1);
-    // Castle mast: the flag goes up at the end.
+    const ground = GROUND_ROW * T;
+    g.fillStyle = '#1E293B';
+    g.fillRect(cx, top, cw, ground - top);
+    g.fillStyle = '#334155';
+    g.fillRect(cx - 8, top - 16, cw + 16, 16);
+    // Rows of rack lights.
+    for (let row = 0; row < 3; row++) {
+      for (let col = 0; col < 6; col++) {
+        const x = cx + 18 + col * ((cw - 36) / 6);
+        const y = top + 24 + row * 34;
+        g.fillStyle = '#0F172A';
+        g.fillRect(x, y, (cw - 36) / 6 - 8, 22);
+        const on = (col * 7 + row * 3 + Math.floor(f.index / 3)) % 5;
+        g.fillStyle = on === 0 ? '#FFB020' : on < 3 ? '#34D399' : '#14532D';
+        g.fillRect(x + 6, y + 8, 8, 6);
+      }
+    }
+    // Door.
+    g.fillStyle = '#0F172A';
+    g.fillRect(cx + cw / 2 - T * 0.35, ground - T * 1.15, T * 0.7, T * 1.15);
+    g.fillStyle = '#38BDF8';
+    g.fillRect(cx + cw / 2 + T * 0.2, ground - T * 0.6, 5, 5);
+    // Rooftop mast: the release flag goes up at the end.
     const px = cx + cw / 2;
-    g.fillStyle = '#DADADA';
-    g.fillRect(px - 3, top - 96, 6, 96);
+    g.fillStyle = '#94A3B8';
+    g.fillRect(px - 3, top - 112, 6, 96);
     if (f.castleFlag > 0) {
-      const fy = top - 18 - f.castleFlag * 58;
-      g.fillStyle = '#FFB020';
+      const fy = top - 34 - f.castleFlag * 58;
+      g.fillStyle = '#8B5CF6';
       g.fillRect(px + 3, fy, 54, 34);
+      g.fillStyle = '#EDE9FF';
+      g.fillRect(px + 14, fy + 15, 32, 4);
     }
   }
 }
@@ -737,7 +786,8 @@ function drawHud(g: Graphics, f: Frame, total: number, width: number, texts: Run
   for (const px of [4, 3, 2]) {
     const leftW = Math.max(pixelWidth(title, px), pixelWidth(coins, px));
     const rightW = Math.max(pixelWidth(timeLabel, px), pixelWidth(time, px));
-    const worldW = Math.max(pixelWidth(world, px), pixelWidth('1-1', px));
+    const level = pixelSafe(texts.level ?? DEFAULT_TEXTS.level!);
+    const worldW = Math.max(pixelWidth(world, px), pixelWidth(level, px));
     const margin = 10 * px;
     const rightC = width - margin - rightW / 2;
     const withWorld = margin + leftW + 2 * margin + worldW + 2 * margin + rightW + margin <= width;
@@ -748,7 +798,7 @@ function drawHud(g: Graphics, f: Frame, total: number, width: number, texts: Run
     hud(g, coins, margin, line2, px);
     if (withWorld) {
       hud(g, world, centre(world, width / 2), y, px);
-      hud(g, '1-1', centre('1-1', width / 2), line2, px);
+      hud(g, level, centre(level, width / 2), line2, px);
     }
     hud(g, timeLabel, centre(timeLabel, rightC), y, px);
     hud(g, time, centre(time, rightC), line2, px);

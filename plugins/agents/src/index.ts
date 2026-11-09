@@ -9,7 +9,7 @@
 import { defineInterlude, definePlugin, defineSource, defineWidget, t } from '@tessera/sdk';
 import { DEMO_VITALS, scenario } from './demo.ts';
 import { drawSessions, drawSummaryStrip } from './draw.ts';
-import { DEFAULT_TEXTS, runnerPlayer } from './platformer.ts';
+import { DEFAULT_TEXTS, levelFor, runnerPlayer } from './platformer.ts';
 import { resolveDir, watchSessions } from './source.ts';
 import { needsPermission, sessionsOf, SESSIONS_SOURCE, type SessionsData } from './types.ts';
 
@@ -128,8 +128,8 @@ export const runner = defineInterlude({
   id: 'runner',
   name: { en: '8-bit runner', es: 'Corredor de 8 bits' },
   description: {
-    en: 'A side-scrolling platformer run drawn in flat colours. Every slot plays a different ending; now and then the runner reaches the castle.',
-    es: 'Una carrera de plataformas de scroll lateral en colores planos. Cada franja acaba distinto; de vez en cuando el corredor llega al castillo.',
+    en: 'A side-scrolling platformer run through a server room, in flat colours. Every slot plays a different ending; now and then the runner ships the release.',
+    es: 'Una carrera de plataformas de scroll lateral por una sala de servidores, en colores planos. Cada franja acaba distinto; de vez en cuando el corredor saca la versión.',
   },
   icon: 'gamepad',
   options: t.object({
@@ -141,7 +141,8 @@ export const runner = defineInterlude({
     if (ctx.width < 8 || ctx.height < 8) return null;
     const texts = {
       title: ctx.options.title.trim() || DEFAULT_TEXTS.title,
-      world: ctx.t({ en: 'WORLD', es: 'MUNDO' }),
+      world: ctx.t({ en: 'RELEASE', es: 'VERSION' }),
+      level: levelFor(ctx.seed),
       time: ctx.t({ en: 'TIME', es: 'TIEMPO' }),
       retry: ctx.t({ en: 'TRY AGAIN', es: 'OTRA VEZ SERA' }),
     };

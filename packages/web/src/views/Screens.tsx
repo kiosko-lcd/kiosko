@@ -6,7 +6,7 @@ import { api } from '../api.ts';
 import { DurationInput, SchemaForm, Toggle } from '../forms/SchemaForm.tsx';
 import { Icon } from '../icons.tsx';
 import { tr } from '../i18n.ts';
-import { app, config, draftScreen, edit, go, notify, pageId, screenId, status } from '../store.ts';
+import { app, config, draftScreen, edit, go, lastFrame, notify, pageId, screenId, status } from '../store.ts';
 
 export function Screens() {
   const cfg = config.value!;
@@ -127,6 +127,7 @@ function ScreenCard({ s }: { s: Screen }) {
         </a>
         <Toggle checked={s.enabled} onChange={(v) => set((x) => (x.enabled = v))} />
       </div>
+      <LiveThumb s={s} />
       <div class="grid-2">
         <div>
           <label class="field-label">{tr('screens.resolution')}</label>
@@ -267,5 +268,18 @@ function ScreenCard({ s }: { s: Screen }) {
         </button>
       </div>
     </section>
+  );
+}
+
+/** What the panel is showing right now, refreshed with every new frame. */
+function LiveThumb({ s }: { s: Screen }) {
+  const f = lastFrame.value[s.id];
+  const at = f?.at ?? status.value?.screens.find((x) => x.id === s.id)?.lastFrameAt ?? null;
+  return (
+    <div class="live-thumb" style={{ aspectRatio: `${s.width} / ${s.height}`, maxWidth: s.width >= s.height ? '100%' : '320px' }}>
+      {at ? <img src={api.liveFrameUrl(s.id, at)} alt="" /> : <div class="panel-loading" />}
+      {f?.interlude && <span class="live-badge"><Icon name="clapperboard" size={13} /> {tr('stage.interlude')}</span>}
+      {f?.sleeping && <span class="live-badge"><Icon name="moon" size={13} /> {tr('stage.sleeping')}</span>}
+    </div>
   );
 }

@@ -5,7 +5,7 @@
  * its laptop, back turned, while it works). Ported from aimonitor's
  * "modo gatos".
  *
- * Plus an interlude: the quarter-hour lightsaber duel between two sessions.
+ * Plus an interlude: the quarter-hour laser-sword duel between two sessions.
  */
 import { definePlugin, defineInterlude, defineWidget, t, type Localized } from '@tessera/sdk';
 import { sunTimes, type SunTimes, type Weather } from '@loksly/weather-astro';
@@ -160,8 +160,8 @@ export const duel = defineInterlude({
   id: 'duel',
   name: { en: 'Quarter-hour duel', es: 'Duelo del cuarto de hora' },
   description: {
-    en: 'Two of your sessions fight it out with lightsabers in the cats room. The one with fewer uncommitted files wins. With a single session, it fights the bug.',
-    es: 'Dos de tus sesiones se baten con espadas de luz en la habitación de los gatos. Gana la que tiene menos ficheros sin commit. Con una sola, se bate con el bug.',
+    en: 'Two of your sessions fight it out with laser swords in the cats room. The one with fewer uncommitted files wins. With a single session, it fights the bug.',
+    es: 'Dos de tus sesiones se baten con espadas láser en la habitación de los gatos. Gana la que tiene menos ficheros sin commit. Con una sola, se bate con el bug.',
   },
   icon: 'swords',
   options: t.object({ room: roomOptions.props.room }),

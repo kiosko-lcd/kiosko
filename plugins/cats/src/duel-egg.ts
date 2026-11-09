@@ -1,5 +1,5 @@
 /**
- * The quarter-hour duel: two sessions of the room fight with lightsabers over
+ * The quarter-hour duel: two sessions of the room fight with laser swords over
  * a darkened room. The one with fewer uncommitted files wins (on a tie, the
  * one that has been like that for less time); a lone session fights "the bug".
  */
