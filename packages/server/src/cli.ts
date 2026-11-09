@@ -11,6 +11,7 @@ import { spawn } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { Registry, Runtime, loadConfig, paths, saveConfig, type Config } from '@tessera/core';
 import { BUILTIN_PLUGINS } from './builtin.ts';
+import { buildGallery } from './gallery.ts';
 import { importAimonitor } from './import-aimonitor.ts';
 import { runService, servicePlan } from './service.ts';
 import { startServer } from './server.ts';
@@ -23,6 +24,7 @@ const USAGE = `Tessera ${VERSION}: a widget mosaic for USB LCD panels
   tessera render [--screen id|name] [--page id|name] [--out frame.png] [--live]
   tessera import-aimonitor [--from ~/.aimonitor/config.json] [--write]
   tessera doctor
+  tessera gallery [--out gallery] [--locale en] [--theme midnight]
   tessera service install|uninstall|print   (start with your session)
   tessera version`;
 const argv = process.argv.slice(2);
@@ -151,6 +153,14 @@ async function main(): Promise<void> {
       const pass = ['--port', '--host', '--config'].flatMap((f) => (opt(f) ? [f, opt(f)!] : []));
       const env: Record<string, string> = process.env.TESSERA_HOME ? { TESSERA_HOME: process.env.TESSERA_HOME } : {};
       runService(argv[1] ?? 'print', servicePlan({ args: pass, env }));
+      return;
+    }
+    case 'gallery': {
+      process.env.TESSERA_QUIET ??= '1';
+      const reg = await registry();
+      const out = opt('--out') ?? 'gallery';
+      const n = buildGallery(reg, { out, locale: opt('--locale') ?? 'en', theme: opt('--theme') ?? 'midnight' });
+      console.log(`${n} widgets → ${out}/index.html`);
       return;
     }
     case 'help':

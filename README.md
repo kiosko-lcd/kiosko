@@ -91,6 +91,9 @@ masonry-style.
 | `gitlab` | pipelines and merge requests waiting for your review |
 | `legacy` | runs [aimonitor](https://github.com/Loksly/aimonitor) custom modules unchanged |
 
+Every built-in widget, painted with its sample data: run `tessera gallery`
+(published to GitHub Pages by the `Gallery` workflow).
+
 ## Write a widget
 
 Put this in `~/.config/tessera/plugins/hello/index.js` (macOS:
