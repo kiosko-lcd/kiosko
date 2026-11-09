@@ -104,3 +104,23 @@ test('normalize fills a hand-written config', () => {
   assert.equal(s.pages[0]!.grid.cols, 6);
   assert.equal(s.pages[0]!.tiles[0]!.widgets[0]!.options && typeof s.pages[0]!.tiles[0]!.widgets[0]!.id, 'string');
 });
+
+test('the tile cache repaints only tiles whose inputs changed', () => {
+  calls.length = 0;
+  const cache = new Map();
+  let data: unknown = { v: 1 };
+  const p = page([
+    { id: 'a', x: 0, y: 0, w: 2, h: 2, widgets: [W('1', 'test/mark', { label: 'A' })], rotateMs: 0, chrome: 'bare' },
+    { id: 'b', x: 2, y: 0, w: 2, h: 2, widgets: [W('2', 'test/mark', { label: 'B' })], rotateMs: 0, chrome: 'bare' },
+  ]);
+  const run = (now: number) => composePage({ cfg, screen, page: p, theme: DEFAULT_THEME, registry: reg, now, working: true, dataOf: (i) => (i.id === '2' ? data : undefined), sourcesOf: () => ({}), cache });
+  run(1000);
+  assert.deepEqual(calls, ['A', 'B']);
+  run(2000); // same minute, same data: nothing repainted
+  assert.deepEqual(calls, ['A', 'B']);
+  data = { v: 2 }; // B's data changes
+  run(3000);
+  assert.deepEqual(calls, ['A', 'B', 'B']);
+  run(61_000); // new minute: both (redraw: 'minute')
+  assert.deepEqual(calls, ['A', 'B', 'B', 'A', 'B']);
+});

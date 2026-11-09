@@ -55,7 +55,7 @@ function widgetFor(m: OldModule, reg: Registry, notes: string[], modulesDir: str
   const mapped = MODULE_MAP[m.module];
   const base = { id: newId('w'), ...(m.header ? { title: m.header } : {}), ...(m.updateMs ? { intervalMs: m.updateMs } : {}), ...(m.when && m.when !== 'siempre' ? { when: WHEN[m.when] } : {}) };
   if (mapped) {
-    if (!reg.widget(mapped)) notes.push(`"${m.module}" maps to ${mapped}, but that plugin isn't installed: kept, it will show once it is`);
+    if (!reg.widget(mapped)) notes.push(`"${m.module}" maps to ${mapped}: install it with \`tessera plugins add ${mapped.split('/')[0]}\``);
     return { ...base, type: mapped, options: m.config ?? {} };
   }
   if (NOT_PORTED.has(m.module)) {

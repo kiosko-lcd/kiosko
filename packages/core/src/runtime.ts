@@ -12,7 +12,7 @@
 import { EventEmitter } from 'node:events';
 import { themeById, validate, type Theme } from '@tessera/sdk';
 import type { Canvas } from '@napi-rs/canvas';
-import { composePage, composeWidget, rotateCanvas, type ComposeResult } from './compositor.ts';
+import { composePage, composeWidget, rotateCanvas, type ComposeResult, type TileCache } from './compositor.ts';
 import { isWorking, whenMatches, widgetsOf, type Config, type Page, type Screen, type WidgetInstance } from './config/model.ts';
 import { FetchHost, SourceHub } from './data.ts';
 import { encodeFor, openDevice, type Device, type DeviceStatus } from './devices.ts';
@@ -30,14 +30,23 @@ export interface FrameInfo {
   screenId: string;
   pageId: string | null;
   at: number;
-  /** PNG of the logical (unrotated) frame, for the editor. */
-  png: Buffer;
+  /**
+   * JPEG of the logical (unrotated) frame, for the editor: encoded only if
+   * someone asks for it. Encoding every frame as PNG "just in case" was ~80%
+   * of the daemon's CPU.
+   */
+  image: () => Buffer;
   tiles: ComposeResult['tiles'];
   interlude: string | null;
   sleeping: boolean;
 }
 
 const TICK_MS = 250;
+
+function lazyJpeg(c: Canvas): () => Buffer {
+  let b: Buffer | null = null;
+  return () => (b ??= c.toBuffer('image/jpeg', 88));
+}
 
 function encode(c: Canvas, kind: 'png' | 'jpeg', quality: number): Buffer {
   return kind === 'jpeg' ? c.toBuffer('image/jpeg', Math.max(1, Math.min(100, quality || 90))) : c.toBuffer('image/png');
@@ -58,6 +67,8 @@ class ScreenRunner {
   visibleIds = new Set<string>();
   sourceTypes = new Set<string>();
   page: Page | null = null;
+  /** Rendered tiles reused between frames (see compositor's TileCache). */
+  private tiles: TileCache = new Map();
 
   screen: Screen;
   private readonly rt: Runtime;
@@ -79,6 +90,7 @@ class ScreenRunner {
     }
     if (screen.pinnedPage !== this.screen.pinnedPage) this.pinned = screen.pinnedPage ?? null;
     this.screen = screen;
+    this.tiles.clear();
     this.dirty = true;
   }
 
@@ -127,6 +139,7 @@ class ScreenRunner {
         sourcesOf: (types) => this.rt.hub.pick(types),
         log: this.rt.log,
         demo: this.rt.demoMode,
+        cache: this.tiles,
       });
       canvas = result.canvas;
       this.nextAt = Math.min(result.nextAt, now + 60_000);
@@ -146,7 +159,7 @@ class ScreenRunner {
     }
     const kind = encodeFor(screen.device, screen.jpegQuality);
     const out = encode(rotateCanvas(canvas, screen.rotate), kind, screen.jpegQuality);
-    this.lastInfo = { screenId: screen.id, pageId: page?.id ?? null, at: now, png: canvas.toBuffer('image/png'), tiles: result?.tiles ?? [], interlude: null, sleeping };
+    this.lastInfo = { screenId: screen.id, pageId: page?.id ?? null, at: now, image: lazyJpeg(canvas), tiles: result?.tiles ?? [], interlude: null, sleeping };
     this.rt.emit('frame', this.lastInfo);
     if (this.last?.equals(out)) return;
     this.last = out;
@@ -197,7 +210,10 @@ class ScreenRunner {
       const out = encode(rotateCanvas(canvas, this.screen.rotate), kind, this.screen.jpegQuality || 85);
       await this.device.send(out);
       if (i % 3 === 0) {
-        this.lastInfo = { screenId: this.screen.id, pageId: this.page?.id ?? null, at: Date.now(), png: canvas.toBuffer('image/png'), tiles: [], interlude: due.type, sleeping: false };
+        // The interlude draws every frame on the same canvas: snapshot it.
+        const snap = CANVAS.createCanvas(canvas.width, canvas.height);
+        snap.getContext('2d').drawImage(canvas, 0, 0);
+        this.lastInfo = { screenId: this.screen.id, pageId: this.page?.id ?? null, at: Date.now(), image: lazyJpeg(snap), tiles: [], interlude: due.type, sleeping: false };
         this.rt.emit('frame', this.lastInfo);
       }
       const wait = start + ((i + 1) * 1000) / fps - Date.now();

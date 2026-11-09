@@ -11,7 +11,8 @@ import { spawn } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { Registry, Runtime, loadConfig, paths, saveConfig, type Config } from '@tessera/core';
-import { BUILTIN_PLUGINS } from './builtin.ts';
+import { BUILTIN_PLUGINS, OFFICIAL_PLUGINS } from './builtin.ts';
+import { pluginsCommand } from './plugins-cli.ts';
 import { buildGallery } from './gallery.ts';
 import { importAimonitor } from './import-aimonitor.ts';
 import { runService, servicePlan } from './service.ts';
@@ -26,6 +27,7 @@ const USAGE = `Tessera ${VERSION}: a widget mosaic for USB LCD panels
   tessera import-aimonitor [--from ~/.aimonitor/config.json] [--with-secrets] [--write]
   tessera doctor
   tessera gallery [--out gallery] [--locale en] [--theme midnight]
+  tessera plugins [list|add <id>…|link <folder>…|remove <id>…]
   tessera service install|uninstall|print   (start with your session)
   tessera version`;
 const argv = process.argv.slice(2);
@@ -39,7 +41,17 @@ const opt = (name: string) => {
 async function registry(): Promise<Registry> {
   const r = new Registry();
   for (const p of BUILTIN_PLUGINS) r.add(p);
+  // The plugins folder first: a linked checkout overrides the bundled copy.
   await r.loadDir(paths.plugins);
+  for (const o of OFFICIAL_PLUGINS) {
+    if (r.plugin(o.id)) continue;
+    try {
+      const mod = (await import(import.meta.resolve(o.npm))) as { default?: Parameters<Registry['add']>[0] };
+      if (mod.default) r.add(mod.default, `npm:${o.npm}`);
+    } catch {
+      /* not installed: the editor offers it */
+    }
+  }
   for (const pr of r.problems) console.warn(`plugin ${pr.origin}: ${pr.message}`);
   return r;
 }
@@ -165,6 +177,11 @@ async function main(): Promise<void> {
       const out = opt('--out') ?? 'gallery';
       const n = buildGallery(reg, { out, locale: opt('--locale') ?? 'en', theme: opt('--theme') ?? 'midnight' });
       console.log(`${n} widgets → ${out}/index.html`);
+      return;
+    }
+    case 'plugins': {
+      process.env.TESSERA_QUIET ??= '1';
+      await pluginsCommand(argv.slice(1), registry);
       return;
     }
     case 'help':

@@ -14,6 +14,7 @@ import { createRequire } from 'node:module';
 import { dirname, extname, join, normalize as normPath, resolve } from 'node:path';
 import { THEMES } from '@tessera/sdk';
 import { CATEGORIES } from '@tessera/sdk';
+import { OFFICIAL_PLUGINS } from './builtin.ts';
 import { PANEL_PRESETS, discoverTrcc, normalize, paths, resolveLocale, saveConfig, type Config, type FrameInfo, type Runtime, type Screen } from '@tessera/core';
 
 const require = createRequire(import.meta.url);
@@ -111,6 +112,7 @@ export function startServer(o: ServerOptions) {
       status: runtime.status(),
       paths: { config: o.configPath, plugins: paths.plugins, home: paths.home },
       restartNeeded,
+      official: OFFICIAL_PLUGINS,
       demo: runtime.demoMode,
       platform: process.platform,
     };
@@ -153,11 +155,13 @@ export function startServer(o: ServerOptions) {
     }
 
     // Live frame of a screen, as sent to the panel (unrotated).
-    let mm = /^\/api\/screens\/([^/]+)\/frame\.png$/.exec(p);
+    let mm = /^\/api\/screens\/([^/]+)\/frame\.(?:jpg|png)$/.exec(p);
     if (mm && m === 'GET') {
       const f = runtime.lastFrame(decodeURIComponent(mm[1]!));
       if (!f) return json(res, 404, { error: 'no frame yet' });
-      return png(res, f.png, { 'x-tessera-at': String(f.at) });
+      const buf = f.image();
+      res.writeHead(200, { 'content-type': 'image/jpeg', 'cache-control': 'no-store', 'content-length': String(buf.length), 'x-tessera-at': String(f.at) });
+      return void res.end(buf);
     }
 
     // Preview of a page being edited (not saved), with demo data where needed.

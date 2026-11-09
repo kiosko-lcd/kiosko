@@ -17,7 +17,8 @@
     "packages/core",
     "packages/server",
     "packages/web",
-    "plugins/*"
+    "plugins/*",
+    "../tessera-plugins/*"
   ],
   "scripts": {
     "start": "node --conditions=source packages/server/src/cli.ts start",
@@ -28,13 +29,13 @@
     "test": "node --conditions=source --test \"packages/*/src/**/*.test.ts\" \"plugins/*/src/**/*.test.ts\"",
     "gallery": "node --conditions=source packages/server/src/cli.ts gallery --out tmp/gallery",
     "build": "npm run web:build",
-    "dist": "node scripts/build-dist.mjs"
+    "dist": "node scripts/build-dist.mjs",
+    "dev:link": "node scripts/dev-link.mjs",
+    "plugins:scaffold": "node --conditions=source scripts/scaffold-plugin-repos.ts"
   },
   "devDependencies": {
     "@types/node": "^24.19.2",
+    "ical.js": "^2.2.1",
     "typescript": "^5.9.3"
-  },
-  "optionalDependencies": {
-    "ical.js": "^2.2.1"
   }
 }

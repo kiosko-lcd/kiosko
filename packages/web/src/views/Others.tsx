@@ -48,6 +48,39 @@ export default definePlugin({
           ))}
         </div>
       )}
+      {(() => {
+        const missing = (a.official ?? []).filter((o) => !a.catalog.some((p) => p.id === o.id));
+        if (!missing.length) return null;
+        return (
+          <section class="card official">
+            <h3>
+              <Icon name="badge-check" size={16} /> {tr('plugins.official')}
+            </h3>
+            <p class="muted small">{tr('plugins.officialHint')}</p>
+            <div class="official-list">
+              {missing.map((o) => (
+                <div class="official-item">
+                  <span class="mono">{o.npm}</span>
+                  <button class="btn small primary" disabled={busy} onClick={async () => {
+                    setBusy(true);
+                    try {
+                      await api.install(o.npm);
+                      notify(tr('toast.installed'), 'ok');
+                      await reloadState();
+                    } catch (err) {
+                      notify(String(err instanceof Error ? err.message : err), 'error');
+                    } finally {
+                      setBusy(false);
+                    }
+                  }}>
+                    <Icon name="download" size={13} /> {tr('common.add')}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </section>
+        );
+      })()}
       <div class="plugin-grid">
         {a.catalog.map((p) => (
           <article class={`card plugin-card ${p.enabled ? '' : 'disabled'}`}>
@@ -63,6 +96,7 @@ export default definePlugin({
               </div>
               <div class="tb-spacer" />
               {p.builtin && <span class="pill">{tr('plugins.builtin')}</span>}
+              {!p.builtin && (a.official ?? []).some((o) => o.id === p.id) && <span class="pill official-pill">{tr('plugins.officialShort')}</span>}
               <Toggle checked={p.enabled} onChange={async (v) => {
                 app.value = await api.setPluginEnabled(p.id, v);
                 config.value = app.value.config;

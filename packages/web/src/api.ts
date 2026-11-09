@@ -85,6 +85,7 @@ export interface AppState {
   status: Status;
   paths: { config: string; plugins: string; home: string };
   restartNeeded: boolean;
+  official: { id: string; npm: string }[];
   demo: boolean;
   platform: string;
 }
@@ -123,7 +124,7 @@ export const api = {
     return { url: URL.createObjectURL(await r.blob()), tiles };
   },
   thumbnailUrl: (type: string, w: number, h: number, v = '') => `/api/thumbnail?type=${encodeURIComponent(type)}&w=${Math.round(w)}&h=${Math.round(h)}&v=${encodeURIComponent(v)}`,
-  liveFrameUrl: (screenId: string, at: number) => `/api/screens/${encodeURIComponent(screenId)}/frame.png?at=${at}`,
+  liveFrameUrl: (screenId: string, at: number) => `/api/screens/${encodeURIComponent(screenId)}/frame.jpg?at=${at}`,
   pin: (screenId: string, pageId: string | null) => fetch(`/api/screens/${encodeURIComponent(screenId)}/pin`, { method: 'POST', headers: H, body: JSON.stringify({ pageId }) }).then((r) => ok(r)),
   playInterlude: (screenId: string, slotId: string) => fetch(`/api/screens/${encodeURIComponent(screenId)}/interlude`, { method: 'POST', headers: H, body: JSON.stringify({ slotId }) }).then((r) => ok(r)),
   refreshWidget: (id: string) => fetch(`/api/widgets/${encodeURIComponent(id)}/refresh`, { method: 'POST', headers: H, body: '{}' }).then((r) => ok(r)),

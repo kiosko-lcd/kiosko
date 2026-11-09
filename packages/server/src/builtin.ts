@@ -1,19 +1,14 @@
 /**
- * The plugins that ship with Tessera. Each lives in `plugins/<name>` and is
- * an ordinary plugin: the same contract as a third-party one.
+ * The plugins that ship inside Tessera itself: the essentials and the bridge
+ * from aimonitor. Every other official plugin lives in its own repository
+ * (`tessera-plugin-*`) and is loaded like any third-party one; the npm
+ * package lists them as dependencies so a plain install has them all.
  */
 import type { PluginDefinition } from '@tessera/sdk';
-import agents from '@tessera/plugin-agents';
-import calendar from '@tessera/plugin-calendar';
-import cats from '@tessera/plugin-cats';
 import core from '@tessera/plugin-core';
-import gitlab from '@tessera/plugin-gitlab';
 import legacy from '@tessera/plugin-legacy';
-import mirror from '@tessera/plugin-mirror';
-import news from '@tessera/plugin-news';
-import system from '@tessera/plugin-system';
-import usage from '@tessera/plugin-usage';
-import vitals from '@tessera/plugin-vitals';
-import weather from '@tessera/plugin-weather';
 
-export const BUILTIN_PLUGINS: PluginDefinition[] = [core, agents, cats, system, vitals, usage, weather, calendar, news, mirror, gitlab, legacy];
+export const BUILTIN_PLUGINS: PluginDefinition[] = [core, legacy];
+
+/** Official plugins, by id → npm package. Shown in the editor's Plugins page and bundled with the npm package. */
+export const OFFICIAL_PLUGINS: { id: string; npm: string }[] = ['agents', 'cats', 'system', 'vitals', 'usage', 'weather', 'calendar', 'news', 'mirror', 'gitlab'].map((id) => ({ id, npm: `tessera-plugin-${id}` }));

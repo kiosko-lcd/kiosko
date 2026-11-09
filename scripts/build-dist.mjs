@@ -24,7 +24,7 @@ execFileSync(process.execPath, [join(root, 'packages/web/build.mjs')], { stdio: 
 cpSync(join(root, 'packages/web/dist'), join(out, 'web'), { recursive: true });
 
 // Native or data packages stay outside the bundle.
-const external = ['@napi-rs/canvas', 'dejavu-fonts-ttf', 'ical.js'];
+const external = ['@napi-rs/canvas', 'dejavu-fonts-ttf'];
 const common = {
   bundle: true,
   platform: 'node',
@@ -66,7 +66,9 @@ const pkg = {
   keywords: ['lcd', 'thermalright', 'trofeo-vision', 'dashboard', 'widgets', 'claude-code', 'aio', 'usb-display'],
   repository: { type: 'git', url: 'git+https://github.com/Loksly/tessera.git' },
   dependencies: deps,
-  optionalDependencies: { 'ical.js': '^2.2.1' },
+  // The official plugins live in their own repos; installing Tessera brings
+  // them along. Optional, so a missing one never breaks the install.
+  optionalDependencies: Object.fromEntries(['agents', 'cats', 'system', 'vitals', 'usage', 'weather', 'calendar', 'news', 'mirror', 'gitlab'].map((id) => [`tessera-plugin-${id}`, `^${version}`])),
 };
 writeFileSync(join(out, 'package.json'), `${JSON.stringify(pkg, null, 2)}\n`);
 for (const f of ['README.md', 'LICENSE']) cpSync(join(root, f), join(out, f));

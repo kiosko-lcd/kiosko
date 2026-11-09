@@ -37,6 +37,8 @@ export interface ComposeInput {
   log?: LogFn;
   /** Disable pixel shift (editor, gallery). */
   noShift?: boolean;
+  /** Reuse tiles whose inputs didn't change (the panel; not previews). */
+  cache?: TileCache;
 }
 
 export interface TileResult {
@@ -110,12 +112,11 @@ function safe<T>(fn: (() => T) | undefined, fallback: T): T {
   }
 }
 
-/** Next time a widget wants to be repainted on its own. */
-function redrawAt(def: WidgetDefinition<any, any>, now: number, state: ReturnType<typeof stateCtx>): number {
+/** How often a widget wants to be repainted on its own, in ms (0 = only when its data changes). */
+function redrawStep(def: WidgetDefinition<any, any>, state: ReturnType<typeof stateCtx>): number {
   const r = (typeof def.redraw === 'function' ? safe(() => (def.redraw as (c: typeof state) => Redraw)(state), 'never' as Redraw) : def.redraw) ?? 'never';
-  if (r === 'never') return Infinity;
-  const step = r === 'second' ? 1000 : r === 'minute' ? 60_000 : Math.max(250, r.everyMs);
-  return (Math.floor(now / step) + 1) * step;
+  if (r === 'never') return 0;
+  return r === 'second' ? 1000 : r === 'minute' ? 60_000 : Math.max(250, r.everyMs);
 }
 
 /** Cuts `text` with an ellipsis to fit `maxW` with the current font (plain fillText, no tracking). */
@@ -145,6 +146,19 @@ export function chromeMetrics(theme: Theme, screenH: number, rect: PxRect) {
   return { pad, title, titleBar: Math.round(title * 1.55) };
 }
 
+/** Rendered tiles kept between frames of one screen, so a frame only repaints what changed. */
+export type TileCache = Map<string, { key: string; refs: unknown[]; canvas: Canvas; error?: string }>;
+
+function drawCard(g: SKRSContext2D, rect: PxRect, theme: Theme): void {
+  roundRect(g, rect.x, rect.y, rect.w, rect.h, theme.radius);
+  g.fillStyle = theme.colors.surface;
+  g.fill();
+  g.strokeStyle = theme.colors.surfaceEdge;
+  g.lineWidth = 1;
+  roundRect(g, rect.x + 0.5, rect.y + 0.5, rect.w - 1, rect.h - 1, theme.radius);
+  g.stroke();
+}
+
 function paintTile(g: SKRSContext2D, input: ComposeInput, tile: Tile, rect: PxRect, out: TileResult, nextAt: { v: number }, idles: boolean[]): void {
   const { theme, now, working } = input;
   const candidates = tile.widgets
@@ -163,17 +177,8 @@ function paintTile(g: SKRSContext2D, input: ComposeInput, tile: Tile, rect: PxRe
   const r = candidates.find((c) => c.inst.id === shownId);
 
   const chrome = tile.chrome === 'auto' ? (r?.def.chrome ?? 'card') : tile.chrome;
-  const m = chromeMetrics(theme, input.screen.height, rect);
-  if (chrome === 'card') {
-    roundRect(g, rect.x, rect.y, rect.w, rect.h, theme.radius);
-    g.fillStyle = theme.colors.surface;
-    g.fill();
-    g.strokeStyle = theme.colors.surfaceEdge;
-    g.lineWidth = 1;
-    roundRect(g, rect.x + 0.5, rect.y + 0.5, rect.w - 1, rect.h - 1, theme.radius);
-    g.stroke();
-  }
   if (!r) {
+    if (chrome === 'card') drawCard(g, rect, theme);
     // An empty tile is invisible on the panel; in the editor it's a hint.
     if (input.preview && !tile.widgets.length) {
       g.setLineDash([6, 6]);
@@ -184,9 +189,38 @@ function paintTile(g: SKRSContext2D, input: ComposeInput, tile: Tile, rect: PxRe
     }
     return;
   }
-  idles.push(safe(() => r.def.idle?.(stateCtx(r, now, working)) ?? false, false));
-  nextAt.v = Math.min(nextAt.v, redrawAt(r.def, now, stateCtx(r, now, working)));
+  const state = stateCtx(r, now, working);
+  idles.push(safe(() => r.def.idle?.(state) ?? false, false));
+  const step = redrawStep(r.def, state);
+  if (step) nextAt.v = Math.min(nextAt.v, (Math.floor(now / step) + 1) * step);
 
+  const draw = (tg: SKRSContext2D) => drawTileContent(tg, input, r, rect, chrome, out);
+  if (!input.cache) {
+    draw(g);
+    return;
+  }
+  // Same widget, options, size, data and sources (by reference: they're
+  // replaced, never mutated, when they change) and same redraw slot: reuse.
+  const key = JSON.stringify([r.inst.id, r.inst.type, r.inst.options, r.inst.title ?? '', chrome, rect, theme.id, step ? Math.floor(now / step) : 0, input.cfg.locale, working]);
+  const refs = [r.data, ...(r.def.sources ?? []).map((s) => r.sources[s])];
+  const hit = input.cache.get(tile.id);
+  if (hit && hit.key === key && hit.refs.length === refs.length && hit.refs.every((x, i) => x === refs[i])) {
+    g.drawImage(hit.canvas, rect.x, rect.y);
+    if (hit.error) out.error = hit.error;
+    return;
+  }
+  const canvas = createCanvas(rect.w, rect.h);
+  const tg = canvas.getContext('2d');
+  tg.translate(-rect.x, -rect.y);
+  draw(tg);
+  g.drawImage(canvas, rect.x, rect.y);
+  input.cache.set(tile.id, { key, refs, canvas, ...(out.error ? { error: out.error } : {}) });
+}
+
+function drawTileContent(g: SKRSContext2D, input: ComposeInput, r: Resolved, rect: PxRect, chrome: 'card' | 'bare', out: TileResult): void {
+  const { theme, now, working } = input;
+  const m = chromeMetrics(theme, input.screen.height, rect);
+  if (chrome === 'card') drawCard(g, rect, theme);
   const pad = chrome === 'card' ? m.pad : 0;
   let top = rect.y + pad;
   const title = r.inst.title?.trim();
@@ -250,6 +284,7 @@ export function composePage(input: ComposeInput): ComposeResult {
     tiles.push(out);
     paintTile(g, input, tile, rect, out, nextAt, idles);
   }
+  if (input.cache) for (const id of input.cache.keys()) if (!page.tiles.some((t) => t.id === id)) input.cache.delete(id);
   g.restore();
   if (screen.pixelShift.enabled && !input.preview) nextAt.v = Math.min(nextAt.v, (Math.floor(now / screen.pixelShift.periodMs) + 1) * screen.pixelShift.periodMs);
   return { canvas, tiles, idle: idles.length > 0 && idles.every(Boolean), nextAt: nextAt.v };
