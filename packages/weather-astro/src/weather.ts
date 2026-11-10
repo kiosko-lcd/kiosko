@@ -47,6 +47,9 @@ export interface HourForecast {
   rain: number;
 }
 
+/** `metric` (°C, km/h, Open-Meteo's default) or `imperial` (°F, mph). */
+export type Units = 'metric' | 'imperial';
+
 export interface Weather {
   place: string;
   /** Coordinates of the reading, when the provider returned them. */
@@ -59,6 +62,8 @@ export interface Weather {
   code: number;
   humidity: number;
   wind: number;
+  /** Units of `temp`, `feels`, `days`, `hours` and `wind`; absent means `metric`. */
+  units?: Units;
   /** Is it night at the place? Turns sun icons into moon icons. */
   night: boolean;
   days: DayForecast[];
@@ -118,8 +123,11 @@ export interface OpenMeteo {
   };
 }
 
-/** How many hourly entries `parseOpenMeteo` keeps. */
-export const HOURS_AHEAD = 12;
+/** How many hourly entries `parseOpenMeteo` keeps: two days, enough to see tomorrow from tonight. */
+export const HOURS_AHEAD = 48;
+
+/** Days of daily forecast asked for, today included: a week. */
+export const FORECAST_DAYS = 7;
 
 /**
  * Trims the hourly series so that it starts at the current hour.
@@ -205,25 +213,46 @@ export interface WeatherPlace {
   longitude: number;
 }
 
-/** Reads the current weather and a three-day forecast. Never throws: null on failure. */
-export async function fetchWeather(
-  place: WeatherPlace,
-  timeoutMs: number,
-  log: (msg: string) => void = () => {},
-): Promise<Weather | null> {
-  const url =
+export interface FetchWeatherOptions {
+  /** Longest the request may take. */
+  timeoutMs: number;
+  /** Aborts the request early (the caller stopped). */
+  signal?: AbortSignal;
+  /** Default `metric`. */
+  units?: Units;
+}
+
+/** The Open-Meteo address for a place: now, the next `HOURS_AHEAD` hours and `FORECAST_DAYS` days. */
+export function openMeteoUrl(place: Pick<WeatherPlace, 'latitude' | 'longitude'>, units: Units = 'metric'): string {
+  return (
     'https://api.open-meteo.com/v1/forecast' +
     `?latitude=${place.latitude}&longitude=${place.longitude}` +
     '&current=temperature_2m,apparent_temperature,weather_code,relative_humidity_2m,wind_speed_10m' +
     '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max' +
     '&hourly=temperature_2m,precipitation_probability' +
-    '&timezone=auto&forecast_days=3';
+    (units === 'imperial' ? '&temperature_unit=fahrenheit&wind_speed_unit=mph' : '') +
+    `&timezone=auto&forecast_days=${FORECAST_DAYS}`
+  );
+}
+
+/**
+ * Reads the current weather, the next two days hour by hour and a week of
+ * daily forecast. Never throws: null on failure. The second argument is the
+ * timeout in ms, or `{ timeoutMs, signal, units }`.
+ */
+export async function fetchWeather(
+  place: WeatherPlace,
+  options: number | FetchWeatherOptions,
+  log: (msg: string) => void = () => {},
+): Promise<Weather | null> {
+  const o: FetchWeatherOptions = typeof options === 'number' ? { timeoutMs: options } : options;
+  const timeout = AbortSignal.timeout(o.timeoutMs);
   try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
+    const res = await fetch(openMeteoUrl(place, o.units), { signal: o.signal ? AbortSignal.any([o.signal, timeout]) : timeout });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const parsed = parseOpenMeteo((await res.json()) as OpenMeteo, place.name);
     if (!parsed) throw new Error('response without current data');
-    return parsed;
+    return o.units === 'imperial' ? { ...parsed, units: 'imperial' } : parsed;
   } catch (err) {
     log(`weather: failed (${err instanceof Error ? err.message : String(err)})`);
     return null;

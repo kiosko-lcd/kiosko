@@ -4,7 +4,8 @@ Weather, moon phase and sunrise/sunset for small always-on displays. No
 dependencies, no API keys, no drawing.
 
 - **Weather** from [Open-Meteo](https://open-meteo.com/) (free, no key): current
-  conditions, the next hours and a three-day forecast, with WMO codes mapped to a
+  conditions, the next 48 hours and a seven-day forecast, in metric or imperial
+  units, with WMO codes mapped to a
   small set of icons. A tiny file cache keeps the last good reading so a network
   outage does not blank your screen.
 - **Moon phase**, computed locally (no network), with the eight usual phase names.
@@ -42,7 +43,8 @@ const sun = sunTimes(new Date(), place.latitude, place.longitude); // { rise: 7.
 
 | Export | What it does |
 |---|---|
-| `fetchWeather(place, timeoutMs, log?)` | Reads Open-Meteo. Never throws: `null` on failure. |
+| `fetchWeather(place, timeoutMs \| { timeoutMs, signal?, units? }, log?)` | Reads Open-Meteo: now, 48 hours (`HOURS_AHEAD`) and 7 days (`FORECAST_DAYS`). `units: 'imperial'` gives °F and mph. Never throws: `null` on failure. |
+| `openMeteoUrl(place, units?)` | The address it reads. |
 | `parseOpenMeteo(raw, place, now?)` | The parser behind it, for your own fetch. |
 | `iconFor(code, night?)` | WMO code → `IconKind` (`sun`, `moon`, `sun-cloud`, `moon-cloud`, `cloud`, `fog`, `drizzle`, `rain`, `snow`, `storm`). |
 | `saveWeather(path, w)` / `loadWeather(path, now?)` | Atomic file cache. `loadWeather` drops readings older than `MAX_AGE_MS` (6 h). |

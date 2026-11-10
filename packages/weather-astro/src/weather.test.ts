@@ -4,9 +4,12 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
+  FORECAST_DAYS,
+  HOURS_AHEAD,
   iconFor,
   isNight,
   loadWeather,
+  openMeteoUrl,
   parseOpenMeteo,
   saveWeather,
   sliceHours,
@@ -131,4 +134,23 @@ test('weather: the hourly series is part of the full parse', () => {
     { label: '02:00', temp: 23, rain: 10 },
     { label: '03:00', temp: 23, rain: 35 },
   ]);
+});
+
+test('weather: asks for two days of hours and a week of days, in the units wanted', () => {
+  assert.strictEqual(HOURS_AHEAD, 48);
+  assert.strictEqual(FORECAST_DAYS, 7);
+  const metric = openMeteoUrl({ latitude: 40.4, longitude: -3.7 });
+  assert.ok(metric.includes('forecast_days=7'));
+  assert.ok(!metric.includes('fahrenheit'), 'metric is the API default');
+  const imperial = openMeteoUrl({ latitude: 40.4, longitude: -3.7 }, 'imperial');
+  assert.ok(imperial.includes('temperature_unit=fahrenheit') && imperial.includes('wind_speed_unit=mph'));
+});
+
+test('weather: two days of hours are kept, starting at the current one', () => {
+  const times = Array.from({ length: 7 * 24 }, (_, i) => `2026-09-0${4 + Math.floor(i / 24)}T${String(i % 24).padStart(2, '0')}:00`);
+  const w = parseOpenMeteo({ current: { time: '2026-09-04T22:15', temperature_2m: 20 }, hourly: { time: times, temperature_2m: times.map(() => 20), precipitation_probability: times.map(() => 0) } }, 'X');
+  assert.ok(w);
+  assert.strictEqual(w.hours.length, 48);
+  assert.strictEqual(w.hours[0]?.label, '22:00');
+  assert.strictEqual(w.hours[47]?.label, '21:00', 'until the same hour two days later');
 });
