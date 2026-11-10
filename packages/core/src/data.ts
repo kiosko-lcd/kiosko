@@ -40,10 +40,27 @@ export function deadline(parent: AbortSignal, ms: number): { signal: AbortSignal
 
 const timedOutMsg = (ms: number) => `timed out after ${ms < 1000 ? `${ms} ms` : `${Math.round(ms / 1000)} s`}`;
 
-const same = (a: unknown, b: unknown) => {
+/**
+ * Identities for objects JSON can't see into: a decoded image stringifies as
+ * `{}`, so every new picture looked like the old one and was never shown.
+ * Such objects (anything but plain objects and arrays, after `toJSON`) compare
+ * by identity instead.
+ */
+const opaqueIds = new WeakMap<object, number>();
+let nextOpaqueId = 0;
+const opaque = (_key: string, v: unknown): unknown => {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return v;
+  const proto = Object.getPrototypeOf(v);
+  if (proto === Object.prototype || proto === null) return v;
+  let id = opaqueIds.get(v);
+  if (id === undefined) opaqueIds.set(v, (id = ++nextOpaqueId));
+  return `\u0000opaque#${id}`;
+};
+
+export const same = (a: unknown, b: unknown) => {
   if (a === b) return true;
   try {
-    return JSON.stringify(a) === JSON.stringify(b);
+    return JSON.stringify(a, opaque) === JSON.stringify(b, opaque);
   } catch {
     return false;
   }

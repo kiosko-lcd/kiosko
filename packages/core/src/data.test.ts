@@ -3,7 +3,7 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { test } from 'node:test';
 import { definePlugin, defineSource, defineWidget, t } from '@kiosko/sdk';
 import { normalize } from './config/normalize.ts';
-import { FetchHost, SourceHub, deadline } from './data.ts';
+import { FetchHost, SourceHub, deadline, same } from './data.ts';
 import { Registry } from './registry.ts';
 
 const reads: { intervalMs: number; timeoutMs: number; label: unknown; extra: unknown }[] = [];
@@ -167,5 +167,40 @@ test('a widget can set its own fetch interval from its options or data; the user
   assert.ok(Math.abs((await next({ id: 'b', type: 't/paced', options: { everyMs: 30_000 } })) - 30_000) < 50);
   // The instance's interval wins.
   assert.ok(Math.abs((await next({ id: 'c', type: 't/paced', options: { everyMs: 30_000 }, intervalMs: 120_000 })) - 120_000) < 50);
+  host.stop();
+});
+
+test('same: decoded images and other opaque objects compare by identity, not as {}', () => {
+  class Picture {
+    width = 10;
+  }
+  const a = new Picture();
+  assert.equal(same({ img: a }, { img: a }), true);
+  assert.equal(same({ img: a }, { img: new Picture() }), false, 'a new picture is new data');
+  assert.equal(same({ n: 1, list: [1, { x: 2 }] }, { n: 1, list: [1, { x: 2 }] }), true, 'plain data still compares by value');
+  assert.equal(same({ at: new Date(5) }, { at: new Date(5) }), true, 'toJSON values compare by value');
+});
+
+test('a widget whose every fetch brings a new image is repainted every time', async () => {
+  class Picture {}
+  const changes: string[] = [];
+  const r = new Registry();
+  r.add(
+    definePlugin({
+      id: 'cam',
+      name: 'Cam',
+      version: '1',
+      widgets: [defineWidget({ id: 'shot', name: 'Shot', fetch: async () => ({ img: new Picture() }), intervalMs: 60_000, render: () => undefined })],
+    }),
+  );
+  const hub = new SourceHub(r, quiet, () => undefined);
+  const host = new FetchHost(hub, quiet, (id) => changes.push(id));
+  host.retain([{ inst: { id: 'w', type: 'cam/shot', options: {} }, def: r.widget('cam/shot')! }]);
+  host.tick(normalize({}), Date.now());
+  await flush();
+  host.refresh('w');
+  host.tick(normalize({}), Date.now());
+  await flush();
+  assert.deepEqual(changes, ['w', 'w']);
   host.stop();
 });
