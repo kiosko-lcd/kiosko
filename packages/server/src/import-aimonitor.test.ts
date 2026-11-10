@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { Registry } from '@kiosko/core';
-import { importAimonitor } from './import-aimonitor.ts';
+import { importAimonitor, optionsOf } from './import-aimonitor.ts';
 
 const OLD = {
   width: 1920,
@@ -71,4 +71,21 @@ test('the mode file wins over scene.mode', () => {
 test('--with-secrets copies the ICS URLs into the calendar source', () => {
   const { config } = importAimonitor(OLD, new Registry(), null, { withSecrets: true });
   assert.deepEqual((config.sources['calendar/events'] as { urls: string[] }).urls, ['https://outlook.example/secret.ics']);
+});
+
+test('module settings become the options of today: renamed keys, minutes in ms, a threshold pair', () => {
+  assert.deepEqual(optionsOf('countdown', { max: 3, warnDays: 7 }), { rows: 3, warnDays: 7 });
+  assert.deepEqual(optionsOf('agenda', { tomorrow: false, warnMin: 10, holdMin: 5 }), { days: 1, warnMs: 600_000, holdMs: 300_000 });
+  assert.deepEqual(optionsOf('syshealth', { tempWarn: 85, mounts: ['/'] }), { tempAlert: 85, tempWarn: 70, mounts: ['/'] });
+  assert.deepEqual(optionsOf('tasks', { gitlab: true }), { includeIssues: true });
+  assert.deepEqual(optionsOf('pipelines', { aliases: { a: 'b' } }), { aliases: { a: 'b' } });
+  assert.deepEqual(optionsOf('nowplaying'), {});
+});
+
+test('the disk to watch goes to the vitals source; the timesheet day to the working week', () => {
+  const { config } = importAimonitor({ ...OLD, system: { diskPath: '/home' }, timesheet: { workday: { start: '09:00', end: '16:30', hours: 7.5, weekly: 40, friday: { end: '15:00', hours: 6 }, holidays: ['2026-10-12'] } } }, new Registry());
+  assert.deepEqual(config.sources['system/vitals'], { diskPath: '/home' });
+  const vitals = config.screens[0]!.pages[0]!.tiles.flatMap((t) => t.widgets).find((w) => w.type === 'vitals/vitals')!;
+  assert.deepEqual(vitals.options, {});
+  assert.deepEqual(config.workday, { days: [1, 2, 3, 4, 5], start: '09:00', end: '16:30', hours: 7.5, holidays: ['2026-10-12'], byDay: { '5': { end: '15:00', hours: 6 } } });
 });

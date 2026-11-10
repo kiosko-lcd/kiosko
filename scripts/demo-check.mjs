@@ -248,7 +248,7 @@ async function fullCheck(browser) {
   const region = await tileRegion(page, 1);
   const before = await imgStats(page, '.panel-img', region);
   const thumbBefore = await page.$eval('.page-card img', (i) => i.src);
-  await page.locator('.inspector [role=switch][id$="weekNumber"]').click();
+  await page.locator('.inspector [role=switch][id$="showWeekNumber"]').click();
   const after = await waitRegionChange(page, region, before?.hash);
   check('changing a widget option changes the preview pixels', before && after && before.hash !== after.hash, `tile hash ${before?.hash} → ${after?.hash}`);
   const thumbAfter = await page

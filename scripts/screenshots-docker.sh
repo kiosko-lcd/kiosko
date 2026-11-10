@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Regenerates the README screenshots (docs/img/*.jpg) inside the official
-# Playwright container: it clones this repo and the official plugins as
-# committed, starts Kiosko with the showcase config in demo mode (sample
+# Playwright container: it copies this repo and the official plugins (working
+# tree included), starts Kiosko with the showcase config in demo mode (sample
 # data, nothing read from your machine) and takes the shots. Nothing is
 # installed on the host.
 #
@@ -21,9 +21,13 @@ docker run --rm \
     apt-get update -qq >/dev/null && apt-get install -y -qq fonts-inter >/dev/null
     git config --global --add safe.directory "*"
     mkdir -p /w/kiosko-plugins && cd /w
-    git clone -q /src/kiosko kiosko
-    cp /src/kiosko/scripts/screenshots.mjs kiosko/scripts/
-    for d in /src/plugins/kiosko-plugin-*/; do [ -d "$d/.git" ] && git clone -q "$d" "kiosko-plugins/$(basename "$d")"; done
+    # As demo-check-docker.sh: each repo as committed, with its working tree on top.
+    take() {
+      git clone -q "$1" "$2"
+      (cd "$1" && git ls-files -z -co --exclude-standard | tar --null --ignore-failed-read -cf - -T - 2>/dev/null) | tar -xf - -C "$2"
+    }
+    take /src/kiosko kiosko
+    for d in /src/plugins/kiosko-plugin-*/; do [ -d "$d/.git" ] && take "$d" "kiosko-plugins/$(basename "$d")"; done
     cd kiosko
     npm install --no-audit --no-fund >/tmp/install.log 2>&1 || { tail -30 /tmp/install.log; exit 1; }
     npm run dev:link >/dev/null

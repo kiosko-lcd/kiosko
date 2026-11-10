@@ -10,7 +10,9 @@ Thanks for wanting to make Kiosko better.
 - **Code:** `npm install`, then `npm run dev`. Before a pull request:
   `npm run check && npm test`. For widgets, render them with
   `node --conditions=source scripts/render-widgets.ts --plugin <id>` and look
-  at the PNGs at their smallest declared size.
+  at the PNGs at their smallest declared size; `--widget`, `--size WxH`,
+  `--options '{"rows":2}'`, `--empty` and `--data`/`--sources` files try
+  other sizes, options and data (see the script's header).
 - **README screenshots:** `scripts/screenshots-docker.sh` retakes
   `docs/img/*.jpg` from the showcase config in demo mode, inside the official
   Playwright container (needs Docker; nothing is installed on your machine).

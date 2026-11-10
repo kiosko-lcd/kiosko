@@ -5,7 +5,7 @@
  *   node --conditions=source packages/server/src/cli.ts start --config examples/showcase.json --demo
  */
 import { writeFileSync } from 'node:fs';
-import { normalize, type Page, type Screen, type Tile, type WidgetInstance } from '@kiosko/core';
+import { CONFIG_SCHEMA_ID, normalize, type Page, type Screen, type Tile, type WidgetInstance } from '@kiosko/core';
 
 let n = 0;
 const id = (p: string) => `${p}-${(++n).toString(36).padStart(2, '0')}`;
@@ -57,6 +57,6 @@ const square: Screen = {
   ],
 };
 
-const cfg = normalize({ locale: 'en', theme: 'midnight', location: { latitude: 40.4168, longitude: -3.7038, name: 'Madrid' }, screens: [wide, square] });
+const cfg = normalize({ $schema: CONFIG_SCHEMA_ID, locale: 'en', theme: 'midnight', location: { latitude: 40.4168, longitude: -3.7038, name: 'Madrid' }, screens: [wide, square] });
 writeFileSync('examples/showcase.json', `${JSON.stringify(cfg, null, 2)}\n`);
 console.log('examples/showcase.json');

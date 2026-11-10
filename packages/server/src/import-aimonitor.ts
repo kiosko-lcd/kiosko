@@ -32,6 +32,31 @@ export const MODULE_MAP: Record<string, string> = {
   agenda: 'calendar/agenda',
 };
 
+const minutes = (key: string) => (v: unknown) => (typeof v === 'number' ? { [key]: v * 60_000 } : {});
+const renamed = (key: string) => (v: unknown) => ({ [key]: v });
+
+/**
+ * aimonitor module settings whose Kiosko option has another name or unit:
+ * module → its key → the Kiosko options it becomes. Keys not listed keep
+ * their name.
+ */
+const OPTION_RENAMES: Record<string, Record<string, (v: unknown) => Record<string, unknown>>> = {
+  countdown: { max: renamed('rows') },
+  tasks: { gitlab: renamed('includeIssues') },
+  nowplaying: { cover: renamed('showCover') },
+  airquality: { pollen: renamed('showPollen') },
+  noticias: { corner: renamed('showCorner') },
+  agenda: { tomorrow: (v) => ({ days: v === false ? 1 : 2 }), warnMin: minutes('warnMs'), alertMin: minutes('alertMs'), holdMin: minutes('holdMs') },
+  // One threshold, amber 15 °C under it, became a pair.
+  syshealth: { tempWarn: (v) => (typeof v === 'number' ? { tempAlert: v, tempWarn: v - 15 } : {}) },
+};
+
+/** A module's settings as the options of its widget. */
+export function optionsOf(module: string, config: Record<string, unknown> = {}): Record<string, unknown> {
+  const renames = OPTION_RENAMES[module] ?? {};
+  return Object.fromEntries(Object.entries(config).flatMap(([k, v]) => Object.entries(renames[k] ? renames[k](v) : { [k]: v })));
+}
+
 /** Built-in aimonitor modules that depend on aimonitor-only services and have no widget yet. */
 const NOT_PORTED = new Set(['imputacion', 'horas', 'runner']);
 
@@ -56,7 +81,7 @@ function widgetFor(m: OldModule, reg: Registry, notes: string[], modulesDir: str
   const base = { id: newId('w'), ...(m.header ? { title: m.header } : {}), ...(m.updateMs ? { intervalMs: m.updateMs } : {}), ...(m.when && m.when !== 'siempre' ? { when: WHEN[m.when] } : {}) };
   if (mapped) {
     if (!reg.widget(mapped)) notes.push(`"${m.module}" maps to ${mapped}: install it with \`kiosko plugins add ${mapped.split('/')[0]}\``);
-    return { ...base, type: mapped, options: m.config ?? {} };
+    return { ...base, type: mapped, options: optionsOf(m.module, m.config) };
   }
   if (NOT_PORTED.has(m.module)) {
     notes.push(`"${m.module}" depends on aimonitor-only services and has no Kiosko widget yet: skipped`);
@@ -114,7 +139,7 @@ export function importAimonitor(old: Old, reg: Registry, modeOverride?: string |
   const sysOn = old.system?.enabled !== false;
   const sessionsOpts = { ...(old.tile ? { tileMin: old.tile.min, tileMax: old.tile.max, gap: old.tile.gap, detailLines: old.tile.detailLines } : {}), ...(old.spineWidth ? { spineWidth: old.spineWidth } : {}) };
   const dashTiles: Tile[] = [T(0, 0, 24, 1, [W('agents/summary')], 'bare'), T(0, 1, railOn ? (sysOn ? 13 : 19) : sysOn ? 18 : 24, 5, [W('agents/sessions', sessionsOpts)], 'bare')];
-  if (sysOn) dashTiles.push(T(railOn ? 13 : 18, 1, 6, 5, [W('vitals/vitals', { diskPath: old.system?.diskPath ?? '/' })], 'bare'));
+  if (sysOn) dashTiles.push(T(railOn ? 13 : 18, 1, 6, 5, [W('vitals/vitals')], 'bare'));
   if (railOn) dashTiles.push(T(19, 1, 5, 5, [W('usage/rail')], 'bare'));
   const dashboard: Page = { id: newId('page'), name: 'Dashboard', enabled: true, durationMs: old.scene?.alternateMs ?? 10 * 60_000, when: 'always', grid, gravity: 'none', background: {}, tiles: dashTiles };
 
@@ -162,6 +187,7 @@ export function importAimonitor(old: Old, reg: Registry, modeOverride?: string |
   const sources: Config['sources'] = {};
   if (old.usage) sources['usage/ccusage'] = { bin: old.usage.bin ?? 'ccusage', mode: old.usage.mode ?? 'max', dailyCap: old.usage.dailyCap, monthlyCap: old.usage.monthlyCap };
   sources['agents/sessions'] = { dir: '~/.aimonitor/sessions', ...(old.zombieMs ? { zombieMs: old.zombieMs } : {}), ...(old.staleMs ? { staleMs: old.staleMs } : {}) };
+  if (sysOn && old.system?.diskPath) sources['system/vitals'] = { diskPath: old.system.diskPath };
   if (old.calendar?.enabled) {
     const urls = ([] as string[]).concat(old.calendar.icsUrl ?? []).filter((u) => typeof u === 'string' && u.trim());
     if (o.withSecrets && urls.length) {
@@ -170,12 +196,21 @@ export function importAimonitor(old: Old, reg: Registry, modeOverride?: string |
     } else notes.push('calendar: your ICS URLs were NOT copied (they are secrets); add them in Settings → Data sources → Calendar, or import with --with-secrets');
   }
   if (old.timesheet?.enabled) notes.push('timesheet (GitLab hours) is not ported yet');
+  // The timesheet's working day is Kiosko's working week (Settings), with Friday's own hours.
   const ws = old.timesheet?.workday;
+  const workday = ws && {
+    days: [1, 2, 3, 4, 5],
+    start: ws.start ?? '09:00',
+    end: ws.end ?? '17:00',
+    ...(typeof ws.hours === 'number' ? { hours: ws.hours } : {}),
+    ...(Array.isArray(ws.holidays) ? { holidays: ws.holidays.filter((d: unknown) => typeof d === 'string') } : {}),
+    ...(ws.friday && (ws.friday.end || typeof ws.friday.hours === 'number') ? { byDay: { '5': { ...(ws.friday.end ? { end: ws.friday.end } : {}), ...(typeof ws.friday.hours === 'number' ? { hours: ws.friday.hours } : {}) } } } : {}),
+  };
   const config = normalize({
     locale: 'es',
     theme: 'midnight',
     ...(typeof lat === 'number' && typeof lon === 'number' ? { location: { latitude: lat, longitude: lon } } : {}),
-    ...(ws ? { workday: { days: [1, 2, 3, 4, 5], start: ws.start ?? '09:00', end: ws.end ?? '17:00' } } : {}),
+    ...(workday ? { workday } : {}),
     sources,
     screens,
   });

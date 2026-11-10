@@ -39,6 +39,7 @@ const REQUIREMENTS: Record<string, string[]> = {
   calendar: ['The ICS address of a published calendar (Outlook: *Settings → Calendar → Shared calendars → Publish*; Google: *Secret address in iCal format*). Treat it as a password.'],
   news: ['Internet access to the RSS feeds (Spanish outlets by default; any RSS/Atom feed with images works).'],
   mirror: ['Location in Kiosko → Settings for air quality, earthquakes and the rain radar. *Now playing* reads MPRIS (Linux).'],
+  calls: ['Linux with PulseAudio or PipeWire (`pipewire-pulse`) and `pactl`. Elsewhere the source reports `available: false` and the widget says "Calls unavailable".'],
 };
 
 /** Modules every plugin gets from the Kiosko that loads it (see core/sdk-resolver.ts): never bundled. */

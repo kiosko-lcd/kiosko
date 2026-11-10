@@ -62,6 +62,7 @@ function risksBy(): Record<string, Record<string, unknown>> {
 // Values that run programs, contact hosts or read paths. A new risky option
 // must be added here (and marked with `risk` in its plugin).
 const EXPECTED_RISKS: Record<string, Record<string, unknown>> = {
+  'core/text': { file: 'path' },
   'core/image': { src: ['network', 'path'] },
   'legacy/module': { module: 'exec', dir: 'exec' },
   'agents/sessions': { dir: 'path' },
@@ -96,7 +97,7 @@ test('kiosko config validate: exit code and --json report', () => {
   const dir = mkdtempSync(join(tmpdir(), 'kiosko-validate-'));
   try {
     const file = join(dir, 'ai.json');
-    writeFileSync(file, JSON.stringify({ screens: [{ pages: [{ tiles: [{ x: 0, y: 0, w: 4, h: 3, widgets: [{ type: 'core/clock', options: { seconds: 'yes' } }] }] }] }] }));
+    writeFileSync(file, JSON.stringify({ screens: [{ pages: [{ tiles: [{ x: 0, y: 0, w: 4, h: 3, widgets: [{ type: 'core/clock', options: { showSeconds: 'yes' } }] }] }] }] }));
     const run = (...args: string[]) => spawnSync(process.execPath, ['--conditions=source', join(root, 'packages/server/src/cli.ts'), 'config', ...args], { encoding: 'utf8', env: { ...process.env, KIOSKO_HOME: dir, NO_COLOR: '1' } });
     const json = run('validate', file, '--json');
     assert.equal(json.status, 1, json.stderr);
@@ -104,10 +105,10 @@ test('kiosko config validate: exit code and --json report', () => {
     assert.equal(report.ok, false);
     assert.deepEqual(
       report.errors.map((e) => `${e.path}: ${e.message}`),
-      ['screens[0].pages[0].tiles[0].widgets[0].options.seconds: must be true or false; got the text "yes"'],
+      ['screens[0].pages[0].tiles[0].widgets[0].options.showSeconds: must be true or false; got the text "yes"'],
     );
     const text = run('validate', file);
-    assert.match(text.stdout, /1 error[\s\S]*options\.seconds \(core\/clock\): must be true or false/);
+    assert.match(text.stdout, /1 error[\s\S]*options\.showSeconds \(core\/clock\): must be true or false/);
     writeFileSync(file, JSON.stringify({ theme: 'paper' }));
     assert.equal(run('validate', file).status, 0);
   } finally {

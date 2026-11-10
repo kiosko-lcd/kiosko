@@ -83,7 +83,7 @@ screen**, pick your panel model and its connection:
 screen      one physical panel (or a virtual one): size, rotation, connection
 └─ page     a layout; several pages take turns or one is pinned
    └─ tile  a rectangle of grid cells
-      └─ widgets  a stack: they take turns; an urgent one keeps the tile
+      └─ widgets  a stack: they take turns; an urgent one keeps the tile (unless you say otherwise)
 interlude   a full-screen animation every N minutes (against the wall clock)
 source      shared data (agent sessions, CPU, weather…) read once for all widgets
 ```
@@ -119,7 +119,7 @@ placeholders keep your current values, and never follow a changed host. With
 ## Plugins
 
 Two plugins ship inside Kiosko: `core` (clock, calendar day, text note,
-picture) and `legacy` (runs [aimonitor](https://github.com/Loksly/aimonitor)
+list, picture) and `legacy` (runs [aimonitor](https://github.com/Loksly/aimonitor)
 custom modules unchanged). The official ones live in their own repositories
 and come with `npm install -g kiosko`; add or remove them from the
 editor's **Plugins** page or with `kiosko plugins add <id>`.
@@ -173,7 +173,16 @@ export default definePlugin({
 `g` is a standard Canvas 2D context. The options schema gives you the
 TypeScript types, validation with defaults, **and the form in the editor**.
 See the [plugin guide](docs/plugins.md) for data fetching, shared sources,
-urgency, idle, interludes and themes.
+urgency, idle, interludes and themes, the shared helpers (list options with
+"+N more", item filters, `ctx.fmt` for times and ages, the user's place and
+working week) and the [option conventions](docs/plugins.md#option-conventions)
+every plugin follows.
+
+Some settings work the same for every widget: in the editor's Inspector,
+**Text size** (`zoom`, 0.5–2×), **Keep the tile while urgent** and **Hide when
+empty**; in Settings, the **time format** (24 h, 12 h or as the language),
+the working week (hours due, days with other hours, holidays) and, under
+Data sources, how often each source is read.
 
 ## Command line
 

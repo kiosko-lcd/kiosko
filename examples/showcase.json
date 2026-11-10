@@ -2,6 +2,7 @@
   "$schema": "https://kioskolcd.dev/schema/v1/config.json",
   "version": 1,
   "locale": "en",
+  "timeFormat": "auto",
   "theme": "midnight",
   "workday": {
     "days": [
@@ -12,7 +13,10 @@
       5
     ],
     "start": "09:00",
-    "end": "17:00"
+    "end": "17:00",
+    "hours": 8,
+    "holidays": [],
+    "byDay": {}
   },
   "sources": {},
   "plugins": {
@@ -372,8 +376,8 @@
                   "id": "w-0y",
                   "type": "weather/forecast",
                   "options": {
-                    "hours": false,
-                    "days": false
+                    "hours": 0,
+                    "days": 0
                   }
                 }
               ],
