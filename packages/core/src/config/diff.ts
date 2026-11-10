@@ -92,7 +92,7 @@ const slotText = (s: InterludeSlot) => `interlude ${s.type} every ${Math.round(s
 
 export function diffConfigs(before: Config, after: Config): DiffLine[] {
   const out: DiffLine[] = [];
-  for (const k of ['locale', 'theme', 'location', 'workday', 'plugins', 'server'] as const) {
+  for (const k of ['locale', 'timeFormat', 'theme', 'location', 'workday', 'plugins', 'server'] as const) {
     if (!same(before[k], after[k])) out.push({ depth: 0, op: '~', kind: 'setting', text: `${k}: ${short(before[k])} → ${short(after[k])}` });
   }
   for (const k of [...new Set([...Object.keys(before.sources), ...Object.keys(after.sources)])].sort()) {

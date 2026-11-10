@@ -19,9 +19,11 @@
  */
 import type { Canvas, Image, SKRSContext2D, createCanvas, loadImage } from '@napi-rs/canvas';
 import type * as Kit from '@loksly/lcd-canvas-kit';
+import type { Formatters } from './format.ts';
 import type { Localized } from './i18n.ts';
 import type { Field, Infer, ObjectField } from './schema.ts';
 import type { Theme } from './theme.ts';
+import type { Workday } from './workday.ts';
 
 /** The 2D context widgets paint with. Same API as the browser's CanvasRenderingContext2D. */
 export type Graphics = SKRSContext2D;
@@ -64,6 +66,14 @@ export interface Logger {
   (msg: string): void;
 }
 
+/** A place on Earth, in degrees. */
+export interface Location {
+  latitude: number;
+  longitude: number;
+  /** Shown by some widgets, e.g. "Madrid". */
+  name?: string;
+}
+
 /** What every context has. */
 export interface BaseContext {
   now: number;
@@ -71,18 +81,36 @@ export interface BaseContext {
   locale: string;
   /** Picks the user's language from a `Localized` text. */
   t: (text: Localized) => string;
+  /**
+   * Times and lengths of time in the user's language and clock (Settings →
+   * time format): `fmt.time(at)` "14:05" / "2:05 PM", `fmt.ago(at)`
+   * "5 min ago", `fmt.duration(ms)` "1 h 05". Use these rather than your own.
+   */
+  fmt: Formatters;
   log: Logger;
   /** Where the plugin may keep files (caches, downloads). Created on demand. */
   dataDir: string;
-  /** User's place, if set in the settings (weather, sun, earthquakes…). */
-  location?: { latitude: number; longitude: number; name?: string };
+  /**
+   * The user's place, if set in Settings (weather, sun, earthquakes…). Use it
+   * by default; offer a place of your own only where a second one makes sense
+   * (an advanced override), with an empty or 0,0 value meaning "this one".
+   */
+  location?: Location;
+  /**
+   * The user's working week from Settings: days, start and end, hours due,
+   * days with other hours and holidays. Default to it instead of asking for
+   * your own schedule; `scheduleOn(ctx.workday, now)` gives one day's.
+   */
+  workday: Workday;
 }
 
 export interface FetchContext<O> extends BaseContext {
   options: O;
   canvas: CanvasApi;
-  /** Aborted when the widget is removed or the app stops. */
+  /** Aborted when the widget is removed, the app stops, or this fetch takes longer than `timeoutMs`. Pass it to `fetch` and child processes. */
   signal: AbortSignal;
+  /** How long this fetch may take (the widget's `timeoutMs`), for a per-request budget of your own. */
+  timeoutMs: number;
   /** Latest data of the sources the widget declared. */
   sources: Record<string, unknown>;
 }
@@ -94,6 +122,10 @@ export interface StateContext<O, D> {
   now: number;
   /** True for a work-hours slot, per the user's work schedule. */
   working: boolean;
+  /** The user's working week (see `BaseContext.workday`); tests can pass `DEFAULT_WORKDAY`. */
+  workday: Workday;
+  /** The user's place, if set (see `BaseContext.location`). */
+  location?: Location;
 }
 
 export interface RenderContext<O, D> extends BaseContext, StateContext<O, D> {
@@ -142,14 +174,39 @@ export interface WidgetDefinition<OF extends ObjectField<any> = ObjectField<any>
   fetch?: (ctx: FetchContext<Infer<OF>>) => Promise<D>;
   /** How often `fetch` runs. Default: 10 minutes. The user can override it. */
   intervalMs?: number;
+  /**
+   * How often `fetch` runs when that depends on the options or on the latest
+   * data (a module that declares its own interval): asked after every fetch;
+   * `undefined` keeps `intervalMs`. An interval the user set on the instance
+   * wins. Never under 5 s.
+   */
+  intervalOf?: (ctx: { options: Infer<OF>; data: NoInfer<D> | undefined }) => number | undefined;
+  /** Longest one `fetch` may take before its `signal` aborts and it counts as failed. Default: 2 minutes. */
+  timeoutMs?: number;
   /** Paint. Synchronous and fast: load images in `fetch` and paint them here. */
   render: (g: Graphics, ctx: RenderContext<Infer<OF>, D>) => void;
   /** Also a function, when the cadence depends on the options or the data (a carousel every `rotateMs`). */
   redraw?: Redraw | ((ctx: StateContext<Infer<OF>, D>) => Redraw);
   /** Has nothing to show right now (nothing playing, no rain): skipped in its cell's rotation. */
   visible?: (ctx: StateContext<Infer<OF>, D>) => boolean;
-  /** Needs the user now (a meeting about to start): takes its cell over while true. */
+  /**
+   * Needs the user now (a meeting about to start): takes its cell over while
+   * true, unless the user turned the widget's "keep the tile while urgent"
+   * switch (`takeOver`) off. Don't add an option of your own for that.
+   */
   urgent?: (ctx: StateContext<Infer<OF>, D>) => boolean;
+  /** Default of the instance's `takeOver` switch (keep the tile while urgent). Default true. */
+  takeOver?: boolean;
+  /**
+   * Has nothing to list right now (no reviews, no tasks). Declaring it gives
+   * the widget a "hide when empty" switch (`hideWhenEmpty`): when on, an
+   * empty widget is skipped in its tile's rotation like `visible: false`;
+   * when off, it paints its empty message (`drawEmpty`). Unlike `visible`,
+   * which is the widget's own decision, this one is the user's.
+   */
+  empty?: (ctx: StateContext<Infer<OF>, D>) => boolean;
+  /** Default of the instance's `hideWhenEmpty` switch. Default false. */
+  hideWhenEmpty?: boolean;
   /**
    * Nothing worth lighting the panel for. When every widget of the page is
    * idle and the screen has `sleepWhenIdle`, the panel goes black.
@@ -166,7 +223,16 @@ export interface WidgetDefinition<OF extends ObjectField<any> = ObjectField<any>
 
 export interface SourceContext<O> extends BaseContext {
   options: O;
+  /**
+   * Aborted when the source stops (no widget uses it, options changed, the
+   * app stops) and, in `read`, when this read takes longer than `timeoutMs`.
+   * Pass it to `fetch` and child processes.
+   */
   signal: AbortSignal;
+  /** How often `read` runs (the user's `intervalMs`, clamped to `minIntervalMs`). */
+  intervalMs: number;
+  /** How long one `read` may take (the user's `timeoutMs`), for a per-request budget of your own. */
+  timeoutMs: number;
 }
 
 export interface SourceDefinition<OF extends ObjectField<any> = ObjectField<any>, D = unknown> {
@@ -176,9 +242,19 @@ export interface SourceDefinition<OF extends ObjectField<any> = ObjectField<any>
   description?: Localized;
   /** Global options, edited once in Settings → Sources. */
   options?: OF;
-  /** Polled every `intervalMs` while some widget uses it. */
+  /**
+   * Polled every `intervalMs` while some widget uses it. The user can change
+   * the interval and the timeout in Settings → Data sources
+   * (`sources["plugin/source"].intervalMs` / `.timeoutMs`): don't add options
+   * of your own for them.
+   */
   read?: (ctx: SourceContext<Infer<OF>>) => Promise<D>;
+  /** Default interval of `read`. Default: 30 s. */
   intervalMs?: number;
+  /** Shortest interval the user may set: API rate limits, an expensive command. Default: 5 s (or `intervalMs`, if shorter). */
+  minIntervalMs?: number;
+  /** Default of the longest one `read` may take before its `signal` aborts and it counts as failed. Default: 2 minutes. */
+  timeoutMs?: number;
   /**
    * Push-based alternative (file watchers, sockets): call `emit` with new
    * data, return a function that stops watching.

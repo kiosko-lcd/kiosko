@@ -2,7 +2,7 @@
  * A form generated from a plugin's options schema (JSON Schema + `x-ui`
  * hints from @kiosko/sdk's `t` builder). Plugins get a good editor for free.
  */
-import { useState } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
 import type { JsonSchema } from '../api.ts';
 import { Icon } from '../icons.tsx';
 import { loc, tr } from '../i18n.ts';
@@ -127,6 +127,7 @@ function Control({ id, name, schema, value, onChange }: { id: string; name: stri
       );
     }
     case 'array':
+      if (ui.widget === 'filter' || schema['x-filter']) return <FilterInput id={id} value={Array.isArray(value) ? value.map(String) : []} placeholder={schema.items?.['x-ui']?.placeholder} onChange={onChange} />;
       return <ListInput id={id} schema={schema} value={Array.isArray(value) ? value : []} onChange={onChange} />;
     case 'object':
       if (schema.properties) {
@@ -205,6 +206,24 @@ export function DurationInput({ id, value, min, onChange }: { id?: string; value
         ))}
       </select>
     </div>
+  );
+}
+
+const splitPatterns = (text: string) => text.split(/[,\n]/).map((p) => p.trim()).filter(Boolean);
+
+/** A `t.filter()` list, edited as one line of comma-separated patterns ("web, acme/*, !*-old"). */
+function FilterInput({ id, value, placeholder, onChange }: { id: string; value: string[]; placeholder?: string; onChange: (v: string[]) => void }) {
+  const [text, setText] = useState(value.join(', '));
+  // Undo, or another tab: take the new value unless it is what is being typed.
+  useEffect(() => {
+    if (splitPatterns(text).join('\n') !== value.join('\n')) setText(value.join(', '));
+  }, [value.join('\n')]);
+  return (
+    <input id={id} class="input mono" value={text} placeholder={placeholder} spellcheck={false} onInput={(e) => {
+      const v = (e.target as HTMLInputElement).value;
+      setText(v);
+      onChange(splitPatterns(v));
+    }} />
   );
 }
 

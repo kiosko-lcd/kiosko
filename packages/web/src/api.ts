@@ -14,6 +14,10 @@ export interface WidgetInfo {
   sources: string[];
   hasFetch: boolean;
   intervalMs: number | null;
+  /** Default of the "keep the tile while urgent" switch; null when the widget is never urgent. */
+  takeOver: boolean | null;
+  /** Default of the "hide when empty" switch; null when the widget can't tell it's empty. */
+  hideWhenEmpty: boolean | null;
 }
 
 export interface PluginInfo {
@@ -28,7 +32,8 @@ export interface PluginInfo {
   origin: string;
   enabled: boolean;
   widgets: WidgetInfo[];
-  sources: { type: string; name: string; description: string; options: JsonSchema | null; intervalMs: number | null }[];
+  /** `options` include Kiosko's `intervalMs` and `timeoutMs` for polled sources. */
+  sources: { type: string; name: string; description: string; options: JsonSchema | null; intervalMs: number | null; polled: boolean }[];
   interludes: { type: string; name: string; description: string; icon?: string; fps: number; options: JsonSchema | null }[];
 }
 
@@ -43,6 +48,8 @@ export interface JsonSchema {
   items?: JsonSchema;
   additionalProperties?: unknown;
   format?: string;
+  /** A list of `matchFilter` patterns. */
+  'x-filter'?: boolean;
   'x-ui'?: {
     label?: string | Record<string, string>;
     help?: string | Record<string, string>;
@@ -68,7 +75,7 @@ export interface ThemeInfo {
 
 export interface Status {
   screens: { id: string; name: string; page: string | null; pinned: string | null; interlude: string | null; device: { driver: string; ok: boolean; message: string; framesSent: number; lastSentAt: number | null; detected?: { width: number; height: number } }; lastFrameAt: number | null; sleeping: boolean }[];
-  sources: { type: string; ok: boolean; error: string | null; updatedAt: number | null }[];
+  sources: { type: string; ok: boolean; error: string | null; updatedAt: number | null; intervalMs?: number }[];
   fetches: { id: string; type: string; ok: boolean; error: string | null; updatedAt: number | null }[];
   problems: { origin: string; message: string }[];
 }

@@ -3,7 +3,7 @@ import { mkdtempSync, readdirSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { createCanvas } from '@napi-rs/canvas';
+import { createCanvas, type Canvas } from '@napi-rs/canvas';
 import { DEFAULT_THEME, definePlugin, defineWidget, t } from '@kiosko/sdk';
 import { composePage, composeWidget, rotateCanvas } from './compositor.ts';
 import type { Page } from './config/model.ts';
@@ -12,6 +12,7 @@ import { openDevice } from './devices.ts';
 import { Registry } from './registry.ts';
 
 const calls: string[] = [];
+const probes: { box: { x: number; y: number; w: number; h: number }; time: string; workday: string; located: boolean }[] = [];
 const reg = new Registry();
 reg.add(
   definePlugin({
@@ -20,6 +21,18 @@ reg.add(
     version: '1',
     widgets: [
       defineWidget({ id: 'boom', name: 'Boom', render: () => { throw new Error('kaput'); } }),
+      defineWidget({
+        id: 'probe',
+        name: 'Probe',
+        options: t.object({ empty: t.boolean(), urgent: t.boolean() }),
+        render: (g, ctx) => {
+          probes.push({ box: { ...ctx.box }, time: ctx.fmt.time(ctx.now), workday: ctx.workday.start, located: !!ctx.location });
+          g.fillStyle = '#00ff00';
+          g.fillRect(ctx.box.x, ctx.box.y, ctx.box.w, ctx.box.h);
+        },
+        empty: ({ options }) => options.empty,
+        urgent: ({ options }) => options.urgent,
+      }),
       defineWidget({
         id: 'mark',
         name: 'Mark',
@@ -123,4 +136,82 @@ test('the tile cache repaints only tiles whose inputs changed', () => {
   assert.deepEqual(calls, ['A', 'B', 'B']);
   run(61_000); // new minute: both (redraw: 'minute')
   assert.deepEqual(calls, ['A', 'B', 'B', 'A', 'B']);
+});
+
+const pixel = (c: Canvas, x: number, y: number) => [...c.getContext('2d').getImageData(x, y, 1, 1).data.slice(0, 3)];
+
+test('zoom: the widget gets a smaller (or bigger) box and is painted scaled to fill its tile', () => {
+  const run = (zoom?: number) => {
+    probes.length = 0;
+    const r = compose(page([{ id: 'a', x: 1, y: 0, w: 2, h: 2, rotateMs: 0, chrome: 'bare', widgets: [{ ...W('1', 'test/probe'), ...(zoom === undefined ? {} : { zoom }) }] }]));
+    return { box: probes[0]!.box, canvas: r.canvas };
+  };
+  assert.deepEqual(run().box, { x: 100, y: 0, w: 200, h: 200 });
+  const big = run(2);
+  assert.deepEqual(big.box, { x: 100, y: 0, w: 100, h: 100 });
+  // Painting its whole (smaller) box still covers the whole tile, and only it.
+  assert.deepEqual(pixel(big.canvas, 101, 1), [0, 255, 0]);
+  assert.deepEqual(pixel(big.canvas, 298, 198), [0, 255, 0]);
+  assert.notDeepEqual(pixel(big.canvas, 302, 100), [0, 255, 0]);
+  const dense = run(0.5);
+  assert.deepEqual(dense.box, { x: 100, y: 0, w: 400, h: 400 });
+  assert.deepEqual(pixel(dense.canvas, 298, 198), [0, 255, 0]);
+  assert.notDeepEqual(pixel(dense.canvas, 302, 100), [0, 255, 0]);
+  // Out of range: clamped to 0.5–2; nonsense: 1.
+  assert.deepEqual(run(9).box, { x: 100, y: 0, w: 100, h: 100 });
+  assert.deepEqual(run(Number.NaN).box, { x: 100, y: 0, w: 200, h: 200 });
+});
+
+test('zoom: the card title stays as it is; only the content is scaled', () => {
+  probes.length = 0;
+  compose(page([{ id: 'a', x: 0, y: 0, w: 4, h: 2, rotateMs: 0, chrome: 'card', widgets: [{ ...W('1', 'test/probe'), title: 'Hi' }] }]));
+  const plain = probes[0]!.box;
+  probes.length = 0;
+  compose(page([{ id: 'a', x: 0, y: 0, w: 4, h: 2, rotateMs: 0, chrome: 'card', widgets: [{ ...W('1', 'test/probe'), title: 'Hi', zoom: 1.25 }] }]));
+  const z = probes[0]!.box;
+  assert.deepEqual([z.x, z.y], [plain.x, plain.y]);
+  assert.ok(Math.abs(z.w - plain.w / 1.25) < 1e-9 && Math.abs(z.h - plain.h / 1.25) < 1e-9);
+});
+
+test('zoom is part of the tile cache key', () => {
+  const cache = new Map();
+  const run = (zoom: number) => {
+    probes.length = 0;
+    composePage({ cfg, screen, page: page([{ id: 'a', x: 0, y: 0, w: 2, h: 2, rotateMs: 0, chrome: 'bare', widgets: [{ ...W('1', 'test/probe'), zoom }] }]), theme: DEFAULT_THEME, registry: reg, now: 0, working: true, dataOf: () => undefined, sourcesOf: () => ({}), cache });
+    return probes.length;
+  };
+  assert.equal(run(1), 1);
+  assert.equal(run(1), 0);
+  assert.equal(run(1.5), 1);
+});
+
+test('takeOver off: an urgent widget takes its turn like the rest', () => {
+  const tile = (takeOver?: boolean) => page([{ id: 'a', x: 0, y: 0, w: 4, h: 2, rotateMs: 1000, chrome: 'bare', widgets: [W('1', 'test/probe'), { ...W('2', 'test/probe', { urgent: true }), ...(takeOver === undefined ? {} : { takeOver }) }] }]);
+  assert.equal(compose(tile()).tiles[0]!.shown, '2');
+  assert.equal(compose(tile(true)).tiles[0]!.shown, '2');
+  assert.equal(compose(tile(false)).tiles[0]!.shown, '1');
+  assert.equal(compose(tile(false), 1000).tiles[0]!.shown, '2');
+});
+
+test('hideWhenEmpty: an empty widget leaves the rotation only when the user says so', () => {
+  const tile = (hideWhenEmpty?: boolean) => page([{ id: 'a', x: 0, y: 0, w: 4, h: 2, rotateMs: 1000, chrome: 'bare', widgets: [{ ...W('1', 'test/probe', { empty: true }), ...(hideWhenEmpty === undefined ? {} : { hideWhenEmpty }) }, W('2', 'test/probe')] }]);
+  assert.equal(compose(tile()).tiles[0]!.shown, '1');
+  assert.equal(compose(tile(true)).tiles[0]!.shown, '2');
+  assert.equal(compose(tile(true), 1000).tiles[0]!.shown, '2');
+  // Alone and empty: the tile shows nothing.
+  const alone = page([{ id: 'a', x: 0, y: 0, w: 4, h: 2, rotateMs: 0, chrome: 'bare', widgets: [{ ...W('1', 'test/probe', { empty: true }), hideWhenEmpty: true }] }]);
+  assert.equal(compose(alone).tiles[0]!.shown, null);
+});
+
+test('the render context carries fmt (with the config time format), workday and location', () => {
+  const at = new Date(2026, 10, 10, 21, 5).getTime();
+  const run = (c: typeof cfg) => {
+    probes.length = 0;
+    composePage({ cfg: c, screen, page: page([{ id: 'a', x: 0, y: 0, w: 2, h: 2, rotateMs: 0, chrome: 'bare', widgets: [W('1', 'test/probe')] }]), theme: DEFAULT_THEME, registry: reg, now: at, working: true, dataOf: () => undefined, sourcesOf: () => ({}) });
+    return probes[0]!;
+  };
+  assert.equal(run(norm({ locale: 'en-US', timeFormat: '24h' })).time, '21:05');
+  assert.equal(run(norm({ locale: 'es', timeFormat: '12h' })).time, '9:05 p. m.');
+  const p = run(norm({ locale: 'es', workday: { start: '07:30' }, location: { latitude: 1, longitude: 2 } }));
+  assert.deepEqual([p.time, p.workday, p.located], ['21:05', '07:30', true]);
 });

@@ -1,6 +1,6 @@
 /** Right-hand panel: the selected tile, its widget stack and the widget's options; or the page settings. */
 import { useState } from 'preact/hooks';
-import type { Tile, When } from '@kiosko/core/model';
+import { ZOOM, type Tile, type When } from '@kiosko/core/model';
 import { api } from '../api.ts';
 import { DurationInput, SchemaForm, Toggle } from '../forms/SchemaForm.tsx';
 import { Icon } from '../icons.tsx';
@@ -189,6 +189,26 @@ function TileInspector({ t }: { t: Tile }) {
           )}
           <h3>{tr('inspector.when')}</h3>
           <Segmented value={w.when ?? 'always'} options={whenOptions()} onChange={(v) => setWidget((x) => (x.when = v === 'always' ? undefined : v))} />
+          {info?.takeOver != null && (
+            <div class="field field-row">
+              <Toggle checked={w.takeOver ?? info.takeOver} onChange={(v) => setWidget((x) => (x.takeOver = v === info.takeOver ? undefined : v))} />
+              <div>
+                <span class="field-label inline">{tr('inspector.takeOver')}</span>
+                <div class="field-help">{tr('inspector.takeOverHint')}</div>
+              </div>
+            </div>
+          )}
+          {info?.hideWhenEmpty != null && (
+            <div class="field field-row">
+              <Toggle checked={w.hideWhenEmpty ?? info.hideWhenEmpty} onChange={(v) => setWidget((x) => (x.hideWhenEmpty = v === info.hideWhenEmpty ? undefined : v))} />
+              <div>
+                <span class="field-label inline">{tr('inspector.hideWhenEmpty')}</span>
+                <div class="field-help">{tr('inspector.hideWhenEmptyHint')}</div>
+              </div>
+            </div>
+          )}
+          {/* Edge-to-edge scenes fill their tile whatever the zoom: offered only to reset one. */}
+          {(info?.chrome !== 'bare' || (w.zoom ?? 1) !== 1) && <ZoomInput value={w.zoom ?? 1} onChange={(v) => setWidget((x) => (x.zoom = v === 1 ? undefined : v), `zoom-${w.id}`)} />}
           <DataStatus id={w.id} sources={info?.sources ?? []} hasFetch={!!info?.hasFetch} />
           {info?.hasFetch && (
             <>
@@ -218,6 +238,26 @@ function TileInspector({ t }: { t: Tile }) {
           ))}
         </div>
       </section>
+    </div>
+  );
+}
+
+/** The widget's zoom: a slider from 0.5× to 2× in tenths, with a way back to 1×. */
+function ZoomInput({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const set = (n: number) => onChange(Math.round(Math.min(ZOOM.max, Math.max(ZOOM.min, n)) * 10) / 10);
+  return (
+    <div class="field">
+      <label class="field-label" for="w-zoom">{tr('inspector.zoom')}</label>
+      <div class="slider-row">
+        <input id="w-zoom" type="range" min={ZOOM.min} max={ZOOM.max} step={ZOOM.step} value={value} onInput={(e) => set(Number((e.target as HTMLInputElement).value))} />
+        <span class="slider-value">{value.toFixed(1)}×</span>
+        {value !== 1 && (
+          <button type="button" class="icon-btn" title={tr('inspector.zoomReset')} onClick={() => onChange(1)}>
+            <Icon name="rotate-ccw" size={14} />
+          </button>
+        )}
+      </div>
+      <div class="field-help">{tr('inspector.zoomHint')}</div>
     </div>
   );
 }

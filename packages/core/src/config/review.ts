@@ -355,7 +355,7 @@ export interface ImportPlan {
   secrets: Omit<SecretMerge, 'config'>;
 }
 
-const CARRIED = ['locale', 'theme', 'location', 'workday', 'plugins', 'server'] as const;
+const CARRIED = ['locale', 'timeFormat', 'theme', 'location', 'workday', 'plugins', 'server'] as const;
 
 /**
  * Everything `kiosko config import` shows before applying `incoming` over

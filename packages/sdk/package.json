@@ -9,6 +9,16 @@
       "source": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./workday": {
+      "source": "./src/workday.ts",
+      "types": "./dist/workday.d.ts",
+      "default": "./dist/workday.js"
+    },
+    "./format": {
+      "source": "./src/format.ts",
+      "types": "./dist/format.d.ts",
+      "default": "./dist/format.js"
     }
   },
   "files": [

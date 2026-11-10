@@ -20,11 +20,11 @@ const branch = (union: S, tag: string) => union.oneOf.find((b: S) => (b.properti
 // The keys of each type, checked by the compiler: adding a field to model.ts
 // without listing it here fails `npm run check`; the test below then fails
 // until the schema describes it too.
-const CONFIG_KEYS = { $schema: 1, version: 1, locale: 1, theme: 1, location: 1, workday: 1, sources: 1, plugins: 1, screens: 1, server: 1 } satisfies Record<keyof Config, 1>;
+const CONFIG_KEYS = { $schema: 1, version: 1, locale: 1, timeFormat: 1, theme: 1, location: 1, workday: 1, sources: 1, plugins: 1, screens: 1, server: 1 } satisfies Record<keyof Config, 1>;
 const SCREEN_KEYS = { id: 1, name: 1, enabled: 1, width: 1, height: 1, rotate: 1, device: 1, pages: 1, pinnedPage: 1, interludes: 1, pixelShift: 1, sleepWhenIdle: 1, jpegQuality: 1, maxFps: 1 } satisfies Record<keyof Screen, 1>;
 const PAGE_KEYS = { id: 1, name: 1, enabled: 1, durationMs: 1, when: 1, grid: 1, gravity: 1, background: 1, tiles: 1 } satisfies Record<keyof Page, 1>;
 const TILE_KEYS = { id: 1, x: 1, y: 1, w: 1, h: 1, locked: 1, widgets: 1, rotateMs: 1, chrome: 1 } satisfies Record<keyof Tile, 1>;
-const WIDGET_KEYS = { id: 1, type: 1, title: 1, options: 1, intervalMs: 1, when: 1, disabled: 1 } satisfies Record<keyof WidgetInstance, 1>;
+const WIDGET_KEYS = { id: 1, type: 1, title: 1, options: 1, intervalMs: 1, when: 1, disabled: 1, zoom: 1, takeOver: 1, hideWhenEmpty: 1 } satisfies Record<keyof WidgetInstance, 1>;
 const INTERLUDE_KEYS = { id: 1, type: 1, enabled: 1, everyMs: 1, maxSeconds: 1, options: 1 } satisfies Record<keyof InterludeSlot, 1>;
 const GRID_KEYS = { cols: 1, rows: 1, gap: 1, padding: 1 } satisfies Record<keyof GridSpec, 1>;
 
@@ -33,10 +33,11 @@ const FULL: Config = {
   $schema: CONFIG_SCHEMA_ID,
   version: 1,
   locale: 'en',
+  timeFormat: '12h',
   theme: 'paper',
   location: { latitude: 40.4, longitude: -3.7, name: 'Madrid' },
-  workday: { days: [1, 2, 3, 4], start: '08:00', end: '15:30' },
-  sources: { 'demo/remote': { host: 'example.org' } },
+  workday: { days: [1, 2, 3, 4], start: '08:00', end: '15:30', hours: 7, holidays: ['2026-12-25'], byDay: { '4': { end: '14:00', hours: 6 } } },
+  sources: { 'demo/remote': { host: 'example.org', intervalMs: 120_000, timeoutMs: 20_000 } },
   plugins: { disabled: ['demo'] },
   server: { host: '127.0.0.1', port: 7421 },
   screens: [
@@ -58,7 +59,10 @@ const FULL: Config = {
           grid: { cols: 16, rows: 6, gap: 8, padding: 8 },
           gravity: 'left',
           background: { color: '#101010', image: '/tmp/bg.png' },
-          tiles: [{ id: 't1', x: 1, y: 1, w: 6, h: 3, locked: true, rotateMs: 20_000, chrome: 'card', widgets: [{ id: 'w1', type: 'demo/clock', title: 'Clock', options: { format: '12h' }, intervalMs: 60_000, when: 'off', disabled: true }] }],
+          tiles: [{ id: 't1', x: 1, y: 1, w: 6, h: 3, locked: true, rotateMs: 20_000, chrome: 'card', widgets: [
+            { id: 'w1', type: 'demo/clock', title: 'Clock', options: { format: '12h' }, intervalMs: 60_000, when: 'off', disabled: true, zoom: 1.2 },
+            { id: 'w2', type: 'demo/list', options: { rows: 4, layout: 'detailed', projects: ['acme/*', '!*-old'] }, zoom: 0.8, takeOver: true, hideWhenEmpty: false },
+          ] }],
         },
       ],
       pinnedPage: 'p1',
@@ -99,7 +103,9 @@ test('config schema stays in sync with the types and with normalize', () => {
   assert.deepEqual(keysOf(d.screen), keys(SCREEN_KEYS));
   assert.deepEqual(keysOf(d.page), keys(PAGE_KEYS));
   assert.deepEqual(keysOf(d.tile), keys(TILE_KEYS));
-  assert.deepEqual(keysOf(branch(d.widget, 'demo/clock')), keys(WIDGET_KEYS));
+  assert.deepEqual(keysOf(branch(d.widget, 'demo/list')), keys(WIDGET_KEYS));
+  // The switches only where the widget has the hooks behind them.
+  assert.deepEqual(keysOf(branch(d.widget, 'demo/clock')), keys(WIDGET_KEYS).filter((k) => k !== 'takeOver' && k !== 'hideWhenEmpty'));
   assert.deepEqual(keysOf(branch(d.interlude, 'demo/blink')), keys(INTERLUDE_KEYS));
   assert.deepEqual(keysOf(d.grid), keys(GRID_KEYS));
   // Every described field survives normalize, and normalize adds nothing undescribed.
@@ -212,4 +218,35 @@ test('garbage never throws', () => {
     const r = validateConfig(raw, plugins);
     assert.ok(r.errors.length > 0, JSON.stringify(raw));
   }
+});
+
+test('shared settings: time format, zoom, the widget switches and source timing', () => {
+  assert.deepEqual(schema.properties.timeFormat.enum, ['auto', '24h', '12h']);
+  assert.equal(schema.properties.timeFormat['x-ui'].labels['24h'].es, '24 horas');
+  assert.deepEqual(Object.keys(schema.properties.workday.properties), ['days', 'start', 'end', 'hours', 'holidays', 'byDay']);
+  const list = branch(schema.$defs.widget, 'demo/list');
+  assert.equal(list.properties.zoom.$ref, '#/$defs/zoom');
+  assert.deepEqual([schema.$defs.zoom.minimum, schema.$defs.zoom.maximum, schema.$defs.zoom['x-ui'].step], [0.5, 2, 0.1]);
+  assert.equal(list.properties.takeOver.default, false, 'the widget declares takeOver: false');
+  assert.equal(list.properties.hideWhenEmpty.default, false);
+  assert.equal(list.properties.takeOver['x-ui'].label.es, 'Quedarse la tesela mientras sea urgente');
+  assert.equal(list.properties.options.properties.projects['x-filter'], true);
+  assert.deepEqual(list.properties.options.properties.layout.enum, ['auto', 'one-line', 'detailed']);
+  // A polled source gets intervalMs (with its floor) and timeoutMs; a push-only one doesn't.
+  const remote = schema.properties.sources.properties['demo/remote'];
+  assert.deepEqual([remote.properties.intervalMs.default, remote.properties.intervalMs.minimum], [60_000, 30_000]);
+  assert.equal(remote.properties.intervalMs['x-ui'].unit, 'ms');
+  assert.equal(remote.properties.timeoutMs['x-ui'].advanced, true);
+  assert.equal(schema.properties.sources.properties['demo/push'].properties, undefined);
+  const r = validateConfig({ sources: { 'demo/remote': { intervalMs: 1000, timeoutMs: 5000 } } }, plugins);
+  assert.deepEqual(r.warnings, []);
+  assert.match(r.errors[0]!.message, /at least 30000/);
+  const z = validateConfig(tileWith({ type: 'demo/clock', zoom: 3, takeOver: false }), plugins).errors.map((e) => e.path);
+  assert.deepEqual(z, ['screens[0].pages[0].tiles[0].widgets[0].zoom', 'screens[0].pages[0].tiles[0].widgets[0].takeOver']);
+});
+
+test('the minimum size of a zoomed widget grows with its zoom', () => {
+  const at = (zoom: number) => validateConfig({ screens: [{ width: 1920, height: 462, pages: [{ grid: { cols: 24, rows: 6, gap: 10, padding: 10 }, tiles: [{ x: 0, y: 0, w: 3, h: 2, widgets: [{ type: 'demo/clock', zoom }] }] }] }] }, plugins).warnings;
+  assert.deepEqual(at(1), []);
+  assert.match(at(1.5)[0]!.message, /needs at least 300×150 px at zoom 1\.5/);
 });

@@ -9,7 +9,7 @@ import { pixelShift } from '@loksly/lcd-canvas-kit';
 import { localize, validate, type Box, type Redraw, type RenderContext, type Theme, type WidgetDefinition } from '@kiosko/sdk';
 import { toPx, type PxRect } from './layout/grid.ts';
 import { nextTurnAt, pickInStack } from './layout/stack.ts';
-import { whenMatches, type Config, type Page, type Screen, type Tile, type WidgetInstance } from './config/model.ts';
+import { whenMatches, zoomOf, type Config, type Page, type Screen, type Tile, type WidgetInstance } from './config/model.ts';
 import { CANVAS, baseContext, kit, resolveLocale, type LogFn } from './env.ts';
 import { registerFonts } from './fonts.ts';
 import type { Registry } from './registry.ts';
@@ -99,8 +99,21 @@ function resolve(input: ComposeInput, inst: WidgetInstance): Resolved | null {
   return { inst, def, options, data, sources };
 }
 
-function stateCtx(r: Resolved, now: number, working: boolean) {
-  return { options: r.options, data: r.data, sources: r.sources, now, working };
+function stateCtx(r: Resolved, now: number, working: boolean, cfg: Config) {
+  return { options: r.options, data: r.data, sources: r.sources, now, working, workday: cfg.workday, ...(cfg.location ? { location: cfg.location } : {}) };
+}
+
+/**
+ * The instance's switches over the widget's hooks: `takeOver` (keep the tile
+ * while urgent) and `hideWhenEmpty` (skip it in the rotation while `empty`).
+ * Each defaults to what the widget declares.
+ */
+export function tileState(def: WidgetDefinition<any, any>, inst: Pick<WidgetInstance, 'takeOver' | 'hideWhenEmpty'>, state: Parameters<NonNullable<WidgetDefinition['visible']>>[0]): { visible: boolean; urgent: boolean } {
+  const takeOver = inst.takeOver ?? def.takeOver ?? true;
+  const hideEmpty = inst.hideWhenEmpty ?? def.hideWhenEmpty ?? false;
+  const visible = safe(() => def.visible?.(state) ?? true, true) && !(hideEmpty && def.empty && safe(() => def.empty!(state), false));
+  const urgent = takeOver && safe(() => def.urgent?.(state) ?? false, false);
+  return { visible, urgent };
 }
 
 function safe<T>(fn: (() => T) | undefined, fallback: T): T {
@@ -165,11 +178,7 @@ function paintTile(g: SKRSContext2D, input: ComposeInput, tile: Tile, rect: PxRe
     .filter((w) => !w.disabled && whenMatches(w.when, working))
     .map((w) => resolve(input, w))
     .filter((r): r is Resolved => !!r);
-  const entries = candidates.map((r) => ({
-    id: r.inst.id,
-    visible: safe(() => r.def.visible?.(stateCtx(r, now, working)) ?? true, true),
-    urgent: safe(() => r.def.urgent?.(stateCtx(r, now, working)) ?? false, false),
-  }));
+  const entries = candidates.map((r) => ({ id: r.inst.id, ...tileState(r.def, r.inst, stateCtx(r, now, working, input.cfg)) }));
   const forced = input.forceShown?.[tile.id];
   const shownId = forced && candidates.some((c) => c.inst.id === forced) ? forced : pickInStack(entries, now, tile.rotateMs);
   if (entries.filter((e) => e.visible).length > 1 && !forced) nextAt.v = Math.min(nextAt.v, nextTurnAt(now, tile.rotateMs));
@@ -189,7 +198,7 @@ function paintTile(g: SKRSContext2D, input: ComposeInput, tile: Tile, rect: PxRe
     }
     return;
   }
-  const state = stateCtx(r, now, working);
+  const state = stateCtx(r, now, working, input.cfg);
   idles.push(safe(() => r.def.idle?.(state) ?? false, false));
   const step = redrawStep(r.def, state);
   if (step) nextAt.v = Math.min(nextAt.v, (Math.floor(now / step) + 1) * step);
@@ -201,7 +210,8 @@ function paintTile(g: SKRSContext2D, input: ComposeInput, tile: Tile, rect: PxRe
   }
   // Same widget, options, size, data and sources (by reference: they're
   // replaced, never mutated, when they change) and same redraw slot: reuse.
-  const key = JSON.stringify([r.inst.id, r.inst.type, r.inst.options, r.inst.title ?? '', chrome, rect, theme.id, step ? Math.floor(now / step) : 0, input.cfg.locale, working]);
+  const cfg = input.cfg;
+  const key = JSON.stringify([r.inst.id, r.inst.type, r.inst.options, r.inst.title ?? '', zoomOf(r.inst), chrome, rect, theme.id, step ? Math.floor(now / step) : 0, cfg.locale, cfg.timeFormat, cfg.workday, cfg.location ?? null, working]);
   const refs = [r.data, ...(r.def.sources ?? []).map((s) => r.sources[s])];
   const hit = input.cache.get(tile.id);
   if (hit && hit.key === key && hit.refs.length === refs.length && hit.refs.every((x, i) => x === refs[i])) {
@@ -231,11 +241,16 @@ function drawTileContent(g: SKRSContext2D, input: ComposeInput, r: Resolved, rec
     g.fillText(fitText(g, title, rect.w - 2 * pad), rect.x + pad, rect.y + pad + m.title * 0.8);
     top = rect.y + pad + m.titleBar;
   }
-  const box: Box = { x: rect.x + pad, y: top, w: Math.max(1, rect.w - 2 * pad), h: Math.max(1, rect.y + rect.h - pad - top) };
+  const outer: Box = { x: rect.x + pad, y: top, w: Math.max(1, rect.w - 2 * pad), h: Math.max(1, rect.y + rect.h - pad - top) };
+  // Zoom: the widget gets a box `zoom` times smaller and is painted `zoom`
+  // times bigger, so it fills the same space with bigger (or smaller) type.
+  // Its box keeps its top-left corner, so widgets see nothing unusual.
+  const zoom = zoomOf(r.inst);
+  const box: Box = zoom === 1 ? outer : { x: outer.x, y: outer.y, w: Math.max(1, outer.w / zoom), h: Math.max(1, outer.h / zoom) };
   const [plugin] = r.inst.type.split('/');
   const ctx: RenderContext<any, any> = {
     ...baseContext(input.cfg, plugin!, input.log ?? (() => undefined), now),
-    ...stateCtx(r, now, working),
+    ...stateCtx(r, now, working, input.cfg),
     box,
     theme,
     fonts: theme.fonts,
@@ -246,6 +261,10 @@ function drawTileContent(g: SKRSContext2D, input: ComposeInput, r: Resolved, rec
   g.save();
   roundRect(g, rect.x, rect.y, rect.w, rect.h, chrome === 'card' ? theme.radius : 0);
   g.clip();
+  if (zoom !== 1) {
+    g.translate(outer.x * (1 - zoom), outer.y * (1 - zoom));
+    g.scale(zoom, zoom);
+  }
   try {
     r.def.render(g, ctx);
   } catch (err) {
@@ -316,8 +335,10 @@ export function composeWidget(o: {
   sources?: Record<string, unknown>;
   now?: number;
   chrome?: Tile['chrome'];
+  /** The instance's zoom (see `WidgetInstance.zoom`). */
+  zoom?: number;
 }): ComposeResult {
-  const inst: WidgetInstance = { id: 'w', type: o.type, options: o.options ?? {}, ...(o.title ? { title: o.title } : {}) };
+  const inst: WidgetInstance = { id: 'w', type: o.type, options: o.options ?? {}, ...(o.title ? { title: o.title } : {}), ...(o.zoom !== undefined && o.zoom !== 1 ? { zoom: o.zoom } : {}) };
   const page: Page = { id: 'p', name: 'p', grid: { cols: 1, rows: 1, gap: 0, padding: 0 }, gravity: 'none', background: { color: o.theme.colors.bg }, tiles: [{ id: 't', x: 0, y: 0, w: 1, h: 1, widgets: [inst], rotateMs: 0, chrome: o.chrome ?? 'auto' }] };
   return composePage({
     cfg: o.cfg,

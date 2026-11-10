@@ -16,12 +16,15 @@
  * an AI asked to write a config. Hence the descriptions, the defaults, and
  * `x-` hints: `x-size` (panel pixels a widget needs), `x-sources`,
  * `x-secret` and `x-risk` (values that run programs, contact hosts or read
- * paths, which `kiosko config import` lists before applying a config).
+ * paths, which `kiosko config import` lists before applying a config),
+ * `x-filter` (lists of `matchFilter` patterns) and `x-ui` (labels in every
+ * language, units, steps, sliders: what the editor builds its forms from).
  *
  * Pure (no Node).
  */
-import { localize, THEMES, toJsonSchema, type Field, type Localized, type PluginDefinition } from '@kiosko/sdk';
-import { CONFIG_SCHEMA_ID, CONFIG_VERSION, DEFAULT_CONFIG } from './model.ts';
+import { localize, THEMES, TIME_FORMATS, toJsonSchema, type Field, type Localized, type PluginDefinition } from '@kiosko/sdk';
+import { CONFIG_SCHEMA_ID, CONFIG_VERSION, DEFAULT_CONFIG, ZOOM } from './model.ts';
+import { sourceOptionsField } from './sources.ts';
 
 type S = Record<string, unknown>;
 
@@ -37,6 +40,18 @@ const sentences = (...parts: (string | number | false | undefined)[]) =>
 /** `plugin/thing`, as widgets, sources and interludes are addressed. */
 export const TYPE_PATTERN = '^[a-z0-9][a-z0-9-]*/[A-Za-z0-9_.-]+$';
 const ID_PATTERN = '^[A-Za-z0-9_.-]{1,80}$';
+
+/** Instance switches over the widget's `urgent` and `empty` hooks, described only where the widget has them. */
+const TAKE_OVER = {
+  type: 'boolean',
+  description: 'Keep the tile while the widget is urgent (a meeting about to start, a permission waiting), even if others share it. Off: it takes its turn like the rest.',
+  'x-ui': { label: { en: 'Keep the tile while urgent', es: 'Quedarse la tesela mientras sea urgente' } },
+};
+const HIDE_WHEN_EMPTY = {
+  type: 'boolean',
+  description: 'Skip the widget in its tile\'s rotation while it has nothing to list, instead of showing its empty message.',
+  'x-ui': { label: { en: 'Hide when empty', es: 'Ocultar si está vacío' } },
+};
 const TIME_PATTERN = '^([01][0-9]|2[0-3]):[0-5][0-9]$';
 
 function options(f: Field | undefined, what: string): S {
@@ -74,6 +89,9 @@ export function configSchema(plugins: readonly PluginDefinition[]): S {
           intervalMs: { type: 'integer', minimum: 5000, description: `How often this widget fetches its own data, in ms${w.fetch ? ` (default ${w.intervalMs ?? 600_000})` : '. This widget fetches nothing: leave it out'}.` },
           when: { $ref: '#/$defs/when' },
           disabled: { type: 'boolean', default: false, description: 'Kept in the tile but never shown.' },
+          zoom: { $ref: '#/$defs/zoom' },
+          ...(w.urgent ? { takeOver: { ...TAKE_OVER, default: w.takeOver ?? true } } : {}),
+          ...(w.empty ? { hideWhenEmpty: { ...HIDE_WHEN_EMPTY, default: w.hideWhenEmpty ?? false } } : {}),
         },
         'x-plugin': p.id,
         'x-category': w.category ?? 'info',
@@ -115,7 +133,7 @@ export function configSchema(plugins: readonly PluginDefinition[]): S {
         return [
           type,
           {
-            ...options(s.options, 'source'),
+            ...options(sourceOptionsField(s), 'source'),
             title: `${en(s.name)} (${type})`,
             description: sentences(en(s.description), users.length && `Used by ${users.join(', ')}`, 'Runs only while some enabled widget uses it; set only the options that differ from the defaults'),
             'x-plugin': p.id,
@@ -143,6 +161,12 @@ export function configSchema(plugins: readonly PluginDefinition[]): S {
       $schema: { type: 'string', default: CONFIG_SCHEMA_ID, description: `The address of this schema, ${CONFIG_SCHEMA_ID}, so editors validate the file.` },
       version: { const: CONFIG_VERSION, default: CONFIG_VERSION, description: 'Version of the config format.' },
       locale: { type: 'string', default: DEFAULT_CONFIG.locale, examples: ['auto', 'en', 'en-GB', 'es'], description: 'Language of the panels and the editor, as a BCP-47 tag; "auto" follows the operating system.' },
+      timeFormat: {
+        enum: [...TIME_FORMATS],
+        default: DEFAULT_CONFIG.timeFormat,
+        description: 'How widgets write clock times: "24h" (14:05), "12h" (2:05 PM), or "auto", the habit of the language (24 h in Spanish and British English, 12 h in US English).',
+        'x-ui': { label: { en: 'Time format', es: 'Formato de hora' }, labels: { auto: { en: 'As the language', es: 'Según el idioma' }, '24h': { en: '24 hours', es: '24 horas' }, '12h': { en: '12 hours', es: '12 horas' } } },
+      },
       theme: { enum: THEMES.map((t) => t.id), default: DEFAULT_CONFIG.theme, description: `Colour theme: ${THEMES.map((t) => `${t.id} (${t.name})`).join(', ')}.` },
       location: { $ref: '#/$defs/location' },
       workday: {
@@ -154,6 +178,19 @@ export function configSchema(plugins: readonly PluginDefinition[]): S {
           days: { type: 'array', items: { type: 'integer', minimum: 0, maximum: 6 }, uniqueItems: true, default: DEFAULT_CONFIG.workday.days, description: 'Working days, 0 = Sunday … 6 = Saturday.' },
           start: { $ref: '#/$defs/time', default: DEFAULT_CONFIG.workday.start },
           end: { $ref: '#/$defs/time', default: DEFAULT_CONFIG.workday.end },
+          hours: { type: 'number', minimum: 0, maximum: 24, default: DEFAULT_CONFIG.workday.hours, description: 'Hours due on a working day (what a timesheet expects), not the span from start to end.', 'x-ui': { unit: 'h', step: 0.25 } },
+          holidays: { type: 'array', items: { type: 'string', format: 'date', 'x-pattern-hint': 'a day as YYYY-MM-DD' }, uniqueItems: true, default: [], description: 'Days off, as YYYY-MM-DD: no work hours and nothing due.' },
+          byDay: {
+            type: 'object',
+            default: {},
+            description: 'Days with other hours, by weekday ("5" = Friday): { "5": { "end": "15:00", "hours": 6 } }. Fields left out are those of the week.',
+            propertyNames: { pattern: '^[0-6]$', 'x-pattern-hint': 'a weekday, "0" (Sunday) to "6" (Saturday)' },
+            additionalProperties: {
+              type: 'object',
+              additionalProperties: false,
+              properties: { start: { $ref: '#/$defs/time' }, end: { $ref: '#/$defs/time' }, hours: { type: 'number', minimum: 0, maximum: 24 } },
+            },
+          },
         },
       },
       sources: {
@@ -186,6 +223,14 @@ export function configSchema(plugins: readonly PluginDefinition[]): S {
       id: { type: 'string', pattern: ID_PATTERN, 'x-pattern-hint': 'an id of letters, digits, ".", "_" or "-" (no spaces, at most 80)', description: 'Stable id, unique among its siblings (widget ids: unique in the whole config). Generated when missing.' },
       time: { type: 'string', pattern: TIME_PATTERN, 'x-pattern-hint': 'a time as HH:MM (24 h)' },
       when: { enum: ['always', 'work', 'off'], default: 'always', description: 'When it shows: always, only in work hours, or only outside them (see "workday").' },
+      zoom: {
+        type: 'number',
+        minimum: ZOOM.min,
+        maximum: ZOOM.max,
+        default: 1,
+        description: `Text density: the widget is painted this many times bigger, in the same tile: 1.25 gives bigger letters and fewer rows, 0.8 a denser widget. From ${ZOOM.min} to ${ZOOM.max} (the editor moves in steps of ${ZOOM.step}). The tile must be at least the widget's minimum size times the zoom.`,
+        'x-ui': { label: { en: 'Zoom', es: 'Zoom' }, unit: '×', step: ZOOM.step, slider: true },
+      },
       location: {
         type: 'object',
         additionalProperties: false,

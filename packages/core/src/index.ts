@@ -1,6 +1,7 @@
 export * from './config/model.ts';
 export * from './config/store.ts';
 export * from './config/schema.ts';
+export * from './config/sources.ts';
 export * from './config/jsonschema.ts';
 export * from './config/check.ts';
 export * from './config/diff.ts';

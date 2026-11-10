@@ -3,6 +3,8 @@
  * an AI) into a complete `Config`. Pure (no Node), so validation can run
  * anywhere.
  */
+import { TIME_FORMATS } from '@kiosko/sdk/format';
+import { DEFAULT_WORKDAY } from '@kiosko/sdk/workday';
 import { suggestGrid } from '../layout/grid.ts';
 import { CONFIG_VERSION, DEFAULT_CONFIG, type Config, type Screen } from './model.ts';
 
@@ -19,7 +21,9 @@ export function normalize(raw: unknown): Config {
     ...DEFAULT_CONFIG,
     ...c,
     version: CONFIG_VERSION,
-    workday: { ...DEFAULT_CONFIG.workday, ...(c.workday ?? {}) },
+    timeFormat: TIME_FORMATS.includes(c.timeFormat as never) ? c.timeFormat! : DEFAULT_CONFIG.timeFormat,
+    // A copy of the defaults: the editor edits the result in place.
+    workday: { ...(JSON.parse(JSON.stringify(DEFAULT_WORKDAY)) as typeof DEFAULT_WORKDAY), ...(c.workday ?? {}) },
     sources: c.sources ?? {},
     plugins: { disabled: c.plugins?.disabled ?? [] },
     server: { ...DEFAULT_CONFIG.server, ...(c.server ?? {}) },

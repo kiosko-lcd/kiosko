@@ -11,6 +11,9 @@
  *      │     └─ widgets[]  a stack: they take turns inside the tile
  *      └─ interludes[]     full-screen animations every so often
  */
+// The pure parts of the SDK only: the editor imports this file.
+import type { TimeFormat } from '@kiosko/sdk/format';
+import { DEFAULT_WORKDAY, isWorkingAt, type Workday } from '@kiosko/sdk/workday';
 import { suggestGrid, type Gravity, type GridSpec } from '../layout/grid.ts';
 
 export const CONFIG_VERSION = 1;
@@ -46,6 +49,25 @@ export interface WidgetInstance {
   intervalMs?: number;
   when?: When;
   disabled?: boolean;
+  /**
+   * Text density: the widget is painted `zoom` times bigger (1.25: bigger
+   * letters, fewer rows) or smaller (0.8: denser), from 0.5 to 2. Missing = 1.
+   */
+  zoom?: number;
+  /** Keeps its tile while it's urgent. Missing = the widget's default (`WidgetDefinition.takeOver`, true unless it says otherwise). */
+  takeOver?: boolean;
+  /** Skipped in its tile's rotation while it has nothing to list. Missing = the widget's default (`WidgetDefinition.hideWhenEmpty`, false unless it says otherwise). */
+  hideWhenEmpty?: boolean;
+}
+
+/** Range and step of `WidgetInstance.zoom`. */
+export const ZOOM = { min: 0.5, max: 2, step: 0.1 } as const;
+
+/** The zoom a widget is painted at: 1 when missing or invalid, otherwise clamped to `ZOOM` (to the hundredth, against float noise). */
+export function zoomOf(inst: Pick<WidgetInstance, 'zoom'>): number {
+  const z = inst.zoom;
+  if (typeof z !== 'number' || !Number.isFinite(z)) return 1;
+  return Math.round(Math.min(ZOOM.max, Math.max(ZOOM.min, z)) * 100) / 100;
 }
 
 export interface Tile {
@@ -117,10 +139,12 @@ export interface Config {
   version: number;
   /** `auto` = from the OS. */
   locale: string;
+  /** How clock times are written on the panels: `auto` follows the language. */
+  timeFormat: TimeFormat;
   theme: string;
   location?: { latitude: number; longitude: number; name?: string };
-  /** Work schedule, for `when: work|off`. */
-  workday: { days: number[]; start: string; end: string };
+  /** Work schedule, for `when: work|off` and for plugins (`ctx.workday`). */
+  workday: Workday;
   /** Global options of shared sources, by `plugin/source`. */
   sources: Record<string, Record<string, unknown>>;
   plugins: { disabled: string[] };
@@ -169,8 +193,9 @@ export function newScreen(name: string, width = 1920, height = 462, device: Devi
 export const DEFAULT_CONFIG: Config = {
   version: CONFIG_VERSION,
   locale: 'auto',
+  timeFormat: 'auto',
   theme: 'midnight',
-  workday: { days: [1, 2, 3, 4, 5], start: '09:00', end: '17:00' },
+  workday: { ...DEFAULT_WORKDAY, days: [...DEFAULT_WORKDAY.days], holidays: [], byDay: {} },
   sources: {},
   plugins: { disabled: [] },
   screens: [],
@@ -189,16 +214,9 @@ export const PANEL_PRESETS: { id: string; name: string; width: number; height: n
   { id: 'round-480', name: 'Round 480×480 (AIO)', width: 480, height: 480 },
 ];
 
-/** Is `now` inside the work schedule? */
+/** Is `now` inside the work schedule (its days, their own hours, not a holiday)? */
 export function isWorking(workday: Config['workday'], now: number): boolean {
-  const d = new Date(now);
-  if (!workday.days.includes(d.getDay())) return false;
-  const mins = d.getHours() * 60 + d.getMinutes();
-  const at = (s: string) => {
-    const [h, m] = s.split(':').map(Number);
-    return (h ?? 0) * 60 + (m ?? 0);
-  };
-  return mins >= at(workday.start) && mins < at(workday.end);
+  return isWorkingAt(workday, now);
 }
 
 export function whenMatches(when: When | undefined, working: boolean): boolean {

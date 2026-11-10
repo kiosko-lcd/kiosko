@@ -75,6 +75,8 @@ export interface ListField<I extends Field = Field> extends Common<Infer<I>[]> {
   kind: 'list';
   item: I;
   max?: number;
+  /** Patterns for `matchFilter` (see `t.filter`): the editor edits them as one line, comma-separated. */
+  filter?: boolean;
 }
 export interface ObjectField<P extends Record<string, Field> = Record<string, Field>> extends Common<{ [K in keyof P]: Infer<P[K]> }> {
   kind: 'object';
@@ -115,6 +117,26 @@ export const t = {
   map: (o: Opts<MapField> = {}): MapField => ({ kind: 'map', default: {}, ...o }),
   /** Duration in milliseconds, edited in seconds or minutes by the editor. */
   duration: (o: Opts<NumberField> = {}): NumberField => ({ kind: 'number', integer: true, unit: 'ms', min: 0, default: 60_000, ...o }),
+  /**
+   * Which items to show, as patterns for `matchFilter`: `["web", "acme/*",
+   * "!*-old"]`. Empty = all. Name it after what it filters (`projects`,
+   * `repos`, `calendars`, `people`) and give it a `label`; the `help`
+   * explaining the patterns comes with it.
+   */
+  filter: (o: Opts<ListField<StringField>, 'item'> = {}): ListField<StringField> => ({
+    kind: 'list',
+    item: { kind: 'string', default: '', placeholder: 'name, group/*, !old-*' },
+    default: [],
+    filter: true,
+    help: FILTER_HELP,
+    ...o,
+  }),
+};
+
+/** The help every `t.filter()` field carries unless it brings its own. */
+export const FILTER_HELP: Localized = {
+  en: 'Empty: all. Names or patterns, comma-separated: * matches anything, a leading ! leaves out (web, acme/*, !*-old).',
+  es: 'Vacío: todos. Nombres o patrones separados por comas: * vale por cualquier cosa y un ! delante excluye (web, acme/*, !*-old).',
 };
 
 function clone<T>(v: T): T {
@@ -226,7 +248,7 @@ export function toJsonSchema(f: Field): Record<string, unknown> {
     case 'enum':
       return { ...base, type: 'string', enum: [...f.values], 'x-ui': { ...ui, labels: f.labels } };
     case 'list':
-      return { ...base, type: 'array', items: toJsonSchema(f.item), maxItems: f.max };
+      return { ...base, type: 'array', items: toJsonSchema(f.item), maxItems: f.max, ...(f.filter ? { 'x-ui': { ...ui, widget: 'filter' }, 'x-filter': true } : {}) };
     case 'map':
       return { ...base, type: 'object', additionalProperties: { type: 'string' } };
     case 'object':

@@ -1,11 +1,11 @@
 /**
- * What every plugin context shares: language, place, log, canvas factory and
- * a per-plugin data folder.
+ * What every plugin context shares: language, time formatters, place,
+ * working week, log, canvas factory and a per-plugin data folder.
  */
 import { mkdirSync } from 'node:fs';
 import { createCanvas, loadImage } from '@napi-rs/canvas';
 import * as kit from '@loksly/lcd-canvas-kit';
-import { localize, type BaseContext, type CanvasApi, type Localized } from '@kiosko/sdk';
+import { createBaseContext, type BaseContext, type CanvasApi } from '@kiosko/sdk';
 import type { Config } from './config/model.ts';
 import { paths } from './paths.ts';
 
@@ -28,14 +28,11 @@ export type LogFn = (scope: string, msg: string) => void;
 
 /** The base context for `plugin`. `dataDir` is created the first time it's read. */
 export function baseContext(cfg: Config, plugin: string, log: LogFn, now: number): BaseContext {
-  const locale = resolveLocale(cfg);
   let made = false;
   const dir = paths.data(plugin);
+  const base = createBaseContext({ now, locale: resolveLocale(cfg), timeFormat: cfg.timeFormat, workday: cfg.workday, ...(cfg.location ? { location: cfg.location } : {}), log: (msg: string) => log(plugin, msg) });
   return {
-    now,
-    locale,
-    t: (text: Localized) => localize(text, locale),
-    log: (msg: string) => log(plugin, msg),
+    ...base,
     get dataDir() {
       if (!made) {
         try {
@@ -47,6 +44,5 @@ export function baseContext(cfg: Config, plugin: string, log: LogFn, now: number
       }
       return dir;
     },
-    ...(cfg.location ? { location: cfg.location } : {}),
   };
 }

@@ -174,7 +174,7 @@ test('planImport keeps what the file leaves out and validates what it has', () =
   const cur = normalize({ ...current, location: { latitude: 1, longitude: 2 }, server: { host: '127.0.0.1', port: 7500 } });
   const plan = planImport({ theme: 'paper', screens: [{ id: 's', pages: [{ id: 'p', tiles: [] }] }] }, cur, plugins, schema);
   assert.deepEqual(plan.report.errors, []);
-  assert.deepEqual(plan.carried, ['locale', 'location', 'workday', 'plugins', 'server', 'sources["demo/remote"]']);
+  assert.deepEqual(plan.carried, ['locale', 'timeFormat', 'location', 'workday', 'plugins', 'server', 'sources["demo/remote"]']);
   assert.equal(plan.config.server.port, 7500);
   assert.deepEqual(plan.config.location, { latitude: 1, longitude: 2 });
   assert.equal(remote(plan.config).token, 'source-secret');

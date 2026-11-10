@@ -235,6 +235,23 @@ export function Settings() {
               </button>
             ))}
           </div>
+          <h3>
+            <Icon name="clock" size={16} /> {tr('settings.timeFormat')}
+          </h3>
+          <p class="muted small">{tr('settings.timeFormatHint')}</p>
+          <div class="segmented">
+            {(
+              [
+                ['auto', tr('settings.auto')],
+                ['24h', tr('time.24h')],
+                ['12h', tr('time.12h')],
+              ] as const
+            ).map(([v, l]) => (
+              <button class={(cfg.timeFormat ?? 'auto') === v ? 'on' : ''} onClick={() => edit((d) => (d.timeFormat = v))}>
+                {l}
+              </button>
+            ))}
+          </div>
         </section>
         <section class="card">
           <h3>
@@ -268,6 +285,7 @@ export function Settings() {
             <span class="muted small">{tr('settings.to')}</span>
             <input class="input" type="time" value={cfg.workday.end} onInput={(e) => edit((d) => (d.workday.end = (e.target as HTMLInputElement).value), 'wd-e')} />
           </div>
+          <WorkdayMore days={days} />
         </section>
       </div>
       {sources.length > 0 && (
@@ -289,7 +307,7 @@ export function Settings() {
                   <div class="source-head">
                     <b>{s.name}</b>
                     <code class="muted">{s.type}</code>
-                    {s.intervalMs && <span class="muted small">· {fmtMs(s.intervalMs)}</span>}
+                    {s.intervalMs && <span class="muted small">· {fmtMs(st?.intervalMs ?? (cfg.sources[s.type]?.intervalMs as number | undefined) ?? s.intervalMs)}</span>}
                     {st && <span class={`status-pill ${st.ok ? 'ok' : 'bad'}`} title={st.error ?? ''}><span class="dot" /> {st.ok ? (st.updatedAt ? new Date(st.updatedAt).toLocaleTimeString() : '…') : st.error}</span>}
                   </div>
                   <p class="muted small">{s.description}</p>
@@ -324,6 +342,87 @@ export function Settings() {
         </section>
       </div>
     </div>
+  );
+}
+
+/** The rest of the working week: hours due, days with other hours, holidays. */
+function WorkdayMore({ days }: { days: string[] }) {
+  const w = config.value!.workday;
+  const byDay = w.byDay ?? {};
+  const holidays = w.holidays ?? [];
+  const num = (v: string) => (v.trim() === '' || !Number.isFinite(Number(v)) ? undefined : Math.max(0, Math.min(24, Number(v))));
+  const setDay = (day: string, k: 'start' | 'end' | 'hours', v: string) =>
+    edit((d) => {
+      const o = { ...(d.workday.byDay?.[day] ?? {}) };
+      if (k === 'hours') o.hours = num(v);
+      else o[k] = v || undefined;
+      d.workday.byDay = { ...(d.workday.byDay ?? {}), [day]: JSON.parse(JSON.stringify(o)) };
+    }, `wd-${day}-${k}`);
+  return (
+    <>
+      <div class="row">
+        <span class="muted small">{tr('settings.hours')}</span>
+        <input class="input num" type="number" min={0} max={24} step={0.25} value={w.hours ?? 8} onInput={(e) => {
+          const n = num((e.target as HTMLInputElement).value);
+          if (n !== undefined) edit((d) => (d.workday.hours = n), 'wd-h');
+        }} />
+        <span class="muted small">h</span>
+      </div>
+      <p class="muted small">{tr('settings.hoursHint')}</p>
+      <label class="field-label">{tr('settings.byDay')}</label>
+      <p class="muted small">{tr('settings.byDayHint')}</p>
+      {Object.keys(byDay)
+        .sort((a, b) => ((Number(a) + 6) % 7) - ((Number(b) + 6) % 7))
+        .map((day) => (
+          <div class="row">
+            <span class="day on">{days[Number(day)]}</span>
+            <input class="input" type="time" value={byDay[day]?.start ?? ''} onInput={(e) => setDay(day, 'start', (e.target as HTMLInputElement).value)} aria-label={tr('settings.from')} />
+            <span class="muted small">–</span>
+            <input class="input" type="time" value={byDay[day]?.end ?? ''} onInput={(e) => setDay(day, 'end', (e.target as HTMLInputElement).value)} aria-label={tr('settings.to')} />
+            <input class="input num" type="number" min={0} max={24} step={0.25} placeholder={String(w.hours ?? 8)} value={byDay[day]?.hours ?? ''} onInput={(e) => setDay(day, 'hours', (e.target as HTMLInputElement).value)} aria-label={tr('settings.hours')} />
+            <span class="muted small">h</span>
+            <button class="icon-btn danger" title={tr('common.delete')} onClick={() => edit((d) => {
+              const next = { ...(d.workday.byDay ?? {}) };
+              delete next[day];
+              d.workday.byDay = next;
+            })}>
+              <Icon name="x" size={14} />
+            </button>
+          </div>
+        ))}
+      <select class="input" value="" onChange={(e) => {
+        const day = (e.target as HTMLSelectElement).value;
+        (e.target as HTMLSelectElement).value = '';
+        if (day) edit((d) => (d.workday.byDay = { ...(d.workday.byDay ?? {}), [day]: {} }));
+      }}>
+        <option value="">{tr('settings.addDay')}</option>
+        {[1, 2, 3, 4, 5, 6, 0].filter((d) => !(String(d) in byDay)).map((d) => (
+          <option value={String(d)}>{days[d]}</option>
+        ))}
+      </select>
+      <label class="field-label">{tr('settings.holidays')}</label>
+      <p class="muted small">{tr('settings.holidaysHint')}</p>
+      {holidays.length > 0 && (
+        <div class="row">
+          {holidays.map((h) => (
+            <span class="mini-chip">
+              {h}
+              <button class="icon-btn" title={tr('common.delete')} onClick={() => edit((d) => (d.workday.holidays = (d.workday.holidays ?? []).filter((x) => x !== h)))}>
+                <Icon name="x" size={12} />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+      <div class="row">
+        <input class="input" type="date" aria-label={tr('settings.addHoliday')} onChange={(e) => {
+          const el = e.target as HTMLInputElement;
+          const v = el.value;
+          el.value = '';
+          if (/^\d{4}-\d{2}-\d{2}$/.test(v)) edit((d) => (d.workday.holidays = [...new Set([...(d.workday.holidays ?? []), v])].sort()));
+        }} />
+      </div>
+    </>
   );
 }
 

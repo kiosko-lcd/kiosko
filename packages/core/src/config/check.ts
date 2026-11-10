@@ -11,9 +11,10 @@
 import type { Field, PluginDefinition } from '@kiosko/sdk';
 import { cellsFor, inBounds, overlaps, toPx, type GridSpec } from '../layout/grid.ts';
 import { closest, formatPath, toPointer, validateJson, type JsonIssue, type JsonSchema, type PathSeg } from './jsonschema.ts';
-import type { Config } from './model.ts';
+import { zoomOf, type Config } from './model.ts';
 import { normalize } from './normalize.ts';
 import { configSchema, TYPE_PATTERN } from './schema.ts';
+import { sourceOptionsField } from './sources.ts';
 
 export interface ConfigReport {
   errors: JsonIssue[];
@@ -112,12 +113,13 @@ export function checkConfig(raw: unknown, plugins: readonly PluginDefinition[]):
           if (!def) return; // unknown types are schema errors
           const plugin = w.type.split('/')[0]!;
           if (disabled.has(plugin)) warnings.push(issue(wp, `its plugin ${JSON.stringify(plugin)} is switched off in plugins.disabled, so it won't show`, w.type));
-          const min = def.size?.min;
+          const zoom = zoomOf(w);
+          const min = def.size?.min && { w: Math.ceil(def.size.min.w * zoom), h: Math.ceil(def.size.min.h * zoom) };
           if (min && geometry) {
             const px = toPx(t, grid, s.width, s.height);
             if (px.w < min.w || px.h < min.h) {
               const need = cellsFor(min, grid, s.width, s.height);
-              warnings.push(issue(tp, `is ${px.w}×${px.h} px but ${w.type} needs at least ${min.w}×${min.h} px: make it at least ${Math.max(need.w, t.w)}×${Math.max(need.h, t.h)} cells (w×h)`, w.type));
+              warnings.push(issue(tp, `is ${px.w}×${px.h} px but ${w.type} needs at least ${min.w}×${min.h} px${zoom !== 1 ? ` at zoom ${zoom}` : ''}: make it at least ${Math.max(need.w, t.w)}×${Math.max(need.h, t.h)} cells (w×h)${zoom !== 1 ? ' or lower its zoom' : ''}`, w.type));
             }
           }
           if (def.options) unknownOptions(def.options, w.options, [...wp, 'options'], warnings, w.type);
@@ -135,7 +137,8 @@ export function checkConfig(raw: unknown, plugins: readonly PluginDefinition[]):
   if (isObj(cfg.sources)) {
     for (const [type, opts] of Object.entries(cfg.sources)) {
       const def = sources.get(type);
-      if (def?.options) unknownOptions(def.options, opts, ['sources', type], warnings, type);
+      const field = def && sourceOptionsField(def);
+      if (field) unknownOptions(field, opts, ['sources', type], warnings, type);
       else if (!def && new RegExp(TYPE_PATTERN).test(type)) warnings.push(issue(['sources', type], `no installed plugin provides this source, so it is ignored${near(type, [...sources.keys()])}`));
     }
   }

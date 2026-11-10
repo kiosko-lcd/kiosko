@@ -6,7 +6,7 @@
 import { useComputed, useSignal, useSignalEffect } from '@preact/signals';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { cellsFor, collisions, fit, inBounds, place, toPx, type GridItem, type Rect } from '@kiosko/core/layout';
-import { newTile, newWidget, type Page, type Tile } from '@kiosko/core/model';
+import { newTile, newWidget, zoomOf, type Page, type Tile } from '@kiosko/core/model';
 import { api } from '../api.ts';
 import { Icon } from '../icons.tsx';
 import { tr } from '../i18n.ts';
@@ -32,13 +32,15 @@ interface Ghost {
   stackOn: string | null;
 }
 
+/** The fewest cells the tile can have: its widgets' minimum sizes, times their zoom. */
 export function minCellsOf(t: Tile, p: Page, W: number, H: number): { w: number; h: number } {
   let w = 1;
   let h = 1;
   for (const wi of t.widgets) {
     const min = widgets.value.get(wi.type)?.size.min;
     if (!min) continue;
-    const c = cellsFor(min, p.grid, W, H);
+    const z = zoomOf(wi);
+    const c = cellsFor({ w: Math.ceil(min.w * z), h: Math.ceil(min.h * z) }, p.grid, W, H);
     w = Math.max(w, Math.min(c.w, p.grid.cols));
     h = Math.max(h, Math.min(c.h, p.grid.rows));
   }

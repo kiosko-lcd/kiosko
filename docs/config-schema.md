@@ -25,8 +25,9 @@ so VS Code and other editors validate and complete the file on their own.
 What it describes:
 
 - the structure: `screens` → `pages` → `tiles` → `widgets`, plus `devices`,
-  `grid`, `interludes`, `sources`, `plugins`, `theme`, `locale`, `location`,
-  `workday` and `server`, with defaults and descriptions;
+  `grid`, `interludes`, `sources`, `plugins`, `theme`, `locale`,
+  `timeFormat`, `location`, `workday` and `server`, with defaults and
+  descriptions;
 - one branch per widget type (`"type": "core/clock"`), whose `options` come
   from the plugin's own option schema, with titles, descriptions and the
   panel size the widget needs (`x-size`, in pixels);
@@ -36,7 +37,27 @@ What it describes:
   empty or as a placeholder such as `"<token>"`; Kiosko keeps the value it has
   or asks for it in the editor;
 - `x-risk` on values that **run programs** (`exec`), **contact hosts**
-  (`network`) or **read local paths** (`path`).
+  (`network`) or **read local paths** (`path`);
+- `x-filter: true` on lists of name patterns (see below), and `x-ui` hints
+  (labels in English and Spanish, units, steps, sliders, advanced fields) on
+  everything the editor shows as a form.
+
+Settings every widget or source shares, whatever its plugin:
+
+| Where | Key | |
+|---|---|---|
+| top level | `timeFormat` | `"auto"` (the language's habit), `"24h"` or `"12h"`: how every widget writes clock times |
+| `workday` | `days`, `start`, `end` | working days (0 = Sunday) and hours, for `"when": "work"`/`"off"` and for plugins |
+| `workday` | `hours` | hours due on a working day (timesheets), default 8 |
+| `workday` | `holidays` | days off, `"YYYY-MM-DD"` |
+| `workday` | `byDay` | other hours on some weekdays: `{ "5": { "end": "15:00", "hours": 6 } }` |
+| a widget | `zoom` | 0.5–2, default 1: the widget painted bigger (1.25: bigger letters, fewer rows) or denser (0.8); the tile must be its minimum size times the zoom |
+| a widget | `takeOver` | only on widgets that can be urgent: keep the tile while urgent (the widget's default, usually `true`) |
+| a widget | `hideWhenEmpty` | only on widgets that list things: skip the widget in its tile while it has nothing to list |
+| `sources["plugin/source"]` | `intervalMs` | how often a polled source is read, at least its own minimum (`minimum` in the schema) |
+| `sources["plugin/source"]` | `timeoutMs` | how long one read may take before it counts as failed (default 2 min) |
+| list widgets' `options` | `rows`, `layout` | rows to show (0 = as many as fit, up to 30; what doesn't fit is "+N more") and, where the widget has two, `"auto"`, `"one-line"` or `"detailed"` |
+| some widgets' `options` | `projects`, `repos`… | patterns: `[]` = all, `"web"` (by full name or last part), `"acme/*"`, `"!*-old"` to leave out |
 
 `kiosko config schema` prints the same schema with the plugins installed on
 your machine, third-party ones included. If you use plugins of your own,
@@ -65,10 +86,10 @@ ai-config.json: 3 errors, 1 warning
 Errors (Kiosko would misread these):
   screens[0].width: must be a whole number; got the text "1920"
   screens[0].pages[0].tiles[0].widgets[0].type: unknown type "core/clok" (did you mean "core/clock"?)
-  screens[0].pages[0].tiles[1].widgets[0].options.seconds (core/clock): must be true or false; got the text "yes"
+  screens[0].pages[0].tiles[1].widgets[0].options.showSeconds (core/clock): must be true or false; got the text "yes"
 
 Warnings (harmless, but worth a look):
-  screens[0].pages[0].tiles[1].widgets[0].options.timezone: is not an option of core/clock, so it is ignored. Its options: seconds, hour12, showDate, color, align
+  screens[0].pages[0].tiles[1].widgets[0].options.timezone: is not an option of core/clock (did you mean "timeZone"?), so it is ignored. Its options: showSeconds, timeFormat, showDate, dateFormat, timeZone, color, align
 ```
 
 A file pasted from a chat inside a ```` ```json ```` block is read anyway.
