@@ -92,6 +92,8 @@ export const module = defineWidget({
     const data = mod.fetch ? await mod.fetch({ config: moduleConfig(mod, options), now, log, canvas }) : undefined;
     return { path, data };
   },
+  // The module's own `updateMs`, as in aimonitor.
+  intervalOf: ({ data }) => (data ? loaded.get(data.path)?.updateMs : undefined),
   render(g, ctx) {
     const mod = ctx.data ? loaded.get(ctx.data.path) : undefined;
     if (!mod) {
