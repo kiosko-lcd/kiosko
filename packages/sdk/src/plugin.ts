@@ -187,6 +187,8 @@ export interface AnimationFrame {
 
 /** What `WidgetDefinition.animation` is asked with. */
 export interface AnimationContext<O, D> extends StateContext<O, D> {
+  /** Where the widget paints (the same `box` its `render` gets), to decide with the layout it will have. */
+  box: Box;
   /**
    * Why it is asked: `idle`, every now and then while nothing else happens
    * (see `animationGap`), or `data`, because this instance's data just changed

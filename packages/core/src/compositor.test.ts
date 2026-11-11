@@ -297,3 +297,18 @@ test('animation: several tiles can animate in the same frame, each with its own'
   });
   assert.deepEqual(frames.map((f) => [f.id, f.anim?.i]), [['one', 1], ['two', 6]]);
 });
+
+test('animation: the hook is told where the widget paints, zoom included', () => {
+  let seen: { x: number; y: number; w: number; h: number } | null = null;
+  const reg2 = new Registry();
+  reg2.add(definePlugin({ id: 'b', name: 'B', version: '1', widgets: [defineWidget({ id: 'w', name: 'W', render: () => undefined, animation: ({ box }) => ((seen = { ...box }), null) })] }));
+  const run = (zoom?: number) => {
+    seen = null;
+    const inst = { id: 'w1', type: 'b/w', options: {}, ...(zoom ? { zoom } : {}) };
+    const r = composePage({ cfg, screen, page: page([{ id: 'a', x: 0, y: 0, w: 4, h: 2, widgets: [inst], rotateMs: 0, chrome: 'bare' }]), theme: DEFAULT_THEME, registry: reg2, now: 0, working: true, dataOf: () => undefined, sourcesOf: () => ({}) });
+    r.animatable[0]!.ask('idle', () => 0);
+    return seen!;
+  };
+  assert.deepEqual(run(), { x: 0, y: 0, w: 400, h: 200 });
+  assert.deepEqual(run(2), { x: 0, y: 0, w: 200, h: 100 });
+});

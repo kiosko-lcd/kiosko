@@ -234,7 +234,7 @@ function paintTile(g: SKRSContext2D, input: ComposeInput, tile: Tile, rect: PxRe
       def: r.def,
       data: r.data,
       sources: r.sources,
-      ask: (trigger, rnd, prev) => safe(() => animation({ ...state, trigger, rnd, ...(prev !== undefined ? { prev } : {}) }), null),
+      ask: (trigger, rnd, prev) => safe(() => animation({ ...state, box: tileBoxes(theme, input.screen.height, r.inst, rect, chrome).box, trigger, rnd, ...(prev !== undefined ? { prev } : {}) }), null),
     });
   }
 
@@ -264,26 +264,37 @@ function paintTile(g: SKRSContext2D, input: ComposeInput, tile: Tile, rect: PxRe
   input.cache.set(tile.id, { key, refs, canvas, ...(out.error ? { error: out.error } : {}) });
 }
 
+/**
+ * Where a widget paints inside its tile: `outer` is the area left by the
+ * card's padding and title, and `box` is what the widget sees: the same area
+ * `zoom` times smaller when zoomed (it keeps its top-left corner).
+ */
+export function tileBoxes(theme: Theme, screenH: number, inst: WidgetInstance, rect: PxRect, chrome: 'card' | 'bare'): { outer: Box; box: Box; zoom: number } {
+  const m = chromeMetrics(theme, screenH, rect);
+  const pad = chrome === 'card' ? m.pad : 0;
+  const top = rect.y + pad + (inst.title?.trim() && chrome === 'card' ? m.titleBar : 0);
+  const outer: Box = { x: rect.x + pad, y: top, w: Math.max(1, rect.w - 2 * pad), h: Math.max(1, rect.y + rect.h - pad - top) };
+  // Zoom: the widget gets a box `zoom` times smaller and is painted `zoom`
+  // times bigger, so it fills the same space with bigger (or smaller) type.
+  // Its box keeps its top-left corner, so widgets see nothing unusual.
+  const zoom = zoomOf(inst);
+  const box: Box = zoom === 1 ? outer : { x: outer.x, y: outer.y, w: Math.max(1, outer.w / zoom), h: Math.max(1, outer.h / zoom) };
+  return { outer, box, zoom };
+}
+
 function drawTileContent(g: SKRSContext2D, input: ComposeInput, r: Resolved, rect: PxRect, chrome: 'card' | 'bare', out: TileResult, anim?: AnimationFrame): void {
   const { theme, now, working } = input;
   const m = chromeMetrics(theme, input.screen.height, rect);
   if (chrome === 'card') drawCard(g, rect, theme);
   const pad = chrome === 'card' ? m.pad : 0;
-  let top = rect.y + pad;
   const title = r.inst.title?.trim();
   if (title && chrome === 'card') {
     g.font = `${m.title}px "${theme.fonts.sans}"`;
     g.fillStyle = theme.colors.inkDim;
     g.textBaseline = 'alphabetic';
     g.fillText(fitText(g, title, rect.w - 2 * pad), rect.x + pad, rect.y + pad + m.title * 0.8);
-    top = rect.y + pad + m.titleBar;
   }
-  const outer: Box = { x: rect.x + pad, y: top, w: Math.max(1, rect.w - 2 * pad), h: Math.max(1, rect.y + rect.h - pad - top) };
-  // Zoom: the widget gets a box `zoom` times smaller and is painted `zoom`
-  // times bigger, so it fills the same space with bigger (or smaller) type.
-  // Its box keeps its top-left corner, so widgets see nothing unusual.
-  const zoom = zoomOf(r.inst);
-  const box: Box = zoom === 1 ? outer : { x: outer.x, y: outer.y, w: Math.max(1, outer.w / zoom), h: Math.max(1, outer.h / zoom) };
+  const { outer, box, zoom } = tileBoxes(theme, input.screen.height, r.inst, rect, chrome);
   const [plugin] = r.inst.type.split('/');
   const ctx: RenderContext<any, any> = {
     ...baseContext(input.cfg, plugin!, input.log ?? (() => undefined), now),
