@@ -30,9 +30,23 @@ export type LogFn = (scope: string, msg: string) => void;
 export function baseContext(cfg: Config, plugin: string, log: LogFn, now: number): BaseContext {
   let made = false;
   const dir = paths.data(plugin);
+  const cache = paths.cache(plugin);
+  let cacheMade = false;
   const base = createBaseContext({ now, locale: resolveLocale(cfg), timeFormat: cfg.timeFormat, workday: cfg.workday, ...(cfg.location ? { location: cfg.location } : {}), log: (msg: string) => log(plugin, msg) });
   return {
     ...base,
+    get cacheDir() {
+      if (!cache) return this.dataDir;
+      if (!cacheMade) {
+        try {
+          mkdirSync(cache, { recursive: true });
+        } catch {
+          return this.dataDir;
+        }
+        cacheMade = true;
+      }
+      return cache;
+    },
     get dataDir() {
       if (!made) {
         try {

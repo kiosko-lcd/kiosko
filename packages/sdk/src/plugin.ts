@@ -88,8 +88,15 @@ export interface BaseContext {
    */
   fmt: Formatters;
   log: Logger;
-  /** Where the plugin may keep files (caches, downloads). Created on demand. */
+  /** Where the plugin may keep files that must survive a reboot (settings, history). Created on demand. */
   dataDir: string;
+  /**
+   * Where the plugin keeps what can be fetched again (downloads, feed copies,
+   * photos, tiles). It is RAM (tmpfs), so the constant rewriting never wears
+   * the SSD, and it is empty after a reboot. Created on demand. Falls back to
+   * `dataDir` where there is no tmpfs. Use this, not `dataDir`, for caches.
+   */
+  cacheDir: string;
   /**
    * The user's place, if set in Settings (weather, sun, earthquakes…). Use it
    * by default; offer a place of your own only where a second one makes sense

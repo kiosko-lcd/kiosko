@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 /**
  * Where Kiosko keeps its things, per platform:
  *   Linux   $XDG_CONFIG_HOME/kiosko  (~/.config/kiosko)
@@ -32,7 +33,15 @@ export const paths = {
   get plugins() {
     return join(kioskoHome(), 'plugins');
   },
-  /** Per-plugin caches: `data/<plugin>`. */
+  /**
+   * Per-plugin re-fetchable caches, in RAM: `$XDG_RUNTIME_DIR/kiosko-cache/<plugin>`
+   * (or `/dev/shm/kiosko-cache-<uid>/<plugin>`). Null where there is no tmpfs.
+   */
+  cache(plugin: string): string | null {
+    const base = process.env.XDG_RUNTIME_DIR && existsSync(process.env.XDG_RUNTIME_DIR) ? join(process.env.XDG_RUNTIME_DIR, 'kiosko-cache') : existsSync('/dev/shm') ? `/dev/shm/kiosko-cache-${process.getuid?.() ?? 'u'}` : null;
+    return base && join(base, plugin.replace(/[^a-z0-9._-]/gi, '_'));
+  },
+  /** Per-plugin data that must persist: `data/<plugin>`. */
   data(plugin: string) {
     return join(kioskoHome(), 'data', plugin.replace(/[^a-z0-9._-]/gi, '_'));
   },

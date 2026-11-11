@@ -10,7 +10,7 @@ import { localize, type Localized } from './i18n.ts';
 import type { BaseContext, Location, Logger } from './plugin.ts';
 import { DEFAULT_WORKDAY, type Workday } from './workday.ts';
 
-export function createBaseContext(o: { now: number; locale?: string; timeFormat?: TimeFormat; workday?: Workday; location?: Location; log?: Logger; dataDir?: string }): BaseContext {
+export function createBaseContext(o: { now: number; locale?: string; timeFormat?: TimeFormat; workday?: Workday; location?: Location; log?: Logger; dataDir?: string; cacheDir?: string }): BaseContext {
   const locale = o.locale ?? 'en';
   return {
     now: o.now,
@@ -19,6 +19,7 @@ export function createBaseContext(o: { now: number; locale?: string; timeFormat?
     fmt: createFormatters({ locale, timeFormat: o.timeFormat ?? 'auto', now: o.now }),
     log: o.log ?? (() => undefined),
     dataDir: o.dataDir ?? '',
+    cacheDir: o.cacheDir ?? o.dataDir ?? '',
     ...(o.location ? { location: o.location } : {}),
     workday: o.workday ?? DEFAULT_WORKDAY,
   };
