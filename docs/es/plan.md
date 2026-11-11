@@ -385,8 +385,10 @@ Lo que cambia en el camino:
 1. Horas e imputación (GitLab) y el gato del runner: dependen de servicios muy
    tuyos (foco, popup de imputar); propuesta: plugin aparte, no en el repo
    público.
-2. Animaciones dentro de una tesela (gestos de los gatos, paseos): requiere
-   ampliar el SDK con `animate` y un presupuesto de fps por pantalla.
+2. Animaciones dentro de una tesela (gestos de los gatos, paseos): el SDK ya
+   tiene `animation` (ver `docs/plugins.md`, «Animations»). Falta medirlas en un
+   panel real (fps sostenibles con `trcc serve`), un interruptor por pantalla
+   y portar los gestos del plugin de los gatos.
 3. Vídeos propios como interludio (`easterEgg.source` con ffmpeg).
 4. Emisor USB propio por número de serie y PR aguas arriba a
    `thermalright-trcc-linux` para `--serial`.

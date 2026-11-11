@@ -12,7 +12,8 @@
 import { EventEmitter } from 'node:events';
 import { themeById, validate, type Theme } from '@kiosko/sdk';
 import type { Canvas } from '@napi-rs/canvas';
-import { composePage, composeWidget, rotateCanvas, type ComposeResult, type TileCache } from './compositor.ts';
+import { AnimationScheduler, type PlayablePlan } from './animation.ts';
+import { composePage, composeWidget, rotateCanvas, type Animatable, type ComposeResult, type TileCache } from './compositor.ts';
 import { isWorking, whenMatches, widgetsOf, type Config, type Page, type Screen, type WidgetInstance } from './config/model.ts';
 import { FetchHost, SourceHub } from './data.ts';
 import { encodeFor, openDevice, type Device, type DeviceStatus } from './devices.ts';
@@ -38,6 +39,8 @@ export interface FrameInfo {
   image: () => Buffer;
   tiles: ComposeResult['tiles'];
   interlude: string | null;
+  /** Type of the widget whose animation is playing (a frame of it), if any. */
+  animation?: string;
   sleeping: boolean;
 }
 
@@ -69,6 +72,12 @@ class ScreenRunner {
   page: Page | null = null;
   /** Rendered tiles reused between frames (see compositor's TileCache). */
   private tiles: TileCache = new Map();
+  /** The widgets of the last painted page that can animate, and when to ask them (see animation.ts). */
+  private animatable: Animatable[] = [];
+  private scheduler: AnimationScheduler;
+  /** Set while a widget's animation plays: its widget type. */
+  animating: string | null = null;
+  private closed = false;
 
   screen: Screen;
   private readonly rt: Runtime;
@@ -78,6 +87,7 @@ class ScreenRunner {
     this.deviceKey = JSON.stringify(screen.device);
     this.device = openDevice(screen.device, (m) => rt.log(`screen:${screen.name}`, m));
     this.pinned = screen.pinnedPage ?? null;
+    this.scheduler = new AnimationScheduler(() => rt.rnd(), (type, why) => rt.log(type, `animation ignored: ${why}`));
   }
 
   reconfigure(screen: Screen): void {
@@ -111,9 +121,13 @@ class ScreenRunner {
         this.dirty = true;
         this.rt.refreshWanted();
       }
-      if (!this.dirty && now < this.nextAt) return;
+      if (!this.dirty && now < this.nextAt) {
+        await this.maybeAnimate(now);
+        return;
+      }
       this.dirty = false;
       await this.paint(page, now);
+      await this.maybeAnimate(now);
     } catch (err) {
       this.rt.log(`screen:${this.screen.name}`, `paint failed: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
@@ -142,6 +156,7 @@ class ScreenRunner {
         cache: this.tiles,
       });
       canvas = result.canvas;
+      this.animatable = result.animatable;
       this.nextAt = Math.min(result.nextAt, now + 60_000);
       // Pages and work hours change by the clock: check at least every minute.
     } else {
@@ -149,6 +164,7 @@ class ScreenRunner {
       const g = canvas.getContext('2d');
       g.fillStyle = '#000';
       g.fillRect(0, 0, screen.width, screen.height);
+      this.animatable = [];
       this.nextAt = now + 60_000;
     }
     const sleeping = !!(screen.sleepWhenIdle && result?.idle);
@@ -225,6 +241,101 @@ class ScreenRunner {
     return true;
   }
 
+  /**
+   * Plays the animation a shown widget asks for, if one is due (see
+   * animation.ts). Like an interlude it runs inside `update`, so nothing else
+   * is painted meanwhile, but unlike it the page stays in place: only the
+   * widget's tile changes from frame to frame.
+   */
+  private async maybeAnimate(now: number): Promise<void> {
+    if (!this.screen.enabled || this.closed || this.lastInfo?.sleeping || !this.animatable.length) return;
+    const due = this.scheduler.next(this.animatable, now, this.screen.maxFps);
+    if (!due) return;
+    const { animatable: a, play } = due;
+    this.animating = a.type;
+    try {
+      await this.playAnimation(a, play, now);
+    } finally {
+      this.animating = null;
+      // Whatever happened, the next paint is a real one with the current data.
+      this.last = null;
+      this.dirty = true;
+      this.scheduler.ended(a.instanceId, Date.now(), a);
+    }
+  }
+
+  private async playAnimation(a: Animatable, play: PlayablePlan, now: number): Promise<void> {
+    const page = this.page;
+    if (!page) return;
+    const { screen } = this;
+    const { frames, fps, interruptible } = play;
+    const abort = () => this.closed || (interruptible && this.dirty) || !this.screen.enabled;
+    this.dirty = false;
+    // The page as it was at the start: same clock, same data for every frame, so
+    // only the animated tile moves (a changing clock would flicker) and, if it
+    // can't be cut short, a data change during it doesn't leak in.
+    const memoData = new Map<string, unknown>();
+    const memoSources = new Map<string, Record<string, unknown>>();
+    const working = this.rt.working(now);
+    const kind = encodeFor(screen.device, screen.jpegQuality || 85);
+    const sent: { out: Buffer; snap: Canvas | null }[] = [];
+    const t0 = Date.now();
+    // Every frame is painted before the first is sent: painting and sending
+    // at once is slower than either, and the panel drops what comes late.
+    for (let i = 1; i < frames - 1; i++) {
+      if (abort()) return;
+      const result = composePage({
+        cfg: this.rt.config,
+        screen,
+        page,
+        theme: this.rt.theme(),
+        registry: this.rt.registry,
+        now,
+        working,
+        dataOf: (inst) => {
+          if (!memoData.has(inst.id)) memoData.set(inst.id, this.rt.fetches.data(inst.id));
+          return memoData.get(inst.id);
+        },
+        sourcesOf: (types) => {
+          const k = JSON.stringify(types ?? []);
+          if (!memoSources.has(k)) memoSources.set(k, this.rt.hub.pick(types));
+          return memoSources.get(k)!;
+        },
+        log: this.rt.log,
+        demo: this.rt.demoMode,
+        cache: this.tiles,
+        animate: { tileId: a.tileId, instanceId: a.instanceId, frame: { plan: play.plan, i, t: i / (frames - 1) } },
+      });
+      sent.push({ out: encode(rotateCanvas(result.canvas, screen.rotate), kind, screen.jpegQuality || 85), snap: i % 3 === 1 ? result.canvas : null });
+      // Let the loop breathe: a long animation must not freeze the timers and the other screens.
+      await new Promise((r) => setImmediate(r));
+    }
+    this.rt.log(`screen:${screen.name}`, `animating ${a.type} ${play.plan.id}: ${sent.length} frames at ${fps} fps (painted in ${Date.now() - t0} ms)`);
+    const holdAt = play.hold ? play.hold.index - 1 : -1;
+    let start = Date.now();
+    for (let k = 0; k < sent.length; k++) {
+      if (abort()) return;
+      // Late: skip the frame rather than let the delay pile up.
+      const due = Math.floor(((Date.now() - start) * fps) / 1000);
+      if (k < due - 1 && k !== holdAt && k < sent.length - 1) continue;
+      await this.device.send(sent[k]!.out);
+      const snap = sent[k]!.snap;
+      if (snap) {
+        this.lastInfo = { screenId: screen.id, pageId: page.id, at: Date.now(), image: lazyJpeg(snap), tiles: [], interlude: null, animation: a.type, sleeping: false };
+        this.rt.emit('frame', this.lastInfo);
+      }
+      if (k === holdAt && play.hold) {
+        // Still: the panel keeps the picture without being sent it again.
+        const until = Date.now() + play.hold.ms;
+        while (Date.now() < until && !abort()) await new Promise((r) => setTimeout(r, Math.min(250, until - Date.now())));
+        start = Date.now() - ((k + 1) * 1000) / fps;
+        continue;
+      }
+      const wait = start + ((k + 1) * 1000) / fps - Date.now();
+      if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+    }
+  }
+
   async playNow(slotId: string): Promise<void> {
     if (this.busy) return;
     this.busy = true;
@@ -240,6 +351,7 @@ class ScreenRunner {
   }
 
   close(): void {
+    this.closed = true;
     this.interlude = null;
     this.device.close();
   }
@@ -252,6 +364,8 @@ export class Runtime extends EventEmitter {
   private runners = new Map<string, ScreenRunner>();
   private timer: NodeJS.Timeout | null = null;
   readonly logs: LogEntry[] = [];
+  /** Random numbers for the animations; tests replace it with a seeded one. */
+  rnd: () => number = Math.random;
 
   readonly registry: Registry;
   /**
@@ -394,6 +508,7 @@ export class Runtime extends EventEmitter {
         page: r.page?.id ?? null,
         pinned: r.pinned,
         interlude: r.interlude?.type ?? null,
+        animation: r.animating,
         device: r.device.status as DeviceStatus,
         lastFrameAt: r.lastInfo?.at ?? null,
         sleeping: r.lastInfo?.sleeping ?? false,

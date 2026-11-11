@@ -71,11 +71,13 @@ export default definePlugin({ id: 'crypto', name: 'Crypto', version: '1.0.0', wi
 | `fetch(ctx)` | Async, in Node, per widget instance, every `intervalMs`. Never blocks a frame. Throw on failure: the last good data stays. `ctx.signal` aborts after `timeoutMs` (default 2 min). |
 | `intervalOf({ options, data })` | Only when the interval depends on the options or the data (a module that declares its own): asked after every fetch, `undefined` keeps `intervalMs`, never under 5 s. An interval the user sets on the instance wins. Declare it after `fetch`. |
 | `render(g, ctx)` | Synchronous and fast. Paint inside `ctx.box`; the tile is clipped for you. |
-| `redraw` | `'never'` (default: only when data changes), `'minute'`, `'second'` or `{ everyMs }`, or a function of `{ options, data, now }` returning one of those. Fewer frames are fewer USB transfers; `{ everyMs: 250 }` is a cheap way to animate, but it repaints the whole page each time. |
+| `redraw` | `'never'` (default: only when data changes), `'minute'`, `'second'` or `{ everyMs }`, or a function of `{ options, data, now }` returning one of those. Fewer frames are fewer USB transfers; `{ everyMs: 250 }` is a cheap way to animate, but it repaints the whole page each time (for real animations see `animation`). |
 | `visible(ctx)` | `false` when there's nothing to show: the widget is skipped in its tile's rotation. |
 | `urgent(ctx)` | `true` while it needs the user: it keeps its tile, unless the user turns the widget's **Keep the tile while urgent** switch off (`takeOver` on the instance). `takeOver: false` on the definition makes off the default. |
 | `empty(ctx)` | `true` when the list has nothing to show. Gives the widget a **Hide when empty** switch (`hideWhenEmpty` on the instance): on, an empty widget is skipped like `visible: false`; off, it paints its empty message (`drawEmpty`). `hideWhenEmpty: true` on the definition makes on the default. |
 | `idle(ctx)` | `true` when there's nothing worth lighting the panel for (with *sleep when idle*, the panel goes black when every widget agrees). |
+| `animation(ctx)` | A short animation inside the tile, or `null`. Returns a plan `{ id, frames, fps, params?, interruptible?, hold? }`; the runtime paints every frame by calling `render` with `ctx.anim = { plan, i, t }` (`t` is 0..1; the first and last frame are the still picture and are not sent), then plays them at `min(fps, screen maxFps)` and ends with a real still repaint. One at a time per screen, only for the widget on show. Asked with `ctx.trigger`: `'idle'` now and then (see `animationGap`, default 20-60 s, random in the range) or `'data'` when the instance's data or one of its sources changed (`ctx.prev` has the old ones; see `animationCooldownMs`). Use `ctx.rnd()` instead of `Math.random`. See *Animations* below. |
+| `animationGap`, `animationCooldownMs` | `{ minMs, maxMs }` between the `idle` questions; and the least time from the end of an animation to a `data` one. |
 | `demo(ctx)` | `{ data?, sources?, options? }` sample content. Make it look real; it's what people see first. |
 
 ### The render context
@@ -365,3 +367,33 @@ Name the package `kiosko-plugin-<name>`, add `"kiosko": { "plugin": "./index.js"
 to its `package.json`, and list `@kiosko/sdk` as a peer dependency. Users
 install it from **Plugins → Install from npm** (installed with
 `--ignore-scripts`).
+
+
+## Animations
+
+A widget can ask for short animations inside its own tile (a tail flick, a
+cat walking to a new spot) with `animation`. The page does not move: the other
+tiles come from the cache, and what is sent are full-screen frames.
+
+```ts
+defineWidget({
+  id: 'cat',
+  // ...
+  animationGap: { minMs: 15_000, maxMs: 40_000 },
+  animationCooldownMs: 10_000,
+  animation: ({ trigger, data, prev, rnd }) =>
+    trigger === 'idle' ? { id: 'tail', frames: 13, fps: 12, params: { who: pick(data, rnd) } }
+    : moved(prev, data) ? { id: 'walk', frames: 15, fps: 12, params: { from: prev } }
+    : null,
+  render(g, ctx) {
+    const a = ctx.anim;           // undefined: paint the widget at rest
+    // a.plan.id / a.plan.params say what, a.t (0..1) says how far.
+  },
+});
+```
+
+- **`render` must be a pure function of its context**, and at `t = 0` and `t = 1` it must give exactly the still picture. No `Math.random` (use `ctx.rnd` in `animation` and put the result in `params`).
+- **Frames are painted before the first is sent**, with the clock, data and sources the page had when it started. The editor's preview never animates.
+- **`interruptible`** (default `true`): new data cancels the animation and the screen repaints with it. `false` plays it to the end (something urgent). **`hold: { at, ms }`** stays still at that point, until interrupted.
+- **Budget.** Every frame is a full-screen image over USB (and a copy on disk with `trcc serve`). The screen's `maxFps` caps the rate; late frames are skipped, not queued. At most 600 frames. An invalid plan is logged and ignored.
+- An interlude and an animation never overlap: the screen does one thing at a time.
