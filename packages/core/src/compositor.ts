@@ -39,8 +39,12 @@ export interface ComposeInput {
   noShift?: boolean;
   /** Reuse tiles whose inputs didn't change (the panel; not previews). */
   cache?: TileCache;
-  /** Paint this frame of an animation in its tile (see `AnimationFrame`); every other tile as usual. */
-  animate?: { tileId: string; instanceId: string; frame: AnimationFrame };
+  /**
+   * Paint these frames of animations, each in its own tile (see
+   * `AnimationFrame`); every other tile as usual. Any number at once: how
+   * many the runtime plays together is its decision (`MAX_CONCURRENT`).
+   */
+  animate?: { tileId: string; instanceId: string; frame: AnimationFrame }[];
 }
 
 /**
@@ -235,7 +239,7 @@ function paintTile(g: SKRSContext2D, input: ComposeInput, tile: Tile, rect: PxRe
   }
 
   // The tile whose animation is being painted: this frame, never from or into the cache.
-  const frame = input.animate && input.animate.tileId === tile.id && input.animate.instanceId === r.inst.id ? input.animate.frame : undefined;
+  const frame = input.animate?.find((a) => a.tileId === tile.id && a.instanceId === r.inst.id)?.frame;
   const draw = (tg: SKRSContext2D) => drawTileContent(tg, input, r, rect, chrome, out, frame);
   if (frame || !input.cache) {
     draw(g);

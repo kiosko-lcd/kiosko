@@ -244,9 +244,10 @@ export interface WidgetDefinition<OF extends ObjectField<any> = ObjectField<any>
   render: (g: Graphics, ctx: RenderContext<Infer<OF>, D>) => void;
   /**
    * Asks for a short animation inside the tile, or `null` for none. The
-   * runtime calls it only while this widget is the one shown, nothing else is
-   * playing on the screen and its `animationGap` / `animationCooldownMs` allow
-   * it. It must be cheap and decide from the data alone; the drawing goes in
+   * runtime calls it only while this widget is the one shown, the screen has
+   * room for another animation (several widgets may ask: they wait their turn,
+   * and how many play together is up to the runtime) and its `animationGap` /
+   * `animationCooldownMs` allow it. It must be cheap and decide from the data alone; the drawing goes in
    * `render`, which gets `ctx.anim` for every frame. Every frame costs USB
    * time: keep them few and short.
    */

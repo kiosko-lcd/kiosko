@@ -12,7 +12,7 @@
 import { EventEmitter } from 'node:events';
 import { themeById, validate, type Theme } from '@kiosko/sdk';
 import type { Canvas } from '@napi-rs/canvas';
-import { AnimationScheduler, type PlayablePlan } from './animation.ts';
+import { AnimationScheduler, MAX_CONCURRENT, type PlayablePlan } from './animation.ts';
 import { composePage, composeWidget, rotateCanvas, type Animatable, type ComposeResult, type TileCache } from './compositor.ts';
 import { isWorking, whenMatches, widgetsOf, type Config, type Page, type Screen, type WidgetInstance } from './config/model.ts';
 import { FetchHost, SourceHub } from './data.ts';
@@ -242,37 +242,49 @@ class ScreenRunner {
   }
 
   /**
-   * Plays the animation a shown widget asks for, if one is due (see
+   * Plays the animations the shown widgets ask for, if any is due (see
    * animation.ts). Like an interlude it runs inside `update`, so nothing else
    * is painted meanwhile, but unlike it the page stays in place: only the
-   * widget's tile changes from frame to frame.
+   * widgets' tiles change from frame to frame. How many play together is
+   * `Runtime.maxConcurrent` (one by default); the rest wait their turn.
    */
   private async maybeAnimate(now: number): Promise<void> {
     if (!this.screen.enabled || this.closed || this.lastInfo?.sleeping || !this.animatable.length) return;
-    const due = this.scheduler.next(this.animatable, now, this.screen.maxFps);
-    if (!due) return;
-    const { animatable: a, play } = due;
-    this.animating = a.type;
+    const due = this.scheduler.next(this.animatable, now, this.screen.maxFps, this.rt.maxConcurrent);
+    if (!due.length) return;
+    this.animating = due.map((d) => d.animatable.type).join(', ');
     try {
-      await this.playAnimation(a, play, now);
+      await this.playAnimations(due, now);
     } finally {
       this.animating = null;
       // Whatever happened, the next paint is a real one with the current data.
       this.last = null;
       this.dirty = true;
-      this.scheduler.ended(a.instanceId, Date.now(), a);
+      for (const d of due) this.scheduler.ended(d.animatable.instanceId, Date.now(), d.animatable);
     }
   }
 
-  private async playAnimation(a: Animatable, play: PlayablePlan, now: number): Promise<void> {
+  /**
+   * One timeline for all: the fastest plan sets the rate and each animation
+   * advances at its own, so they start together and the longest decides when
+   * it is over. The ones that finish earlier stay at rest. With only one it
+   * is just that animation's own frames.
+   */
+  private async playAnimations(items: { animatable: Animatable; play: PlayablePlan }[], now: number): Promise<void> {
     const page = this.page;
     if (!page) return;
     const { screen } = this;
-    const { frames, fps, interruptible } = play;
+    const fps = Math.max(...items.map((x) => x.play.fps));
+    const seconds = Math.max(...items.map((x) => (x.play.frames - 1) / x.play.fps));
+    const frames = Math.round(seconds * fps) + 1;
+    // Cut short by new data only if every one of them can be (an urgent one is not).
+    const interruptible = items.every((x) => x.play.interruptible);
+    // A hold has a meaning for a single animation: with several it is ignored.
+    const hold = items.length === 1 ? items[0]!.play.hold : undefined;
     const abort = () => this.closed || (interruptible && this.dirty) || !this.screen.enabled;
     this.dirty = false;
     // The page as it was at the start: same clock, same data for every frame, so
-    // only the animated tile moves (a changing clock would flicker) and, if it
+    // only the animated tiles move (a changing clock would flicker) and, if it
     // can't be cut short, a data change during it doesn't leak in.
     const memoData = new Map<string, unknown>();
     const memoSources = new Map<string, Record<string, unknown>>();
@@ -282,8 +294,13 @@ class ScreenRunner {
     const t0 = Date.now();
     // Every frame is painted before the first is sent: painting and sending
     // at once is slower than either, and the panel drops what comes late.
-    for (let i = 1; i < frames - 1; i++) {
+    for (let s = 1; s < frames - 1; s++) {
       if (abort()) return;
+      const animate = items.flatMap(({ animatable: a, play }) => {
+        // Frame of this animation at this moment of the timeline; at either end it is at rest.
+        const i = Math.round((s / fps) * play.fps);
+        return i <= 0 || i >= play.frames - 1 ? [] : [{ tileId: a.tileId, instanceId: a.instanceId, frame: { plan: play.plan, i, t: i / (play.frames - 1) } }];
+      });
       const result = composePage({
         cfg: this.rt.config,
         screen,
@@ -304,14 +321,15 @@ class ScreenRunner {
         log: this.rt.log,
         demo: this.rt.demoMode,
         cache: this.tiles,
-        animate: { tileId: a.tileId, instanceId: a.instanceId, frame: { plan: play.plan, i, t: i / (frames - 1) } },
+        animate,
       });
-      sent.push({ out: encode(rotateCanvas(result.canvas, screen.rotate), kind, screen.jpegQuality || 85), snap: i % 3 === 1 ? result.canvas : null });
+      sent.push({ out: encode(rotateCanvas(result.canvas, screen.rotate), kind, screen.jpegQuality || 85), snap: s % 3 === 1 ? result.canvas : null });
       // Let the loop breathe: a long animation must not freeze the timers and the other screens.
       await new Promise((r) => setImmediate(r));
     }
-    this.rt.log(`screen:${screen.name}`, `animating ${a.type} ${play.plan.id}: ${sent.length} frames at ${fps} fps (painted in ${Date.now() - t0} ms)`);
-    const holdAt = play.hold ? play.hold.index - 1 : -1;
+    const what = items.map((x) => `${x.animatable.type} ${x.play.plan.id}`).join(' + ');
+    this.rt.log(`screen:${screen.name}`, `animating ${what}: ${sent.length} frames at ${fps} fps (painted in ${Date.now() - t0} ms)`);
+    const holdAt = hold ? Math.max(0, Math.min(sent.length - 1, hold.index - 1)) : -1;
     let start = Date.now();
     for (let k = 0; k < sent.length; k++) {
       if (abort()) return;
@@ -321,12 +339,12 @@ class ScreenRunner {
       await this.device.send(sent[k]!.out);
       const snap = sent[k]!.snap;
       if (snap) {
-        this.lastInfo = { screenId: screen.id, pageId: page.id, at: Date.now(), image: lazyJpeg(snap), tiles: [], interlude: null, animation: a.type, sleeping: false };
+        this.lastInfo = { screenId: screen.id, pageId: page.id, at: Date.now(), image: lazyJpeg(snap), tiles: [], interlude: null, animation: items.map((x) => x.animatable.type).join(', '), sleeping: false };
         this.rt.emit('frame', this.lastInfo);
       }
-      if (k === holdAt && play.hold) {
+      if (hold && k === holdAt) {
         // Still: the panel keeps the picture without being sent it again.
-        const until = Date.now() + play.hold.ms;
+        const until = Date.now() + hold.ms;
         while (Date.now() < until && !abort()) await new Promise((r) => setTimeout(r, Math.min(250, until - Date.now())));
         start = Date.now() - ((k + 1) * 1000) / fps;
         continue;
@@ -364,6 +382,8 @@ export class Runtime extends EventEmitter {
   private runners = new Map<string, ScreenRunner>();
   private timer: NodeJS.Timeout | null = null;
   readonly logs: LogEntry[] = [];
+  /** How many animations play together on a screen (see animation.ts). */
+  maxConcurrent: number = MAX_CONCURRENT;
   /** Random numbers for the animations; tests replace it with a seeded one. */
   rnd: () => number = Math.random;
 

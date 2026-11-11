@@ -14,6 +14,14 @@ import type { Animatable } from './compositor.ts';
 /** The most frames one animation may have: 30 s at 20 fps. A wrong plan must not eat the CPU. */
 export const MAX_FRAMES = 600;
 
+/**
+ * How many animations the runtime plays together on a screen. Widgets don't
+ * know: every one asks as if it were alone, and what doesn't fit waits its
+ * turn. The whole chain (planner, compositor, player) works for any number;
+ * one is what the panel's USB budget is sized for.
+ */
+export const MAX_CONCURRENT = 1;
+
 /** Default time between the `idle` questions of a widget. */
 export const DEFAULT_GAP = { minMs: 20_000, maxMs: 60_000 };
 
@@ -45,6 +53,10 @@ interface Memory {
   sources: Record<string, unknown>;
   nextIdleAt: number;
   endedAt: number;
+  /** Since when it has had a question due that was not answered with a plan (Infinity: none). */
+  dueSince: number;
+  /** A data change that was due but had to wait its turn: what the widget had before it. */
+  pending?: { data: unknown; sources: Record<string, unknown> };
 }
 
 export class AnimationScheduler {
@@ -65,51 +77,56 @@ export class AnimationScheduler {
   }
 
   /**
-   * The animation to play now, if any, among the shown widgets that have one.
-   * Call it only while nothing is playing. A widget seen for the first time
-   * isn't asked: starting up must not set off a gesture.
+   * The animations to play now, up to `limit`, among the shown widgets that
+   * have one. Call it only while nothing is playing. A widget seen for the
+   * first time isn't asked: starting up must not set off a gesture. When more
+   * are due than fit, the one that has waited longest goes first (the order
+   * of the page doesn't decide), so none starves.
    */
-  next(list: Animatable[], now: number, maxFps: number): { animatable: Animatable; play: PlayablePlan } | null {
+  next(list: Animatable[], now: number, maxFps: number, limit: number = MAX_CONCURRENT): { animatable: Animatable; play: PlayablePlan }[] {
     const seen = new Set<string>();
-    let found: { animatable: Animatable; play: PlayablePlan } | null = null;
+    const due: { a: Animatable; m: Memory; trigger: 'idle' | 'data'; prev: { data: unknown; sources: Record<string, unknown> } }[] = [];
     for (const a of list) {
       seen.add(a.instanceId);
       const m = this.memory.get(a.instanceId);
       if (!m) {
-        this.memory.set(a.instanceId, { data: a.data, sources: a.sources, nextIdleAt: this.gapAfter(a, now), endedAt: -Infinity });
+        this.memory.set(a.instanceId, { data: a.data, sources: a.sources, nextIdleAt: this.gapAfter(a, now), endedAt: -Infinity, dueSince: Infinity });
         continue;
       }
       const changed = a.data !== m.data || Object.keys(a.sources).some((k) => a.sources[k] !== m.sources[k]);
-      const prev = { data: m.data, sources: m.sources };
+      const prev = m.pending ?? { data: m.data, sources: m.sources };
       m.data = a.data;
       m.sources = a.sources;
-      if (found) continue;
-      const answer = (trigger: 'idle' | 'data') => {
-        const plan = a.ask(trigger, this.rnd, trigger === 'data' ? prev : undefined);
-        if (plan === null) return null;
-        const ok = checkPlan(plan, maxFps);
-        if (typeof ok === 'string') {
-          this.onInvalid(a.type, ok);
-          return null;
-        }
-        return ok;
-      };
-      if (changed && now - m.endedAt >= (a.def.animationCooldownMs ?? 0)) {
-        const ok = answer('data');
-        if (ok) {
-          found = { animatable: a, play: ok };
-          continue;
-        }
+      if ((changed || m.pending) && now - m.endedAt >= (a.def.animationCooldownMs ?? 0)) {
+        m.pending = prev;
+        due.push({ a, m, trigger: 'data', prev });
       }
-      if (now >= m.nextIdleAt) {
-        m.nextIdleAt = this.gapAfter(a, now);
-        const ok = answer('idle');
-        if (ok) found = { animatable: a, play: ok };
-      }
+      else if (now >= m.nextIdleAt) due.push({ a, m, trigger: 'idle', prev });
     }
     // Forget the instances that are gone (removed, or no longer shown).
     for (const id of this.memory.keys()) if (!seen.has(id)) this.memory.delete(id);
-    return found;
+    // Who has waited longest first; a tie keeps the page's order.
+    for (const d of due) d.m.dueSince = Math.min(d.m.dueSince, d.trigger === 'data' ? now : d.m.nextIdleAt);
+    due.sort((x, y) => x.m.dueSince - y.m.dueSince);
+    const out: { animatable: Animatable; play: PlayablePlan }[] = [];
+    for (const { a, m, trigger, prev } of due) {
+      if (out.length >= limit) break;
+      if (trigger === 'idle') m.nextIdleAt = this.gapAfter(a, now);
+      else m.pending = undefined;
+      const plan = a.ask(trigger, this.rnd, trigger === 'data' ? prev : undefined);
+      if (plan === null) {
+        m.dueSince = Infinity;
+        continue;
+      }
+      const ok = checkPlan(plan, maxFps);
+      if (typeof ok === 'string') {
+        this.onInvalid(a.type, ok);
+        m.dueSince = Infinity;
+        continue;
+      }
+      out.push({ animatable: a, play: ok });
+    }
+    return out;
   }
 
   /** An animation of `instanceId` has just ended (or was cut): its cooldown starts. */
@@ -117,6 +134,7 @@ export class AnimationScheduler {
     const m = this.memory.get(instanceId);
     if (!m) return;
     m.endedAt = now;
+    m.dueSince = Infinity;
     if (a) m.nextIdleAt = Math.max(m.nextIdleAt, this.gapAfter(a, now));
   }
 }

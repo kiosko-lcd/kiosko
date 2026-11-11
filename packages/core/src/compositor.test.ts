@@ -261,7 +261,7 @@ test('animation: only the animated tile gets the frame, and it is never taken fr
   composeA(page(tiles), { cache });
   frames.length = 0;
   const still = [...cache.get('a')!.canvas.toBuffer('image/png')];
-  const r = composeA(page(tiles), { cache, animate: { tileId: 'a', instanceId: 'w1', frame: { plan: { id: 'wag', frames: 5, fps: 10 }, i: 2, t: 0.5 } } });
+  const r = composeA(page(tiles), { cache, animate: [{ tileId: 'a', instanceId: 'w1', frame: { plan: { id: 'wag', frames: 5, fps: 10 }, i: 2, t: 0.5 } }] });
   // Tile b came from the cache (no render), tile a painted frame 2 of the plan.
   assert.deepEqual(frames, [{ id: 'one', anim: { i: 2, t: 0.5, plan: 'wag' }, frame: 2 }]);
   assert.deepEqual([...cache.get('a')!.canvas.toBuffer('image/png')], still, 'the cached still picture is untouched');
@@ -278,7 +278,22 @@ test('animation: a widget of another tile with the same type is not animated by 
     { id: 'b', x: 2, y: 0, w: 2, h: 2, widgets: [W('w2', 'anim/wag', { tag: 'two' })], rotateMs: 0, chrome: 'bare' },
   ];
   frames.length = 0;
-  composeA(page(tiles), { animate: { tileId: 'b', instanceId: 'w2', frame: { plan: { id: 'wag', frames: 5, fps: 10 }, i: 1, t: 0.25 } } });
+  composeA(page(tiles), { animate: [{ tileId: 'b', instanceId: 'w2', frame: { plan: { id: 'wag', frames: 5, fps: 10 }, i: 1, t: 0.25 } }] });
   assert.deepEqual(frames.filter((f) => f.anim).map((f) => f.id), ['two']);
   assert.deepEqual(frames.filter((f) => !f.anim).map((f) => f.id), ['one']);
+});
+
+test('animation: several tiles can animate in the same frame, each with its own', () => {
+  const tiles: Page['tiles'] = [
+    { id: 'a', x: 0, y: 0, w: 2, h: 2, widgets: [W('w1', 'anim/wag', { tag: 'one' })], rotateMs: 0, chrome: 'bare' },
+    { id: 'b', x: 2, y: 0, w: 2, h: 2, widgets: [W('w2', 'anim/wag', { tag: 'two' })], rotateMs: 0, chrome: 'bare' },
+  ];
+  frames.length = 0;
+  composeA(page(tiles), {
+    animate: [
+      { tileId: 'a', instanceId: 'w1', frame: { plan: { id: 'wag', frames: 5, fps: 10 }, i: 1, t: 0.25 } },
+      { tileId: 'b', instanceId: 'w2', frame: { plan: { id: 'wag', frames: 9, fps: 10 }, i: 6, t: 0.75 } },
+    ],
+  });
+  assert.deepEqual(frames.map((f) => [f.id, f.anim?.i]), [['one', 1], ['two', 6]]);
 });

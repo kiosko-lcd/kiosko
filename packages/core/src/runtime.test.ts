@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { definePlugin, defineWidget } from '@kiosko/sdk';
+import { definePlugin, defineWidget, t } from '@kiosko/sdk';
 import { normalize as norm } from './config/store.ts';
 import { Registry } from './registry.ts';
 import { Runtime, type FrameInfo } from './runtime.ts';
@@ -135,6 +135,77 @@ test('runtime: an animation that is not interruptible plays to the end with the 
     assert.equal(new Set(during.map((d) => (d.data as { version: number }).version)).size, 1, 'always the same data');
     // Afterwards the screen is repainted with the new data.
     await until(() => drawn.some((d) => !d.anim && (d.data as { version: number } | undefined)?.version === 2));
+  } finally {
+    rt.stop();
+  }
+});
+
+// ---------- two widgets that both want to animate ----------
+const asked: Record<string, number> = {};
+
+function setupTwo(maxConcurrent: number) {
+  const reg = new Registry();
+  const seen: { tag: string; i: number }[] = [];
+  reg.add(
+    definePlugin({
+      id: 't',
+      name: 'T',
+      version: '1',
+      widgets: [
+        defineWidget({
+          id: 'anim',
+          name: 'Anim',
+          chrome: 'bare',
+          options: t.object({ tag: t.string({ default: 'x' }), frames: t.number({ default: 6 }) }),
+          render: (g, ctx) => {
+            if (ctx.anim) seen.push({ tag: ctx.options.tag, i: ctx.anim.i });
+            g.fillStyle = '#0f0';
+            g.fillRect(ctx.box.x, ctx.box.y, 10, 10);
+          },
+          animationGap: { minMs: 0, maxMs: 0 },
+          animation: ({ options }) => (asked[options.tag] === undefined ? ((asked[options.tag] = 1), { id: options.tag, frames: options.frames, fps: 30 }) : null),
+        }),
+      ],
+    }),
+  );
+  const tile = (id: string, x: number, tag: string, frames: number) => ({ id, x, y: 0, w: 1, h: 1, chrome: 'bare', widgets: [{ id: `w-${tag}`, type: 't/anim', options: { tag, frames } }] });
+  const cfg = norm({
+    screens: [{ id: 's1', name: 'S', width: 160, height: 80, maxFps: 30, device: { driver: 'virtual' }, pages: [{ id: 'p', name: 'p', grid: { cols: 2, rows: 1, gap: 0, padding: 0 }, tiles: [tile('ta', 0, 'a', 6), tile('tb', 1, 'b', 10)] }] }],
+  });
+  const rt = new Runtime(reg, cfg);
+  rt.rnd = () => 0;
+  rt.maxConcurrent = maxConcurrent;
+  const statuses = new Set<string>();
+  rt.on('frame', (f: FrameInfo) => f.animation && statuses.add(f.animation));
+  return { rt, seen, statuses };
+}
+
+test('runtime: two widgets animate one after the other by default', async () => {
+  for (const k of Object.keys(asked)) delete asked[k];
+  const { rt, seen } = setupTwo(1);
+  rt.start();
+  try {
+    await until(() => asked.a === 1 && asked.b === 1 && rt.status().screens[0]!.animation === null && seen.some((x) => x.tag === 'a') && seen.some((x) => x.tag === 'b'), 6000);
+    // Never both in the same moment: all of a's frames come before b's (or the other way round).
+    const order = seen.map((x) => x.tag).join('');
+    assert.match(order, /^(a+b+|b+a+)$/);
+  } finally {
+    rt.stop();
+  }
+});
+
+test('runtime: with a higher limit they play together, each at its own length, on one timeline', async () => {
+  for (const k of Object.keys(asked)) delete asked[k];
+  const { rt, seen, statuses } = setupTwo(2);
+  rt.start();
+  try {
+    await until(() => seen.some((x) => x.tag === 'a') && seen.some((x) => x.tag === 'b') && rt.status().screens[0]!.animation === null, 6000);
+    assert.ok([...statuses].some((s) => s.includes(',')), 'both reported as playing');
+    // Fast and slow share the timeline: a (6 frames) has finished by the time b (10) has, and both start at once.
+    const a = seen.filter((x) => x.tag === 'a').map((x) => x.i), b = seen.filter((x) => x.tag === 'b').map((x) => x.i);
+    assert.deepEqual(a, [1, 2, 3, 4]);
+    assert.deepEqual(b, [1, 2, 3, 4, 5, 6, 7, 8]);
+    assert.ok(seen.findIndex((x) => x.tag === 'b') < seen.findLastIndex((x) => x.tag === 'a'), 'interleaved, not one after the other');
   } finally {
     rt.stop();
   }
