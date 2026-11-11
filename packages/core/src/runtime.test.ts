@@ -210,3 +210,39 @@ test('runtime: with a higher limit they play together, each at its own length, o
     rt.stop();
   }
 });
+
+const endings: { id: string; completed: boolean; version: unknown }[] = [];
+let endedPlayed = 0;
+
+test('runtime: the widget is told how its animation ended, played through or cut short', async () => {
+  endings.length = 0;
+  let version = 0;
+  const rt = setup({
+    id: 'anim',
+    name: 'Anim',
+    chrome: 'bare',
+    fetch: async () => ({ version: ++version }),
+    intervalMs: 5000,
+    render: (g, ctx) => {
+      g.fillStyle = '#0f0';
+      g.fillRect(ctx.box.x, ctx.box.y, 10, 10);
+    },
+    animationGap: { minMs: 0, maxMs: 0 },
+    animation: ({ trigger }) => (trigger === 'idle' && endedPlayed++ < 2 ? { id: `p${endedPlayed}`, frames: endedPlayed === 1 ? 5 : 60, fps: 30 } : null),
+    animationEnded: ({ plan, completed, data }) => void endings.push({ id: plan.id, completed, version: (data as { version: number } | undefined)?.version }),
+  });
+  rt.start();
+  try {
+    // The first, short one plays through.
+    await until(() => endings.length >= 1);
+    assert.deepEqual(endings[0], { id: 'p1', completed: true, version: 1 });
+    // The second, long one is cut by new data.
+    await until(() => rt.status().screens[0]!.animation !== null);
+    rt.refreshWidget('w');
+    await until(() => endings.length >= 2);
+    assert.equal(endings[1]!.id, 'p2');
+    assert.equal(endings[1]!.completed, false);
+  } finally {
+    rt.stop();
+  }
+});

@@ -253,14 +253,18 @@ class ScreenRunner {
     const due = this.scheduler.next(this.animatable, now, this.screen.maxFps, this.rt.maxConcurrent);
     if (!due.length) return;
     this.animating = due.map((d) => d.animatable.type).join(', ');
+    let completed = false;
     try {
-      await this.playAnimations(due, now);
+      completed = await this.playAnimations(due, now);
     } finally {
       this.animating = null;
       // Whatever happened, the next paint is a real one with the current data.
       this.last = null;
       this.dirty = true;
-      for (const d of due) this.scheduler.ended(d.animatable.instanceId, Date.now(), d.animatable);
+      for (const d of due) {
+        this.scheduler.ended(d.animatable.instanceId, Date.now(), d.animatable);
+        d.animatable.ended(d.play.plan, completed);
+      }
     }
   }
 
@@ -270,9 +274,9 @@ class ScreenRunner {
    * it is over. The ones that finish earlier stay at rest. With only one it
    * is just that animation's own frames.
    */
-  private async playAnimations(items: { animatable: Animatable; play: PlayablePlan }[], now: number): Promise<void> {
+  private async playAnimations(items: { animatable: Animatable; play: PlayablePlan }[], now: number): Promise<boolean> {
     const page = this.page;
-    if (!page) return;
+    if (!page) return false;
     const { screen } = this;
     const fps = Math.max(...items.map((x) => x.play.fps));
     const seconds = Math.max(...items.map((x) => (x.play.frames - 1) / x.play.fps));
@@ -295,7 +299,7 @@ class ScreenRunner {
     // Every frame is painted before the first is sent: painting and sending
     // at once is slower than either, and the panel drops what comes late.
     for (let s = 1; s < frames - 1; s++) {
-      if (abort()) return;
+      if (abort()) return false;
       const animate = items.flatMap(({ animatable: a, play }) => {
         // Frame of this animation at this moment of the timeline; at either end it is at rest.
         const i = Math.round((s / fps) * play.fps);
@@ -332,7 +336,7 @@ class ScreenRunner {
     const holdAt = hold ? Math.max(0, Math.min(sent.length - 1, hold.index - 1)) : -1;
     let start = Date.now();
     for (let k = 0; k < sent.length; k++) {
-      if (abort()) return;
+      if (abort()) return false;
       // Late: skip the frame rather than let the delay pile up.
       const due = Math.floor(((Date.now() - start) * fps) / 1000);
       if (k < due - 1 && k !== holdAt && k < sent.length - 1) continue;
@@ -352,6 +356,7 @@ class ScreenRunner {
       const wait = start + ((k + 1) * 1000) / fps - Date.now();
       if (wait > 0) await new Promise((r) => setTimeout(r, wait));
     }
+    return true;
   }
 
   async playNow(slotId: string): Promise<void> {

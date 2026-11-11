@@ -16,6 +16,7 @@ function widget(over: Partial<Animatable> & { answer?: (trigger: 'idle' | 'data'
     def: {},
     data: { n: 1 },
     sources: { 'a/b': { v: 1 } },
+    ended: () => undefined,
     ask: (trigger, _rnd, prev) => {
       asked.push({ trigger, prev });
       return answer(trigger);

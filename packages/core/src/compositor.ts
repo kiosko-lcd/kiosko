@@ -60,6 +60,8 @@ export interface Animatable {
   data: unknown;
   sources: Record<string, unknown>;
   ask: (trigger: 'idle' | 'data', rnd: () => number, prev?: { data: unknown; sources: Record<string, unknown> }) => AnimationPlan | null;
+  /** Tells the widget an animation of its has ended (see `WidgetDefinition.animationEnded`). */
+  ended: (plan: AnimationPlan, completed: boolean) => void;
 }
 
 export interface TileResult {
@@ -234,6 +236,10 @@ function paintTile(g: SKRSContext2D, input: ComposeInput, tile: Tile, rect: PxRe
       def: r.def,
       data: r.data,
       sources: r.sources,
+      ended: (plan, completed) => {
+        const [plugin] = r.inst.type.split('/');
+        safe(() => r.def.animationEnded?.({ ...baseContext(input.cfg, plugin!, input.log ?? (() => undefined), input.now), options: r.options, plan, completed, data: r.data }), undefined);
+      },
       ask: (trigger, rnd, prev) => safe(() => animation({ ...state, box: tileBoxes(theme, input.screen.height, r.inst, rect, chrome).box, trigger, rnd, ...(prev !== undefined ? { prev } : {}) }), null),
     });
   }

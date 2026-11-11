@@ -185,6 +185,20 @@ export interface AnimationFrame {
   t: number;
 }
 
+/** What `WidgetDefinition.animationEnded` is told. */
+export interface AnimationEndContext<O, D> extends BaseContext {
+  options: O;
+  /** The animation that has just ended. */
+  plan: AnimationPlan;
+  /**
+   * `true` if it played to its last frame; `false` if it was cut short (new
+   * data, the screen went away) or never got to play.
+   */
+  completed: boolean;
+  /** The widget's data when it started. */
+  data: D | undefined;
+}
+
 /** What `WidgetDefinition.animation` is asked with. */
 export interface AnimationContext<O, D> extends StateContext<O, D> {
   /** Where the widget paints (the same `box` its `render` gets), to decide with the layout it will have. */
@@ -254,6 +268,12 @@ export interface WidgetDefinition<OF extends ObjectField<any> = ObjectField<any>
    * time: keep them few and short.
    */
   animation?: (ctx: AnimationContext<Infer<OF>, D>) => AnimationPlan | null;
+  /**
+   * Called when an animation of this widget ends, whether it played through
+   * or not (see `completed`): to remember what it did, like a trophy for
+   * a set that got built. Synchronous and quick; keep files under `dataDir`.
+   */
+  animationEnded?: (ctx: AnimationEndContext<Infer<OF>, D>) => void;
   /** How long to wait between the `idle` questions of `animation`, a random time in the range. Default 20-60 s. */
   animationGap?: { minMs: number; maxMs: number };
   /** Minimum time from the end of an animation to the next one asked because of a data change. Default 0. */
