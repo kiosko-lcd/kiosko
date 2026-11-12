@@ -1,0 +1,73 @@
+name: Windows installer
+
+# Builds Kiosko-Setup-<version>-x64.exe (Inno Setup, per user, no administrator),
+# installs it silently, checks it, uninstalls it, and keeps it as an artifact.
+# On a `v*` tag it also attaches it to the GitHub release.
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+  pull_request:
+    paths:
+      - 'installer/**'
+      - 'scripts/build-windows-installer.mjs'
+      - 'scripts/build-dist.mjs'
+      - '.github/workflows/windows-installer.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  installer:
+    runs-on: windows-latest
+    permissions:
+      contents: write # to attach the installer to a release
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Clone the official plugins next to Kiosko
+        shell: bash
+        run: |
+          mkdir -p ../kiosko-plugins
+          for p in agents cats system vitals usage weather calendar news mirror gitlab github calls timesheet llm gpu; do
+            git clone --depth 1 "https://github.com/${{ github.repository_owner }}/kiosko-plugin-$p" "../kiosko-plugins/kiosko-plugin-$p" || echo "no kiosko-plugin-$p"
+          done
+      - run: npm install --no-audit --no-fund
+      - run: npm run dev:link
+      - name: Build the plugins
+        shell: bash
+        run: |
+          for d in ../kiosko-plugins/kiosko-plugin-*/; do
+            (cd "$d" && node build.mjs) || echo "could not build $d"
+          done
+      - run: node scripts/build-windows-installer.mjs
+      - name: Install it silently and check it
+        shell: pwsh
+        run: |
+          $exe = (Get-ChildItem dist\Kiosko-Setup-*-x64.exe).FullName
+          $dir = Join-Path $env:RUNNER_TEMP 'kiosko-installed'
+          Start-Process $exe -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/DIR=$dir", '/TASKS=path' -Wait
+          & "$dir\kiosko.cmd" version
+          & "$dir\kiosko.cmd" doctor --config examples\showcase.json
+          & "$dir\kiosko.cmd" render --config examples\showcase.json --page Cats --out cats.png
+          if (-not (Test-Path cats.png)) { throw 'render produced nothing' }
+          & "$dir\node.exe" -e "import('usb').then(()=>console.log('libusb loads'))" 2>$null
+          Start-Process "$dir\unins000.exe" -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES' -Wait
+          if (Test-Path "$dir\kiosko.cmd") { throw 'the uninstaller left files behind' }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Kiosko-Setup
+          path: |
+            dist/Kiosko-Setup-*-x64.exe
+            dist/Kiosko-Setup-*-x64.exe.sha256
+      - name: Attach to the release
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --title "Kiosko ${GITHUB_REF_NAME#v}" --generate-notes
+          gh release upload "$GITHUB_REF_NAME" dist/Kiosko-Setup-*-x64.exe dist/Kiosko-Setup-*-x64.exe.sha256 --clobber
