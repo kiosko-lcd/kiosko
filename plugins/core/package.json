@@ -1,6 +1,6 @@
 {
   "name": "@kiosko/plugin-core",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Basic Kiosko widgets: clock, date, text, image and a separator.",
   "type": "module",
   "license": "MIT",

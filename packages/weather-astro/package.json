@@ -1,6 +1,6 @@
 {
   "name": "@loksly/weather-astro",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Weather from Open-Meteo (no API key), moon phase and sunrise/sunset, with no dependencies and no drawing.",
   "type": "module",
   "license": "MIT",

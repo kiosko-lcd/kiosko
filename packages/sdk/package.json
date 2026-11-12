@@ -1,6 +1,6 @@
 {
   "name": "@kiosko/sdk",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Plugin SDK for Kiosko: define widgets, data sources and interludes for small always-on LCD panels.",
   "type": "module",
   "license": "MIT",
