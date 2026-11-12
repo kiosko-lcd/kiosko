@@ -14,16 +14,15 @@
  *   ?lang=es             the widgets' language (and this page's)
  *   ?clean=1             no captions or buttons (H toggles them)
  *   ?orbit=0             a still camera
+ *   ?sway=28,8           how the camera sways: degrees to each side, and seconds there and back
  *   ?az=25&el=11&zoom=1  where the camera starts: degrees to the right and above, and how close
  *   ?q=high|medium|low   fixed quality instead of adapting
  *   ?mirror=0 ?brand=0   no reflection on the desk; no maker's name
  */
 import { onRendererEvent, renderer } from '../src/demo/client.ts';
-import type { StageChannel, StageFrame } from '../demo/protocol.ts';
+import { DEMO_CONFIG_KEY, type StageChannel, type StageFrame } from '../demo/protocol.ts';
 import { Scene3D, type Quality } from './scene.ts';
 
-/** Where the editor demo keeps the visitor's config: STORAGE_KEY in src/demo/transport.ts. */
-const DEMO_CONFIG_KEY = 'kiosko.demo.config';
 /** Widgets that move by themselves: their pages go first, so there is something to see at once. */
 const LIVELY = new Set(['cats/room']);
 
@@ -108,6 +107,9 @@ const num = <K extends string>(param: string, key: K): Partial<Record<K, number>
   const v = Number(q.get(param) ?? NaN);
   return (Number.isFinite(v) ? { [key]: v } : {}) as Partial<Record<K, number>>;
 };
+/** `?sway=degrees,seconds`, when both are numbers worth swaying by. */
+const [swayDegrees = NaN, swaySeconds = NaN] = (q.get('sway') ?? '').split(',').map(Number);
+const swing = swayDegrees > 0 && swaySeconds > 0 ? { degrees: swayDegrees, seconds: swaySeconds } : null;
 let scene: Scene3D;
 try {
   scene = new Scene3D(canvas, {
@@ -117,6 +119,7 @@ try {
     quality: wantsQuality === 'high' || wantsQuality === 'medium' || wantsQuality === 'low' ? wantsQuality : 'auto',
     mirror: q.get('mirror') !== '0',
     view: { ...num('az', 'azimuth'), ...num('el', 'elevation'), ...num('zoom', 'zoom') },
+    ...(swing ? { sway: swing } : {}),
   });
 } catch (err) {
   status.textContent = `${TEXT.failed}: ${err instanceof Error ? err.message : String(err)}`;

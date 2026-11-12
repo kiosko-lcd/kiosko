@@ -8,13 +8,13 @@
  */
 import type { Config, Screen } from '@kiosko/core/model';
 import type { AppState, Status, api as httpApi, connectEvents as httpConnectEvents } from '../api.ts';
-import type { RendererApi, RendererEvent } from '../../demo/protocol.ts';
+import { DEMO_CONFIG_KEY, type RendererApi, type RendererEvent } from '../../demo/protocol.ts';
 import { onRendererEvent, renderMode, renderer } from './client.ts';
 
 export type { AppState, FrameEvent, JsonSchema, PluginInfo, Status, ThemeInfo, WidgetInfo } from '../api.ts';
 
 /** localStorage key of the demo's config ({ rev, config }). */
-export const STORAGE_KEY = 'kiosko.demo.config';
+export const STORAGE_KEY = DEMO_CONFIG_KEY;
 
 // Top-level values are marked pure: the normal build reaches this module
 // (through ui.tsx) and must be able to drop all of it.

@@ -72,6 +72,8 @@ export interface SceneOptions {
   brand: boolean;
   /** The camera sways by itself. */
   orbit: boolean;
+  /** How it sways: so many degrees to each side, there and back in so many seconds (a film that long loops). */
+  sway?: { degrees: number; seconds: number };
   /** A fixed level, or `auto` to start high and step down if the machine struggles. */
   quality: Quality | 'auto';
   mirror: boolean;
@@ -94,7 +96,7 @@ export interface Direction {
   /** Where on the page the stack sits, in fractions of the view: 0.25 = a quarter to the right (or down). */
   shiftX: number;
   shiftY: number;
-  /** 0 = one panel, 1 = the three of them: the others drop onto it one after another. */
+  /** 0 = one panel, 0.5 = two, 1 = the three of them: the others drop onto it one after another. */
   stack: number;
 }
 
@@ -367,6 +369,23 @@ export class Scene3D {
       const mirror = new Reflector(new THREE.CircleGeometry(60, 64), { textureWidth: size, textureHeight: size, color: 0x8c8c8c, clipBias: 0.002, multisample: level.samples });
       mirror.rotation.x = -Math.PI / 2;
       mirror.position.y = -0.004;
+      // Reflector takes the camera's view to be centred. One moved sideways (a directed scene
+      // puts the stack to one side of the page) has to be moved the other way for the mirror,
+      // whose picture is left to right: otherwise a strip of the desk mirrors nothing and
+      // smears the edge of the picture across it.
+      const reflect = mirror.onBeforeRender;
+      const flipped = new THREE.Matrix4();
+      // The same camera, but for its view: made once, it follows the real one in all the rest.
+      let seen: THREE.Camera | null = null;
+      mirror.onBeforeRender = function (renderer, s, camera, ...rest) {
+        if (!camera.projectionMatrix.elements[8]) return reflect.call(this, renderer, s, camera, ...rest);
+        if (!seen || Object.getPrototypeOf(seen) !== camera) {
+          seen = Object.create(camera) as THREE.Camera;
+          seen.projectionMatrix = flipped;
+        }
+        flipped.copy(camera.projectionMatrix).elements[8]! *= -1;
+        reflect.call(this, renderer, s, seen, ...rest);
+      };
       scene.add(mirror);
       this.mirror = mirror;
     }
@@ -430,7 +449,10 @@ export class Scene3D {
       }
       // A slow sway from side to side; dragging takes over, and it resumes around wherever it is left.
       controls.autoRotate = this.opts.orbit;
-      controls.autoRotateSpeed = DRIFT.speed * Math.cos(this.time * DRIFT.rate);
+      // (autoRotateSpeed 1 is 6 degrees a second.)
+      const swing = this.opts.sway;
+      const w = swing ? (2 * Math.PI) / swing.seconds : 0;
+      controls.autoRotateSpeed = swing ? (swing.degrees * w * Math.cos(this.time * w)) / 6 : DRIFT.speed * Math.cos(this.time * DRIFT.rate);
       controls.update(dt);
     }
 
@@ -451,7 +473,8 @@ export class Scene3D {
     let grown = 0;
     this.panels.forEach((p, i) => {
       if (i === 0) return;
-      const e = smooth((at.stack - (i - 1) * 0.4) / 0.6);
+      // Half of `stack` each, so that 0.5 is exactly two panels.
+      const e = smooth((at.stack - (i - 1) * 0.5) / 0.5);
       grown += e;
       p.group.visible = e > 0.002;
       p.group.position.y = PANEL.h / 2 + i * (PANEL.h + GAP) + (1 - e) * DROP;

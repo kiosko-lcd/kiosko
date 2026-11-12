@@ -70,6 +70,9 @@ export interface RendererApi {
   stage(channels: StageChannel[]): Promise<void>;
 }
 
+/** localStorage key of the demo's config ({ rev, config }): the editor demo keeps it, the 3D and front pages read it. */
+export const DEMO_CONFIG_KEY = 'kiosko.demo.config';
+
 /** Where the editor on tour (src/demo/tour.ts) says what it is editing, and takes `play` and `pause`: a BroadcastChannel. */
 export const TOUR_CHANNEL = 'kiosko.tour';
 
