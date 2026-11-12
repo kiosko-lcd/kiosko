@@ -15,8 +15,9 @@ import { CATEGORIES, THEMES, themeById } from '@kiosko/sdk';
 import serverPackage from '../../server/package.json' with { type: 'json' };
 import showcase from '../../../examples/showcase.json' with { type: 'json' };
 import { MISSING_OFFICIAL, OFFICIAL_PLUGINS, demoPlugins } from './plugins.ts';
-import type { FromWorker, LogEntry, PreviewResult, RendererApi, RendererEvent, RuntimeState, ToWorker } from './protocol.ts';
+import type { FromWorker, LogEntry, PreviewResult, RendererApi, RendererEvent, RuntimeState, StageChannel, ToWorker } from './protocol.ts';
 import { fontsReady, toBlob } from './shims/canvas.ts';
+import { Stage } from './stage.ts';
 
 /** How often the stand-in panel loop says what's on each screen (and the editor repaints). */
 const FRAME_MS = 4000;
@@ -26,7 +27,9 @@ const es = (locale: string) => locale.toLowerCase().startsWith('es');
 export class DemoRenderer implements RendererApi {
   private readonly registry = new Registry();
   private runtime: Runtime | null = null;
-  private readonly emit: (e: RendererEvent) => void;
+  private readonly emit: (e: RendererEvent, transfer?: Transferable[]) => void;
+  /** The 3D page's panel loop; idle unless that page asks for frames. */
+  private readonly show: Stage;
   /** Pages pinned from the editor since the last config change (as `Runtime.pin`). */
   private readonly pinned = new Map<string, string | null>();
   /** Page each screen shows now, per the rotation, and how many "frames" it has had. */
@@ -34,8 +37,17 @@ export class DemoRenderer implements RendererApi {
   private readonly thumbs = new Map<string, Blob>();
   private clock: ReturnType<typeof setInterval> | null = null;
 
-  constructor(emit: (e: RendererEvent) => void) {
+  constructor(emit: (e: RendererEvent, transfer?: Transferable[]) => void) {
     this.emit = emit;
+    this.show = new Stage({
+      runtime: () => this.rt,
+      // A page's canvas is new each time and can be given away; an interlude's is painted on again, so it is copied.
+      snap: (canvas, reused) => {
+        const c = canvas as unknown as OffscreenCanvas | HTMLCanvasElement;
+        return !reused && 'transferToImageBitmap' in c ? c.transferToImageBitmap() : createImageBitmap(c);
+      },
+      emit: (frame) => this.emit({ name: 'stage', data: frame }, [frame.bitmap]),
+    });
     for (const { def, origin } of demoPlugins()) this.registry.add(def, origin);
   }
 
@@ -122,6 +134,10 @@ export class DemoRenderer implements RendererApi {
     return this.rt.logs.slice(-200);
   }
 
+  async stage(channels: StageChannel[]): Promise<void> {
+    this.show.start(channels);
+  }
+
   /**
    * The panel loop, minus the painting: which page each enabled screen
    * shows now (work hours, rotation, pins). The editor marks it and
@@ -167,6 +183,7 @@ export class DemoRenderer implements RendererApi {
   }
 
   stop(): void {
+    this.show.stop();
     if (this.clock) clearInterval(this.clock);
     this.runtime?.stop();
   }
@@ -189,7 +206,7 @@ if (typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScop
   const can = typeof OffscreenCanvas !== 'undefined' && typeof FontFace !== 'undefined' && !!scope.fonts && !!new OffscreenCanvas(1, 1).getContext('2d');
   if (!can) scope.postMessage({ unsupported: 'no OffscreenCanvas 2D or FontFace in workers' });
   else {
-    const renderer = new DemoRenderer((event) => scope.postMessage({ event }));
+    const renderer = new DemoRenderer((event, transfer) => scope.postMessage({ event }, transfer ?? []));
     scope.onmessage = async ({ data: { id, method, args } }) => {
       try {
         const result = await (renderer[method] as (...a: unknown[]) => Promise<unknown>).apply(renderer, args);

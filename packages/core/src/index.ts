@@ -8,6 +8,7 @@ export * from './config/diff.ts';
 export * from './config/review.ts';
 export * from './layout/index.ts';
 export * from './compositor.ts';
+export * from './animation.ts';
 export * from './runtime.ts';
 export * from './registry.ts';
 export * from './devices.ts';

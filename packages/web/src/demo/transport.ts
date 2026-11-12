@@ -66,7 +66,8 @@ function onEvent(e: RendererEvent): void {
   for (const h of handlers) {
     if (e.name === 'frame') h.frame?.(e.data);
     else if (e.name === 'status') h.status?.(e.data as Status);
-    else h.log?.(e.data);
+    else if (e.name === 'log') h.log?.(e.data);
+    // 'stage' frames are for the 3D page (panel3d/), which listens by itself.
   }
 }
 
