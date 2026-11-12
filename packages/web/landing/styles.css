@@ -24,6 +24,8 @@ body {
   overflow-x: hidden;
 }
 
+[hidden] { display: none !important; }
+
 /* Two languages in the page, one shown: the one the document says it is in. */
 html[lang='en'] [lang='es'], html[lang='es'] [lang='en'] { display: none !important; }
 
@@ -54,6 +56,7 @@ code, pre { font-family: var(--mono); }
   font-size: 15px;
   transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
 }
+button.button { font-family: inherit; cursor: pointer; }
 .button:hover { text-decoration: none; background: rgba(40, 46, 62, 0.85); border-color: rgba(255, 255, 255, 0.24); }
 .button.primary { border-color: transparent; background: linear-gradient(120deg, #7c5cf6, #19b8d6); color: #fff; }
 .button.primary:hover { transform: translateY(-1px); background: linear-gradient(120deg, #8a6cff, #22c7e6); }
@@ -93,11 +96,11 @@ html.no3d .still { opacity: 1; }
 /* Without 3D the picture does what the scene would, plainly: it moves to the side the words leave
    free, and steps out while the editor's window is the thing to look at. */
 html.no3d[data-step='editor'] .still { opacity: 0; }
-html.no3d[data-step='plugins'] .still, html.no3d[data-step='many'] .still { transform: translate(23vw, -20vh) scale(0.6); }
+html.no3d[data-step='plugins'] .still, html.no3d[data-step='many'] .still, html.no3d[data-step='yours'] .still { transform: translate(23vw, -20vh) scale(0.6); }
 html.no3d[data-step='always'] .still, html.no3d[data-step='cable'] .still { transform: translate(-23vw, -20vh) scale(0.6); }
 html.no3d .only3d { display: none; }
 .slab { position: relative; width: min(920px, 84vw); padding: 1.1% 1.1% 3.4%; border-radius: 10px; background: #e9ebef; box-shadow: 0 40px 120px rgba(124, 92, 246, 0.25), 0 10px 40px rgba(0, 0, 0, 0.6); transform: perspective(1600px) rotateY(-14deg) rotateX(4deg); }
-.slab img { display: block; width: 100%; height: auto; border: 3px solid #050506; border-radius: 2px; background: #000; }
+.slab img { display: block; width: 100%; height: auto; aspect-ratio: 1920 / 462; object-fit: contain; border: 3px solid #050506; border-radius: 2px; background: #000; }
 .slab span { position: absolute; left: 0; right: 0; bottom: 0.9%; text-align: center; color: #2a2d32; font-weight: 650; font-size: clamp(6px, 0.9vw, 11px); letter-spacing: 0.32em; }
 
 .step { position: relative; z-index: 1; min-height: 100vh; min-height: 100svh; display: flex; align-items: center; padding: 96px clamp(20px, 6vw, 96px); pointer-events: none; }
@@ -133,6 +136,15 @@ html.no3d .only3d { display: none; }
 .view iframe { position: absolute; left: 0; top: 0; width: 1280px; height: 760px; border: 0; transform-origin: 0 0; transform: scale(var(--k, 0.75)); pointer-events: none; }
 .fine.under { grid-column: 1; grid-row: 2; justify-self: end; width: min(100%, calc((100svh - 160px) * 1280 / 790)); text-align: center; text-shadow: 0 2px 16px rgba(5, 6, 10, 0.9); }
 .fine.under a { pointer-events: auto; margin-left: 6px; white-space: nowrap; }
+
+/* The visitor's own config: what was read, or why not; and the whole page as a place to drop it. */
+.step.yours .copy { max-width: 460px; }
+.step.yours code { color: var(--ink); font-size: 0.92em; }
+.said { min-height: 1.5em; color: var(--dim); }
+.said.bad { color: #ff9a8a; }
+.dropzone { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 24px; background: rgba(5, 6, 10, 0.78); backdrop-filter: blur(6px); opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 0.15s ease, visibility 0.15s; }
+html.dropping .dropzone { opacity: 1; visibility: visible; }
+.dropzone p { margin: 0; padding: clamp(28px, 6vw, 64px) clamp(32px, 8vw, 96px); border: 2px dashed var(--accent); border-radius: 24px; background: rgba(139, 123, 255, 0.1); font-size: clamp(22px, 3vw, 36px); font-weight: 680; letter-spacing: -0.02em; }
 
 /* ---------- After the story ---------- */
 .band { position: relative; z-index: 2; background: var(--bg); border-top: 1px solid var(--line); padding: clamp(64px, 10vh, 120px) clamp(20px, 6vw, 96px); }
@@ -186,6 +198,16 @@ footer a { color: var(--dim); }
   .step.hero .copy { gap: 12px; }
   .step.hero .fine, .hint { display: none; }
 }
+
+/* The page as a picture for when its link is shared (?card, 1200×630): see main.ts. */
+html.card { overflow: hidden; }
+html.card .links, html.card .cta, html.card .fine, html.card .hint, html.card .lede { display: none; }
+html.card .top { padding: 26px 40px; background: none; }
+html.card .top::after { content: 'kioskolcd.dev'; color: var(--dim); font-weight: 600; font-size: 20px; }
+html.card .brand { font-size: 26px; gap: 12px; }
+html.card .brand img { width: 34px; height: 34px; }
+html.card .step.hero { padding-top: 104px; }
+html.card h1 { font-size: 62px; }
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }

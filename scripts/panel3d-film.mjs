@@ -14,9 +14,16 @@
 //   --site <dir>    a built demo (node packages/web/build.mjs --demo --out <dir>); built to a
 //                   temporary folder when not given
 //   --hud           keep the captions and buttons (hidden by default)
+//   --card          instead: the picture that goes with the site's link when it is shared,
+//                   packages/web/landing/card.jpg (the front page with ?card, 1200x630)
 //
 // The query is the page's own (see panel3d/main.ts): widget=, page=, panels=3,
-// lang=, az=, el=, zoom=, orbit=0, turn=, animate=, interlude=, q=…
+// lang=, az=, el=, zoom=, orbit=0, sway=, turn=, animate=, interlude=, q=…
+//
+// A film whose camera sways there and back in its own length loops without a
+// jump (--seconds 8 … "sway=28,8"), which is how the README's moving picture
+// is made; ffmpeg turns the WebM into an animated WebP:
+//   ffmpeg -i out/clip.webm -t 8 -vf fps=15,scale=800:-2 -c:v libwebp -q:v 55 -loop 0 -an docs/img/panel-3d.webp
 //
 // It drives a Chrome or Chromium already on this machine, headless and on the
 // real GPU (a software renderer takes minutes per frame), over the DevTools
@@ -44,16 +51,19 @@ const flag = (name) => {
 };
 const seconds = Number(opt('--seconds', 0));
 const wait = Number(opt('--wait', 6));
-const [width, height] = opt('--size', '1280x720').split('x').map(Number);
-const out = resolve(opt('--out', 'out'));
+const card = flag('--card');
+const [width, height] = opt('--size', card ? '1200x630' : '1280x720').split('x').map(Number);
+const out = resolve(opt('--out', card ? join(root, 'packages/web/landing') : 'out'));
 const hud = flag('--hud');
 let site = opt('--site');
-const shots = args.map((a) => {
-  const i = a.indexOf('=');
-  return i < 0 ? { name: a, query: '' } : { name: a.slice(0, i), query: a.slice(i + 1) };
-});
+const shots = card
+  ? [{ name: 'card', query: 'card=1' }]
+  : args.map((a) => {
+      const i = a.indexOf('=');
+      return i < 0 ? { name: a, query: '' } : { name: a.slice(0, i), query: a.slice(i + 1) };
+    });
 if (!shots.length || !(width > 0 && height > 0)) {
-  console.error('usage: node scripts/panel3d-film.mjs [--seconds n] [--wait n] [--size WxH] [--out dir] [--site dir] [--hud] <name>=<query> …');
+  console.error('usage: node scripts/panel3d-film.mjs [--seconds n] [--wait n] [--size WxH] [--out dir] [--site dir] [--hud] <name>=<query> …\n       node scripts/panel3d-film.mjs --card [--wait n] [--out dir] [--site dir]');
   process.exit(2);
 }
 
@@ -73,17 +83,19 @@ const cleanup = [() => rmSync(scratch, { recursive: true, force: true, maxRetrie
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let failed = false;
 try {
+  // The 3D page is part of the demo; the card is the front page, which takes the whole site.
   if (!site) {
     site = join(scratch, 'site');
-    const built = spawnSync(process.execPath, [join(root, 'packages/web/build.mjs'), '--demo', '--out', site], { encoding: 'utf8' });
-    if (built.status !== 0) throw new Error(`could not build the demo:\n${built.stderr}`);
+    const built = spawnSync(process.execPath, [join(root, 'packages/web/build.mjs'), card ? '--site' : '--demo', '--out', site], { encoding: 'utf8' });
+    if (built.status !== 0) throw new Error(`could not build the ${card ? 'site' : 'demo'}:\n${built.stderr}`);
   }
   site = resolve(site);
-  if (!existsSync(join(site, '3d/index.html'))) throw new Error(`${site} is not a built demo (no 3d/index.html)`);
+  if (card && !existsSync(join(site, 'demo/assets/landing.js'))) throw new Error(`${site} is not a built site (node packages/web/build.mjs --site --out <dir>)`);
+  if (!card && !existsSync(join(site, '3d/index.html'))) throw new Error(`${site} is not a built demo (no 3d/index.html)`);
   mkdirSync(out, { recursive: true });
 
   // The built demo, served from this machine only.
-  const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.ttf': 'font/ttf', '.gz': 'application/gzip', '.json': 'application/json' };
+  const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.ttf': 'font/ttf', '.gz': 'application/gzip', '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg' };
   const server = createServer(async (req, res) => {
     let p = normalize(decodeURIComponent(new URL(req.url, 'http://x').pathname));
     if (p.endsWith('/')) p += 'index.html';
@@ -164,12 +176,14 @@ try {
       return r.result.value;
     };
     const q = new URLSearchParams(query);
-    if (!hud && !q.has('clean')) q.set('clean', '1');
-    await tab('Page.navigate', { url: `http://127.0.0.1:${port}/3d/?${q}` });
+    if (!card && !hud && !q.has('clean')) q.set('clean', '1');
+    await tab('Page.navigate', { url: `http://127.0.0.1:${port}/${card ? '' : '3d/'}?${q}` });
+    // The 3D page says when it is ready; the front page, when its panel has been drawn.
+    const isReady = card ? 'document.documentElement.classList.contains("live3d")' : 'document.body?.classList.contains("ready") ?? false';
     let ready = false;
     for (let i = 0; i < 120 && !ready; i++) {
       await sleep(500);
-      ready = await evaluate('document.body?.classList.contains("ready") ?? false').catch(() => false);
+      ready = await evaluate(isReady).catch(() => false);
     }
     if (!ready) {
       failed = true;
@@ -182,9 +196,11 @@ try {
         writeFileSync(file, Buffer.from(video.slice(video.indexOf(',') + 1), 'base64'));
         console.log(file);
       } else {
-        const { data } = await tab('Page.captureScreenshot', { format: 'png' });
-        writeFileSync(join(out, `${name}.png`), Buffer.from(data, 'base64'));
-        console.log(join(out, `${name}.png`));
+        // The card is fetched by every chat it is pasted in: a JPEG weighs a tenth of the PNG.
+        const { data } = await tab('Page.captureScreenshot', card ? { format: 'jpeg', quality: 88 } : { format: 'png' });
+        const file = join(out, `${name}.${card ? 'jpg' : 'png'}`);
+        writeFileSync(file, Buffer.from(data, 'base64'));
+        console.log(file);
       }
       if (problems.length) console.error(`${name}: the page reported: ${[...new Set(problems)].slice(0, 5).join(' | ')}`);
     }

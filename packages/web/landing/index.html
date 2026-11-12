@@ -6,10 +6,17 @@
   <title>Kiosko · the little screen on your desk, finally useful</title>
   <meta name="description" content="Kiosko turns a small always-on USB LCD panel into a mosaic of live widgets: AI agents, builds, calendar, weather, news. A visual editor, plugins, and a tiny daemon. Free and open source." />
   <meta name="theme-color" content="#05060a" />
-  <meta property="og:title" content="Kiosko" />
+  <meta property="og:title" content="Kiosko: the little screen on your desk, finally useful" />
+  <meta property="og:site_name" content="Kiosko" />
   <meta property="og:description" content="A widget mosaic for small always-on USB LCD panels, with a visual editor and plugins." />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://kioskolcd.dev/" />
+  <!-- The picture is the page itself with ?card, taken by scripts/panel3d-film.mjs --card. -->
+  <meta property="og:image" content="https://kioskolcd.dev/card.jpg" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="A bar-shaped USB LCD panel on a desk, showing Kiosko's widgets: the little screen on your desk, finally useful." />
+  <meta name="twitter:card" content="summary_large_image" />
   <link rel="icon" href="demo/icon.svg" type="image/svg+xml" />
   <!-- The language, before anything is painted: the visitor's choice, or the browser's. -->
   <script>
@@ -31,6 +38,11 @@
       <button class="lang" type="button" aria-label="Language / Idioma"><b data-lang="en">EN</b><b data-lang="es">ES</b></button>
     </span>
   </nav>
+
+  <!-- Shown while a file is dragged over the page: see "yours" in the story. -->
+  <div class="dropzone" aria-hidden="true">
+    <p><span lang="en">Drop your config.json</span><span lang="es">Suelta tu config.json</span></p>
+  </div>
 
   <main>
     <!-- The story: the panel stays on screen while these sections scroll past it; how far the page
@@ -152,6 +164,28 @@
           <p class="fine">
             <a href="https://github.com/kiosko-lcd/kiosko/blob/main/docs/usb.md"><span lang="en">How to connect one →</span><span lang="es">Cómo conectar uno →</span></a>
           </p>
+        </div>
+      </section>
+
+      <!-- The visitor's own config on the panel. The file is read in this page and goes nowhere. -->
+      <section class="step left yours" data-step="yours" id="yours">
+        <div class="copy">
+          <p class="kicker"><span lang="en">Yours</span><span lang="es">La tuya</span></p>
+          <h2><span lang="en">Now with your config.</span><span lang="es">Ahora con tu configuración.</span></h2>
+          <p>
+            <span lang="en">Drop a <code>config.json</code> on this page (yours, or one an assistant wrote for you) and the panel shows its pages, one panel for each screen, with sample data. It stays in this browser: nothing is uploaded.</span>
+            <span lang="es">Suelta un <code>config.json</code> sobre esta página (el tuyo, o uno que te haya escrito un asistente) y el panel enseña sus páginas, un panel por pantalla, con datos de muestra. Se queda en este navegador: no se sube a ningún sitio.</span>
+          </p>
+          <p class="cta">
+            <button class="button primary" type="button" data-yours="pick"><span lang="en">Choose a file</span><span lang="es">Elegir un fichero</span></button>
+            <button class="button" type="button" data-yours="demo" hidden><span lang="en">The one from the editor demo</span><span lang="es">La de la demo del editor</span></button>
+          </p>
+          <p class="fine said" data-yours="said" role="status" aria-live="polite"></p>
+          <p class="cta" data-yours="loaded" hidden>
+            <a class="button" href="demo/" data-yours="edit"><span lang="en">Open it in the editor</span><span lang="es">Abrirla en el editor</span></a>
+            <button class="button" type="button" data-yours="reset"><span lang="en">Back to the sample</span><span lang="es">Volver a la muestra</span></button>
+          </p>
+          <input type="file" accept="application/json,.json" data-yours="file" hidden />
         </div>
       </section>
     </div>

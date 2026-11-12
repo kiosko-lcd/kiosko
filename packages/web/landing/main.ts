@@ -13,12 +13,13 @@
  * Without WebGL the page still reads: the panel is a picture and stays one.
  */
 import { onRendererEvent, renderer } from '../src/demo/client.ts';
-import { TOUR_CHANNEL, type StageChannel, type TourMessage, type TourOrder } from '../demo/protocol.ts';
+import { DEMO_CONFIG_KEY, TOUR_CHANNEL, type StageChannel, type TourMessage, type TourOrder } from '../demo/protocol.ts';
 import { Scene3D, type Direction } from '../panel3d/scene.ts';
+import { readConfig, screensToShow, stackFor, type Problem, type ShownScreen } from './config.ts';
 
 const LANG_KEY = 'kiosko.lang';
 
-type StepId = 'hero' | 'editor' | 'plugins' | 'always' | 'many' | 'cable';
+type StepId = 'hero' | 'editor' | 'plugins' | 'always' | 'many' | 'cable' | 'yours';
 
 /** Where the scene is while each section is in the middle of the window. */
 const POSES: Record<StepId, Direction> = {
@@ -30,6 +31,8 @@ const POSES: Record<StepId, Direction> = {
   many: { azimuth: -20, elevation: 9, zoom: 0.94, shiftX: 0.2, shiftY: 0, stack: 1 },
   // From behind: the magnet and the cables.
   cable: { azimuth: 152, elevation: 15, zoom: 0.94, shiftX: -0.2, shiftY: 0, stack: 1 },
+  // Back to the front, for the visitor's own config: as many panels as it has screens (poseOf).
+  yours: { azimuth: -17, elevation: 9, zoom: 0.78, shiftX: 0.22, shiftY: 0.02, stack: 0 },
 };
 
 const smooth = (x: number) => {
@@ -37,6 +40,15 @@ const smooth = (x: number) => {
   return t * t * (3 - 2 * t);
 };
 const html = document.documentElement;
+/**
+ * `?card`: the page as the picture that goes with its link when it is shared (card.jpg, taken by
+ * scripts/panel3d-film.mjs --card): the headline and the panel, in English, nothing to click.
+ */
+const card = new URLSearchParams(location.search).has('card');
+if (card) {
+  html.classList.add('card');
+  html.lang = 'en';
+}
 const story = document.querySelector<HTMLElement>('#story')!;
 const steps = [...story.querySelectorAll<HTMLElement>('.step')].map((el) => ({ el, id: el.dataset.step as StepId }));
 
@@ -52,7 +64,7 @@ document.querySelector<HTMLButtonElement>('.lang')?.addEventListener('click', ()
   }
   // The editor on tour changes with the page; what it then announces brings the panel along.
   order({ type: 'lang', lang: language() });
-  if (!(active === 'editor' && tour)) void speak();
+  if (!(active === 'editor' && tour)) void show();
 });
 
 // ---------- The editor's window: the real editor, at its own size, scaled to fit ----------
@@ -74,13 +86,20 @@ try {
 /** Phones and tall windows: the words are above and the panel below, never beside. */
 const narrow = () => innerWidth < 820 || innerWidth / innerHeight < 1.05;
 function poseOf(id: StepId): Direction {
-  const p = POSES[id];
+  // The visitor's config: as many panels as it has screens. Two are as wide on the page as one
+  // (the width is what limits them); three are as tall as the story's own stack.
+  const mine = id === 'yours' && yours ? yours.screens.length : 0;
+  const p = mine > 1 ? { ...POSES[id], stack: stackFor(mine), zoom: mine > 2 ? POSES.many.zoom : 0.74 } : POSES[id];
   // As the page's own layout: under the editor's window when they don't fit side by side.
   // A phone's window is narrow for a bar-shaped panel: it gets nearly all of its width.
   const close = innerWidth < 600 ? 1.3 : 1;
   if (id === 'editor') return innerWidth <= 1000 ? { ...p, azimuth: 4, zoom: 0.8 * close, shiftX: 0, shiftY: 0.36 } : p;
+  // On the card the panel is most of the picture.
+  if (id === 'hero' && card) return { ...p, azimuth: 20, zoom: 0.97, shiftY: 0.175 };
   if (id === 'hero') return { ...p, zoom: p.zoom * close * (close > 1 ? 1.1 : 1) };
   if (!narrow()) return p;
+  // The visitor's section has more to read, and buttons: its panels sit lower, and small enough to fit under them.
+  if (id === 'yours') return { ...p, shiftX: 0, shiftY: [0.3, 0.33, 0.34][Math.max(0, mine - 1)]!, zoom: [p.zoom * 0.95, 0.66, 0.51][Math.max(0, mine - 1)]! * close };
   return { ...p, shiftX: 0, shiftY: 0.2, zoom: p.zoom * 0.95 * (p.stack ? 1 : close) };
 }
 
@@ -121,15 +140,12 @@ function follow(): void {
 
 // ---------- What the panels show ----------
 
-interface ScreenLike {
-  id: string;
-  width: number;
-  height: number;
-}
 let api: Awaited<ReturnType<typeof renderer>> | null = null;
 /** The sample config the runtime started with, and its bar-shaped screen. */
-let base: { screens: ScreenLike[] } | null = null;
-let bar: ScreenLike | null = null;
+let base: { screens: ShownScreen[] } | null = null;
+let bar: ShownScreen | null = null;
+/** The visitor's own config, as the runtime read it, and the screens of it that get a panel. */
+let yours: { name: string; config: { screens: ShownScreen[] }; screens: ShownScreen[]; fromDemo: boolean } | null = null;
 /** What the editor on tour is composing, when it has said so. */
 let tour: TourMessage | null = null;
 let watching = true;
@@ -149,6 +165,11 @@ function channels(): StageChannel[] {
       return [on('p0', ['News', 'Dashboard', 'Cats'], { pageMs: 4500 })];
     case 'always':
       return [on('p0', ['Dashboard']), ...above];
+    case 'yours':
+      // A panel for each of the visitor's screens, the first on top, its pages taking turns. Until
+      // there is a config, the sample's.
+      if (yours) return yours.screens.map((s, i, all) => ({ id: `p${all.length - 1 - i}`, screenId: s.id, pageMs: 6000, firstAnimationMs: 2500 + i * 900 }));
+      return [on('p0', ['Dashboard', 'Cats', 'News'], { pageMs: 5000, firstAnimationMs: 2500 })];
     default:
       return [on('p0', ['News']), ...above];
   }
@@ -159,12 +180,16 @@ let queue: Promise<unknown> = Promise.resolve();
 const then = (job: () => Promise<unknown>) => (queue = queue.then(job).catch((err: unknown) => console.warn('Kiosko:', err)));
 
 const feed = () => then(async () => api?.stage(channels()));
-/** The sample config in the page's language (the widgets speak it too). */
-const speak = () =>
+/**
+ * What the runtime holds outside the editor's section: the visitor's config on theirs, and
+ * otherwise the sample in the page's language (the widgets speak it too).
+ */
+const show = () =>
   then(async () => {
     if (!api || !base) return;
-    await api.apply({ ...base, locale: language() });
+    await api.apply(active === 'yours' && yours ? yours.config : { ...base, locale: language() });
     await api.stage(channels());
+    slides();
   });
 
 let nap: ReturnType<typeof setTimeout> | null = null;
@@ -194,7 +219,7 @@ function enter(): void {
   order({ type: active === 'editor' ? 'play' : 'pause' });
 
   if (active === 'editor' && tour) void mirror();
-  else void speak();
+  else void show();
 }
 
 let mirrored = 0;
@@ -222,6 +247,187 @@ onRendererEvent((e) => {
   if (panel) panel.show(e.data, performance.now());
   else e.data.bitmap.close();
 });
+
+let booting: Promise<void> | null = null;
+/** The runtime (a worker, its plugins and fonts), started once: after the page, or when first needed. */
+function boot(): Promise<void> {
+  return (booting ??= (async () => {
+    api = await renderer();
+    const { config } = await api.init(null);
+    base = config as unknown as { screens: ShownScreen[] };
+    bar = [...base.screens].sort((a, b) => b.width / b.height - a.width / a.height)[0] ?? null;
+  })());
+}
+
+// ---------- The visitor's own config: dropped on the page or chosen, read here, sent nowhere ----------
+
+const part = <T extends HTMLElement>(name: string) => document.querySelector<T>(`[data-yours="${name}"]`);
+const said = part('said');
+const loaded = part('loaded');
+const fromDemo = part<HTMLButtonElement>('demo');
+const picker = part<HTMLInputElement>('file');
+/** Far more than a config weighs: anything bigger is some other file. */
+const TOO_BIG = 2_000_000;
+
+/** A line under the buttons, in the page's two languages. */
+function say(en: string, es: string, bad = false): void {
+  if (!said) return;
+  const line = (lang: string, text: string) => Object.assign(document.createElement('span'), { lang, textContent: text });
+  said.replaceChildren(line('en', en), line('es', es));
+  said.classList.toggle('bad', bad);
+}
+
+const PROBLEMS: Record<Problem | 'big', [string, string]> = {
+  json: ["That file isn't JSON.", 'Ese fichero no es JSON.'],
+  shape: ["That JSON isn't a Kiosko config: it has no screens.", 'Ese JSON no es una configuración de Kiosko: no tiene pantallas.'],
+  empty: ['That config has no page to show.', 'Esa configuración no tiene ninguna página que enseñar.'],
+  big: ['That file is too big to be a config.', 'Ese fichero es demasiado grande para ser una configuración.'],
+};
+
+/** What the editor demo keeps in this browser, if anything. */
+function kept(): string | null {
+  try {
+    return localStorage.getItem(DEMO_CONFIG_KEY);
+  } catch {
+    return null;
+  }
+}
+
+/** The section says what is on the panel, and offers what can be done with it. */
+function tell(): void {
+  if (loaded) loaded.hidden = !yours;
+  if (fromDemo) fromDemo.hidden = !kept() || !!yours?.fromDemo;
+  if (!yours) return void said?.replaceChildren();
+  const n = yours.screens.length;
+  const pages = yours.screens.reduce((sum, s) => sum + s.pages.filter((p) => p.enabled !== false).length, 0);
+  const more = yours.config.screens.length > n;
+  say(
+    `${yours.name}: ${n} screen${n === 1 ? '' : 's'}${more ? ` (of ${yours.config.screens.length})` : ''}, ${pages} page${pages === 1 ? '' : 's'}, with sample data.`,
+    `${yours.name}: ${n} pantalla${n === 1 ? '' : 's'}${more ? ` (de ${yours.config.screens.length})` : ''}, ${pages} página${pages === 1 ? '' : 's'}, con datos de muestra.`,
+  );
+}
+
+/** A file's text becomes what the panel shows, if it is a config; the page goes to its section. */
+async function take(text: string, name: string, demo = false): Promise<void> {
+  const read = text.length > TOO_BIG ? { problem: 'big' as const } : readConfig(text);
+  if ('problem' in read) return say(...PROBLEMS[read.problem], true);
+  let found: typeof yours = null;
+  let why = '';
+  const failed = (err: unknown) => (why = err instanceof Error ? err.message : String(err));
+  // The runtime reads it as the server would on a save; it is applied for good when its section is on.
+  await boot()
+    .then(() =>
+      then(async () => {
+        try {
+          const config = (await api!.apply(read.config)) as unknown as { screens: ShownScreen[] };
+          const screens = screensToShow(config);
+          if (screens.length) found = { name, config, screens, fromDemo: demo };
+        } catch (err) {
+          failed(err);
+        }
+      }),
+    )
+    .catch(failed);
+  if (found) {
+    yours = found;
+    tell();
+  } else if (why) say(`Kiosko couldn't read that config: ${why}`, `Kiosko no ha podido leer esa configuración: ${why}`, true);
+  else say(...PROBLEMS.empty, true);
+  // The stack takes the size of the config, and the runtime goes back to what this section shows.
+  follow();
+  void show();
+  if (found) steps.find((step) => step.id === 'yours')?.el.scrollIntoView({ block: 'start' });
+}
+
+part('pick')?.addEventListener('click', () => picker?.click());
+picker?.addEventListener('change', () => {
+  const file = picker.files?.[0];
+  picker.value = '';
+  if (file) void file.text().then((text) => take(text, file.name));
+});
+fromDemo?.addEventListener('click', () => {
+  const text = kept();
+  if (text) void take(text, language() === 'es' ? 'La de la demo' : "The demo's", true);
+});
+part('reset')?.addEventListener('click', () => {
+  yours = null;
+  tell();
+  follow();
+  void show();
+});
+// Opening it in the editor: the demo starts from what this browser keeps for it.
+part('edit')?.addEventListener('click', (e) => {
+  if (!yours || yours.fromDemo) return;
+  try {
+    const before = JSON.parse(kept() ?? 'null') as { rev?: number; config?: unknown } | null;
+    const replaces = !!before?.config && JSON.stringify(before.config) !== JSON.stringify(yours.config);
+    const sure = language() === 'es' ? 'Esto sustituye lo que hiciste en la demo del editor. ¿Seguir?' : 'This replaces what you made in the editor demo. Go on?';
+    if (replaces && !confirm(sure)) return void e.preventDefault();
+    localStorage.setItem(DEMO_CONFIG_KEY, JSON.stringify({ rev: (before?.rev ?? 0) + 1, config: yours.config }));
+  } catch {
+    /* It can't be kept here (private mode, no room): the editor opens with its sample. */
+  }
+});
+
+// A file dragged over the page, anywhere on it.
+const dragsFile = (e: DragEvent) => !!e.dataTransfer && [...e.dataTransfer.types].includes('Files');
+let over = 0;
+addEventListener('dragenter', (e) => {
+  if (!dragsFile(e)) return;
+  e.preventDefault();
+  over++;
+  html.classList.add('dropping');
+});
+addEventListener('dragover', (e) => {
+  if (dragsFile(e)) e.preventDefault();
+});
+addEventListener('dragleave', (e) => {
+  if (!dragsFile(e) || --over > 0) return;
+  over = 0;
+  html.classList.remove('dropping');
+});
+addEventListener('drop', (e) => {
+  if (!dragsFile(e)) return;
+  e.preventDefault();
+  over = 0;
+  html.classList.remove('dropping');
+  const file = e.dataTransfer!.files[0];
+  if (file) void (file.size > TOO_BIG ? Promise.resolve(say(...PROBLEMS.big, true)) : file.text().then((text) => take(text, file.name)));
+});
+
+// Without 3D the visitor's pages are pictures on the picture of the panel, taking turns.
+const stills = [...document.querySelectorAll<HTMLImageElement>('.still img')];
+const posters = stills.map((img) => img.getAttribute('src') ?? '');
+let slide: ReturnType<typeof setInterval> | null = null;
+function slides(): void {
+  if (scene) return;
+  if (slide) clearInterval(slide);
+  slide = null;
+  const put = (url: (i: number) => string) =>
+    stills.forEach((img, i) => {
+      const old = img.getAttribute('src') ?? '';
+      if (old === url(i)) return;
+      img.src = url(i);
+      // One picture for both: let go of it when the last has changed.
+      if (i === stills.length - 1 && old.startsWith('blob:')) URL.revokeObjectURL(old);
+    });
+  const mine = active === 'yours' ? yours : null;
+  const screen = mine?.screens[0];
+  const pages = screen?.pages.filter((p) => p.enabled !== false) ?? [];
+  if (!mine || !screen || !pages.length) return put((i) => posters[i]!);
+  let n = 0;
+  const next = () =>
+    then(async () => {
+      if (!api || yours !== mine || active !== 'yours') return;
+      const { blob } = await api.preview(screen as unknown as Parameters<typeof api.preview>[0], pages[n++ % pages.length]!.id);
+      const url = URL.createObjectURL(blob);
+      put(() => url);
+    });
+  void next();
+  if (pages.length > 1) slide = setInterval(() => void next(), 5000);
+}
+
+tell();
 
 // ---------- Starting up ----------
 
@@ -265,17 +471,11 @@ if (scene) {
   }).observe(story);
   document.addEventListener('visibilitychange', () => void feed());
 
-  // The runtime (a worker, its plugins and fonts) after the page itself: it is the heavy part.
-  const boot = async () => {
-    api = await renderer();
-    const { config } = await api.init(null);
-    base = config as unknown as { screens: ScreenLike[] };
-    bar = [...base.screens].sort((a, b) => b.width / b.height - a.width / a.height)[0] ?? null;
-    await speak();
-  };
+  // The runtime after the page itself: it is the heavy part.
+  const begin = () => void boot().then(show).catch((err: unknown) => console.warn('Kiosko:', err));
   const idle = (window as { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => void }).requestIdleCallback;
-  if (idle) idle(() => void boot().catch((err) => console.warn('Kiosko:', err)), { timeout: 1500 });
-  else setTimeout(() => void boot().catch((err) => console.warn('Kiosko:', err)), 400);
+  if (idle) idle(begin, { timeout: 1500 });
+  else setTimeout(begin, 400);
 } else {
   html.classList.add('no3d');
 }

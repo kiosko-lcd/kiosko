@@ -3,6 +3,7 @@
 //   gallery/               every widget, painted (`kiosko gallery`), and gallery.json
 //   schema/v1/config.json  the config's JSON Schema (`kiosko config schema`)
 //   demo/                  the editor in the browser and the panel in 3D (demo/build.mjs)
+//   card.jpg               the picture shown with the site's link when it is shared
 //   index.html             the front page (this folder): a story told over the 3D panel,
 //   demo/assets/landing.*  then the plugins (from gallery.json) and how to start
 //
@@ -11,7 +12,7 @@
 import { build } from 'esbuild';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -100,5 +101,8 @@ export async function buildSite({ out, editorOptions }) {
     return fill[key];
   });
   writeFileSync(join(out, 'index.html'), page);
+  // The picture that goes with the link when it is shared (og:image). It is the front page itself
+  // in 3D, so it is taken on a machine with a GPU and kept here: scripts/panel3d-film.mjs --card.
+  copyFileSync(join(here, 'card.jpg'), join(out, 'card.jpg'));
   console.log(`site → ${out}: front page with ${gallery.plugins.length} plugins and ${gallery.count} widgets, gallery/, demo/, demo/3d/, schema/`);
 }
