@@ -444,7 +444,8 @@ npm run check        # TypeScript, strict
 npm run web:watch    # rebuild the editor on change
 node --conditions=source scripts/render-widgets.ts --plugin core --out tmp/w
 npm run web:demo     # the static browser demo, into site/demo
-scripts/demo-check-docker.sh   # build it and drive it in Chromium, Firefox and WebKit (Docker)
+npm run web:site     # the whole site (front page, gallery, demo, schema), into site/
+scripts/demo-check-docker.sh   # build the site and drive it in Chromium, Firefox and WebKit (Docker)
 ```
 
 The browser demo is the editor built with `KIOSKO_DEMO`: its API

@@ -1,8 +1,9 @@
 // End-to-end check of the static browser demo (site/demo): serves it as
 // GitHub Pages would (under /demo/), drives it with Playwright and takes
-// screenshots. Run it through scripts/demo-check-docker.sh, which builds the
-// demo and runs this inside the Playwright container: nothing is installed
-// on your machine.
+// screenshots. When the folder holds the whole site, its front page is
+// checked too (languages, plugins, links, the editor driving itself). Run it
+// through scripts/demo-check-docker.sh, which builds the site and runs this
+// inside the Playwright container: nothing is installed on your machine.
 //
 //   node scripts/demo-check.mjs <site dir> <out dir> [--browsers chromium,firefox,webkit] [--measure]
 //
@@ -423,6 +424,119 @@ async function smoke(browser, name) {
   await ctx.close();
 }
 
+// ---------- The front page (when the whole site was built: packages/web/build.mjs --site) ----------
+
+const home = base.replace(/demo\/$/, '');
+const hasFrontPage = existsSync(join(root, 'index.html')) && readFileSync(join(root, 'index.html'), 'utf8').includes('id="story"');
+
+async function openFront(browser, { locale = 'en-US', width = 1440, height = 900 } = {}) {
+  const ctx = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: 1, locale });
+  // No WebGL here: these containers draw it in software, minutes per frame. The page has to work
+  // without it anyway (the panel is then a picture), and that is what gets checked. The scene
+  // itself is looked at on a machine with a GPU: scripts/panel3d-film.mjs.
+  await ctx.addInitScript(() => {
+    const get = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function (type, ...rest) {
+      return /webgl/i.test(type) ? null : get.call(this, type, ...rest);
+    };
+  });
+  const page = await ctx.newPage();
+  // three.js reports the missing WebGL on the console before the page falls back: expected here.
+  const all = watchErrors(page);
+  const errors = () => all.filter((e) => !/THREE\.WebGLRenderer/.test(e));
+  await page.goto(home);
+  await page.waitForFunction(() => document.documentElement.classList.contains('no3d'), null, { timeout: 30_000 }).catch(() => undefined);
+  return { ctx, page, errors };
+}
+
+/** What the page says: its language, its headline as seen, and whether any text of the other language shows. */
+const frontState = (page) =>
+  page.evaluate(() => {
+    const shown = (e) => getComputedStyle(e).display !== 'none';
+    const lang = document.documentElement.lang;
+    const other = lang === 'es' ? 'en' : 'es';
+    return {
+      lang,
+      headline: [...document.querySelectorAll('h1 [lang]')].filter(shown).map((e) => e.textContent.trim()).join(' | '),
+      leaked: [...document.querySelectorAll(`[lang="${other}"]`)].filter(shown).length,
+      both: document.querySelectorAll('body [lang="en"]').length === document.querySelectorAll('body [lang="es"]').length,
+    };
+  });
+
+async function frontPage(browser, name) {
+  const { ctx, page, errors } = await openFront(browser);
+  const en = await frontState(page);
+  check(`${name} front page: in English by default`, en.lang === 'en' && /finally useful/i.test(en.headline) && en.leaked === 0, `lang ${en.lang}, "${en.headline}", ${en.leaked} texts of the other language showing`);
+  check(`${name} front page: every text is there in both languages`, en.both);
+
+  // The picture fades in: wait for it to be there.
+  await page.waitForFunction(() => getComputedStyle(document.querySelector('.still')).opacity === '1', null, { timeout: 10_000 }).catch(() => undefined);
+  const still = await page.evaluate(async () => {
+    // One picture for each language; only the page's own is shown (and fetched).
+    const img = document.querySelector(`.still img[lang="${document.documentElement.lang}"]`);
+    await img?.decode?.().catch(() => undefined);
+    return { no3d: document.documentElement.classList.contains('no3d'), width: img?.naturalWidth ?? 0, opacity: getComputedStyle(document.querySelector('.still')).opacity };
+  });
+  check(`${name} front page: without WebGL the panel is a picture`, still.no3d && still.width > 0 && still.opacity === '1', JSON.stringify(still));
+  await shot(page, `front-${name}.jpg`);
+
+  // The plugins and the links: everything the page points at inside the site is there.
+  const listed = await page.evaluate(async () => {
+    const ok = async (url) => (await fetch(url)).ok;
+    const cards = [...document.querySelectorAll('.plugin')];
+    const pictures = [...document.querySelectorAll('.plugin img')].map((i) => i.src);
+    const links = [...new Set([...document.querySelectorAll('a[href]')].map((a) => a.href).filter((h) => h.startsWith(location.origin) && !h.includes('#')))];
+    const missing = [];
+    for (const url of [...pictures, ...links]) if (!(await ok(url))) missing.push(url);
+    return { cards: cards.length, pictures: pictures.length, links, missing, catalogue: (await (await fetch('gallery/gallery.json')).json()).plugins.length };
+  });
+  check(`${name} front page: every plugin has its card and pictures`, listed.cards > 0 && listed.cards === listed.catalogue && listed.pictures >= listed.cards, `${listed.cards} cards of ${listed.catalogue} plugins, ${listed.pictures} pictures`);
+  check(`${name} front page: its links lead somewhere`, listed.links.length >= 3 && listed.missing.length === 0, listed.missing.length ? `missing: ${listed.missing.slice(0, 4).join(', ')}` : `${listed.links.length} links`);
+
+  // The editor's section: the real editor in a frame, composing a page by itself and keeping nothing.
+  await page.locator('[data-step="editor"]').evaluate((el) => window.scrollTo({ top: el.getBoundingClientRect().top + scrollY + innerHeight * 0.6, behavior: 'instant' }));
+  let tiles = 0;
+  let cursor = false;
+  try {
+    await page.waitForFunction(() => document.querySelector('.view iframe')?.src.includes('tour=1'), null, { timeout: 15_000 });
+    const editor = page.frameLocator('.view iframe');
+    // Its own page ("My desk", made blank by the tour) with two widgets already dropped on it.
+    await editor.locator('.page-card.on', { hasText: 'My desk' }).waitFor({ state: 'attached', timeout: 60_000 });
+    await editor.locator('.tile[data-tile]').nth(1).waitFor({ state: 'attached', timeout: 60_000 });
+    await page.waitForTimeout(1500);
+    tiles = await editor.locator('.tile[data-tile]').count();
+    cursor = (await editor.locator('.tour-cursor').count()) === 1;
+  } catch {
+    /* reported below */
+  }
+  const kept = await page.evaluate(() => localStorage.getItem('kiosko.demo.config'));
+  await shot(page, `front-editor-${name}.jpg`);
+  check(`${name} front page: the editor composes a page by itself`, tiles >= 2 && cursor, `${tiles} tiles on its page, ${cursor ? 'a' : 'no'} ghost cursor`);
+  check(`${name} front page: the editor on tour saves nothing`, kept === null);
+
+  // The switch: Spanish now, and still Spanish on the next visit.
+  await page.locator('.lang').click();
+  const switched = await frontState(page);
+  await page.reload();
+  const again = await frontState(page);
+  check(`${name} front page: the switch changes the language, and it is remembered`, switched.lang === 'es' && /por fin útil/i.test(switched.headline) && switched.leaked === 0 && again.lang === 'es', `"${switched.headline}", then ${again.lang} after a reload`);
+  check(`${name} front page: no errors`, errors().length === 0, errors().slice(0, 5).join(' | '));
+  await ctx.close();
+
+  // A browser that asks for Spanish gets it without touching anything.
+  const es = await openFront(browser, { locale: 'es-ES' });
+  const spanish = await frontState(es.page);
+  check(`${name} front page: in Spanish for a browser that asks for it`, spanish.lang === 'es' && spanish.leaked === 0, `lang ${spanish.lang}`);
+  await es.ctx.close();
+
+  // A phone: nothing wider than the window.
+  const phone = await openFront(browser, { width: 390, height: 800 });
+  const wide = await phone.page.evaluate(() => ({ page: document.documentElement.scrollWidth, window: innerWidth }));
+  await shot(phone.page, `front-phone-${name}.jpg`);
+  check(`${name} front page: fits a phone's width`, wide.page <= wide.window + 1 && phone.errors().length === 0, `${wide.page}px in a ${wide.window}px window ${phone.errors().slice(0, 3).join(' | ')}`);
+  await phone.ctx.close();
+}
+
 // ---------- Main-thread cost: worker vs page ----------
 
 async function longTasks(browser, query) {
@@ -466,6 +580,7 @@ try {
           }
         }
       } else await smoke(browser, name);
+      if (hasFrontPage) await frontPage(browser, name);
     } finally {
       await browser.close();
     }

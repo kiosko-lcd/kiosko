@@ -2,10 +2,11 @@
 # End-to-end check of the static browser demo (https://kioskolcd.dev/demo/)
 # inside the official Playwright container: it clones this repo and the
 # official plugins, puts your working-tree changes on top (uncommitted and
-# new files too), builds the demo as the Pages workflow does, serves it under
-# /demo/ and runs scripts/demo-check.mjs: Chromium gets every check, Firefox
-# and WebKit a smoke test. Screenshots land in the out dir. Nothing is
-# installed on the host.
+# new files too), builds the site as the Pages workflow does (front page,
+# gallery, demo), serves it and runs scripts/demo-check.mjs: Chromium gets
+# every check of the demo, Firefox and WebKit a smoke test, and all three
+# the front page's. Screenshots land in the out dir. Nothing is installed on
+# the host.
 #
 #   scripts/demo-check-docker.sh [out dir] [demo-check.mjs options]
 #     out dir       default: tmp/demo-check
@@ -40,7 +41,7 @@ docker run --rm \
     cd kiosko
     npm install --no-audit --no-fund >/tmp/install.log 2>&1 || { tail -30 /tmp/install.log; exit 1; }
     npm run dev:link >/dev/null
-    node packages/web/build.mjs --demo --out /w/site/demo
+    node packages/web/build.mjs --site --out /w/site
     mkdir -p /tmp/pw && cd /tmp/pw && npm install --no-audit --no-fund playwright@1.55.0 >/dev/null 2>&1
     node /w/kiosko/scripts/demo-check.mjs /w/site /out "$@"
   ' bash "${args[@]}"
