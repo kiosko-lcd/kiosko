@@ -7,6 +7,8 @@
 //   assets/renderer.js     Kiosko's runtime and every bundled plugin, for the
 //                          browser (renderer.ts): a module Web Worker
 //   assets/fonts/          the panel fonts (DejaVu), plain and gzipped
+//   3d/index.html          the panel in 3D (panel3d/), its screen painted by
+//   assets/panel3d.js      the same renderer.js; three.js is bundled in
 //
 // The runtime is the same code the daemon runs. To make it browser-safe
 // without touching plugins, the bundle swaps a few modules:
@@ -172,6 +174,22 @@ export async function buildDemo({ out, editorOptions }) {
     define: { 'import.meta.dirname': '""' },
   });
 
+  // The 3D page: its own small bundle (with three.js), fed by the renderer above.
+  mkdirSync(join(out, '3d'), { recursive: true });
+  await build({
+    entryPoints: { panel3d: join(web, 'panel3d/main.ts') },
+    outdir: assets,
+    bundle: true,
+    format: 'esm',
+    platform: 'browser',
+    target: ['es2022', 'chrome110', 'firefox115', 'safari16'],
+    minify: true,
+    legalComments: 'linked',
+    logLevel: 'info',
+    define: { KIOSKO_DEMO: 'true' },
+  });
+  await build({ entryPoints: { panel3d: join(web, 'panel3d/styles.css') }, outdir: assets, bundle: true, minify: true, logLevel: 'info' });
+
   // Fonts: plain and gzipped (shims/canvas.ts picks one).
   const ttf = join(dirname(require.resolve('dejavu-fonts-ttf/package.json')), 'ttf');
   for (const f of FONTS) {
@@ -191,10 +209,19 @@ export async function buildDemo({ out, editorOptions }) {
   if (!page.includes('app.js?v=') || !page.includes('styles.css?v=')) throw new Error('demo build: could not version index.html');
   writeFileSync(join(out, 'index.html'), page);
 
+  // The same for the 3D page.
+  const stageFile = join(assets, 'panel3d.js');
+  const stage = readFileSync(stageFile, 'utf8');
+  if (!stage.includes('"./renderer.js"')) throw new Error('demo build: no "./renderer.js" reference in panel3d.js to version');
+  writeFileSync(stageFile, stage.replaceAll('"./renderer.js"', `"./renderer.js?v=${hash('renderer.js')}"`));
+  const page3d = readFileSync(join(web, 'panel3d/index.html'), 'utf8').replace(/((?:href|src)="\.\.\/assets\/(panel3d\.(?:js|css)))"/g, (_, ref, f) => `${ref}?v=${hash(f)}"`);
+  if (!page3d.includes('panel3d.js?v=') || !page3d.includes('panel3d.css?v=')) throw new Error('demo build: could not version 3d/index.html');
+  writeFileSync(join(out, '3d/index.html'), page3d);
+
   const js = (f) => statSync(join(assets, f)).size;
   const gz = (f) => gzipSync(readFileSync(join(assets, f)), { level: 9 }).length;
   const fontsGz = FONTS.reduce((n, f) => n + statSync(join(assets, 'fonts', `${f}.gz`)).size, 0);
   console.log(
-    `demo → ${relative(process.cwd(), out) || '.'}: app.js ${kb(js('app.js'))} (${kb(gz('app.js'))} gzipped), renderer.js ${kb(js('renderer.js'))} (${kb(gz('renderer.js'))} gzipped), fonts ${kb(fontsGz)} gzipped; ${kb(sizeOf(out))} on disk`,
+    `demo → ${relative(process.cwd(), out) || '.'}: app.js ${kb(js('app.js'))} (${kb(gz('app.js'))} gzipped), renderer.js ${kb(js('renderer.js'))} (${kb(gz('renderer.js'))} gzipped), panel3d.js ${kb(js('panel3d.js'))} (${kb(gz('panel3d.js'))} gzipped), fonts ${kb(fontsGz)} gzipped; ${kb(sizeOf(out))} on disk`,
   );
 }
