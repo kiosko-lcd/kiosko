@@ -77,7 +77,33 @@ export interface SceneOptions {
   mirror: boolean;
   /** Where the camera starts: degrees to the right, degrees above the desk, and how close (1 = fitted). */
   view?: { azimuth?: number; elevation?: number; zoom?: number };
+  /**
+   * Someone else places the camera (the front page, from how far it has been scrolled): no
+   * dragging, and the stack grows from one panel to three on request. See `direct`.
+   */
+  directed?: boolean;
 }
+
+/** Where a directed scene is asked to be: it eases there. */
+export interface Direction {
+  /** Degrees to the right of the panel's front, and above the desk. */
+  azimuth: number;
+  elevation: number;
+  /** 1 = the stack fits the view with room around it. */
+  zoom: number;
+  /** Where on the page the stack sits, in fractions of the view: 0.25 = a quarter to the right (or down). */
+  shiftX: number;
+  shiftY: number;
+  /** 0 = one panel, 1 = the three of them: the others drop onto it one after another. */
+  stack: number;
+}
+
+/** From how high the panels of a growing stack come down. */
+const DROP = 3.4;
+const smooth = (x: number) => {
+  const t = Math.max(0, Math.min(1, x));
+  return t * t * (3 - 2 * t);
+};
 
 export class Scene3D {
   readonly canvas: HTMLCanvasElement;
@@ -88,7 +114,10 @@ export class Scene3D {
   private readonly renderer: THREE.WebGLRenderer;
   private readonly scene = new THREE.Scene();
   private readonly camera = new THREE.PerspectiveCamera(30, 1, 0.1, 200);
-  private readonly controls: OrbitControls;
+  /** The visitor's hand on the camera; none in a directed scene. */
+  private readonly controls: OrbitControls | null;
+  /** What the camera looks at: the middle of the stack. */
+  private readonly target = new THREE.Vector3();
   private readonly key: THREE.SpotLight;
   private readonly desk: THREE.Mesh<THREE.CircleGeometry, THREE.MeshPhysicalMaterial>;
   private readonly stack = new THREE.Group();
@@ -108,6 +137,11 @@ export class Scene3D {
   /** The visitor has moved the camera: it is theirs now (no intro, no refit on resize). */
   private touched = false;
   private slow = { frames: 0, seconds: 0, strikes: 0, warmup: 90 };
+  /** Directed: where it has been asked to be, and where it is now (it arrives from a little further away). */
+  private readonly want: Direction = { azimuth: THREE.MathUtils.radToDeg(HOME.azimuth), elevation: 90 - THREE.MathUtils.radToDeg(HOME.polar), zoom: 1, shiftX: 0, shiftY: 0, stack: 0 };
+  private readonly at: Direction = { ...this.want, zoom: 0.72 };
+  /** Called after each frame is drawn (the front page waits for the first one). */
+  onFrame: (() => void) | null = null;
 
   constructor(canvas: HTMLCanvasElement, opts: SceneOptions) {
     this.canvas = canvas;
@@ -156,17 +190,20 @@ export class Scene3D {
     this.stack.position.y = HOVER;
     scene.add(this.stack, this.extras);
 
-    const controls = new OrbitControls(camera, canvas);
-    this.controls = controls;
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.06;
-    controls.enablePan = false;
-    controls.minPolarAngle = 0.45;
-    // Not below the desk.
-    controls.maxPolarAngle = 1.53;
-    controls.rotateSpeed = 0.55;
-    controls.zoomSpeed = 0.7;
-    controls.addEventListener('start', () => (this.touched = true));
+    if (opts.directed) this.controls = null;
+    else {
+      const controls = new OrbitControls(camera, canvas);
+      this.controls = controls;
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.06;
+      controls.enablePan = false;
+      controls.minPolarAngle = 0.45;
+      // Not below the desk.
+      controls.maxPolarAngle = 1.53;
+      controls.rotateSpeed = 0.55;
+      controls.zoomSpeed = 0.7;
+      controls.addEventListener('start', () => (this.touched = true));
+    }
 
     this.setPanels(opts.panels);
     this.applyQuality();
@@ -189,12 +226,16 @@ export class Scene3D {
     });
     this.stack.updateMatrixWorld(true);
     this.buildCables();
-    const centre = this.stack.localToWorld(new THREE.Vector3(0, this.height / 2, 0));
-    this.controls.target.copy(centre);
-    this.key.target.position.copy(centre);
+    this.target.copy(this.stack.localToWorld(new THREE.Vector3(0, this.height / 2, 0)));
+    this.key.target.position.copy(this.target);
     this.touched = false;
     this.startedAt = 0;
     this.frame();
+  }
+
+  /** Directed scenes: where to be from now on (only what is given changes). */
+  direct(d: Partial<Direction>): void {
+    Object.assign(this.want, d);
   }
 
   setOrbit(on: boolean): void {
@@ -209,6 +250,12 @@ export class Scene3D {
     if (this.raf) return;
     this.last = performance.now();
     this.raf = requestAnimationFrame(this.tick);
+  }
+
+  /** Stops drawing (nobody is looking); `start` resumes. */
+  stop(): void {
+    cancelAnimationFrame(this.raf);
+    this.raf = 0;
   }
 
   /** Height of the stack. */
@@ -256,25 +303,28 @@ export class Scene3D {
     });
   }
 
-  /** The distance from which the stack fills the view, with room around it, for this window's shape. */
-  private fit(): number {
+  /** The distance from which a stack fills the view, with room around it, for this window's shape. */
+  private fit(height = this.height, air = this.panels.length === 1 ? 2.4 : 1.5): number {
     const t = Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2));
     const wide = (PANEL.w * 1.4) / (2 * t * this.camera.aspect);
-    const tall = (this.height * (this.panels.length === 1 ? 2.4 : 1.5)) / (2 * t);
+    const tall = (height * air) / (2 * t);
     return Math.max(wide, tall);
   }
 
   /** Puts the camera at its starting place for this stack and window. */
   private frame(): void {
+    const { controls } = this;
+    if (!controls) return;
+    controls.target.copy(this.target);
     const view = this.opts.view ?? {};
     this.radius = this.fit() / Math.max(0.2, view.zoom ?? 1);
     const azimuth = view.azimuth !== undefined ? THREE.MathUtils.degToRad(view.azimuth) : HOME.azimuth;
     const polar = view.elevation !== undefined ? THREE.MathUtils.degToRad(90 - view.elevation) : HOME.polar;
     const offset = new THREE.Vector3(Math.sin(polar) * Math.sin(azimuth), Math.cos(polar), Math.sin(polar) * Math.cos(azimuth)).multiplyScalar(this.radius);
-    this.camera.position.copy(this.controls.target).add(offset);
-    this.controls.minDistance = this.radius * 0.35;
-    this.controls.maxDistance = this.radius * 2.6;
-    this.controls.update();
+    this.camera.position.copy(controls.target).add(offset);
+    controls.minDistance = this.radius * 0.35;
+    controls.maxDistance = this.radius * 2.6;
+    controls.update();
   }
 
   private resize(): void {
@@ -286,7 +336,7 @@ export class Scene3D {
     this.composer.setSize(Math.round(w * ratio), Math.round(h * ratio));
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
-    if (!this.touched) this.frame();
+    if (this.controls && !this.touched) this.frame();
   }
 
   private applyQuality(): void {
@@ -363,20 +413,57 @@ export class Scene3D {
     this.startedAt ||= ms;
 
     const { controls, camera } = this;
-    if (!this.touched) {
-      // Arriving: the camera comes in from a little further away.
-      const p = Math.min(1, (ms - this.startedAt) / INTRO_MS);
-      const away = 1 + 0.3 * (1 - p) ** 3;
-      camera.position.sub(controls.target).setLength(this.radius * away).add(controls.target);
+    if (!controls) this.follow(dt);
+    else {
+      if (!this.touched) {
+        // Arriving: the camera comes in from a little further away.
+        const p = Math.min(1, (ms - this.startedAt) / INTRO_MS);
+        const away = 1 + 0.3 * (1 - p) ** 3;
+        camera.position.sub(controls.target).setLength(this.radius * away).add(controls.target);
+      }
+      // A slow sway from side to side; dragging takes over, and it resumes around wherever it is left.
+      controls.autoRotate = this.opts.orbit;
+      controls.autoRotateSpeed = DRIFT.speed * Math.cos(this.time * DRIFT.rate);
+      controls.update(dt);
     }
-    // A slow sway from side to side; dragging takes over, and it resumes around wherever it is left.
-    controls.autoRotate = this.opts.orbit;
-    controls.autoRotateSpeed = DRIFT.speed * Math.cos(this.time * DRIFT.rate);
-    controls.update(dt);
 
     for (const p of this.panels) p.update(ms, dt);
     this.finish.uniforms.uTime!.value = this.time;
     this.composer.render(dt);
+    this.onFrame?.();
     this.measure(dt);
   };
+
+  /** A directed scene eases towards where it was asked to be: the camera, and how tall the stack is. */
+  private follow(dt: number): void {
+    const { at, want, camera, target } = this;
+    const k = 1 - Math.exp(-dt * 4.2);
+    for (const key of Object.keys(at) as (keyof Direction)[]) at[key] += (want[key] - at[key]) * k;
+
+    // The panels above the first come down onto it, one after another.
+    let grown = 0;
+    this.panels.forEach((p, i) => {
+      if (i === 0) return;
+      const e = smooth((at.stack - (i - 1) * 0.4) / 0.6);
+      grown += e;
+      p.group.visible = e > 0.002;
+      p.group.position.y = PANEL.h / 2 + i * (PANEL.h + GAP) + (1 - e) * DROP;
+      // Its cable was laid for where it ends up: it shows once it is there.
+      const cable = this.extras.children[i];
+      if (cable) cable.visible = e > 0.95;
+    });
+    const height = PANEL.h + grown * (PANEL.h + GAP);
+    target.copy(this.stack.localToWorld(new THREE.Vector3(0, height / 2, 0)));
+    this.key.target.position.copy(target);
+
+    const radius = this.fit(height, 2.4 - 0.9 * Math.min(1, grown)) / Math.max(0.2, at.zoom);
+    const azimuth = THREE.MathUtils.degToRad(at.azimuth);
+    const polar = THREE.MathUtils.degToRad(90 - at.elevation);
+    camera.position.set(Math.sin(polar) * Math.sin(azimuth), Math.cos(polar), Math.sin(polar) * Math.cos(azimuth)).multiplyScalar(radius).add(target);
+    camera.lookAt(target);
+    // Moving the stack on the page without turning the camera: the view is a window on a wider one.
+    const w = this.canvas.clientWidth || 1;
+    const h = this.canvas.clientHeight || 1;
+    camera.setViewOffset(w, h, -at.shiftX * w, -at.shiftY * h, w, h);
+  }
 }

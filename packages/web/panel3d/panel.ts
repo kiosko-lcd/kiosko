@@ -58,6 +58,8 @@ export class Panel {
   /** In front of the screen, lighting what the picture would light. */
   readonly glow: THREE.RectAreaLight;
   showing: NowShowing | null = null;
+  /** Asleep, the screen goes black, as a panel does when every widget on it is idle. */
+  awake = true;
 
   private readonly canvas = document.createElement('canvas');
   private readonly g: CanvasRenderingContext2D;
@@ -70,6 +72,8 @@ export class Panel {
   private previous: ImageBitmap | null = null;
   private fade: { start: number } | null = null;
   private poweredAt: number | null = null;
+  /** 0 = off, 1 = on, moving steadily between them; `power` is the same, eased. */
+  private level = 0;
   private power = 0;
   private dirty = true;
   private sampledAt = 0;
@@ -185,10 +189,28 @@ export class Panel {
     if (frame.kind === 'page' || now - this.sampledAt > 250) this.sample(frame.bitmap, now);
   }
 
+  /**
+   * A picture to show until the first frame arrives (the front page has one of the first
+   * page, made when the site was built): the screen is on at once.
+   */
+  async poster(image: ImageBitmapSource, page: string): Promise<void> {
+    const bitmap = await createImageBitmap(image);
+    if (this.current) return void bitmap.close();
+    const now = performance.now();
+    this.current = bitmap;
+    this.showing = { page, kind: 'page', what: null };
+    this.dirty = true;
+    this.poweredAt ??= now;
+    this.sample(bitmap, now);
+  }
+
   /** Once per rendered frame: repaint the screen if it changed, and let the light catch up. */
   update(now: number, dt: number): void {
-    if (this.poweredAt !== null && this.power < 1) {
-      this.power = ease(clamp01((now - this.poweredAt) / POWER_ON_MS));
+    const goal = this.poweredAt !== null && this.awake ? 1 : 0;
+    if (this.level !== goal) {
+      const step = (dt * 1000) / POWER_ON_MS;
+      this.level = goal > this.level ? Math.min(goal, this.level + step) : Math.max(goal, this.level - step);
+      this.power = ease(clamp01(this.level));
       this.dirty = true;
     }
     if (this.dirty || this.fade) this.paint(now);
