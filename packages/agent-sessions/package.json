@@ -1,6 +1,6 @@
 {
   "name": "@loksly/agent-sessions",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "A tiny file protocol for the state of AI coding sessions (Claude Code, Gemini CLI\u2026): a zero-dependency hook that writes it and helpers to read it.",
   "type": "module",
   "license": "MIT",

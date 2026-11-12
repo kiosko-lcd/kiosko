@@ -1,6 +1,6 @@
 {
   "name": "@loksly/lcd-canvas-kit",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Drawing helpers for small always-on LCD panels on @napi-rs/canvas: tracked text, small caps, word wrap, sparklines, pixel shift against image retention, weather and moon icons.",
   "type": "module",
   "license": "MIT",
@@ -42,7 +42,7 @@
     "check": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@loksly/weather-astro": "0.1.0"
+    "@loksly/weather-astro": "0.2.0"
   },
   "peerDependencies": {
     "@napi-rs/canvas": ">=0.1.65 <2"

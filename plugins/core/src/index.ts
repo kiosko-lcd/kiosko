@@ -391,7 +391,7 @@ export const image = defineWidget({
 export default definePlugin({
   id: 'core',
   name: { en: 'Essentials', es: 'Básicos' },
-  version: '0.1.0',
+  version: '0.2.0',
   description: { en: 'Clock, date, notes, lists and pictures.', es: 'Reloj, fecha, notas, listas e imágenes.' },
   author: 'Kiosko',
   license: 'MIT',

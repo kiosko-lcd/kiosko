@@ -116,7 +116,7 @@ export const module = defineWidget({
 export default definePlugin({
   id: 'legacy',
   name: { en: 'aimonitor compatibility', es: 'Compatibilidad aimonitor' },
-  version: '0.1.0',
+  version: '0.2.0',
   description: { en: 'Run your aimonitor custom modules as widgets.', es: 'Tus módulos propios de aimonitor, como widgets.' },
   author: 'Kiosko',
   license: 'MIT',
