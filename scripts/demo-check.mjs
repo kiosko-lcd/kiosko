@@ -486,15 +486,18 @@ async function frontPage(browser, name) {
     const cards = [...document.querySelectorAll('.plugin')];
     const pictures = [...document.querySelectorAll('.plugin img')].map((i) => i.src);
     const links = [...new Set([...document.querySelectorAll('a[href]')].map((a) => a.href).filter((h) => h.startsWith(location.origin) && !h.includes('#')))];
+    // The picture for when the link is shared is named by its public address: here it is the same file.
+    const card = document.querySelector('meta[property="og:image"]')?.content;
+    if (card) links.push(new URL(new URL(card).pathname, location.origin).href);
     const missing = [];
     for (const url of [...pictures, ...links]) if (!(await ok(url))) missing.push(url);
     return { cards: cards.length, pictures: pictures.length, links, missing, catalogue: (await (await fetch('gallery/gallery.json')).json()).plugins.length };
   });
   check(`${name} front page: every plugin has its card and pictures`, listed.cards > 0 && listed.cards === listed.catalogue && listed.pictures >= listed.cards, `${listed.cards} cards of ${listed.catalogue} plugins, ${listed.pictures} pictures`);
-  check(`${name} front page: its links lead somewhere`, listed.links.length >= 3 && listed.missing.length === 0, listed.missing.length ? `missing: ${listed.missing.slice(0, 4).join(', ')}` : `${listed.links.length} links`);
+  check(`${name} front page: its links and its share picture lead somewhere`, listed.links.length >= 4 && listed.links.some((l) => l.endsWith('/card.jpg')) && listed.missing.length === 0, listed.missing.length ? `missing: ${listed.missing.slice(0, 4).join(', ')}` : `${listed.links.length} links`);
 
   // The editor's section: the real editor in a frame, composing a page by itself and keeping nothing.
-  await page.locator('[data-step="editor"]').evaluate((el) => window.scrollTo({ top: el.getBoundingClientRect().top + scrollY + innerHeight * 0.6, behavior: 'instant' }));
+  await page.locator('section[data-step="editor"]').evaluate((el) => window.scrollTo({ top: el.getBoundingClientRect().top + scrollY + innerHeight * 0.6, behavior: 'instant' }));
   let tiles = 0;
   let cursor = false;
   try {
@@ -513,6 +516,32 @@ async function frontPage(browser, name) {
   await shot(page, `front-editor-${name}.jpg`);
   check(`${name} front page: the editor composes a page by itself`, tiles >= 2 && cursor, `${tiles} tiles on its page, ${cursor ? 'a' : 'no'} ghost cursor`);
   check(`${name} front page: the editor on tour saves nothing`, kept === null);
+
+  // The visitor's own config: read in the page, shown on the panel (a picture of its page, here), and
+  // handed to the editor when asked.
+  const bar = showcase.screens.find((x) => x.width / x.height > 2.5);
+  const mine = { screens: [{ ...bar, id: 'mine', pages: bar.pages.slice(0, 1) }] };
+  const file = (name, text) => ({ name, mimeType: 'application/json', buffer: Buffer.from(text) });
+  const saidNow = () => page.locator('[data-yours="said"] [lang="en"]').innerText().catch(() => '');
+  const before = await imgStats(page, '.still img[lang="en"]');
+  await page.setInputFiles('[data-yours="file"]', file('mine.json', JSON.stringify(mine)));
+  await page.waitForFunction(() => document.querySelector('.still img[lang="en"]')?.src.startsWith('blob:'), null, { timeout: 60_000 }).catch(() => undefined);
+  await page.waitForTimeout(800);
+  const said = await saidNow();
+  const shown = await imgStats(page, '.still img[lang="en"]');
+  const at = await page.evaluate(() => ({ step: document.documentElement.dataset.step, offered: !document.querySelector('[data-yours="loaded"]').hidden }));
+  await shot(page, `front-yours-${name}.jpg`);
+  check(`${name} front page: a config of your own is read and shown`, /mine\.json: 1 screen, 1 page/.test(said) && at.step === 'yours' && at.offered && painted(shown) && shown.hash !== before?.hash, `"${said}", section ${at.step}, picture ${shown?.src.slice(0, 5)} ${shown?.colours} colours`);
+  await page.setInputFiles('[data-yours="file"]', file('package.json', '{"name":"something-else","version":"1.0.0"}'));
+  await page.waitForFunction(() => document.querySelector('[data-yours="said"]')?.classList.contains('bad'), null, { timeout: 10_000 }).catch(() => undefined);
+  const refused = await saidNow();
+  check(`${name} front page: a file that is not a config is refused, and says why`, /isn't a Kiosko config/.test(refused) && !(await page.locator('[data-yours="loaded"]').isHidden()), `"${refused}"`);
+  await page.locator('[data-yours="edit"]').click();
+  await page.waitForURL(/\/demo\/$/, { timeout: 15_000 }).catch(() => undefined);
+  const handed = await stored(page);
+  check(`${name} front page: "open it in the editor" hands the config to the demo`, page.url().endsWith('/demo/') && handed?.screens?.[0]?.id === 'mine', `${page.url()} with screens ${handed?.screens?.map((x) => x.id)}`);
+  await page.evaluate(() => localStorage.removeItem('kiosko.demo.config'));
+  await page.goto(home);
 
   // The switch: Spanish now, and still Spanish on the next visit.
   await page.locator('.lang').click();
