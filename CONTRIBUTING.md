@@ -30,6 +30,12 @@ Thanks for wanting to make Kiosko better.
   `demo/?tour=1`). Its texts are in the page in English and Spanish: change
   both. `scripts/demo-check-docker.sh` checks it too, without WebGL (the
   panel is then a picture); look at the 3D itself on a machine with a GPU.
+  Two pictures of the 3D panel are kept in the repository, because taking
+  them needs that GPU: the one shown with the site's link when it is shared
+  (`packages/web/landing/card.jpg`, retaken with
+  `node scripts/panel3d-film.mjs --card`) and the README's moving one
+  (`docs/img/panel-3d.webp`; the same script's header says how). Retake them
+  when the panel or the front page's headline changes.
 - **The panel in 3D** (`https://kioskolcd.dev/demo/3d/`, `packages/web/panel3d`):
   built with the demo. A software renderer is far too slow for it, so it is
   checked with a Chrome on your own machine and its GPU:

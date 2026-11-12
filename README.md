@@ -7,6 +7,8 @@ and let a tiny daemon keep the panel up to date.
 
 > 🇪🇸 Documento de diseño en castellano: [docs/es/plan.md](docs/es/plan.md)
 
+[![A bar-shaped USB panel on a desk, seen in 3D, its widgets alive: the cats room and a stack of cards taking turns](docs/img/panel-3d.webp)](https://kioskolcd.dev/)
+
 ![The Kiosko editor: a 1920×462 panel with the cats room and a stack of cards](docs/img/editor-cats.jpg)
 
 - **Visual editor in your browser.** Drag widgets onto a to-scale picture of
@@ -37,8 +39,10 @@ and let a tiny daemon keep the panel up to date.
 
 **<https://kioskolcd.dev/>** tells it in a minute, over a panel in 3D: scroll
 and the panel turns, shows the editor composing a page on it and becomes a
-stack of three. Every plugin is listed there, and every widget is in the
-[gallery](https://kioskolcd.dev/gallery/).
+stack of three. Drop a `config.json` on that page (yours, or one an assistant
+wrote for you) and the panel shows its pages, one panel for each screen; the
+file is read in your browser and goes nowhere. Every plugin is listed there,
+and every widget is in the [gallery](https://kioskolcd.dev/gallery/).
 
 **<https://kioskolcd.dev/demo/>**: the real editor, running entirely in your
 browser with sample data. Lay out the sample screens, add widgets, switch
