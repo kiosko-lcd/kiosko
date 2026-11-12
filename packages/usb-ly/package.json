@@ -25,6 +25,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "prepublishOnly": "npm run build",
     "test": "node --conditions=source --test 'src/**/*.test.ts'",
     "check": "tsc -p tsconfig.json --noEmit"
   }
