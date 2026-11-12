@@ -85,7 +85,7 @@ class ScreenRunner {
     this.screen = screen;
     this.rt = rt;
     this.deviceKey = JSON.stringify(screen.device);
-    this.device = openDevice(screen.device, (m) => rt.log(`screen:${screen.name}`, m));
+    this.device = openDevice(screen.device, (m) => rt.log(`screen:${screen.name}`, m), screen.rotate);
     this.pinned = screen.pinnedPage ?? null;
     this.scheduler = new AnimationScheduler(() => rt.rnd(), (type, why) => rt.log(type, `animation ignored: ${why}`));
   }
@@ -94,7 +94,7 @@ class ScreenRunner {
     const key = JSON.stringify(screen.device);
     if (key !== this.deviceKey) {
       this.device.close();
-      this.device = openDevice(screen.device, (m) => this.rt.log(`screen:${screen.name}`, m));
+      this.device = openDevice(screen.device, (m) => this.rt.log(`screen:${screen.name}`, m), screen.rotate);
       this.deviceKey = key;
       this.last = null;
     }

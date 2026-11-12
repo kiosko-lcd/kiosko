@@ -11,6 +11,7 @@
 // The runtime is the same code the daemon runs. To make it browser-safe
 // without touching plugins, the bundle swaps a few modules:
 //   @napi-rs/canvas        → shims/canvas.ts (the browser's own canvas)
+//   usb                    → shims/usb.ts (no USB in a browser)
 //   core/src/fonts.ts      → shims/fonts.ts (FontFace instead of files)
 //   node:*                 → generated stubs: helpers like path or promisify
 //                            work (shims/node.ts), anything that would read
@@ -82,6 +83,7 @@ function browserAliases() {
     name: 'kiosko-demo-aliases',
     setup(b) {
       b.onResolve({ filter: /^@napi-rs\/canvas$/ }, () => ({ path: join(shims, 'canvas.ts') }));
+      b.onResolve({ filter: /^usb$/ }, () => ({ path: join(shims, 'usb.ts') }));
       b.onResolve({ filter: /^\.\/fonts\.ts$/ }, (a) => (resolve(a.resolveDir) === coreSrc ? { path: join(shims, 'fonts.ts') } : undefined));
     },
   };

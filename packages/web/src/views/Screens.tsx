@@ -11,8 +11,8 @@ import { DemoFrame, dt, exportScreen } from '../demo/ui.tsx';
 
 export function Screens() {
   const cfg = config.value!;
-  const add = (preset?: { width: number; height: number; name: string }) => {
-    const s = newScreen(preset?.name ?? 'Panel', preset?.width ?? 1920, preset?.height ?? 462);
+  const add = (preset?: { width: number; height: number; name: string; device?: DeviceConfig }) => {
+    const s = newScreen(preset?.name ?? 'Panel', preset?.width ?? 1920, preset?.height ?? 462, preset?.device);
     edit((d) => d.screens.push(s));
     screenId.value = s.id;
     pageId.value = s.pages[0]!.id;
@@ -38,9 +38,10 @@ export function Screens() {
   );
 }
 
-function AddScreen({ onAdd }: { onAdd: (p?: { width: number; height: number; name: string }) => void }) {
+function AddScreen({ onAdd }: { onAdd: (p?: { width: number; height: number; name: string; device?: DeviceConfig }) => void }) {
   const [open, setOpen] = useState(false);
   const [found, setFound] = useState<{ key: string; width: number; height: number }[] | null>(null);
+  const [usbFound, setUsbFound] = useState<{ serial: string; key: string; width: number; height: number; location: string; error?: string }[]>([]);
   return (
     <div class="add-screen">
       <button class="btn primary" onClick={() => setOpen(!open)}>
@@ -69,10 +70,23 @@ function AddScreen({ onAdd }: { onAdd: (p?: { width: number; height: number; nam
               </button>
               <div class="muted small pad">{dt('discover')}</div>
             </>
-          ) : <button class="menu-item" onClick={async () => setFound((await api.discover()).trcc)}>
-            <Icon name="radar" size={16} /> <span>{tr('screens.detect')}</span> <small>trcc</small>
+          ) : <button class="menu-item" onClick={async () => {
+            const r = await api.discover();
+            setFound(r.trcc);
+            setUsbFound(r.usb ?? []);
+          }}>
+            <Icon name="radar" size={16} /> <span>{tr('screens.detect')}</span> <small>USB · trcc</small>
           </button>}
-          {found && !found.length && <div class="muted small pad">{tr('screens.noneDetected')}</div>}
+          {found && !found.length && !usbFound.length && <div class="muted small pad">{tr('screens.noneDetected')}</div>}
+          {usbFound.map((f) => (
+            <button class="menu-item" title={f.error ?? f.location} onClick={() => {
+              onAdd({ width: f.width || 1920, height: f.height || 462, name: f.key, device: { driver: 'usb', ...(f.serial ? { serial: f.serial } : {}) } });
+              setOpen(false);
+            }}>
+              <Icon name="usb" size={16} /> <span>{f.key}</span>
+              <small>{f.width ? `${f.width}×${f.height}` : f.error ? '⚠' : 'USB'}</small>
+            </button>
+          ))}
           {found?.map((f) => (
             <button class="menu-item" onClick={() => {
               onAdd({ width: f.width, height: f.height, name: f.key });
@@ -175,8 +189,8 @@ function ScreenCard({ s }: { s: Screen }) {
           </div>
           <label class="field-label">{tr('screens.driver')}</label>
           <div class="segmented">
-            {(['virtual', 'trcc', 'file'] as const).map((d) => (
-              <button class={dev.driver === d ? 'on' : ''} onClick={() => setDevice(d === 'trcc' ? { driver: 'trcc', url: 'http://127.0.0.1:8099' } : d === 'file' ? { driver: 'file', dir: '~/.config/kiosko/frames/' + s.id } : { driver: 'virtual' })}>
+            {(['virtual', 'usb', 'trcc', 'file'] as const).map((d) => (
+              <button class={dev.driver === d ? 'on' : ''} onClick={() => setDevice(d === 'trcc' ? { driver: 'trcc', url: 'http://127.0.0.1:8099' } : d === 'usb' ? { driver: 'usb' } : d === 'file' ? { driver: 'file', dir: '~/.config/kiosko/frames/' + s.id } : { driver: 'virtual' })}>
                 <Icon name={d === 'virtual' ? 'monitor' : d === 'trcc' ? 'usb' : 'file-image'} size={13} /> {tr(`driver.${d}`)}
               </button>
             ))}
@@ -189,6 +203,13 @@ function ScreenCard({ s }: { s: Screen }) {
               <input class="input mono" value={dev.tokenFile ?? ''} placeholder="~/.aimonitor/trcc-token" onInput={(e) => setDevice({ ...dev, tokenFile: (e.target as HTMLInputElement).value || undefined })} />
               <label class="field-label">{tr('screens.serial')}</label>
               <input class="input mono" value={dev.serial ?? ''} onInput={(e) => setDevice({ ...dev, serial: (e.target as HTMLInputElement).value || undefined })} />
+            </div>
+          )}
+          {dev.driver === 'usb' && (
+            <div class="sub-form">
+              <label class="field-label">{tr('screens.serial')}</label>
+              <input class="input mono" value={dev.serial ?? ''} onInput={(e) => setDevice({ ...dev, serial: (e.target as HTMLInputElement).value || undefined })} />
+              <p class="muted small">{tr('screens.usbHelp')}</p>
             </div>
           )}
           {dev.driver === 'file' && (

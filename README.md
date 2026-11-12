@@ -19,13 +19,13 @@ and let a tiny daemon keep the panel up to date.
   identical frames are never re-sent, pixel shift against burn-in, black
   panel when everything is idle, a semaphore palette where darkness is the
   normal state.
-- **The editor runs anywhere; the panel, on Linux for now.** The editor, the
-  server and the painting run on Linux, macOS and Windows (Node.js and a
-  browser; fonts are bundled so a frame is pixel-identical on every OS).
-  Sending frames to the USB panel goes through
-  [thermalright-trcc-linux](https://github.com/Lexonight1/thermalright-trcc-linux),
-  so today that part is Linux only. macOS and Windows are on the
-  [roadmap](#roadmap).
+- **The editor runs anywhere, and so does the panel (USB, experimental).** The
+  editor, the server and the painting run on Linux, macOS and Windows (Node.js
+  and a browser; fonts are bundled so a frame is pixel-identical on every OS).
+  The **USB** connection drives LY panels (Trofeo Vision 9.16 and siblings)
+  from Node itself, with no Python and no `trcc`; see [docs/usb.md](docs/usb.md)
+  for what each OS needs. The other connections (`trcc serve`, frame files)
+  still work and are the ones tested on a real panel for months.
 
 | | |
 |---|---|
@@ -74,6 +74,7 @@ screen**, pick your panel model and its connection:
 | Connection | When |
 |---|---|
 | **Virtual** | No hardware: the editor shows it, nothing else. |
+| **USB** | LY panels (0416:5408 / 5409) straight from Kiosko: Linux, macOS, Windows. Experimental; [needs a udev rule or the WinUSB driver](docs/usb.md). |
 | **trcc serve** | Linux with [thermalright-trcc-linux](https://github.com/Lexonight1/thermalright-trcc-linux) running `trcc serve`. |
 | **Frame file** | Kiosko writes `frame.jpg` atomically; an external sender (e.g. one bound to a USB serial number, for several identical panels) pushes it to the glass. |
 
@@ -253,8 +254,10 @@ cd ../kiosko && npm install && npm run dev:link
 
 ## Roadmap
 
-- **Panels on macOS and Windows**: talk to the panel over USB from Node
-  itself, so neither `trcc-linux` nor Python is needed (on Linux too).
+- **Panels on macOS and Windows**: the USB connection is written (LY
+  panels, [docs/usb.md](docs/usb.md)) and byte-compatible with `trcc`, but not
+  yet verified on a real panel in each OS. Other Thermalright protocols (SCSI,
+  HID, 320×240) are still `trcc serve` only.
 - **First npm release** of `kiosko`, the SDK and the official plugins.
 - **One-file builds and installers**: a Homebrew tap for macOS, winget and an
   installer for Windows.

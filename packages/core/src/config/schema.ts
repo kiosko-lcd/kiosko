@@ -263,6 +263,18 @@ export function configSchema(plugins: readonly PluginDefinition[]): S {
             },
           },
           {
+            title: 'USB (LY panels)',
+            description: 'Talks to the panel over USB from Kiosko itself (Thermalright Trofeo Vision and other LY panels): no trcc, no Python. On Windows the device needs the WinUSB driver; on Linux a udev rule.',
+            type: 'object',
+            additionalProperties: false,
+            required: ['driver'],
+            properties: {
+              driver: { const: 'usb' },
+              serial: { type: 'string', description: 'USB serial number of the panel. With several identical panels it is the only way to tell them apart, and a serial that is not found is an error, never "another panel". Empty: the first one found.' },
+              keepalive: { type: 'number', minimum: 0.1, maximum: 2, default: 1, description: 'Seconds between re-sends of an unchanged frame; the firmware drops the picture after 2-3 s without one.' },
+            },
+          },
+          {
             title: 'Frame file',
             description: 'Writes frame.jpg atomically into a folder; an external sender takes it to the panel.',
             type: 'object',

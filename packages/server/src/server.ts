@@ -15,7 +15,7 @@ import { dirname, extname, join, normalize as normPath, resolve } from 'node:pat
 import { THEMES } from '@kiosko/sdk';
 import { CATEGORIES } from '@kiosko/sdk';
 import { OFFICIAL_PLUGINS } from './builtin.ts';
-import { PANEL_PRESETS, discoverTrcc, normalize, paths, resolveLocale, saveConfig, type Config, type FrameInfo, type Runtime, type Screen } from '@kiosko/core';
+import { PANEL_PRESETS, discoverTrcc, discoverUsb, normalize, paths, resolveLocale, saveConfig, type Config, type FrameInfo, type Runtime, type Screen } from '@kiosko/core';
 
 const require = createRequire(import.meta.url);
 
@@ -212,7 +212,7 @@ export function startServer(o: ServerOptions) {
 
     if (p === '/api/devices/discover' && m === 'GET') {
       const url0 = url.searchParams.get('url') ?? 'http://127.0.0.1:8099';
-      return json(res, 200, { trcc: await discoverTrcc(url0, url.searchParams.get('tokenFile') ?? undefined) });
+      return json(res, 200, { trcc: await discoverTrcc(url0, url.searchParams.get('tokenFile') ?? undefined), usb: await discoverUsb() });
     }
 
     if (p === '/api/logs' && m === 'GET') return json(res, 200, runtime.logs.slice(-200));

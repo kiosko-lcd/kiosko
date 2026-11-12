@@ -29,6 +29,7 @@
   "dependencies": {
     "@loksly/lcd-canvas-kit": "0.1.0",
     "@loksly/trcc-client": "0.1.0",
+    "@loksly/usb-ly": "0.1.0",
     "@napi-rs/canvas": "^1.0.10",
     "@kiosko/sdk": "0.1.0",
     "dejavu-fonts-ttf": "^2.37.3"

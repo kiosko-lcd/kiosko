@@ -24,7 +24,7 @@ execFileSync(process.execPath, [join(root, 'packages/web/build.mjs')], { stdio: 
 cpSync(join(root, 'packages/web/dist'), join(out, 'web'), { recursive: true });
 
 // Native or data packages stay outside the bundle.
-const external = ['@napi-rs/canvas', 'dejavu-fonts-ttf'];
+const external = ['@napi-rs/canvas', 'dejavu-fonts-ttf', 'usb'];
 const common = {
   bundle: true,
   platform: 'node',
@@ -53,6 +53,8 @@ const deps = {};
 for (const name of ['@napi-rs/canvas', 'dejavu-fonts-ttf']) {
   deps[name] = JSON.parse(readFileSync(join(root, 'node_modules', name, 'package.json'), 'utf8')).version.replace(/^/, '^');
 }
+// libusb for the `usb` driver: optional, so a platform without a prebuilt binary still installs Kiosko.
+const usbVersion = JSON.parse(readFileSync(join(root, 'node_modules', 'usb', 'package.json'), 'utf8')).version.replace(/^/, '^');
 const pkg = {
   name: 'kiosko',
   version,
@@ -68,7 +70,7 @@ const pkg = {
   dependencies: deps,
   // The official plugins live in their own repos; installing Kiosko brings
   // them along. Optional, so a missing one never breaks the install.
-  optionalDependencies: Object.fromEntries(['agents', 'cats', 'system', 'vitals', 'usage', 'weather', 'calendar', 'news', 'mirror', 'gitlab', 'github', 'calls', 'timesheet', 'llm', 'gpu'].map((id) => [`kiosko-plugin-${id}`, `^${version}`])),
+  optionalDependencies: { usb: usbVersion, ...Object.fromEntries(['agents', 'cats', 'system', 'vitals', 'usage', 'weather', 'calendar', 'news', 'mirror', 'gitlab', 'github', 'calls', 'timesheet', 'llm', 'gpu'].map((id) => [`kiosko-plugin-${id}`, `^${version}`])) },
 };
 writeFileSync(join(out, 'package.json'), `${JSON.stringify(pkg, null, 2)}\n`);
 for (const f of ['README.md', 'LICENSE']) cpSync(join(root, f), join(out, f));

@@ -50,7 +50,7 @@ const pageText = (p: Page) => {
   const ts = pageTypes(p);
   return `page ${q(p.name)}: ${plural(p.tiles.length, 'tile')}${ts.length ? ` (${ts.slice(0, 6).join(', ')}${ts.length > 6 ? `, +${ts.length - 6} more` : ''})` : ''}`;
 };
-const deviceText = (d: DeviceConfig) => (d.driver === 'trcc' ? `trcc ${d.url}` : d.driver === 'file' ? `file ${d.dir}` : d.driver);
+const deviceText = (d: DeviceConfig) => (d.driver === 'trcc' ? `trcc ${d.url}` : d.driver === 'file' ? `file ${d.dir}` : d.driver === 'usb' ? `usb${d.serial ? ` ${d.serial}` : ''}` : d.driver);
 const changedKeys = (a: Record<string, unknown>, b: Record<string, unknown>) => [...new Set([...Object.keys(a), ...Object.keys(b)])].filter((k) => !same(a[k], b[k]));
 
 function diffTiles(before: Page, after: Page, depth: number, out: DiffLine[]): void {
