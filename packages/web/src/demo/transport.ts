@@ -25,7 +25,14 @@ interface Saved {
   config: Config;
 }
 
+/**
+ * On tour (`?tour=1`, the front page's editor on autopilot, see tour.ts) nothing is read or kept:
+ * it starts from the sample screens every time and never touches what the visitor made.
+ */
+const TOUR = /* @__PURE__ */ (() => typeof location !== 'undefined' && new URLSearchParams(location.search).has('tour'))();
+
 function readSaved(): Saved | null {
+  if (TOUR) return null;
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     const v = raw ? (JSON.parse(raw) as Saved) : null;
@@ -36,6 +43,7 @@ function readSaved(): Saved | null {
 }
 
 function writeSaved(s: Saved): void {
+  if (TOUR) return;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
   } catch {

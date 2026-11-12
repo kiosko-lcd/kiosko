@@ -64,6 +64,7 @@ export function Library() {
           return (
             <div
               class="lib-item"
+              data-type={w.type}
               draggable
               onDragStart={(e) => {
                 dragging.type = w.type;

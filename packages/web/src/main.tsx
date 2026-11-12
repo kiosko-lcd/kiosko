@@ -5,6 +5,7 @@ import { tr } from './i18n.ts';
 import { app, boot, config, go, online, pageId, saveError, saving, screen, screenId, selectedTile, status, toast, view, type View } from './store.ts';
 import { Screens } from './views/Screens.tsx';
 import { Logs, Plugins, Settings } from './views/Others.tsx';
+import { startTour, touring } from './demo/tour.ts';
 import { DemoBanner, demoBootError } from './demo/ui.tsx';
 
 const NAV: { id: View; icon: string }[] = [
@@ -85,7 +86,7 @@ function Rail() {
   return (
     <nav class="rail" aria-label="main">
       {NAV.map((n) => (
-        <button class={`rail-btn ${view.value === n.id ? 'on' : ''}`} onClick={() => go(n.id)} title={tr(`nav.${n.id}`)} aria-current={view.value === n.id}>
+        <button class={`rail-btn ${view.value === n.id ? 'on' : ''}`} data-view={n.id} onClick={() => go(n.id)} title={tr(`nav.${n.id}`)} aria-current={view.value === n.id}>
           <Icon name={n.icon} size={20} />
           <span>{tr(`nav.${n.id}`)}</span>
         </button>
@@ -134,6 +135,11 @@ function App() {
 }
 
 render(<App />, document.getElementById('app')!);
-boot().catch((err) => {
-  document.getElementById('app')!.innerHTML = KIOSKO_DEMO ? demoBootError(err) : `<div class="boot-error"><h1>Kiosko</h1><p>Cannot reach the Kiosko service: ${String(err)}</p></div>`;
-});
+boot()
+  .then(() => {
+    // The site's front page shows the editor driving itself (demo/tour.ts).
+    if (KIOSKO_DEMO && touring()) startTour();
+  })
+  .catch((err) => {
+    document.getElementById('app')!.innerHTML = KIOSKO_DEMO ? demoBootError(err) : `<div class="boot-error"><h1>Kiosko</h1><p>Cannot reach the Kiosko service: ${String(err)}</p></div>`;
+  });

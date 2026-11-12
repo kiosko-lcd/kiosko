@@ -3,7 +3,7 @@
  * and what the runtime tells it unprompted. In a Web Worker each call is a
  * message; in the page (fallback) it is a plain method call.
  *
- * Types only: the editor bundle must not pull the runtime in.
+ * Types (and a name) only: the editor bundle must not pull the runtime in.
  */
 import type { Config, Screen } from '@kiosko/core/model';
 import type { AppState, FrameEvent, Status } from '../src/api.ts';
@@ -68,6 +68,17 @@ export interface RendererApi {
   logs(): Promise<LogEntry[]>;
   /** Paints these channels continuously, as `stage` events, until called again (none = stop). */
   stage(channels: StageChannel[]): Promise<void>;
+}
+
+/** Where the editor on tour (src/demo/tour.ts) says what it is editing, and takes `play` and `pause`: a BroadcastChannel. */
+export const TOUR_CHANNEL = 'kiosko.tour';
+
+/** What the tour tells whoever shows its page elsewhere (the front page's panel). */
+export interface TourMessage {
+  type: 'config';
+  config: unknown;
+  screenId: string;
+  pageId: string;
 }
 
 export type RendererEvent = { name: 'frame'; data: FrameEvent } | { name: 'status'; data: Status } | { name: 'log'; data: LogEntry } | { name: 'stage'; data: StageFrame };

@@ -196,7 +196,7 @@ export function Settings() {
           </h3>
           <div class="theme-grid">
             {a.themes.map((t) => (
-              <button class={`theme-swatch ${cfg.theme === t.id ? 'on' : ''}`} onClick={() => edit((d) => (d.theme = t.id))} style={{ background: t.colors.bg, color: t.colors.ink, borderRadius: `${Math.min(14, t.radius)}px` }}>
+              <button class={`theme-swatch ${cfg.theme === t.id ? 'on' : ''}`} data-theme-id={t.id} onClick={() => edit((d) => (d.theme = t.id))} style={{ background: t.colors.bg, color: t.colors.ink, borderRadius: `${Math.min(14, t.radius)}px` }}>
                 <span class="sw-card" style={{ background: t.colors.surface, borderColor: t.colors.surfaceEdge, borderRadius: `${Math.min(10, t.radius / 1.5)}px` }}>
                   <span class="sw-line" style={{ background: t.colors.ink }} />
                   <span class="sw-line short" style={{ background: t.colors.inkDim }} />
