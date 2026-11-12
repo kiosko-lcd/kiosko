@@ -21,6 +21,11 @@ Thanks for wanting to make Kiosko better.
   in Chromium, Firefox and WebKit, the same way. A plugin must not do Node
   work (files, processes, sockets) when it is imported or when it paints its
   demo data: the demo runs it in a browser.
+- **The panel in 3D** (`https://kioskolcd.dev/demo/3d/`, `packages/web/panel3d`):
+  built with the demo. A software renderer is far too slow for it, so it is
+  checked with a Chrome on your own machine and its GPU:
+  `node scripts/panel3d-film.mjs hero= stack="panels=3"` takes pictures into
+  `out/`, and `--seconds 10 cats="widget=cats/room"` films. Look at them.
 
 Conventions: TypeScript run directly by Node (type stripping, so no enums,
 namespaces or constructor parameter properties), ESM only, `.ts` extensions

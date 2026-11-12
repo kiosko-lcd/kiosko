@@ -41,6 +41,13 @@ themes and languages; nothing is installed and your changes stay in that
 browser. What needs a machine (a real panel, plugins from npm, live data) is
 switched off there.
 
+**<https://kioskolcd.dev/demo/3d/>**: a panel in 3D with those sample screens
+running on it, painted live by the same code, widget animations and
+interludes included. Drag to look around; `?panels=3` stacks three,
+`?widget=cats/room` shows one widget alone and the *Record* button saves a
+video. `scripts/panel3d-film.mjs` takes pictures and films from the command
+line, for a plugin's README.
+
 ## Try it in 30 seconds
 
 ```sh

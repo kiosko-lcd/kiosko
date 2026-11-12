@@ -55,7 +55,7 @@ figcaption code{color:#22d3ee;font-size:12px}figcaption span{flex-basis:100%;col
 a{color:#22d3ee}
 p.os{margin-top:14px}p.os b{color:var(--text)}
 a.try{display:inline-block;margin-top:10px;padding:8px 14px;border-radius:10px;background:linear-gradient(135deg,#8b5cf6,#22d3ee);color:#fff;font-weight:600;text-decoration:none}
-</style></head><body><header><h1>Kiosko widget gallery</h1><p>${count} widgets, painted with their demo data by the same code that drives the panels. <a href="https://github.com/kiosko-lcd/kiosko">Kiosko on GitHub</a></p><p><a class="try" href="${DEMO_URL}">Try the editor in your browser →</a></p><p class="os"><b>Now on Linux, macOS and Windows.</b> Windows has an installer, no Node.js needed: <a href="${RELEASES_URL}">download Kiosko for Windows</a>. USB panels talk to Kiosko directly, with no Python: <a href="${USB_URL}">how to connect one</a>.</p></header><main>${sections.join('')}</main></body></html>`,
+</style></head><body><header><h1>Kiosko widget gallery</h1><p>${count} widgets, painted with their demo data by the same code that drives the panels. <a href="https://github.com/kiosko-lcd/kiosko">Kiosko on GitHub</a></p><p><a class="try" href="${DEMO_URL}">Try the editor in your browser →</a> &nbsp; <a class="try" href="${DEMO_URL}3d/">See a panel in 3D →</a></p><p class="os"><b>Now on Linux, macOS and Windows.</b> Windows has an installer, no Node.js needed: <a href="${RELEASES_URL}">download Kiosko for Windows</a>. USB panels talk to Kiosko directly, with no Python: <a href="${USB_URL}">how to connect one</a>.</p></header><main>${sections.join('')}</main></body></html>`,
   );
   return count;
 }
