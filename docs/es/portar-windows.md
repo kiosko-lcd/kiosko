@@ -342,6 +342,38 @@ Probado:
 **Pendiente:** confirmar a ojo la imagen y medir fps frente a `kiosko-sender`, después en la VM con el panel pasado por
 USB y WinUSB. Hasta entonces el driver es experimental.
 
+## 11. Fase 3: instalador de Windows (2026-11-12)
+
+`scripts/build-windows-installer.mjs` monta una carpeta autónoma (el `node.exe`
+que ejecuta el script, el paquete `kiosko` con sus dependencias de producción y
+los binarios de Windows de `@napi-rs/canvas` y `usb`, y los 15 plugins
+oficiales ya compilados) y la envuelve con Inno Setup (`installer/kiosko.iss`):
+`Kiosko-Setup-<versión>-x64.exe`, ~38 MB, **por usuario y sin administrador**,
+con tareas opcionales «arrancar al iniciar sesión» (`kiosko service install`) y
+«añadir `kiosko` al PATH», acceso en el menú Inicio (`start-kiosko.vbs`: arranca
+Kiosko sin ventana y abre el editor) y desinstalador que para el servicio y
+conserva la configuración. El workflow `Windows installer` lo construye en
+`windows-latest`, lo instala en silencio, lo comprueba, lo desinstala y, con
+una etiqueta `v*`, lo adjunta a la release.
+
+Probado en Windows 10 (VM): instalación silenciosa con servicio y PATH, tarea
+programada, editor en 7420, acceso del menú, entrada de desinstalación, `render`
+con los plugins oficiales, **actualización encima de una instalación en marcha**,
+`start-kiosko.vbs` con el servicio parado y desinstalación (sin ficheros,
+procesos, tarea ni entrada en el PATH; la configuración se conserva).
+
+La prueba encontró dos errores que no eran de Windows y están corregidos:
+
+- **Los plugins oficiales instalados con npm no cargaban en una instalación
+  limpia**, en ningún sistema: el resolutor que les da el SDK solo se instalaba
+  si existía la carpeta de plugins del usuario. (`kiosko@0.1.0` en npm lo tiene.)
+- `kiosko render --out C:\x.png` fallaba con `EPERM` (`mkdir` de la raíz de una
+  unidad).
+
+Sin firmar: SmartScreen avisará («Más información → Ejecutar de todas formas»).
+Pendiente: firma de código, paquete de winget, instalador para ARM64 y probar el
+panel real bajo WinUSB.
+
 ## Fuentes
 
 - thermalright-trcc-linux, notas de versión (soporte LY, WinUSB, libusb en
