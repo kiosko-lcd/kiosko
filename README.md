@@ -55,11 +55,6 @@ machine, so you can explore the editor before connecting a panel.
 
 ## Quick start
 
-> **Not on npm yet.** Until the first release, run it from a clone as in
-> [Try it in 30 seconds](#try-it-in-30-seconds), without `--demo` and with
-> `node --conditions=source packages/server/src/cli.ts` in place of `kiosko`.
-> Once it is published:
-
 ```sh
 npm install -g kiosko     # Node.js 22.18 or newer
 kiosko start --open           # editor at http://127.0.0.1:7420
@@ -270,7 +265,6 @@ cd ../kiosko && npm install && npm run dev:link
   panels, [docs/usb.md](docs/usb.md)) and byte-compatible with `trcc`, but not
   yet verified on a real panel in each OS. Other Thermalright protocols (SCSI,
   HID, 320×240) are still `trcc serve` only.
-- **First npm release** of `kiosko`, the SDK and the official plugins.
 - **Packaging**: a Homebrew tap for macOS and a winget package for Windows. The
   Windows installer is out (not code-signed yet).
 - **Configure with AI** from the editor: a prompt with what Kiosko detected
