@@ -35,6 +35,11 @@ and let a tiny daemon keep the panel up to date.
 
 ## Try it in your browser
 
+**<https://kioskolcd.dev/>** tells it in a minute, over a panel in 3D: scroll
+and the panel turns, shows the editor composing a page on it and becomes a
+stack of three. Every plugin is listed there, and every widget is in the
+[gallery](https://kioskolcd.dev/gallery/).
+
 **<https://kioskolcd.dev/demo/>**: the real editor, running entirely in your
 browser with sample data. Lay out the sample screens, add widgets, switch
 themes and languages; nothing is installed and your changes stay in that

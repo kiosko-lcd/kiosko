@@ -21,6 +21,13 @@ Thanks for wanting to make Kiosko better.
   in Chromium, Firefox and WebKit, the same way. A plugin must not do Node
   work (files, processes, sockets) when it is imported or when it paints its
   demo data: the demo runs it in a browser.
+- **The site** (`https://kioskolcd.dev/`): `npm run web:site` builds all of
+  it into `site/` (the front page from `packages/web/landing`, the gallery,
+  the demo and the 3D page); serve that folder to look at it
+  (`python3 -m http.server -d site`). The front page tells its story as it
+  is scrolled, over the 3D panel; one of its sections frames the demo's
+  editor driving itself (`packages/web/src/demo/tour.ts`, `demo/?tour=1`).
+  Its texts are in the page in English and Spanish: change both.
 - **The panel in 3D** (`https://kioskolcd.dev/demo/3d/`, `packages/web/panel3d`):
   built with the demo. A software renderer is far too slow for it, so it is
   checked with a Chrome on your own machine and its GPU:
