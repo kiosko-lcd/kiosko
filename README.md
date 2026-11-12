@@ -124,6 +124,110 @@ placeholders keep your current values, and never follow a changed host. With
 `--apply`, a running Kiosko takes the new config at once. Details:
 [docs/config-schema.md](docs/config-schema.md).
 
+### Several panels on Windows, set up by an agent
+
+An AI agent (Claude Code, Codex…) can take a Windows PC with several Thermalright
+panels from nothing to "each panel shows its own screen". One step needs a person
+at the keyboard (the USB driver, once per panel); the rest is commands an agent
+can run in PowerShell.
+
+1. **Install Kiosko** (agent). Download `Kiosko-Setup-<version>-x64.exe` from the
+   [latest release](https://github.com/kiosko-lcd/kiosko/releases/latest) and run it
+   silently, with the tasks "start when I sign in" and "add `kiosko` to PATH":
+
+   ```powershell
+   .\Kiosko-Setup-0.2.1-x64.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /TASKS=service,path
+   ```
+
+   Open a new terminal afterwards so `kiosko` is on the `PATH` (or use
+   `npm install -g kiosko`, Node.js 22.18 or newer). The service starts with a sample
+   screen that shows in the editor only, so it holds no panel yet.
+2. **Install the WinUSB driver on each panel** (you, once, as administrator).
+   Windows' own driver stands between Kiosko and the panel. With
+   [Zadig](https://zadig.akeo.ie): *Options → List All Devices*, pick the panel
+   (USB ID `0416:5408` or `0416:5409`), choose **WinUSB**, *Replace Driver*. The
+   official Thermalright software stops seeing that panel (restore its driver from
+   Device Manager if you need it back). An agent can't click this for you.
+3. **List the panels** (agent). The serial number is what tells identical panels
+   apart, and it follows the panel when you move it to another USB port:
+
+   ```powershell
+   kiosko usb
+   # LY panel 5408 at 3-7, serial 202592047DAE
+   # LY panel 5408 at 3-15, serial 20258AAB7F4F
+   ```
+
+   A panel listed as `(unreadable)` or with `LIBUSB_ERROR_NOT_SUPPORTED` still needs
+   step 2. If a panel is missing, check the cable and the hub.
+4. **Try each panel** (agent), before giving it to a screen. It paints Kiosko's
+   sample screen on it for ten seconds and says `ok` once frames go out:
+
+   ```powershell
+   kiosko usb test --serial 202592047DAE --rotate 180 --seconds 10
+   ```
+
+   The Trofeo Vision wants `--rotate 180`; when a screen's rotation doesn't match what
+   the panel's firmware expects, Kiosko says so in the editor's *Activity* log.
+5. **Write the config** (agent): one `screens[]` entry per panel in
+   `%APPDATA%\Kiosko\config.json`, each with `"device": { "driver": "usb", "serial": "…" }`.
+   Start from the screen Kiosko wrote on its first run, or from this one (it is
+   checked with `kiosko config validate`):
+
+   ```json
+   {
+     "$schema": "https://kioskolcd.dev/schema/v1/config.json",
+     "version": 1,
+     "screens": [
+       {
+         "id": "panel-1", "name": "Panel 1", "width": 1920, "height": 462, "rotate": 180,
+         "device": { "driver": "usb", "serial": "2025ECF47BED" },
+         "pages": [{ "id": "p1-home", "name": "Home", "tiles": [
+           { "id": "p1-clock", "x": 0, "y": 0, "w": 24, "h": 6, "widgets": [{ "id": "p1-clock-w", "type": "core/clock", "options": {} }] }
+         ] }]
+       },
+       {
+         "id": "panel-2", "name": "Panel 2", "width": 1920, "height": 462, "rotate": 180,
+         "device": { "driver": "usb", "serial": "20258AAB7F4F" },
+         "pages": [{ "id": "p2-home", "name": "Home", "tiles": [
+           { "id": "p2-note", "x": 0, "y": 0, "w": 24, "h": 6, "widgets": [{ "id": "p2-note-w", "type": "core/text", "options": { "text": "Hello from panel 2" } }] }
+         ] }]
+       }
+     ]
+   }
+   ```
+
+   Every `id` (screens, pages, tiles and widgets) must be unique in the **whole**
+   file, not per screen. `kiosko config schema` prints every widget the installed
+   plugins offer, and the [config schema](docs/config-schema.md) explains the rest.
+6. **Check and apply** (agent). `validate` exits with an error and JSON paths to
+   paste back to the model; `import --apply` backs up the current config and a
+   running Kiosko takes the new one at once:
+
+   ```powershell
+   kiosko config validate config.json
+   kiosko config import config.json --apply
+   ```
+
+7. **Make sure it stays up** (agent). `kiosko service install` starts Kiosko at
+   sign-in (skip it if the installer already did); `kiosko doctor` lists the panels
+   and the screens; the editor, at <http://127.0.0.1:7420/>, shows each screen's
+   connection in green once frames are going out. The log is `%APPDATA%\Kiosko\kiosko.log`.
+
+A prompt that works: *"Install Kiosko on this Windows PC with the silent installer
+from github.com/kiosko-lcd/kiosko/releases/latest. When I have put the WinUSB
+driver on my panels, list them with `kiosko usb`, test each one, and write a
+config.json with one screen per panel (serial in `device`, rotate 180), following
+https://kioskolcd.dev/schema/v1/config.json. Validate it with
+`kiosko config validate` before applying it."*
+
+Good to know: a panel serves **one program at a time** (close the manufacturer's
+software and any `trcc` or sender); a serial that isn't plugged in is waited for,
+never swapped for another panel; and the firmware drops frames over about 500 KB,
+so Kiosko re-encodes bigger ones at a lower JPEG quality (`maxBytes`, per screen).
+The USB connection is **experimental**: panel output is verified on Linux, and on
+Windows the installer, the service and the panel listing are, but a panel under
+WinUSB has not been driven yet. More in [docs/usb.md](docs/usb.md).
+
 ## Plugins
 
 Two plugins ship inside Kiosko: `core` (clock, calendar day, text note,

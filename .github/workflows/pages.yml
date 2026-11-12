@@ -16,7 +16,8 @@ concurrency:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # Not ubuntu-latest: Playwright's Chromium (the demo check below) isn't supported on every new release.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -42,11 +43,26 @@ jobs:
         run: |
           node --conditions=source packages/server/src/cli.ts config schema --out site/schema/v1/config.json
           echo kioskolcd.dev > site/CNAME
+      # Open the demo in a real browser (scripts/demo-check.mjs) BEFORE publishing it: a build that
+      # passes the unit tests can still die in a browser (`Buffer` or `fs` don't exist there), and
+      # this job failing means the deploy never runs, so the last working demo stays online.
+      - name: Check the browser demo in Chromium
+        run: |
+          npm install --prefix "$RUNNER_TEMP/pw" playwright@1.55.0 --no-audit --no-fund
+          "$RUNNER_TEMP/pw/node_modules/.bin/playwright" install --with-deps chromium
+          cd "$RUNNER_TEMP/pw" && node "$GITHUB_WORKSPACE/scripts/demo-check.mjs" "$GITHUB_WORKSPACE/site" "$RUNNER_TEMP/demo-check" --browsers chromium
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: demo-check
+          path: ${{ runner.temp }}/demo-check
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site
   deploy:
     needs: build
+    # A manual run on another branch builds and checks the site but never publishes it.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment:
       name: github-pages

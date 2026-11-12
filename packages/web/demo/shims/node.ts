@@ -133,6 +133,8 @@ export const overrides: Record<string, Record<string, unknown>> = {
     TextEncoder,
     TextDecoder,
   },
+  // The demo has no file system: nothing exists (paths.cache() asks for /dev/shm, for one).
+  fs: { existsSync: () => false },
   os: { platform: () => 'browser', homedir: () => '/home/demo', tmpdir: () => '/tmp', EOL: '\n', hostname: () => 'browser' },
   url: {
     fileURLToPath: (u: string | URL) => decodeURIComponent(new URL(String(u)).pathname),
