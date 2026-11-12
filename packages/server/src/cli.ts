@@ -36,7 +36,7 @@ const USAGE = `Kiosko ${VERSION}: a widget mosaic for USB LCD panels
   kiosko usb [list]                          the LY panels libusb sees, with their serial numbers
   kiosko usb test [--serial S] [--seconds 10] [--size 1920x462] [--rotate 180]
                                              drive a panel with the sample screen (experimental)
-  kiosko gallery [--out gallery] [--locale en] [--theme midnight]
+  kiosko gallery [--out gallery] [--locale en] [--theme midnight] [--pages config.json]
   kiosko plugins [list|add <id>…|link <folder>…|remove <id>…]
   kiosko service install|uninstall|print   (start with your session)
   kiosko version`;
@@ -223,7 +223,8 @@ async function main(): Promise<void> {
       process.env.KIOSKO_QUIET ??= '1';
       const reg = await registry();
       const out = opt('--out') ?? 'gallery';
-      const n = buildGallery(reg, { out, locale: opt('--locale') ?? 'en', theme: opt('--theme') ?? 'midnight' });
+      const sample = opt('--pages');
+      const n = buildGallery(reg, { out, locale: opt('--locale') ?? 'en', theme: opt('--theme') ?? 'midnight', ...(sample ? { pages: JSON.parse(readFileSync(sample, 'utf8')) as Config } : {}) });
       console.log(`${n} widgets → ${out}/index.html`);
       return;
     }
