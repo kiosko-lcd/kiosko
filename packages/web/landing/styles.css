@@ -1,0 +1,216 @@
+/* The site's front page: a story told over a panel in 3D, then the plugins and how to start. */
+:root {
+  color-scheme: dark;
+  --bg: #05060a;
+  --panel: #0d1118;
+  --ink: #eef1f7;
+  --dim: #a2abbd;
+  --faint: #6a7388;
+  --line: rgba(255, 255, 255, 0.1);
+  --accent: #8b7bff;
+  --accent-2: #22d3ee;
+  --font: 'Inter', 'Inter var', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --mono: ui-monospace, 'JetBrains Mono', 'SF Mono', 'Cascadia Code', Menlo, Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 16px/1.55 var(--font);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+[hidden] { display: none !important; }
+
+/* Two languages in the page, one shown: the one the document says it is in. */
+html[lang='en'] [lang='es'], html[lang='es'] [lang='en'] { display: none !important; }
+
+a { color: var(--accent-2); text-decoration: none; }
+a:hover { text-decoration: underline; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+h1, h2, h3, p { margin: 0; }
+h1, h2 { text-wrap: balance; letter-spacing: -0.03em; line-height: 1.04; }
+h1 { font-size: clamp(34px, 5.1vw, 72px); font-weight: 700; }
+h1 em { font-style: normal; background: linear-gradient(100deg, var(--accent), var(--accent-2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+h2 { font-size: clamp(28px, 3.6vw, 50px); font-weight: 700; }
+h3 { font-size: 19px; letter-spacing: -0.01em; }
+.kicker { color: var(--accent); font-weight: 650; font-size: 14px; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 12px; }
+.lede { color: var(--dim); font-size: clamp(16px, 1.45vw, 20px); text-wrap: pretty; }
+.fine { color: var(--faint); font-size: 13.5px; }
+code, pre { font-family: var(--mono); }
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  padding: 10px 18px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(20, 24, 34, 0.7);
+  backdrop-filter: blur(10px);
+  color: var(--ink);
+  font-weight: 620;
+  font-size: 15px;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+button.button { font-family: inherit; cursor: pointer; }
+.button:hover { text-decoration: none; background: rgba(40, 46, 62, 0.85); border-color: rgba(255, 255, 255, 0.24); }
+.button.primary { border-color: transparent; background: linear-gradient(120deg, #7c5cf6, #19b8d6); color: #fff; }
+.button.primary:hover { transform: translateY(-1px); background: linear-gradient(120deg, #8a6cff, #22c7e6); }
+.cta { display: flex; flex-wrap: wrap; gap: 10px; }
+
+/* ---------- Top bar ---------- */
+.top {
+  position: fixed;
+  inset: 0 0 auto 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: max(12px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) 12px max(20px, env(safe-area-inset-left));
+  background: linear-gradient(to bottom, rgba(5, 6, 10, 0.92) 30%, rgba(5, 6, 10, 0));
+}
+.brand { display: inline-flex; align-items: center; gap: 10px; color: var(--ink); font-weight: 680; font-size: 18px; letter-spacing: -0.01em; }
+.brand:hover { text-decoration: none; }
+.links { display: flex; align-items: center; gap: clamp(10px, 2vw, 22px); font-size: 14.5px; font-weight: 560; }
+.links a { color: var(--dim); }
+.links a:hover { color: var(--ink); text-decoration: none; }
+.lang { appearance: none; display: inline-flex; padding: 3px; border-radius: 999px; border: 1px solid var(--line); background: rgba(20, 24, 34, 0.7); cursor: pointer; font: inherit; font-size: 12px; }
+.lang b { padding: 2px 8px; border-radius: 999px; color: var(--faint); font-weight: 650; }
+html[lang='en'] .lang b[data-lang='en'], html[lang='es'] .lang b[data-lang='es'] { background: rgba(255, 255, 255, 0.14); color: var(--ink); }
+
+/* ---------- The story: a pinned stage and the sections that scroll over it ---------- */
+.story { position: relative; }
+.stage { position: sticky; top: 0; height: 100vh; height: 100svh; margin-bottom: -100vh; margin-bottom: -100svh; overflow: hidden; z-index: 0; }
+.stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; opacity: 0; transition: opacity 0.9s ease; }
+html.live3d .stage canvas { opacity: 1; }
+
+/* The panel as a picture: all there is without WebGL (or without scripts). With it, the picture is
+   only what the 3D panel shows first, so it is loaded but not seen. */
+.still { position: absolute; inset: 0; display: grid; place-items: center; padding: 40vh 6vw 0; opacity: 0; pointer-events: none; transform-origin: 50% 70%; transition: transform 0.7s cubic-bezier(0.45, 0, 0.2, 1), opacity 0.4s ease; }
+html.no3d .still { opacity: 1; }
+/* Without 3D the picture does what the scene would, plainly: it moves to the side the words leave
+   free, and steps out while the editor's window is the thing to look at. */
+html.no3d[data-step='editor'] .still { opacity: 0; }
+html.no3d[data-step='plugins'] .still, html.no3d[data-step='many'] .still, html.no3d[data-step='yours'] .still { transform: translate(23vw, -20vh) scale(0.6); }
+html.no3d[data-step='always'] .still, html.no3d[data-step='cable'] .still { transform: translate(-23vw, -20vh) scale(0.6); }
+html.no3d .only3d { display: none; }
+.slab { position: relative; width: min(920px, 84vw); padding: 1.1% 1.1% 3.4%; border-radius: 10px; background: #e9ebef; box-shadow: 0 40px 120px rgba(124, 92, 246, 0.25), 0 10px 40px rgba(0, 0, 0, 0.6); transform: perspective(1600px) rotateY(-14deg) rotateX(4deg); }
+.slab img { display: block; width: 100%; height: auto; aspect-ratio: 1920 / 462; object-fit: contain; border: 3px solid #050506; border-radius: 2px; background: #000; }
+.slab span { position: absolute; left: 0; right: 0; bottom: 0.9%; text-align: center; color: #2a2d32; font-weight: 650; font-size: clamp(6px, 0.9vw, 11px); letter-spacing: 0.32em; }
+
+.step { position: relative; z-index: 1; min-height: 100vh; min-height: 100svh; display: flex; align-items: center; padding: 96px clamp(20px, 6vw, 96px); pointer-events: none; }
+.step a, .step .button { pointer-events: auto; }
+.step .copy { max-width: 430px; display: grid; gap: 16px; text-shadow: 0 2px 24px rgba(5, 6, 10, 0.9); }
+.step .copy > p { color: var(--dim); font-size: 17px; text-wrap: pretty; }
+.step .copy > p.kicker { color: var(--accent); margin: 0; }
+.step.right { justify-content: flex-end; }
+
+.step.hero { align-items: flex-start; justify-content: center; text-align: center; padding-top: clamp(84px, 12vh, 140px); }
+.step.hero .copy { max-width: 1120px; justify-items: center; gap: 18px; }
+/* The promise on a line of its own. */
+.step.hero h1 em { display: block; }
+.step.hero .lede { max-width: 640px; }
+.hint { position: absolute; left: 0; right: 0; bottom: 22px; display: grid; justify-items: center; gap: 6px; color: var(--faint); font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; }
+.hint i { width: 1px; height: 26px; background: linear-gradient(var(--faint), transparent); animation: hint 1.8s ease-in-out infinite; }
+@keyframes hint { 0%, 100% { transform: scaleY(0.4); transform-origin: top; opacity: 0.4; } 50% { transform: scaleY(1); transform-origin: top; opacity: 1; } }
+
+/* The editor's step stays for longer: its window is pinned while the page scrolls under it. The
+   editor is on the left, as big as it fits; the words are on the right and under them, in the
+   scene, the panel showing what is being composed. */
+.step.editor { display: block; min-height: 280vh; padding: 0 clamp(16px, 3vw, 48px); }
+.pin { position: sticky; top: 0; height: 100vh; height: 100svh; display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(280px, 1fr); grid-template-rows: 1fr auto; column-gap: clamp(20px, 3vw, 48px); align-items: center; padding: 78px 0 18px; }
+.step.editor .copy { grid-column: 2; align-self: start; margin-top: clamp(8px, 5vh, 60px); gap: 12px; }
+.step.editor .copy h2 { font-size: clamp(26px, 2.9vw, 42px); }
+.step.editor .copy > p:not(.kicker) { font-size: 15.5px; }
+.window { grid-column: 1; grid-row: 1; justify-self: end; width: min(100%, calc((100svh - 160px) * 1280 / 790)); border-radius: 12px; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.14); background: #0a0d13; box-shadow: 0 30px 90px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(0, 0, 0, 0.5); }
+.bar { display: flex; align-items: center; gap: 7px; height: 30px; padding: 0 12px; background: #141925; border-bottom: 1px solid var(--line); }
+.bar i { width: 10px; height: 10px; border-radius: 50%; background: #2b3242; }
+.bar span { margin: 0 auto; padding-right: 44px; color: var(--faint); font-size: 12px; }
+/* The editor at its own size (1280×760), scaled to the window: --k is set from its width. */
+.view { position: relative; aspect-ratio: 1280 / 760; overflow: hidden; background: #0a0d13; }
+.view iframe { position: absolute; left: 0; top: 0; width: 1280px; height: 760px; border: 0; transform-origin: 0 0; transform: scale(var(--k, 0.75)); pointer-events: none; }
+.fine.under { grid-column: 1; grid-row: 2; justify-self: end; width: min(100%, calc((100svh - 160px) * 1280 / 790)); text-align: center; text-shadow: 0 2px 16px rgba(5, 6, 10, 0.9); }
+.fine.under a { pointer-events: auto; margin-left: 6px; white-space: nowrap; }
+
+/* The visitor's own config: what was read, or why not; and the whole page as a place to drop it. */
+.step.yours .copy { max-width: 460px; }
+.step.yours code { color: var(--ink); font-size: 0.92em; }
+.said { min-height: 1.5em; color: var(--dim); }
+.said.bad { color: #ff9a8a; }
+.dropzone { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 24px; background: rgba(5, 6, 10, 0.78); backdrop-filter: blur(6px); opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 0.15s ease, visibility 0.15s; }
+html.dropping .dropzone { opacity: 1; visibility: visible; }
+.dropzone p { margin: 0; padding: clamp(28px, 6vw, 64px) clamp(32px, 8vw, 96px); border: 2px dashed var(--accent); border-radius: 24px; background: rgba(139, 123, 255, 0.1); font-size: clamp(22px, 3vw, 36px); font-weight: 680; letter-spacing: -0.02em; }
+
+/* ---------- After the story ---------- */
+.band { position: relative; z-index: 2; background: var(--bg); border-top: 1px solid var(--line); padding: clamp(64px, 10vh, 120px) clamp(20px, 6vw, 96px); }
+.inner { max-width: 1240px; margin: 0 auto; display: grid; gap: 18px; }
+.band .lede { max-width: 640px; }
+.band .cta { margin-top: 10px; }
+
+.plugins { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 14px; margin-top: 18px; }
+.plugin { display: grid; grid-template-rows: auto 1fr; border: 1px solid var(--line); border-radius: 16px; overflow: hidden; background: var(--panel); transition: border-color 0.2s ease, transform 0.2s ease; }
+.plugin:hover { border-color: rgba(139, 123, 255, 0.5); transform: translateY(-2px); }
+.shots { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 2px; height: 128px; background: #000; }
+.shots img { width: 100%; height: 128px; object-fit: cover; object-position: left top; display: block; }
+.plugin .about { padding: 14px 16px 16px; display: grid; gap: 6px; align-content: start; }
+.plugin h3 { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.plugin code { color: var(--accent-2); font-size: 12px; font-weight: 500; }
+.plugin p { color: var(--dim); font-size: 14px; }
+.plugin .count { color: var(--faint); font-size: 12.5px; }
+
+.ways { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; margin-top: 18px; }
+.way { border: 1px solid var(--line); border-radius: 16px; background: var(--panel); padding: 22px; display: grid; gap: 12px; align-content: start; }
+.way p { color: var(--dim); font-size: 15px; }
+.way p code { color: var(--ink); font-size: 13.5px; }
+pre { margin: 0; padding: 12px 14px; border-radius: 10px; background: #06080d; border: 1px solid var(--line); color: #cfe3ff; font-size: 13.5px; line-height: 1.6; overflow-x: auto; }
+
+footer { position: relative; z-index: 2; background: var(--bg); border-top: 1px solid var(--line); padding: 28px clamp(20px, 6vw, 96px) 44px; color: var(--faint); font-size: 13px; display: grid; gap: 6px; }
+footer a { color: var(--dim); }
+
+/* ---------- Narrow screens: words above, the panel below ---------- */
+@media (max-width: 820px) {
+  .links a[href='#plugins'], .links a[href='demo/3d/'] { display: none; }
+  .step { align-items: flex-start; padding-top: 92px; }
+  .step.left, .step.right { justify-content: flex-start; }
+  .step .copy { max-width: 560px; }
+  .step .copy > p { font-size: 16px; }
+  .still { padding-top: 50vh; transform-origin: 50% 75%; }
+  html.no3d[data-step] .still { transform: none; }
+}
+
+/* Not wide enough for the editor and the words side by side: words, editor, and the panel under them. */
+@media (max-width: 1000px) {
+  .pin { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto 1fr; justify-items: center; align-items: start; row-gap: 10px; padding-top: 70px; }
+  .step.editor .copy { grid-column: 1; margin-top: 0; text-align: center; max-width: 640px; }
+  .step.editor .copy > p:not(.kicker) { display: none; }
+  .window, .fine.under { grid-row: auto; justify-self: center; width: min(100%, calc((100svh - 400px) * 1280 / 790)); min-width: min(100%, 300px); }
+}
+
+/* A short window (a laptop with its bars): the panel comes up to the words, so the small print
+   and the cue to scroll make room for it. */
+@media (max-height: 780px) and (min-width: 820px) {
+  .step.hero { padding-top: 76px; }
+  .step.hero .copy { gap: 12px; }
+  .step.hero .fine, .hint { display: none; }
+}
+
+/* The page as a picture for when its link is shared (?card, 1200×630): see main.ts. */
+html.card { overflow: hidden; }
+html.card .links, html.card .cta, html.card .fine, html.card .hint, html.card .lede { display: none; }
+html.card .top { padding: 26px 40px; background: none; }
+html.card .top::after { content: 'kioskolcd.dev'; color: var(--dim); font-weight: 600; font-size: 20px; }
+html.card .brand { font-size: 26px; gap: 12px; }
+html.card .brand img { width: 34px; height: 34px; }
+html.card .step.hero { padding-top: 104px; }
+html.card h1 { font-size: 62px; }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .hint i { animation: none; }
+  .stage canvas, .still, .plugin, .button { transition: none; }
+}

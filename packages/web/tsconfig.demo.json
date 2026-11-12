@@ -13,5 +13,5 @@
       "@loksly/trcc-client": ["./demo/trcc-client.d.ts"]
     }
   },
-  "include": ["demo/**/*.ts"]
+  "include": ["demo/**/*.ts", "panel3d/**/*.ts", "landing/**/*.ts", "src/env.d.ts"]
 }

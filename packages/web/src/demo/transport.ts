@@ -8,13 +8,13 @@
  */
 import type { Config, Screen } from '@kiosko/core/model';
 import type { AppState, Status, api as httpApi, connectEvents as httpConnectEvents } from '../api.ts';
-import type { RendererApi, RendererEvent } from '../../demo/protocol.ts';
+import { DEMO_CONFIG_KEY, type RendererApi, type RendererEvent } from '../../demo/protocol.ts';
 import { onRendererEvent, renderMode, renderer } from './client.ts';
 
 export type { AppState, FrameEvent, JsonSchema, PluginInfo, Status, ThemeInfo, WidgetInfo } from '../api.ts';
 
 /** localStorage key of the demo's config ({ rev, config }). */
-export const STORAGE_KEY = 'kiosko.demo.config';
+export const STORAGE_KEY = DEMO_CONFIG_KEY;
 
 // Top-level values are marked pure: the normal build reaches this module
 // (through ui.tsx) and must be able to drop all of it.
@@ -25,7 +25,14 @@ interface Saved {
   config: Config;
 }
 
+/**
+ * On tour (`?tour=1`, the front page's editor on autopilot, see tour.ts) nothing is read or kept:
+ * it starts from the sample screens every time and never touches what the visitor made.
+ */
+const TOUR = /* @__PURE__ */ (() => typeof location !== 'undefined' && new URLSearchParams(location.search).has('tour'))();
+
 function readSaved(): Saved | null {
+  if (TOUR) return null;
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     const v = raw ? (JSON.parse(raw) as Saved) : null;
@@ -36,6 +43,7 @@ function readSaved(): Saved | null {
 }
 
 function writeSaved(s: Saved): void {
+  if (TOUR) return;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
   } catch {
@@ -66,7 +74,8 @@ function onEvent(e: RendererEvent): void {
   for (const h of handlers) {
     if (e.name === 'frame') h.frame?.(e.data);
     else if (e.name === 'status') h.status?.(e.data as Status);
-    else h.log?.(e.data);
+    else if (e.name === 'log') h.log?.(e.data);
+    // 'stage' frames are for the 3D page (panel3d/), which listens by itself.
   }
 }
 

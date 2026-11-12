@@ -7,6 +7,8 @@ and let a tiny daemon keep the panel up to date.
 
 > 🇪🇸 Documento de diseño en castellano: [docs/es/plan.md](docs/es/plan.md)
 
+[![A bar-shaped USB panel on a desk, seen in 3D, its widgets alive: the cats room and a stack of cards taking turns](docs/img/panel-3d.webp)](https://kioskolcd.dev/)
+
 ![The Kiosko editor: a 1920×462 panel with the cats room and a stack of cards](docs/img/editor-cats.jpg)
 
 - **Visual editor in your browser.** Drag widgets onto a to-scale picture of
@@ -35,11 +37,25 @@ and let a tiny daemon keep the panel up to date.
 
 ## Try it in your browser
 
+**<https://kioskolcd.dev/>** tells it in a minute, over a panel in 3D: scroll
+and the panel turns, shows the editor composing a page on it and becomes a
+stack of three. Drop a `config.json` on that page (yours, or one an assistant
+wrote for you) and the panel shows its pages, one panel for each screen; the
+file is read in your browser and goes nowhere. Every plugin is listed there,
+and every widget is in the [gallery](https://kioskolcd.dev/gallery/).
+
 **<https://kioskolcd.dev/demo/>**: the real editor, running entirely in your
 browser with sample data. Lay out the sample screens, add widgets, switch
 themes and languages; nothing is installed and your changes stay in that
 browser. What needs a machine (a real panel, plugins from npm, live data) is
 switched off there.
+
+**<https://kioskolcd.dev/demo/3d/>**: a panel in 3D with those sample screens
+running on it, painted live by the same code, widget animations and
+interludes included. Drag to look around; `?panels=3` stacks three,
+`?widget=cats/room` shows one widget alone and the *Record* button saves a
+video. `scripts/panel3d-film.mjs` takes pictures and films from the command
+line, for a plugin's README.
 
 ## Try it in 30 seconds
 
@@ -432,7 +448,8 @@ npm run check        # TypeScript, strict
 npm run web:watch    # rebuild the editor on change
 node --conditions=source scripts/render-widgets.ts --plugin core --out tmp/w
 npm run web:demo     # the static browser demo, into site/demo
-scripts/demo-check-docker.sh   # build it and drive it in Chromium, Firefox and WebKit (Docker)
+npm run web:site     # the whole site (front page, gallery, demo, schema), into site/
+scripts/demo-check-docker.sh   # build the site and drive it in Chromium, Firefox and WebKit (Docker)
 ```
 
 The browser demo is the editor built with `KIOSKO_DEMO`: its API

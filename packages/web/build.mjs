@@ -2,6 +2,7 @@
 //
 //   node packages/web/build.mjs [--watch]
 //   node packages/web/build.mjs --demo [--out site/demo]   static browser demo (see demo/build.mjs)
+//   node packages/web/build.mjs --site [--out site]        the whole site: front page, gallery, demo (see landing/build.mjs)
 import { build, context } from 'esbuild';
 import { cpSync, mkdirSync, rmSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -36,7 +37,10 @@ function editorOptions(outdir, { demo = false } = {}) {
   };
 }
 
-if (demo) {
+if (args.includes('--site')) {
+  const { buildSite } = await import('./landing/build.mjs');
+  await buildSite({ out: resolve(outArg ?? join(here, '../../site')), editorOptions });
+} else if (demo) {
   const { buildDemo } = await import('./demo/build.mjs');
   await buildDemo({ out: resolve(outArg ?? join(here, 'dist-demo')), editorOptions });
 } else {

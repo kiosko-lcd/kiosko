@@ -308,6 +308,7 @@ export function Stage() {
               return (
                 <div
                   key={t.id}
+                  data-tile={t.id}
                   class={`tile ${sel ? 'selected' : ''} ${isDragged ? 'dragging' : ''} ${isDragged && invalid ? 'invalid' : ''} ${ghost?.stackOn === t.id ? 'stack-target' : ''} ${t.locked ? 'locked' : ''}`}
                   style={{ left: `${(r.x / W) * 100}%`, top: `${(r.y / H) * 100}%`, width: `${(r.w / W) * 100}%`, height: `${(r.h / H) * 100}%` }}
                   onPointerDown={(e) => onPointerDown(e as PointerEvent, t, 'move')}

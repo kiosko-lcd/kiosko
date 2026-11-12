@@ -68,6 +68,7 @@ function viaWorker(url: string): Promise<RendererApi> {
           thumbnail: (type, w, h, look) => call('thumbnail', [type, w, h, look]),
           pin: (screenId, pageId) => call('pin', [screenId, pageId]),
           logs: () => call('logs', []),
+          stage: (channels) => call('stage', [channels]),
         } as RendererApi);
       } else if ('unsupported' in data) {
         worker.terminate();

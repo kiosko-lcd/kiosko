@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Kiosko · the little screen on your desk, finally useful</title>
+  <meta name="description" content="Kiosko turns a small always-on USB LCD panel into a mosaic of live widgets: AI agents, builds, calendar, weather, news. A visual editor, plugins, and a tiny daemon. Free and open source." />
+  <meta name="theme-color" content="#05060a" />
+  <meta property="og:title" content="Kiosko: the little screen on your desk, finally useful" />
+  <meta property="og:site_name" content="Kiosko" />
+  <meta property="og:description" content="A widget mosaic for small always-on USB LCD panels, with a visual editor and plugins." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://kioskolcd.dev/" />
+  <!-- The picture is the page itself with ?card, taken by scripts/panel3d-film.mjs --card. -->
+  <meta property="og:image" content="https://kioskolcd.dev/card.jpg" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="A bar-shaped USB LCD panel on a desk, showing Kiosko's widgets: the little screen on your desk, finally useful." />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="icon" href="demo/icon.svg" type="image/svg+xml" />
+  <!-- The language, before anything is painted: the visitor's choice, or the browser's. -->
+  <script>
+    try {
+      var l = localStorage.getItem('kiosko.lang') || navigator.language || 'en';
+      document.documentElement.lang = /^es/i.test(l) ? 'es' : 'en';
+    } catch (e) {}
+  </script>
+  <link rel="stylesheet" href="{{CSS}}" />
+</head>
+<body>
+  <nav class="top" aria-label="Kiosko">
+    <a class="brand" href="./"><img src="demo/icon.svg" alt="" width="26" height="26" />Kiosko</a>
+    <span class="links">
+      <a href="#plugins">Plugins</a>
+      <a href="demo/"><span lang="en">Editor</span><span lang="es">Editor</span></a>
+      <a href="demo/3d/">3D</a>
+      <a href="https://github.com/kiosko-lcd/kiosko">GitHub</a>
+      <button class="lang" type="button" aria-label="Language / Idioma"><b data-lang="en">EN</b><b data-lang="es">ES</b></button>
+    </span>
+  </nav>
+
+  <!-- Shown while a file is dragged over the page: see "yours" in the story. -->
+  <div class="dropzone" aria-hidden="true">
+    <p><span lang="en">Drop your config.json</span><span lang="es">Suelta tu config.json</span></p>
+  </div>
+
+  <main>
+    <!-- The story: the panel stays on screen while these sections scroll past it; how far the page
+         has been scrolled moves the camera, grows the stack and changes what the panel shows. -->
+    <div class="story" id="story">
+      <div class="stage" aria-hidden="true">
+        <canvas id="panel"></canvas>
+        <!-- Where the 3D can't be (no WebGL, no scripts): the same panel, as a picture. With 3D it is
+             the picture the panel starts with. -->
+        <noscript>
+          <style>
+            /* No scripts: the picture stays with the first section, and the rest is read as plain text. */
+            .still { opacity: 1 !important; }
+            .stage { position: absolute; left: 0; right: 0; top: 0; }
+            .step:not(.hero), .step.editor { min-height: 0; padding-top: 56px; padding-bottom: 56px; }
+            .pin { position: static; height: auto; display: block; padding: 0; }
+            .window, .fine.under, .hint { display: none; }
+          </style>
+        </noscript>
+        <div class="still">
+          <!-- One picture for each language: the one that isn't shown isn't fetched (it is lazy). -->
+          <div class="slab">
+            <img lang="en" src="{{POSTER}}" width="1920" height="462" alt="" loading="lazy" />
+            <img lang="es" src="{{POSTER_ES}}" width="1920" height="462" alt="" loading="lazy" />
+            <span>THERMALRIGHT</span>
+          </div>
+        </div>
+      </div>
+
+      <section class="step hero" data-step="hero">
+        <div class="copy">
+          <h1>
+            <span lang="en">The little screen on your desk, <em>finally useful.</em></span>
+            <span lang="es">La pantallita de tu mesa, <em>por fin útil.</em></span>
+          </h1>
+          <p class="lede">
+            <span lang="en">Kiosko turns a small always-on USB LCD panel into a mosaic of live widgets: your AI agents, builds, calendar, weather, news. You lay it out; a tiny daemon keeps it up to date.</span>
+            <span lang="es">Kiosko convierte un pequeño panel LCD USB siempre encendido en un mosaico de widgets en vivo: tus agentes de IA, compilaciones, agenda, el tiempo, noticias. Tú lo compones; un pequeño demonio lo mantiene al día.</span>
+          </p>
+          <p class="cta">
+            <a class="button primary" href="demo/"><span lang="en">Try the editor</span><span lang="es">Probar el editor</span></a>
+            <a class="button" href="#start"><span lang="en">Install</span><span lang="es">Instalar</span></a>
+          </p>
+          <p class="fine">
+            <span lang="en">Free and open source · Linux, macOS, Windows</span>
+            <span lang="es">Libre y de código abierto · Linux, macOS, Windows</span>
+          </p>
+        </div>
+        <p class="hint"><span lang="en">Scroll</span><span lang="es">Baja</span><i></i></p>
+      </section>
+
+      <section class="step editor" data-step="editor">
+        <div class="pin">
+          <div class="copy">
+            <p class="kicker"><span lang="en">The editor</span><span lang="es">El editor</span></p>
+            <h2>
+              <span lang="en">Compose it by dragging. The panel follows.</span>
+              <span lang="es">Compónlo arrastrando. El panel te sigue.</span>
+            </h2>
+            <p>
+              <span lang="en">Find a widget, drop it on a to-scale picture of your panel, resize it on the grid, stack several in one tile so they take turns. Every widget has its options and a theme changes the whole look.</span>
+              <span lang="es">Busca un widget, suéltalo sobre una imagen a escala de tu panel, cámbiale el tamaño en la rejilla, apila varios en una casilla para que se turnen. Cada widget tiene sus opciones y un tema cambia todo el aspecto.</span>
+            </p>
+          </div>
+          <div class="window">
+            <div class="bar"><i></i><i></i><i></i><span>kioskolcd.dev/demo</span></div>
+            <div class="view"><iframe data-src="demo/?tour=1" title="The Kiosko editor, driving itself" tabindex="-1" loading="lazy"></iframe></div>
+          </div>
+          <p class="fine under">
+            <span lang="en">The real editor, in your browser, on autopilot.<span class="only3d"> The panel shows what it composes, as it does.</span></span>
+            <span lang="es">El editor de verdad, en tu navegador, en piloto automático.<span class="only3d"> El panel enseña lo que compone, según lo hace.</span></span>
+            <a href="demo/"><span lang="en">Take the wheel →</span><span lang="es">Coge tú el ratón →</span></a>
+          </p>
+        </div>
+      </section>
+
+      <section class="step left" data-step="plugins">
+        <div class="copy">
+          <p class="kicker"><span lang="en">Plugins</span><span lang="es">Plugins</span></p>
+          <h2><span lang="en">Plugins all the way down.</span><span lang="es">Plugins de arriba abajo.</span></h2>
+          <p>
+            <span lang="en">Every widget, data source and animation is a plugin with the same small contract. {{PLUGIN_COUNT}} come with it (AI agents, GitHub and GitLab, calendar, weather, news, GPUs, local LLMs) and yours fits in a single file.</span>
+            <span lang="es">Cada widget, fuente de datos y animación es un plugin con el mismo contrato mínimo. Vienen {{PLUGIN_COUNT}} (agentes de IA, GitHub y GitLab, agenda, el tiempo, noticias, GPU, LLM locales) y el tuyo cabe en un fichero.</span>
+          </p>
+          <p><a href="#plugins"><span lang="en">See them all ↓</span><span lang="es">Verlos todos ↓</span></a></p>
+        </div>
+      </section>
+
+      <section class="step right" data-step="always">
+        <div class="copy">
+          <p class="kicker"><span lang="en">Always on</span><span lang="es">Siempre encendida</span></p>
+          <h2><span lang="en">Made for screens that never turn off.</span><span lang="es">Hecho para pantallas que no se apagan.</span></h2>
+          <p>
+            <span lang="en">It repaints only when something changes, shifts pixels against burn-in and goes black when nothing needs you. Dark is the normal state: when it lights up, it is worth a look.</span>
+            <span lang="es">Solo repinta cuando algo cambia, desplaza píxeles contra el quemado y se queda en negro cuando nada te necesita. Lo normal es que esté a oscuras: si se enciende, merece una mirada.</span>
+          </p>
+        </div>
+      </section>
+
+      <section class="step left" data-step="many">
+        <div class="copy">
+          <p class="kicker"><span lang="en">Screens</span><span lang="es">Pantallas</span></p>
+          <h2><span lang="en">One panel. Or three.</span><span lang="es">Un panel. O tres.</span></h2>
+          <p>
+            <span lang="en">One config drives every screen you plug in, each with its own pages that take turns, its work hours and its interludes.</span>
+            <span lang="es">Una sola configuración mueve todas las pantallas que enchufes, cada una con sus páginas que se turnan, su horario y sus interludios.</span>
+          </p>
+        </div>
+      </section>
+
+      <section class="step right" data-step="cable">
+        <div class="copy">
+          <p class="kicker"><span lang="en">Hardware</span><span lang="es">Hardware</span></p>
+          <h2><span lang="en">One cable. No vendor app.</span><span lang="es">Un cable. Sin la app del fabricante.</span></h2>
+          <p>
+            <span lang="en">Kiosko drives 1920×462 bar panels such as the Thermalright Trofeo Vision, square AIO screens and small 320×240 displays, on Linux, macOS and Windows. A magnet on its back holds it to your case; a USB-C cable is the whole installation.</span>
+            <span lang="es">Kiosko mueve paneles de barra de 1920×462 como el Thermalright Trofeo Vision, pantallas cuadradas de AIO y pequeñas de 320×240, en Linux, macOS y Windows. Un imán en su trasera lo sujeta a la caja; un cable USB-C es toda la instalación.</span>
+          </p>
+          <p class="fine">
+            <a href="https://github.com/kiosko-lcd/kiosko/blob/main/docs/usb.md"><span lang="en">How to connect one →</span><span lang="es">Cómo conectar uno →</span></a>
+          </p>
+        </div>
+      </section>
+
+      <!-- The visitor's own config on the panel. The file is read in this page and goes nowhere. -->
+      <section class="step left yours" data-step="yours" id="yours">
+        <div class="copy">
+          <p class="kicker"><span lang="en">Yours</span><span lang="es">La tuya</span></p>
+          <h2><span lang="en">Now with your config.</span><span lang="es">Ahora con tu configuración.</span></h2>
+          <p>
+            <span lang="en">Drop a <code>config.json</code> on this page (yours, or one an assistant wrote for you) and the panel shows its pages, one panel for each screen, with sample data. It stays in this browser: nothing is uploaded.</span>
+            <span lang="es">Suelta un <code>config.json</code> sobre esta página (el tuyo, o uno que te haya escrito un asistente) y el panel enseña sus páginas, un panel por pantalla, con datos de muestra. Se queda en este navegador: no se sube a ningún sitio.</span>
+          </p>
+          <p class="cta">
+            <button class="button primary" type="button" data-yours="pick"><span lang="en">Choose a file</span><span lang="es">Elegir un fichero</span></button>
+            <button class="button" type="button" data-yours="demo" hidden><span lang="en">The one from the editor demo</span><span lang="es">La de la demo del editor</span></button>
+          </p>
+          <p class="fine said" data-yours="said" role="status" aria-live="polite"></p>
+          <p class="cta" data-yours="loaded" hidden>
+            <a class="button" href="demo/" data-yours="edit"><span lang="en">Open it in the editor</span><span lang="es">Abrirla en el editor</span></a>
+            <button class="button" type="button" data-yours="reset"><span lang="en">Back to the sample</span><span lang="es">Volver a la muestra</span></button>
+          </p>
+          <input type="file" accept="application/json,.json" data-yours="file" hidden />
+        </div>
+      </section>
+    </div>
+
+    <section class="band" id="plugins">
+      <div class="inner">
+        <p class="kicker"><span lang="en">The plugins</span><span lang="es">Los plugins</span></p>
+        <h2>
+          <span lang="en">{{PLUGIN_COUNT}} plugins, {{WIDGET_COUNT}} widgets. Room for yours.</span>
+          <span lang="es">{{PLUGIN_COUNT}} plugins, {{WIDGET_COUNT}} widgets. Y sitio para el tuyo.</span>
+        </h2>
+        <p class="lede">
+          <span lang="en">Each one painted here with its sample data, by the same code that paints the panel.</span>
+          <span lang="es">Cada uno pintado aquí con sus datos de muestra, por el mismo código que pinta el panel.</span>
+        </p>
+        <div class="plugins">{{PLUGINS}}</div>
+        <p class="cta">
+          <a class="button" href="gallery/"><span lang="en">Every widget, full size</span><span lang="es">Todos los widgets, a tamaño real</span></a>
+          <a class="button" href="https://github.com/kiosko-lcd/kiosko/blob/main/docs/plugins.md"><span lang="en">Write a plugin</span><span lang="es">Escribir un plugin</span></a>
+        </p>
+      </div>
+    </section>
+
+    <section class="band" id="start">
+      <div class="inner">
+        <p class="kicker"><span lang="en">Get started</span><span lang="es">Para empezar</span></p>
+        <h2><span lang="en">On your desk in a minute.</span><span lang="es">En tu mesa en un minuto.</span></h2>
+        <div class="ways">
+          <div class="way">
+            <h3><span lang="en">Look first</span><span lang="es">Mira antes</span></h3>
+            <p>
+              <span lang="en">Nothing to install: the editor and a panel in 3D run in this browser with sample data.</span>
+              <span lang="es">Sin instalar nada: el editor y un panel en 3D funcionan en este navegador con datos de muestra.</span>
+            </p>
+            <p class="cta">
+              <a class="button primary" href="demo/"><span lang="en">Open the editor</span><span lang="es">Abrir el editor</span></a>
+              <a class="button" href="demo/3d/"><span lang="en">The panel in 3D</span><span lang="es">El panel en 3D</span></a>
+            </p>
+          </div>
+          <div class="way">
+            <h3><span lang="en">Install it</span><span lang="es">Instálalo</span></h3>
+            <pre><code>npm install -g kiosko
+kiosko start --open</code></pre>
+            <p>
+              <span lang="en">Node.js 22.18 or newer. On Windows there is an installer that needs no Node.js.</span>
+              <span lang="es">Node.js 22.18 o posterior. En Windows hay un instalador que no necesita Node.js.</span>
+            </p>
+            <p class="cta">
+              <a class="button" href="https://github.com/kiosko-lcd/kiosko/releases/latest"><span lang="en">Download for Windows</span><span lang="es">Descargar para Windows</span></a>
+              <a class="button" href="https://github.com/kiosko-lcd/kiosko#readme"><span lang="en">Read the guide</span><span lang="es">Leer la guía</span></a>
+            </p>
+          </div>
+          <div class="way">
+            <h3><span lang="en">Or let an AI set it up</span><span lang="es">O que lo configure una IA</span></h3>
+            <p>
+              <span lang="en">Everything is one <code>config.json</code> with a published schema. Point your assistant at it, then review what it wrote before it is used.</span>
+              <span lang="es">Todo es un <code>config.json</code> con un esquema publicado. Dáselo a tu asistente y revisa lo que escriba antes de usarlo.</span>
+            </p>
+            <pre><code>kiosko config import ai-config.json</code></pre>
+            <p class="cta">
+              <a class="button" href="schema/v1/config.json"><span lang="en">The schema</span><span lang="es">El esquema</span></a>
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>
+      <a href="https://github.com/kiosko-lcd/kiosko">Kiosko {{VERSION}}</a> ·
+      <span lang="en">MIT licence · sample data throughout.</span><span lang="es">Licencia MIT · todo con datos de muestra.</span>
+    </p>
+    <p>
+      <span lang="en">Thermalright and Trofeo Vision are trademarks of their owner; Kiosko is an independent open-source project.</span>
+      <span lang="es">Thermalright y Trofeo Vision son marcas de su propietario; Kiosko es un proyecto independiente de código abierto.</span>
+    </p>
+  </footer>
+  <!-- If it can't be loaded, the picture of the panel stays. -->
+  <script type="module" src="{{JS}}" onerror="document.documentElement.classList.add('no3d')"></script>
+</body>
+</html>

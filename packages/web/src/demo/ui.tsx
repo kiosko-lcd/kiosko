@@ -20,6 +20,7 @@ const TEXTS = {
     kicker: 'Demo',
     banner: 'The Kiosko editor, running in your browser with sample data. Your changes stay in this browser.',
     install: 'Install Kiosko',
+    in3d: 'See it in 3D',
     reset: 'Reset demo',
     resetConfirm: 'Forget your changes and start again from the sample screens?',
     live: 'The live panel shows what a real panel is showing: it needs Kiosko running on the computer the panel is plugged into.',
@@ -34,6 +35,7 @@ const TEXTS = {
     kicker: 'Demo',
     banner: 'El editor de Kiosko, funcionando en tu navegador con datos de muestra. Tus cambios se quedan en este navegador.',
     install: 'Instalar Kiosko',
+    in3d: 'Verlo en 3D',
     reset: 'Restablecer la demo',
     resetConfirm: '¿Olvidar tus cambios y volver a empezar con las pantallas de muestra?',
     live: 'El panel en vivo enseña lo que muestra un panel de verdad: necesita Kiosko en el ordenador donde está enchufado el panel.',
@@ -61,6 +63,10 @@ export function DemoBanner() {
       </span>
       <span class="demo-text">{dt('banner')}</span>
       <span class="demo-links">
+        {/* The layout being edited here, on a panel in 3D (panel3d/, built next to the demo). */}
+        <a href="./3d/?mine=1" target="_blank" rel="noreferrer">
+          <Icon name="box" size={13} /> {dt('in3d')}
+        </a>
         <a href={README} target="_blank" rel="noreferrer">
           <Icon name="download" size={13} /> {dt('install')}
         </a>

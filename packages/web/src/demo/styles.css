@@ -34,3 +34,37 @@
   .shell.demo .content { grid-row: 3; }
   .shell.demo .rail { grid-row: 4; }
 }
+
+/* On tour (demo/tour.ts): the editor drives itself for the front page. No banner, and a ghost hand. */
+body.tour .demo-banner { display: none; }
+/* Without the banner the top bar is the first row; the rail and the content stay in the third. */
+body.tour .shell.demo { grid-template-rows: 56px 0 1fr; }
+body.tour .toast { display: none; }
+.tour-cursor {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 10000;
+  margin: -3px 0 0 -5px;
+  pointer-events: none;
+  transition: transform var(--ms, 650ms) cubic-bezier(0.45, 0, 0.2, 1);
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+}
+.tour-cursor svg { display: block; transition: transform 0.12s ease; transform-origin: 6px 4px; }
+.tour-cursor.down svg { transform: scale(0.82); }
+/* What it carries from the library to the panel. */
+.tour-cursor i {
+  position: absolute;
+  left: 14px;
+  top: 16px;
+  width: 92px;
+  height: 46px;
+  border-radius: 8px;
+  border: 1.5px dashed #8b7bff;
+  background: rgba(139, 123, 255, 0.22);
+  opacity: 0;
+  transform: scale(0.6);
+  transform-origin: 0 0;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.tour-cursor.carrying i { opacity: 1; transform: scale(1); }
