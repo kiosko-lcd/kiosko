@@ -21,7 +21,8 @@ and let a tiny daemon keep the panel up to date.
   normal state.
 - **The editor runs anywhere, and so does the panel (USB, experimental).** The
   editor, the server and the painting run on Linux, macOS and Windows (Node.js
-  and a browser; fonts are bundled so a frame is pixel-identical on every OS).
+  and a browser; fonts are bundled so a frame is pixel-identical on every OS),
+  and **Windows has an installer** that needs no Node.js ([below](#windows)).
   The **USB** connection drives LY panels (Trofeo Vision 9.16 and siblings)
   from Node itself, with no Python and no `trcc`; see [docs/usb.md](docs/usb.md)
   for what each OS needs. The other connections (`trcc serve`, frame files)
@@ -64,6 +65,17 @@ npm install -g kiosko     # Node.js 22.18 or newer
 kiosko start --open           # editor at http://127.0.0.1:7420
 kiosko service install        # optional: start it with your session
 ```
+
+### Windows
+
+No Node.js needed: download `Kiosko-Setup-<version>-x64.exe` from the
+[latest release](https://github.com/kiosko-lcd/kiosko/releases/latest), run it
+(per user, no administrator) and open **Kiosko** from the Start menu. The
+installer can start Kiosko when you sign in and add the `kiosko` command to
+your `PATH`; uninstalling keeps your settings. It is not code-signed yet, so
+SmartScreen may warn: *More info → Run anyway*. Panels over USB need the WinUSB
+driver once: see [docs/usb.md](docs/usb.md). `npm install -g kiosko` works on
+Windows too.
 
 From a clone: `npm install && npm run dev`.
 
@@ -213,8 +225,8 @@ The editor listens on `127.0.0.1` only. Mutating requests need an
 `X-Kiosko: 1` header (a foreign web page can't send it without a CORS
 preflight, which is never granted) and the `Host` header is checked against
 DNS rebinding. Plugins run with your user's permissions: install only what
-you trust. `config.json` is written with mode 0600 because widget options may
-hold tokens.
+you trust. `config.json` is written readable by you only (mode 0600; an owner-only ACL
+on Windows) because widget options may hold tokens.
 
 ## Development
 
@@ -259,8 +271,8 @@ cd ../kiosko && npm install && npm run dev:link
   yet verified on a real panel in each OS. Other Thermalright protocols (SCSI,
   HID, 320×240) are still `trcc serve` only.
 - **First npm release** of `kiosko`, the SDK and the official plugins.
-- **One-file builds and installers**: a Homebrew tap for macOS, winget and an
-  installer for Windows.
+- **Packaging**: a Homebrew tap for macOS and a winget package for Windows. The
+  Windows installer is out (not code-signed yet).
 - **Configure with AI** from the editor: a prompt with what Kiosko detected
   on your machine, the [config schema](docs/config-schema.md) and an
   authoring guide, then `kiosko config import` to review and apply.

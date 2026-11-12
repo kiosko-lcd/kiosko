@@ -12,7 +12,7 @@
 import { spawn } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { Registry, Runtime, listUsb, loadConfig, paths, saveConfig, type Config } from '@kiosko/core';
+import { Registry, Runtime, installSdkResolver, listUsb, loadConfig, paths, saveConfig, type Config } from '@kiosko/core';
 import { BUILTIN_PLUGINS, OFFICIAL_PLUGINS } from './builtin.ts';
 import { configCommand } from './config-cli.ts';
 import { pluginsCommand } from './plugins-cli.ts';
@@ -49,6 +49,10 @@ const opt = (name: string) => {
 };
 
 async function registry(): Promise<Registry> {
+  // The official plugins, installed with npm next to this CLI, import the SDK and the canvas:
+  // point them at ours. (`loadDir` does it too, but only when the user's plugins folder exists,
+  // which on a fresh install it doesn't.)
+  installSdkResolver();
   const r = new Registry();
   for (const p of BUILTIN_PLUGINS) r.add(p);
   // The plugins folder first: a linked checkout overrides the bundled copy.
