@@ -6,10 +6,9 @@
  * so nobody loses their custom cards when moving over.
  */
 import { existsSync, statSync } from 'node:fs';
-import { homedir } from 'node:os';
 import { isAbsolute, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { definePlugin, defineWidget, t, type Box, type CanvasApi, type Graphics, type Theme } from '@kiosko/sdk';
+import { definePlugin, defineWidget, expandPath, t, type Box, type CanvasApi, type Graphics, type Theme } from '@kiosko/sdk';
 
 interface LegacyModule {
   name: string;
@@ -25,8 +24,8 @@ const loaded = new Map<string, LegacyModule>();
 
 /** Same lookup as aimonitor: absolute, or relative to the modules folder, with .mjs/.js/index.* tried. */
 export function resolveModule(name: string, dir: string): string | null {
-  const expanded = name.startsWith('~/') ? join(homedir(), name.slice(2)) : name;
-  const base = isAbsolute(expanded) ? expanded : join(dir.startsWith('~/') ? join(homedir(), dir.slice(2)) : dir, expanded);
+  const expanded = expandPath(name);
+  const base = isAbsolute(expanded) ? expanded : join(expandPath(dir), expanded);
   for (const p of [base, `${base}.mjs`, `${base}.js`, join(base, 'index.mjs'), join(base, 'index.js')]) {
     if (existsSync(p) && statSync(p).isFile()) return p;
   }
@@ -117,7 +116,7 @@ export const module = defineWidget({
 export default definePlugin({
   id: 'legacy',
   name: { en: 'aimonitor compatibility', es: 'Compatibilidad aimonitor' },
-  version: '0.1.0',
+  version: '0.2.0',
   description: { en: 'Run your aimonitor custom modules as widgets.', es: 'Tus módulos propios de aimonitor, como widgets.' },
   author: 'Kiosko',
   license: 'MIT',

@@ -1,0 +1,18 @@
+Kiosko is installed.
+
+Open it from the Start menu ("Kiosko"), or go to http://127.0.0.1:7420/ in your
+browser. If you chose "Start Kiosko when I sign in", it is already running in
+the background; otherwise the Start menu entry starts it.
+
+  Your settings:      %APPDATA%\Kiosko\config.json   (kept if you uninstall)
+  The log:            %APPDATA%\Kiosko\kiosko.log
+  Command line:       kiosko doctor   |   kiosko usb   |   kiosko service uninstall
+
+USB panels (Thermalright Trofeo Vision and other LY panels)
+Kiosko talks to them itself, but Windows needs the WinUSB driver on the panel,
+installed once with Zadig (https://zadig.akeo.ie): pick the panel, choose
+WinUSB, "Replace Driver". After that "kiosko usb" lists it, and in the editor,
+Screens > Add screen > Detect panels offers it. While WinUSB is on the panel
+the official Thermalright software will not see it; restore the original driver
+from Device Manager if you need it back.
+Details: https://github.com/kiosko-lcd/kiosko/blob/main/docs/usb.md

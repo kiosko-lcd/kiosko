@@ -88,8 +88,15 @@ export interface BaseContext {
    */
   fmt: Formatters;
   log: Logger;
-  /** Where the plugin may keep files (caches, downloads). Created on demand. */
+  /** Where the plugin may keep files that must survive a reboot (settings, history). Created on demand. */
   dataDir: string;
+  /**
+   * Where the plugin keeps what can be fetched again (downloads, feed copies,
+   * photos, tiles). It is RAM (tmpfs), so the constant rewriting never wears
+   * the SSD, and it is empty after a reboot. Created on demand. Falls back to
+   * `dataDir` where there is no tmpfs. Use this, not `dataDir`, for caches.
+   */
+  cacheDir: string;
   /**
    * The user's place, if set in Settings (weather, sun, earthquakes…). Use it
    * by default; offer a place of your own only where a second one makes sense
@@ -139,8 +146,81 @@ export interface RenderContext<O, D> extends BaseContext, StateContext<O, D> {
   canvas: CanvasApi;
   /** The widget is drawn in the editor (gallery thumbnail or live preview) and not on the panel. */
   preview: boolean;
-  /** Frame index while an animation requested with `animate` is running. */
+  /**
+   * Set while an animation of this widget is being painted (see
+   * `WidgetDefinition.animation`): which frame this call must draw. Without
+   * it, paint the widget at rest. The first and the last frame of an
+   * animation should look exactly like the still one.
+   */
+  anim?: AnimationFrame;
+  /** Index of the frame being painted while an animation runs (`anim.i`). */
   frame?: number;
+}
+
+/**
+ * A short animation a widget asks the runtime to play inside its own tile: a
+ * cat's tail flick, a tile sliding in. The runtime plans it (when, one at a
+ * time per screen), paints every frame by calling `render` with `ctx.anim`
+ * before playing, sends them at `fps` (never above the screen's `maxFps`) and
+ * finishes with a real still repaint.
+ */
+export interface AnimationPlan {
+  /** What it is (`tail`, `walk`…): for the log and for `render`, which receives it in `ctx.anim.plan`. */
+  id: string;
+  /** Frames, counting the first and the last (those are the still picture and are not sent). At least 3. */
+  frames: number;
+  /** Frames per second it was designed for. The screen's `maxFps` caps it. */
+  fps: number;
+  /** Whatever `render` needs to draw it (who does what). Plain data: it is not interpreted. */
+  params?: unknown;
+  /**
+   * `false`: new data doesn't cut it short (something that must be seen to
+   * the end). Default `true`: a data change cancels it and the screen is
+   * repainted with the new data.
+   */
+  interruptible?: boolean;
+  /** Stay still at `at` (0..1 of the animation) for `ms` (a long task being shown), or until interrupted. */
+  hold?: { at: number; ms: number };
+}
+
+/** The frame `render` must paint (see `RenderContext.anim`). */
+export interface AnimationFrame {
+  plan: AnimationPlan;
+  /** Frame number, 0..plan.frames-1. */
+  i: number;
+  /** Progress, 0..1: `i / (frames - 1)`. 0 and 1 are the still picture. */
+  t: number;
+}
+
+/** What `WidgetDefinition.animationEnded` is told. */
+export interface AnimationEndContext<O, D> extends BaseContext {
+  options: O;
+  /** The animation that has just ended. */
+  plan: AnimationPlan;
+  /**
+   * `true` if it played to its last frame; `false` if it was cut short (new
+   * data, the screen went away) or never got to play.
+   */
+  completed: boolean;
+  /** The widget's data when it started. */
+  data: D | undefined;
+}
+
+/** What `WidgetDefinition.animation` is asked with. */
+export interface AnimationContext<O, D> extends StateContext<O, D> {
+  /** Where the widget paints (the same `box` its `render` gets), to decide with the layout it will have. */
+  box: Box;
+  /**
+   * Why it is asked: `idle`, every now and then while nothing else happens
+   * (see `animationGap`), or `data`, because this instance's data just changed
+   * or one of its sources did (see `prev`) and a reaction may be due, like a
+   * cat walking to its new spot.
+   */
+  trigger: 'idle' | 'data';
+  /** What the widget had before the change, for `trigger: 'data'`: its own data and its sources. */
+  prev?: { data: D | undefined; sources: Record<string, unknown> };
+  /** Random numbers in [0, 1). Use these and not `Math.random`, so tests can seed them. */
+  rnd: () => number;
 }
 
 /**
@@ -185,6 +265,26 @@ export interface WidgetDefinition<OF extends ObjectField<any> = ObjectField<any>
   timeoutMs?: number;
   /** Paint. Synchronous and fast: load images in `fetch` and paint them here. */
   render: (g: Graphics, ctx: RenderContext<Infer<OF>, D>) => void;
+  /**
+   * Asks for a short animation inside the tile, or `null` for none. The
+   * runtime calls it only while this widget is the one shown, the screen has
+   * room for another animation (several widgets may ask: they wait their turn,
+   * and how many play together is up to the runtime) and its `animationGap` /
+   * `animationCooldownMs` allow it. It must be cheap and decide from the data alone; the drawing goes in
+   * `render`, which gets `ctx.anim` for every frame. Every frame costs USB
+   * time: keep them few and short.
+   */
+  animation?: (ctx: AnimationContext<Infer<OF>, D>) => AnimationPlan | null;
+  /**
+   * Called when an animation of this widget ends, whether it played through
+   * or not (see `completed`): to remember what it did, like a trophy for
+   * a set that got built. Synchronous and quick; keep files under `dataDir`.
+   */
+  animationEnded?: (ctx: AnimationEndContext<Infer<OF>, D>) => void;
+  /** How long to wait between the `idle` questions of `animation`, a random time in the range. Default 20-60 s. */
+  animationGap?: { minMs: number; maxMs: number };
+  /** Minimum time from the end of an animation to the next one asked because of a data change. Default 0. */
+  animationCooldownMs?: number;
   /** Also a function, when the cadence depends on the options or the data (a carousel every `rotateMs`). */
   redraw?: Redraw | ((ctx: StateContext<Infer<OF>, D>) => Redraw);
   /** Has nothing to show right now (nothing playing, no rain): skipped in its cell's rotation. */

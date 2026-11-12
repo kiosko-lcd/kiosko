@@ -1,6 +1,6 @@
 {
   "name": "@kiosko/plugin-legacy",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Runs aimonitor / MagicMirror²-style modules (defineModule) as Kiosko widgets, for a painless migration.",
   "type": "module",
   "license": "MIT",

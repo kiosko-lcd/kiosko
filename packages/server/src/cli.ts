@@ -7,11 +7,12 @@
  *   kiosko import-aimonitor [--from ~/.aimonitor/config.json] [--with-secrets] [--write]
  *   kiosko config schema|validate|import …   (see config-cli.ts)
  *   kiosko doctor
+ *   kiosko usb [list|test]
  */
 import { spawn } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { Registry, Runtime, loadConfig, paths, saveConfig, type Config } from '@kiosko/core';
+import { Registry, Runtime, installSdkResolver, listUsb, loadConfig, paths, saveConfig, type Config } from '@kiosko/core';
 import { BUILTIN_PLUGINS, OFFICIAL_PLUGINS } from './builtin.ts';
 import { configCommand } from './config-cli.ts';
 import { pluginsCommand } from './plugins-cli.ts';
@@ -22,7 +23,7 @@ import { runService, servicePlan } from './service.ts';
 import { startServer } from './server.ts';
 import { starterConfig } from './starter.ts';
 
-const VERSION = '0.1.0';
+const VERSION = '0.2.0';
 const USAGE = `Kiosko ${VERSION}: a widget mosaic for USB LCD panels
 
   kiosko start [--port 7420] [--host 127.0.0.1] [--config file] [--open] [--demo]
@@ -32,6 +33,9 @@ const USAGE = `Kiosko ${VERSION}: a widget mosaic for USB LCD panels
   kiosko config validate <file> [--json]     check a config (e.g. one an AI wrote)
   kiosko config import <file> [--apply]      review it (changes, preview, risky values) and use it
   kiosko doctor
+  kiosko usb [list]                          the LY panels libusb sees, with their serial numbers
+  kiosko usb test [--serial S] [--seconds 10] [--size 1920x462] [--rotate 180]
+                                             drive a panel with the sample screen (experimental)
   kiosko gallery [--out gallery] [--locale en] [--theme midnight]
   kiosko plugins [list|add <id>…|link <folder>…|remove <id>…]
   kiosko service install|uninstall|print   (start with your session)
@@ -45,6 +49,10 @@ const opt = (name: string) => {
 };
 
 async function registry(): Promise<Registry> {
+  // The official plugins, installed with npm next to this CLI, import the SDK and the canvas:
+  // point them at ours. (`loadDir` does it too, but only when the user's plugins folder exists,
+  // which on a fresh install it doesn't.)
+  installSdkResolver();
   const r = new Registry();
   for (const p of BUILTIN_PLUGINS) r.add(p);
   // The plugins folder first: a linked checkout overrides the bundled copy.
@@ -157,6 +165,35 @@ async function main(): Promise<void> {
       }
       return;
     }
+    case 'usb': {
+      if (argv[1] === 'test') {
+        process.env.KIOSKO_QUIET ??= '1';
+        const reg = await registry();
+        const [w, h] = (opt('--size') ?? '1920x462').split('x').map(Number) as [number, number];
+        const cfg = starterConfig(reg, { width: w || 1920, height: h || 462 });
+        const screen = cfg.screens[0]!;
+        screen.device = { driver: 'usb', ...(opt('--serial') ? { serial: opt('--serial')! } : {}) };
+        screen.rotate = Number(opt('--rotate') ?? 0) as 0 | 90 | 180 | 270;
+        const rt = new Runtime(reg, cfg, { demo: true });
+        rt.start();
+        const seconds = Number(opt('--seconds') ?? 10);
+        let ok = false;
+        for (let i = 0; i < seconds; i++) {
+          await new Promise((r) => setTimeout(r, 1000));
+          const d = rt.status().screens[0]?.device;
+          ok ||= !!d?.ok;
+          console.log(`${String(i + 1).padStart(2)} s  ${d?.ok ? 'ok ' : 'ERR'}  ${d?.message ?? ''}  frames ${d?.framesSent ?? 0}`);
+        }
+        rt.stop();
+        process.exitCode = ok ? 0 : 1;
+        return;
+      }
+      const usb = await listUsb();
+      if (!usb.ok) console.log(`usb not available: ${usb.error}`);
+      else if (!usb.panels.length) console.log('no LY panel (0416:5408/5409) plugged in');
+      for (const p of usb.panels) console.log(`LY panel ${p.pid.toString(16)} at ${p.location}, serial ${p.serial ?? '(unreadable)'}${p.error ? `  ✗ ${p.error}` : ''}`);
+      return;
+    }
     case 'doctor': {
       const reg = await registry();
       const { config: cfg, exists, error } = loadConfig(path);
@@ -164,6 +201,10 @@ async function main(): Promise<void> {
       console.log(`config  ${path} ${exists ? (error ? `INVALID: ${error}` : 'ok') : '(not created yet)'}`);
       console.log(`plugins ${reg.list().map((p) => p.def.id).join(', ')}`);
       for (const p of reg.problems) console.log(`  ✗ ${p.origin}: ${p.message}`);
+      const usb = await listUsb();
+      if (!usb.ok) console.log(`usb     not available: ${usb.error}`);
+      else if (!usb.panels.length) console.log('usb     no LY panel (0416:5408/5409) plugged in');
+      for (const p of usb.panels) console.log(`usb     LY panel ${p.pid.toString(16)} at ${p.location}, serial ${p.serial ?? '(unreadable)'}${p.error ? `  ✗ ${p.error}` : ''}`);
       for (const s of cfg.screens) {
         const missing = s.pages.flatMap((p) => p.tiles.flatMap((t) => t.widgets.filter((w) => !reg.widget(w.type)).map((w) => w.type)));
         console.log(`screen  ${s.name} ${s.width}×${s.height} ${s.device.driver}${missing.length ? `  ✗ unknown widgets: ${[...new Set(missing)].join(', ')}` : ''}`);

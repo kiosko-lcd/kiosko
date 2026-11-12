@@ -6,7 +6,7 @@
  */
 import { createCanvas, loadImage, type Canvas, type Image, type SKRSContext2D } from '@napi-rs/canvas';
 import { pixelShift } from '@loksly/lcd-canvas-kit';
-import { localize, validate, type Box, type Redraw, type RenderContext, type Theme, type WidgetDefinition } from '@kiosko/sdk';
+import { localize, validate, type AnimationFrame, type AnimationPlan, type Box, type Redraw, type RenderContext, type Theme, type WidgetDefinition } from '@kiosko/sdk';
 import { toPx, type PxRect } from './layout/grid.ts';
 import { nextTurnAt, pickInStack } from './layout/stack.ts';
 import { whenMatches, zoomOf, type Config, type Page, type Screen, type Tile, type WidgetInstance } from './config/model.ts';
@@ -39,6 +39,29 @@ export interface ComposeInput {
   noShift?: boolean;
   /** Reuse tiles whose inputs didn't change (the panel; not previews). */
   cache?: TileCache;
+  /**
+   * Paint these frames of animations, each in its own tile (see
+   * `AnimationFrame`); every other tile as usual. Any number at once: how
+   * many the runtime plays together is its decision (`MAX_CONCURRENT`).
+   */
+  animate?: { tileId: string; instanceId: string; frame: AnimationFrame }[];
+}
+
+/**
+ * A widget on screen that has an `animation` hook: asks it, with the state
+ * the page was painted with. The runtime decides when to ask.
+ */
+export interface Animatable {
+  tileId: string;
+  instanceId: string;
+  type: string;
+  def: Pick<WidgetDefinition<any, any>, 'animationGap' | 'animationCooldownMs'>;
+  /** What the widget painted with, by reference (replaced, never mutated), to tell when it changed. */
+  data: unknown;
+  sources: Record<string, unknown>;
+  ask: (trigger: 'idle' | 'data', rnd: () => number, prev?: { data: unknown; sources: Record<string, unknown> }) => AnimationPlan | null;
+  /** Tells the widget an animation of its has ended (see `WidgetDefinition.animationEnded`). */
+  ended: (plan: AnimationPlan, completed: boolean) => void;
 }
 
 export interface TileResult {
@@ -56,6 +79,8 @@ export interface ComposeResult {
   idle: boolean;
   /** When something will change by itself (clock, rotation): next repaint. */
   nextAt: number;
+  /** The shown widgets that can animate. */
+  animatable: Animatable[];
 }
 
 const images = new Map<string, Image | null>();
@@ -172,7 +197,7 @@ function drawCard(g: SKRSContext2D, rect: PxRect, theme: Theme): void {
   g.stroke();
 }
 
-function paintTile(g: SKRSContext2D, input: ComposeInput, tile: Tile, rect: PxRect, out: TileResult, nextAt: { v: number }, idles: boolean[]): void {
+function paintTile(g: SKRSContext2D, input: ComposeInput, tile: Tile, rect: PxRect, out: TileResult, nextAt: { v: number }, idles: boolean[], animatable: Animatable[]): void {
   const { theme, now, working } = input;
   const candidates = tile.widgets
     .filter((w) => !w.disabled && whenMatches(w.when, working))
@@ -202,9 +227,27 @@ function paintTile(g: SKRSContext2D, input: ComposeInput, tile: Tile, rect: PxRe
   idles.push(safe(() => r.def.idle?.(state) ?? false, false));
   const step = redrawStep(r.def, state);
   if (step) nextAt.v = Math.min(nextAt.v, (Math.floor(now / step) + 1) * step);
+  const animation = r.def.animation;
+  if (animation && !input.preview) {
+    animatable.push({
+      tileId: tile.id,
+      instanceId: r.inst.id,
+      type: r.inst.type,
+      def: r.def,
+      data: r.data,
+      sources: r.sources,
+      ended: (plan, completed) => {
+        const [plugin] = r.inst.type.split('/');
+        safe(() => r.def.animationEnded?.({ ...baseContext(input.cfg, plugin!, input.log ?? (() => undefined), input.now), options: r.options, plan, completed, data: r.data }), undefined);
+      },
+      ask: (trigger, rnd, prev) => safe(() => animation({ ...state, box: tileBoxes(theme, input.screen.height, r.inst, rect, chrome).box, trigger, rnd, ...(prev !== undefined ? { prev } : {}) }), null),
+    });
+  }
 
-  const draw = (tg: SKRSContext2D) => drawTileContent(tg, input, r, rect, chrome, out);
-  if (!input.cache) {
+  // The tile whose animation is being painted: this frame, never from or into the cache.
+  const frame = input.animate?.find((a) => a.tileId === tile.id && a.instanceId === r.inst.id)?.frame;
+  const draw = (tg: SKRSContext2D) => drawTileContent(tg, input, r, rect, chrome, out, frame);
+  if (frame || !input.cache) {
     draw(g);
     return;
   }
@@ -227,26 +270,37 @@ function paintTile(g: SKRSContext2D, input: ComposeInput, tile: Tile, rect: PxRe
   input.cache.set(tile.id, { key, refs, canvas, ...(out.error ? { error: out.error } : {}) });
 }
 
-function drawTileContent(g: SKRSContext2D, input: ComposeInput, r: Resolved, rect: PxRect, chrome: 'card' | 'bare', out: TileResult): void {
+/**
+ * Where a widget paints inside its tile: `outer` is the area left by the
+ * card's padding and title, and `box` is what the widget sees: the same area
+ * `zoom` times smaller when zoomed (it keeps its top-left corner).
+ */
+export function tileBoxes(theme: Theme, screenH: number, inst: WidgetInstance, rect: PxRect, chrome: 'card' | 'bare'): { outer: Box; box: Box; zoom: number } {
+  const m = chromeMetrics(theme, screenH, rect);
+  const pad = chrome === 'card' ? m.pad : 0;
+  const top = rect.y + pad + (inst.title?.trim() && chrome === 'card' ? m.titleBar : 0);
+  const outer: Box = { x: rect.x + pad, y: top, w: Math.max(1, rect.w - 2 * pad), h: Math.max(1, rect.y + rect.h - pad - top) };
+  // Zoom: the widget gets a box `zoom` times smaller and is painted `zoom`
+  // times bigger, so it fills the same space with bigger (or smaller) type.
+  // Its box keeps its top-left corner, so widgets see nothing unusual.
+  const zoom = zoomOf(inst);
+  const box: Box = zoom === 1 ? outer : { x: outer.x, y: outer.y, w: Math.max(1, outer.w / zoom), h: Math.max(1, outer.h / zoom) };
+  return { outer, box, zoom };
+}
+
+function drawTileContent(g: SKRSContext2D, input: ComposeInput, r: Resolved, rect: PxRect, chrome: 'card' | 'bare', out: TileResult, anim?: AnimationFrame): void {
   const { theme, now, working } = input;
   const m = chromeMetrics(theme, input.screen.height, rect);
   if (chrome === 'card') drawCard(g, rect, theme);
   const pad = chrome === 'card' ? m.pad : 0;
-  let top = rect.y + pad;
   const title = r.inst.title?.trim();
   if (title && chrome === 'card') {
     g.font = `${m.title}px "${theme.fonts.sans}"`;
     g.fillStyle = theme.colors.inkDim;
     g.textBaseline = 'alphabetic';
     g.fillText(fitText(g, title, rect.w - 2 * pad), rect.x + pad, rect.y + pad + m.title * 0.8);
-    top = rect.y + pad + m.titleBar;
   }
-  const outer: Box = { x: rect.x + pad, y: top, w: Math.max(1, rect.w - 2 * pad), h: Math.max(1, rect.y + rect.h - pad - top) };
-  // Zoom: the widget gets a box `zoom` times smaller and is painted `zoom`
-  // times bigger, so it fills the same space with bigger (or smaller) type.
-  // Its box keeps its top-left corner, so widgets see nothing unusual.
-  const zoom = zoomOf(r.inst);
-  const box: Box = zoom === 1 ? outer : { x: outer.x, y: outer.y, w: Math.max(1, outer.w / zoom), h: Math.max(1, outer.h / zoom) };
+  const { outer, box, zoom } = tileBoxes(theme, input.screen.height, r.inst, rect, chrome);
   const [plugin] = r.inst.type.split('/');
   const ctx: RenderContext<any, any> = {
     ...baseContext(input.cfg, plugin!, input.log ?? (() => undefined), now),
@@ -257,6 +311,7 @@ function drawTileContent(g: SKRSContext2D, input: ComposeInput, r: Resolved, rec
     kit,
     canvas: CANVAS,
     preview: !!input.preview,
+    ...(anim ? { anim, frame: anim.i } : {}),
   };
   g.save();
   roundRect(g, rect.x, rect.y, rect.w, rect.h, chrome === 'card' ? theme.radius : 0);
@@ -297,16 +352,17 @@ export function composePage(input: ComposeInput): ComposeResult {
   const nextAt = { v: Infinity };
   const idles: boolean[] = [];
   const tiles: TileResult[] = [];
+  const animatable: Animatable[] = [];
   for (const tile of page.tiles) {
     const rect = toPx(tile, page.grid, screen.width, screen.height);
     const out: TileResult = { id: tile.id, rect, shown: null };
     tiles.push(out);
-    paintTile(g, input, tile, rect, out, nextAt, idles);
+    paintTile(g, input, tile, rect, out, nextAt, idles, animatable);
   }
   if (input.cache) for (const id of input.cache.keys()) if (!page.tiles.some((t) => t.id === id)) input.cache.delete(id);
   g.restore();
   if (screen.pixelShift.enabled && !input.preview) nextAt.v = Math.min(nextAt.v, (Math.floor(now / screen.pixelShift.periodMs) + 1) * screen.pixelShift.periodMs);
-  return { canvas, tiles, idle: idles.length > 0 && idles.every(Boolean), nextAt: nextAt.v };
+  return { canvas, tiles, idle: idles.length > 0 && idles.every(Boolean), nextAt: nextAt.v, animatable };
 }
 
 /** A canvas rotated for a panel mounted at `rotate` degrees. */

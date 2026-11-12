@@ -14,3 +14,5 @@ export * from './devices.ts';
 export * from './fonts.ts';
 export * from './paths.ts';
 export * from './env.ts';
+export * from './fsperm.ts';
+export * from './sdk-resolver.ts';

@@ -1,5 +1,11 @@
 # USB sender (Linux, Thermalright LY panels)
 
+> Kiosko now has a **USB** connection of its own (`"driver": "usb"`, see
+> [docs/usb.md](../../docs/usb.md)) that does what this sender does without
+> Python, and also on Windows and macOS. It is new and has not run against a
+> real panel yet; this sender is the one that has been running for months, so
+> keep it until the USB connection has been verified on yours.
+
 `trcc serve` can drive only one panel per `VID:PID`, and the Trofeo Vision
 9.16″ panels all report `0416:5408`. With two or more of them, give each one
 Kiosko's **Frame file** connection and run one sender per panel: it opens

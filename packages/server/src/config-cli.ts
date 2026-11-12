@@ -15,10 +15,10 @@
  *       applies the new one through the running Kiosko (editor and panels
  *       update at once) or, if none serves this config, writes the file.
  */
-import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
-import { CONFIG_SCHEMA_ID, configSchema, loadConfig, planImport, saveConfig, summarizeDiff, validateConfig, type Config, type ImportPlan, type JsonIssue, type Registry, type RiskItem } from '@kiosko/core';
+import { CONFIG_SCHEMA_ID, configSchema, loadConfig, planImport, restrictToOwner, saveConfig, summarizeDiff, validateConfig, type Config, type ImportPlan, type JsonIssue, type Registry, type RiskItem } from '@kiosko/core';
 import type { Risk } from '@kiosko/sdk';
 import { renderPreviews } from './preview.ts';
 
@@ -277,11 +277,7 @@ async function importCommand(ctx: ConfigCliContext, file: string | undefined, fl
   const backup = `${path}.bak-${stamp()}`;
   if (existsSync(path)) {
     copyFileSync(path, backup);
-    try {
-      chmodSync(backup, 0o600);
-    } catch {
-      /* Windows */
-    }
+    restrictToOwner(backup);
   }
   const saved = existsSync(backup) ? `; the previous one is in ${backup}` : '';
   if (running?.same) {

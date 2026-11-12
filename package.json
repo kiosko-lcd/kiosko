@@ -1,6 +1,6 @@
 {
   "name": "kiosko-monorepo",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "description": "Kiosko: a widget mosaic for small always-on USB LCD panels (Thermalright Trofeo Vision and friends), with a visual editor and plugins.",
@@ -12,6 +12,7 @@
     "packages/agent-sessions",
     "packages/lcd-canvas-kit",
     "packages/trcc-client",
+    "packages/usb-ly",
     "packages/weather-astro",
     "packages/sdk",
     "packages/core",

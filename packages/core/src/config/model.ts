@@ -31,6 +31,8 @@ export type DeviceConfig =
   | { driver: 'virtual' }
   /** `trcc serve` REST API (thermalright-trcc-linux). */
   | { driver: 'trcc'; url: string; tokenFile?: string; deviceKey?: string; serial?: string; keepalive?: boolean }
+  /** Straight over USB from Node (LY panels, Trofeo Vision…): no trcc, no Python. */
+  | { driver: 'usb'; serial?: string; keepalive?: number }
   /** Writes `frame.jpg` atomically to `dir`; a sender (e.g. by USB serial) takes it to the panel. */
   | { driver: 'file'; dir: string; format?: 'jpeg' | 'png'; quality?: number };
 

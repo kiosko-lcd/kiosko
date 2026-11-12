@@ -146,7 +146,7 @@ export const api: typeof httpApi = {
   },
   playInterlude: async () => ({ ok: true }),
   refreshWidget: async () => ({ ok: true }),
-  discover: async () => ({ trcc: [] }),
+  discover: async () => ({ trcc: [], usb: [] }),
   logs: async () => (await start()).logs(),
   install: async () => {
     throw notHere();

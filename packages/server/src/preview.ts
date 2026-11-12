@@ -3,14 +3,15 @@
  * previews of `kiosko config import`. With demo data (the default) nothing is
  * read, run or fetched: widgets paint their sample data.
  */
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { Runtime, type Config, type Page, type Registry, type Screen } from '@kiosko/core';
 
 /** Paints `page` of `screen` into `out` (PNG). Returns the problems of its tiles. */
 export function writePreview(rt: Runtime, screen: Screen, page: Page, out: string, o: { demo?: boolean } = {}): string[] {
   const r = rt.preview(screen, page, { demo: o.demo ?? true });
-  mkdirSync(dirname(out), { recursive: true });
+  // (`mkdir` of a drive root such as C:\\ fails with EPERM on Windows even when it exists.)
+  if (!existsSync(dirname(out))) mkdirSync(dirname(out), { recursive: true });
   writeFileSync(out, r.canvas.toBuffer('image/png'));
   return r.tiles.filter((t) => t.error).map((t) => `tile ${t.id}: ${t.error}`);
 }

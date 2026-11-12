@@ -60,9 +60,9 @@ function importsOf(dir: string): Set<string> {
 const VERSIONS: Record<string, string> = {
   '@kiosko/sdk': `^${VERSION}`,
   '@kiosko/core': `^${VERSION}`,
-  '@loksly/agent-sessions': '^0.1.0',
-  '@loksly/lcd-canvas-kit': '^0.1.0',
-  '@loksly/weather-astro': '^0.1.0',
+  '@loksly/agent-sessions': '^0.2.0',
+  '@loksly/lcd-canvas-kit': '^0.2.0',
+  '@loksly/weather-astro': '^0.2.0',
   '@napi-rs/canvas': '^1.0.10',
   'ical.js': '^2.2.1',
 };

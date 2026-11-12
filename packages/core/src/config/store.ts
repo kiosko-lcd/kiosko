@@ -1,9 +1,11 @@
 /**
  * Reading and writing the config file. The file holds secrets (calendar
- * URLs, tokens), so it's written with 0600 and atomically.
+ * URLs, tokens), so it's written atomically and readable by its owner only (0600; an ACL
+ * on Windows).
  */
-import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
+import { restrictToOwner } from '../fsperm.ts';
 import { paths } from '../paths.ts';
 import { CONFIG_SCHEMA_ID, type Config } from './model.ts';
 import { normalize } from './normalize.ts';
@@ -25,7 +27,7 @@ export function saveConfig(config: Config, path = paths.config): void {
   if (existsSync(path)) {
     try {
       copyFileSync(path, `${path}.bak`);
-      chmodSync(`${path}.bak`, 0o600);
+      restrictToOwner(`${path}.bak`);
     } catch {
       /* best effort */
     }
@@ -36,9 +38,5 @@ export function saveConfig(config: Config, path = paths.config): void {
   const out = { $schema: $schema || CONFIG_SCHEMA_ID, ...rest };
   writeFileSync(tmp, `${JSON.stringify(out, null, 2)}\n`, { mode: 0o600 });
   renameSync(tmp, path);
-  try {
-    chmodSync(path, 0o600);
-  } catch {
-    /* Windows */
-  }
+  restrictToOwner(path);
 }

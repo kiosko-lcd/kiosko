@@ -5,9 +5,8 @@
  * `listLayout`, `drawMore`, `drawEmpty`, `empty`).
  */
 import { readdir, readFile, stat } from 'node:fs/promises';
-import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { createFormatters, definePlugin, defineWidget, drawEmpty, drawMore, listLayout, listOptions, t, type Graphics, type RenderContext } from '@kiosko/sdk';
+import { createFormatters, definePlugin, expandPath, defineWidget, drawEmpty, drawMore, listLayout, listOptions, t, type Graphics, type RenderContext } from '@kiosko/sdk';
 
 /** The largest size at which `text` fits `w×h` (one line). */
 function fit(g: Graphics, text: string, family: string, w: number, h: number, max = 400): number {
@@ -150,8 +149,7 @@ export const date = defineWidget({
 
 /** Where `core/text`'s `file` lives: `~/…` is the home folder. */
 function expandHome(path: string): string {
-  const p = path.trim();
-  return p === '~' ? homedir() : p.startsWith('~/') ? join(homedir(), p.slice(2)) : p;
+  return expandPath(path.trim());
 }
 
 /** A file read by `core/text` is cut at this many characters: a note, not a log. */
@@ -393,7 +391,7 @@ export const image = defineWidget({
 export default definePlugin({
   id: 'core',
   name: { en: 'Essentials', es: 'Básicos' },
-  version: '0.1.0',
+  version: '0.2.0',
   description: { en: 'Clock, date, notes, lists and pictures.', es: 'Reloj, fecha, notas, listas e imágenes.' },
   author: 'Kiosko',
   license: 'MIT',

@@ -215,3 +215,100 @@ test('the render context carries fmt (with the config time format), workday and 
   const p = run(norm({ locale: 'es', workday: { start: '07:30' }, location: { latitude: 1, longitude: 2 } }));
   assert.deepEqual([p.time, p.workday, p.located], ['21:05', '07:30', true]);
 });
+
+// ---------- animations ----------
+const frames: { id: string; anim?: { i: number; t: number; plan: string }; frame?: number }[] = [];
+const animReg = new Registry();
+animReg.add(
+  definePlugin({
+    id: 'anim',
+    name: 'Anim',
+    version: '1',
+    widgets: [
+      defineWidget({
+        id: 'wag',
+        name: 'Wag',
+        options: t.object({ tag: t.string({ default: 'a' }) }),
+        render: (g, ctx) => {
+          frames.push({ id: ctx.options.tag, ...(ctx.anim ? { anim: { i: ctx.anim.i, t: ctx.anim.t, plan: ctx.anim.plan.id } } : {}), ...(ctx.frame !== undefined ? { frame: ctx.frame } : {}) });
+          g.fillStyle = ctx.anim ? '#0000ff' : '#00ff00';
+          g.fillRect(ctx.box.x, ctx.box.y, ctx.box.w, ctx.box.h);
+        },
+        animation: ({ trigger, rnd }) => (trigger === 'idle' && rnd() < 2 ? { id: 'wag', frames: 5, fps: 10 } : null),
+      }),
+      defineWidget({ id: 'still', name: 'Still', render: (g, ctx) => { g.fillStyle = '#ff0000'; g.fillRect(ctx.box.x, ctx.box.y, ctx.box.w, ctx.box.h); } }),
+    ],
+  }),
+);
+const composeA = (p: Page, extra: Partial<Parameters<typeof composePage>[0]> = {}) =>
+  composePage({ cfg, screen, page: p, theme: DEFAULT_THEME, registry: animReg, now: 0, working: true, dataOf: () => undefined, sourcesOf: () => ({}), ...extra });
+
+test('animation: the shown widgets that can animate are listed, and asking one gives its plan', () => {
+  const r = composeA(page([{ id: 'a', x: 0, y: 0, w: 2, h: 2, widgets: [W('w1', 'anim/wag')], rotateMs: 0, chrome: 'bare' }, { id: 'b', x: 2, y: 0, w: 2, h: 2, widgets: [W('w2', 'anim/still')], rotateMs: 0, chrome: 'bare' }]));
+  assert.deepEqual(r.animatable.map((a) => [a.tileId, a.instanceId, a.type]), [['a', 'w1', 'anim/wag']]);
+  assert.deepEqual(r.animatable[0]!.ask('idle', () => 0), { id: 'wag', frames: 5, fps: 10 });
+  assert.equal(r.animatable[0]!.ask('data', () => 0), null);
+  // The editor's preview never animates.
+  assert.equal(composeA(page([{ id: 'a', x: 0, y: 0, w: 2, h: 2, widgets: [W('w1', 'anim/wag')], rotateMs: 0, chrome: 'bare' }]), { preview: true }).animatable.length, 0);
+});
+
+test('animation: only the animated tile gets the frame, and it is never taken from or put in the cache', () => {
+  const tiles: Page['tiles'] = [
+    { id: 'a', x: 0, y: 0, w: 2, h: 2, widgets: [W('w1', 'anim/wag', { tag: 'one' })], rotateMs: 0, chrome: 'bare' },
+    { id: 'b', x: 2, y: 0, w: 2, h: 2, widgets: [W('w2', 'anim/wag', { tag: 'two' })], rotateMs: 0, chrome: 'bare' },
+  ];
+  const cache = new Map();
+  composeA(page(tiles), { cache });
+  frames.length = 0;
+  const still = [...cache.get('a')!.canvas.toBuffer('image/png')];
+  const r = composeA(page(tiles), { cache, animate: [{ tileId: 'a', instanceId: 'w1', frame: { plan: { id: 'wag', frames: 5, fps: 10 }, i: 2, t: 0.5 } }] });
+  // Tile b came from the cache (no render), tile a painted frame 2 of the plan.
+  assert.deepEqual(frames, [{ id: 'one', anim: { i: 2, t: 0.5, plan: 'wag' }, frame: 2 }]);
+  assert.deepEqual([...cache.get('a')!.canvas.toBuffer('image/png')], still, 'the cached still picture is untouched');
+  assert.notEqual(r.canvas.toBuffer('image/png').toString('base64'), composeA(page(tiles), { cache }).canvas.toBuffer('image/png').toString('base64'));
+  // And right after, the still frame comes back from the cache.
+  frames.length = 0;
+  composeA(page(tiles), { cache });
+  assert.deepEqual(frames, []);
+});
+
+test('animation: a widget of another tile with the same type is not animated by mistake', () => {
+  const tiles: Page['tiles'] = [
+    { id: 'a', x: 0, y: 0, w: 2, h: 2, widgets: [W('w1', 'anim/wag', { tag: 'one' })], rotateMs: 0, chrome: 'bare' },
+    { id: 'b', x: 2, y: 0, w: 2, h: 2, widgets: [W('w2', 'anim/wag', { tag: 'two' })], rotateMs: 0, chrome: 'bare' },
+  ];
+  frames.length = 0;
+  composeA(page(tiles), { animate: [{ tileId: 'b', instanceId: 'w2', frame: { plan: { id: 'wag', frames: 5, fps: 10 }, i: 1, t: 0.25 } }] });
+  assert.deepEqual(frames.filter((f) => f.anim).map((f) => f.id), ['two']);
+  assert.deepEqual(frames.filter((f) => !f.anim).map((f) => f.id), ['one']);
+});
+
+test('animation: several tiles can animate in the same frame, each with its own', () => {
+  const tiles: Page['tiles'] = [
+    { id: 'a', x: 0, y: 0, w: 2, h: 2, widgets: [W('w1', 'anim/wag', { tag: 'one' })], rotateMs: 0, chrome: 'bare' },
+    { id: 'b', x: 2, y: 0, w: 2, h: 2, widgets: [W('w2', 'anim/wag', { tag: 'two' })], rotateMs: 0, chrome: 'bare' },
+  ];
+  frames.length = 0;
+  composeA(page(tiles), {
+    animate: [
+      { tileId: 'a', instanceId: 'w1', frame: { plan: { id: 'wag', frames: 5, fps: 10 }, i: 1, t: 0.25 } },
+      { tileId: 'b', instanceId: 'w2', frame: { plan: { id: 'wag', frames: 9, fps: 10 }, i: 6, t: 0.75 } },
+    ],
+  });
+  assert.deepEqual(frames.map((f) => [f.id, f.anim?.i]), [['one', 1], ['two', 6]]);
+});
+
+test('animation: the hook is told where the widget paints, zoom included', () => {
+  let seen: { x: number; y: number; w: number; h: number } | null = null;
+  const reg2 = new Registry();
+  reg2.add(definePlugin({ id: 'b', name: 'B', version: '1', widgets: [defineWidget({ id: 'w', name: 'W', render: () => undefined, animation: ({ box }) => ((seen = { ...box }), null) })] }));
+  const run = (zoom?: number) => {
+    seen = null;
+    const inst = { id: 'w1', type: 'b/w', options: {}, ...(zoom ? { zoom } : {}) };
+    const r = composePage({ cfg, screen, page: page([{ id: 'a', x: 0, y: 0, w: 4, h: 2, widgets: [inst], rotateMs: 0, chrome: 'bare' }]), theme: DEFAULT_THEME, registry: reg2, now: 0, working: true, dataOf: () => undefined, sourcesOf: () => ({}) });
+    r.animatable[0]!.ask('idle', () => 0);
+    return seen!;
+  };
+  assert.deepEqual(run(), { x: 0, y: 0, w: 400, h: 200 });
+  assert.deepEqual(run(2), { x: 0, y: 0, w: 200, h: 100 });
+});

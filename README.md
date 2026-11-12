@@ -19,13 +19,14 @@ and let a tiny daemon keep the panel up to date.
   identical frames are never re-sent, pixel shift against burn-in, black
   panel when everything is idle, a semaphore palette where darkness is the
   normal state.
-- **The editor runs anywhere; the panel, on Linux for now.** The editor, the
-  server and the painting run on Linux, macOS and Windows (Node.js and a
-  browser; fonts are bundled so a frame is pixel-identical on every OS).
-  Sending frames to the USB panel goes through
-  [thermalright-trcc-linux](https://github.com/Lexonight1/thermalright-trcc-linux),
-  so today that part is Linux only. macOS and Windows are on the
-  [roadmap](#roadmap).
+- **The editor runs anywhere, and so does the panel (USB, experimental).** The
+  editor, the server and the painting run on Linux, macOS and Windows (Node.js
+  and a browser; fonts are bundled so a frame is pixel-identical on every OS),
+  and **Windows has an installer** that needs no Node.js ([below](#windows)).
+  The **USB** connection drives LY panels (Trofeo Vision 9.16 and siblings)
+  from Node itself, with no Python and no `trcc`; see [docs/usb.md](docs/usb.md)
+  for what each OS needs. The other connections (`trcc serve`, frame files)
+  still work and are the ones tested on a real panel for months.
 
 | | |
 |---|---|
@@ -65,6 +66,17 @@ kiosko start --open           # editor at http://127.0.0.1:7420
 kiosko service install        # optional: start it with your session
 ```
 
+### Windows
+
+No Node.js needed: download `Kiosko-Setup-<version>-x64.exe` from the
+[latest release](https://github.com/kiosko-lcd/kiosko/releases/latest), run it
+(per user, no administrator) and open **Kiosko** from the Start menu. The
+installer can start Kiosko when you sign in and add the `kiosko` command to
+your `PATH`; uninstalling keeps your settings. It is not code-signed yet, so
+SmartScreen may warn: *More info → Run anyway*. Panels over USB need the WinUSB
+driver once: see [docs/usb.md](docs/usb.md). `npm install -g kiosko` works on
+Windows too.
+
 From a clone: `npm install && npm run dev`.
 
 A first run creates a virtual screen with a few widgets, so there's something
@@ -74,6 +86,7 @@ screen**, pick your panel model and its connection:
 | Connection | When |
 |---|---|
 | **Virtual** | No hardware: the editor shows it, nothing else. |
+| **USB** | LY panels (0416:5408 / 5409) straight from Kiosko: Linux, macOS, Windows. Experimental; [needs a udev rule or the WinUSB driver](docs/usb.md). |
 | **trcc serve** | Linux with [thermalright-trcc-linux](https://github.com/Lexonight1/thermalright-trcc-linux) running `trcc serve`. |
 | **Frame file** | Kiosko writes `frame.jpg` atomically; an external sender (e.g. one bound to a USB serial number, for several identical panels) pushes it to the glass. |
 
@@ -212,8 +225,8 @@ The editor listens on `127.0.0.1` only. Mutating requests need an
 `X-Kiosko: 1` header (a foreign web page can't send it without a CORS
 preflight, which is never granted) and the `Host` header is checked against
 DNS rebinding. Plugins run with your user's permissions: install only what
-you trust. `config.json` is written with mode 0600 because widget options may
-hold tokens.
+you trust. `config.json` is written readable by you only (mode 0600; an owner-only ACL
+on Windows) because widget options may hold tokens.
 
 ## Development
 
@@ -253,11 +266,13 @@ cd ../kiosko && npm install && npm run dev:link
 
 ## Roadmap
 
-- **Panels on macOS and Windows**: talk to the panel over USB from Node
-  itself, so neither `trcc-linux` nor Python is needed (on Linux too).
+- **Panels on macOS and Windows**: the USB connection is written (LY
+  panels, [docs/usb.md](docs/usb.md)) and byte-compatible with `trcc`, but not
+  yet verified on a real panel in each OS. Other Thermalright protocols (SCSI,
+  HID, 320×240) are still `trcc serve` only.
 - **First npm release** of `kiosko`, the SDK and the official plugins.
-- **One-file builds and installers**: a Homebrew tap for macOS, winget and an
-  installer for Windows.
+- **Packaging**: a Homebrew tap for macOS and a winget package for Windows. The
+  Windows installer is out (not code-signed yet).
 - **Configure with AI** from the editor: a prompt with what Kiosko detected
   on your machine, the [config schema](docs/config-schema.md) and an
   authoring guide, then `kiosko config import` to review and apply.
