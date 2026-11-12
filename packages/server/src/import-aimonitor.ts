@@ -13,7 +13,7 @@
  *
  * Pure: returns the config and human-readable notes of what didn't map.
  */
-import { newId, normalize, suggestGrid, type Config, type Page, type Registry, type Screen, type Tile, type WidgetInstance, type When } from '@kiosko/core';
+import { DEFAULT_MAX_BYTES, newId, normalize, suggestGrid, type Config, type Page, type Registry, type Screen, type Tile, type WidgetInstance, type When } from '@kiosko/core';
 
 /** aimonitor module name → Kiosko widget type. */
 export const MODULE_MAP: Record<string, string> = {
@@ -166,6 +166,7 @@ export function importAimonitor(old: Old, reg: Registry, modeOverride?: string |
     pixelShift: { enabled: old.pixelShift?.enabled ?? true, amplitude: old.pixelShift?.amplitude ?? 2, periodMs: old.pixelShift?.periodMs ?? 8 * 60_000 },
     sleepWhenIdle: old.blankWhenIdle ?? true,
     jpegQuality: old.scene?.jpegQuality ?? 90,
+    maxBytes: DEFAULT_MAX_BYTES,
     maxFps: old.easterEgg?.fps ?? 12,
   };
   if (old.easterEgg?.enabled !== false) {

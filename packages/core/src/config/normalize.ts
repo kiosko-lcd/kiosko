@@ -6,7 +6,7 @@
 import { TIME_FORMATS } from '@kiosko/sdk/format';
 import { DEFAULT_WORKDAY } from '@kiosko/sdk/workday';
 import { suggestGrid } from '../layout/grid.ts';
-import { CONFIG_VERSION, DEFAULT_CONFIG, type Config, type Screen } from './model.ts';
+import { CONFIG_VERSION, DEFAULT_CONFIG, DEFAULT_MAX_BYTES, type Config, type Screen } from './model.ts';
 
 /**
  * Fills gaps of a config written by hand or by an older version. Never throws.
@@ -58,6 +58,7 @@ function normalizeScreen(s: Partial<Screen>, i: number): Screen {
     pixelShift: { enabled: true, amplitude: 2, periodMs: 8 * 60_000, ...(s.pixelShift ?? {}) },
     sleepWhenIdle: s.sleepWhenIdle ?? false,
     jpegQuality: s.jpegQuality ?? 90,
+    maxBytes: Math.max(0, Math.round(s.maxBytes ?? DEFAULT_MAX_BYTES)),
     maxFps: s.maxFps ?? 12,
   };
 }

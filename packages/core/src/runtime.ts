@@ -55,6 +55,30 @@ function encode(c: Canvas, kind: 'png' | 'jpeg', quality: number): Buffer {
   return kind === 'jpeg' ? c.toBuffer('image/jpeg', Math.max(1, Math.min(100, quality || 90))) : c.toBuffer('image/png');
 }
 
+/** Lowest JPEG quality `encodeFit` goes down to. */
+const MIN_FIT_QUALITY = 20;
+
+/**
+ * Encodes a frame no bigger than `maxBytes`: when the JPEG at `quality` is
+ * over it, tries lower qualities (10 at a time, down to 20) until one fits.
+ * LY panels drop frames over ~500 KB and keep showing the previous one, so a
+ * photo-heavy page at quality 100 looked frozen. `over` says nothing fitted.
+ */
+export function encodeFit(c: Canvas, kind: 'png' | 'jpeg', quality: number, maxBytes: number): { out: Buffer; quality: number; over: boolean } {
+  const q0 = Math.max(1, Math.min(100, quality || 90));
+  let out = encode(c, kind, q0);
+  if (kind !== 'jpeg' || !(maxBytes > 0) || out.length <= maxBytes) return { out, quality: q0, over: false };
+  let q = q0;
+  while (q > MIN_FIT_QUALITY) {
+    q = Math.max(MIN_FIT_QUALITY, q - 10);
+    out = encode(c, kind, q);
+    if (out.length <= maxBytes) return { out, quality: q, over: false };
+  }
+  return { out, quality: q, over: true };
+}
+
+const kb = (n: number) => `${Math.round(n / 1000)} KB`;
+
 class ScreenRunner {
   device: Device;
   private deviceKey: string;
@@ -66,6 +90,8 @@ class ScreenRunner {
   pinned: string | null = null;
   private playedSlot = new Map<string, number>();
   interlude: { slotId: string; type: string; stopAt: number } | null = null;
+  /** When `fit` last told the log that frames were shrunk, to say it now and then, not every frame. */
+  private fitLoggedAt = 0;
   /** Instance ids on the current page, to know if a data change concerns us. */
   visibleIds = new Set<string>();
   sourceTypes = new Set<string>();
@@ -88,6 +114,21 @@ class ScreenRunner {
     this.device = openDevice(screen.device, (m) => rt.log(`screen:${screen.name}`, m), screen.rotate);
     this.pinned = screen.pinnedPage ?? null;
     this.scheduler = new AnimationScheduler(() => rt.rnd(), (type, why) => rt.log(type, `animation ignored: ${why}`));
+  }
+
+  /** Encodes a frame within the screen's `maxBytes`, saying so in the log (at most every 10 min) when it had to shrink it. */
+  private fit(c: Canvas, kind: 'png' | 'jpeg', quality: number, screen: Screen): Buffer {
+    const r = encodeFit(c, kind, quality, screen.maxBytes);
+    if ((r.quality !== Math.max(1, Math.min(100, quality || 90)) || r.over) && Date.now() - this.fitLoggedAt > 10 * 60_000) {
+      this.fitLoggedAt = Date.now();
+      this.rt.log(
+        `screen:${screen.name}`,
+        r.over
+          ? `frames don't fit in ${kb(screen.maxBytes)} even at JPEG quality ${r.quality} (${kb(r.out.length)}); the panel may drop them`
+          : `frames over ${kb(screen.maxBytes)} at quality ${quality}: sent at quality ${r.quality} (${kb(r.out.length)})`,
+      );
+    }
+    return r.out;
   }
 
   reconfigure(screen: Screen): void {
@@ -174,7 +215,7 @@ class ScreenRunner {
       g.fillRect(0, 0, screen.width, screen.height);
     }
     const kind = encodeFor(screen.device, screen.jpegQuality);
-    const out = encode(rotateCanvas(canvas, screen.rotate), kind, screen.jpegQuality);
+    const out = this.fit(rotateCanvas(canvas, screen.rotate), kind, screen.jpegQuality, screen);
     this.lastInfo = { screenId: screen.id, pageId: page?.id ?? null, at: now, image: lazyJpeg(canvas), tiles: result?.tiles ?? [], interlude: null, sleeping };
     this.rt.emit('frame', this.lastInfo);
     if (this.last?.equals(out)) return;
@@ -223,7 +264,7 @@ class ScreenRunner {
       } finally {
         g.restore();
       }
-      const out = encode(rotateCanvas(canvas, this.screen.rotate), kind, this.screen.jpegQuality || 85);
+      const out = this.fit(rotateCanvas(canvas, this.screen.rotate), kind, this.screen.jpegQuality || 85, this.screen);
       await this.device.send(out);
       if (i % 3 === 0) {
         // The interlude draws every frame on the same canvas: snapshot it.
@@ -327,7 +368,7 @@ class ScreenRunner {
         cache: this.tiles,
         animate,
       });
-      sent.push({ out: encode(rotateCanvas(result.canvas, screen.rotate), kind, screen.jpegQuality || 85), snap: s % 3 === 1 ? result.canvas : null });
+      sent.push({ out: this.fit(rotateCanvas(result.canvas, screen.rotate), kind, screen.jpegQuality || 85, screen), snap: s % 3 === 1 ? result.canvas : null });
       // Let the loop breathe: a long animation must not freeze the timers and the other screens.
       await new Promise((r) => setImmediate(r));
     }

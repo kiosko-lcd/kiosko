@@ -372,6 +372,7 @@ export function configSchema(plugins: readonly PluginDefinition[]): S {
           },
           sleepWhenIdle: { type: 'boolean', default: false, description: 'Black panel while every widget of the page has nothing worth showing.' },
           jpegQuality: { type: 'integer', minimum: 0, maximum: 100, default: 90, description: 'JPEG quality of the frames; 0 = PNG.' },
+          maxBytes: { type: 'integer', minimum: 0, maximum: 20_000_000, default: 480_000, description: 'Largest frame to send, in bytes: a bigger one is re-encoded at a lower JPEG quality until it fits. LY panels (Trofeo Vision…) drop frames over ~500 KB. 0 = no limit.' },
           maxFps: { type: 'integer', minimum: 1, maximum: 30, default: 12, description: 'Frames per second ceiling for animations.' },
         },
       },

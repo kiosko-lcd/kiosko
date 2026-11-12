@@ -41,7 +41,9 @@ const USAGE = `Kiosko ${VERSION}: a widget mosaic for USB LCD panels
   kiosko service install|uninstall|print   (start with your session)
   kiosko version`;
 const argv = process.argv.slice(2);
-const cmd = argv[0] && !argv[0].startsWith('-') ? argv[0] : 'start';
+// Flags alone mean `start` (`kiosko --demo --open`), except the ones that are commands of their own.
+const FLAG_COMMANDS = new Set(['--help', '-h', '--version', '-v']);
+const cmd = argv[0] && (!argv[0].startsWith('-') || FLAG_COMMANDS.has(argv[0])) ? argv[0] : 'start';
 const flag = (name: string) => argv.includes(name);
 const opt = (name: string) => {
   const i = argv.indexOf(name);
@@ -242,6 +244,7 @@ async function main(): Promise<void> {
       return;
     case 'version':
     case '--version':
+    case '-v':
       console.log(VERSION);
       return;
     default:
