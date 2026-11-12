@@ -140,6 +140,8 @@ export class Scene3D {
   /** Directed: where it has been asked to be, and where it is now (it arrives from a little further away). */
   private readonly want: Direction = { azimuth: THREE.MathUtils.radToDeg(HOME.azimuth), elevation: 90 - THREE.MathUtils.radToDeg(HOME.polar), zoom: 1, shiftX: 0, shiftY: 0, stack: 0 };
   private readonly at: Direction = { ...this.want, zoom: 0.72 };
+  /** It has been told where to be at least once. */
+  private placed = false;
   /** Called after each frame is drawn (the front page waits for the first one). */
   onFrame: (() => void) | null = null;
 
@@ -236,6 +238,11 @@ export class Scene3D {
   /** Directed scenes: where to be from now on (only what is given changes). */
   direct(d: Partial<Direction>): void {
     Object.assign(this.want, d);
+    if (this.placed) return;
+    // The first time it is already there (a page may open half-way down its story), only a
+    // little further away: it comes closer, it doesn't cross the page.
+    this.placed = true;
+    Object.assign(this.at, this.want, { zoom: this.want.zoom * 0.86 });
   }
 
   setOrbit(on: boolean): void {

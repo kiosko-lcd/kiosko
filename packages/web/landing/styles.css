@@ -88,9 +88,15 @@ html.live3d .stage canvas { opacity: 1; }
 
 /* The panel as a picture: all there is without WebGL (or without scripts). With it, the picture is
    only what the 3D panel shows first, so it is loaded but not seen. */
-.still { position: absolute; inset: 0; display: grid; place-items: center; padding: 34vh 6vw 0; opacity: 0; pointer-events: none; }
+.still { position: absolute; inset: 0; display: grid; place-items: center; padding: 40vh 6vw 0; opacity: 0; pointer-events: none; transform-origin: 50% 70%; transition: transform 0.7s cubic-bezier(0.45, 0, 0.2, 1), opacity 0.4s ease; }
 html.no3d .still { opacity: 1; }
-.slab { position: relative; width: min(1080px, 86vw); padding: 1.1% 1.1% 3.4%; border-radius: 10px; background: #e9ebef; box-shadow: 0 40px 120px rgba(124, 92, 246, 0.25), 0 10px 40px rgba(0, 0, 0, 0.6); transform: perspective(1600px) rotateY(-14deg) rotateX(4deg); }
+/* Without 3D the picture does what the scene would, plainly: it moves to the side the words leave
+   free, and steps out while the editor's window is the thing to look at. */
+html.no3d[data-step='editor'] .still { opacity: 0; }
+html.no3d[data-step='plugins'] .still, html.no3d[data-step='many'] .still { transform: translate(23vw, -20vh) scale(0.6); }
+html.no3d[data-step='always'] .still, html.no3d[data-step='cable'] .still { transform: translate(-23vw, -20vh) scale(0.6); }
+html.no3d .only3d { display: none; }
+.slab { position: relative; width: min(920px, 84vw); padding: 1.1% 1.1% 3.4%; border-radius: 10px; background: #e9ebef; box-shadow: 0 40px 120px rgba(124, 92, 246, 0.25), 0 10px 40px rgba(0, 0, 0, 0.6); transform: perspective(1600px) rotateY(-14deg) rotateX(4deg); }
 .slab img { display: block; width: 100%; height: auto; border: 3px solid #050506; border-radius: 2px; background: #000; }
 .slab span { position: absolute; left: 0; right: 0; bottom: 0.9%; text-align: center; color: #2a2d32; font-weight: 650; font-size: clamp(6px, 0.9vw, 11px); letter-spacing: 0.32em; }
 
@@ -161,7 +167,8 @@ footer a { color: var(--dim); }
   .step.left, .step.right { justify-content: flex-start; }
   .step .copy { max-width: 560px; }
   .step .copy > p { font-size: 16px; }
-  .still { padding-top: 46vh; }
+  .still { padding-top: 50vh; transform-origin: 50% 75%; }
+  html.no3d[data-step] .still { transform: none; }
 }
 
 /* Not wide enough for the editor and the words side by side: words, editor, and the panel under them. */

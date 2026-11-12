@@ -13,7 +13,7 @@
  * Without WebGL the page still reads: the panel is a picture and stays one.
  */
 import { onRendererEvent, renderer } from '../src/demo/client.ts';
-import { TOUR_CHANNEL, type StageChannel, type TourMessage } from '../demo/protocol.ts';
+import { TOUR_CHANNEL, type StageChannel, type TourMessage, type TourOrder } from '../demo/protocol.ts';
 import { Scene3D, type Direction } from '../panel3d/scene.ts';
 
 const LANG_KEY = 'kiosko.lang';
@@ -50,7 +50,9 @@ document.querySelector<HTMLButtonElement>('.lang')?.addEventListener('click', ()
   } catch {
     /* private mode: it lasts for this visit */
   }
-  void speak();
+  // The editor on tour changes with the page; what it then announces brings the panel along.
+  order({ type: 'lang', lang: language() });
+  if (!(active === 'editor' && tour)) void speak();
 });
 
 // ---------- The editor's window: the real editor, at its own size, scaled to fit ----------
@@ -175,17 +177,21 @@ function doze(asleep: boolean): void {
 }
 
 const tourChannel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel(TOUR_CHANNEL) : null;
+function order(o: TourOrder): void {
+  tourChannel?.postMessage(o);
+}
 
 /** A section has taken over: what the panels show, and who is at work, change with it. */
 function enter(): void {
+  html.dataset.step = active;
   if (nap) clearTimeout(nap);
   nap = null;
   if (scene?.panels[0]) scene.panels[0].awake = true;
   if (active === 'always') doze(true);
 
   // The editor's frame is loaded when its section comes, and works only while it is the one on screen.
-  if (active === 'editor' && frame && !frame.src && frame.dataset.src) frame.src = frame.dataset.src;
-  tourChannel?.postMessage({ type: active === 'editor' ? 'play' : 'pause' });
+  if (active === 'editor' && frame && !frame.src && frame.dataset.src) frame.src = `${frame.dataset.src}&lang=${language()}`;
+  order({ type: active === 'editor' ? 'play' : 'pause' });
 
   if (active === 'editor' && tour) void mirror();
   else void speak();
@@ -207,7 +213,7 @@ tourChannel?.addEventListener('message', (e: MessageEvent<TourMessage>) => {
   tour = e.data;
   if (active === 'editor') void mirror();
   // It started while nobody was looking (the frame is loaded a little early): it waits.
-  else tourChannel.postMessage({ type: 'pause' });
+  else order({ type: 'pause' });
 });
 
 onRendererEvent((e) => {
@@ -219,10 +225,26 @@ onRendererEvent((e) => {
 
 // ---------- Starting up ----------
 
+// The page is followed with or without the scene: the sections take turns either way (the editor's
+// frame is loaded when its turn comes), and without 3D the picture of the panel moves aside for them.
+let ticking = false;
+const onScroll = () => {
+  if (ticking) return;
+  ticking = true;
+  requestAnimationFrame(() => {
+    ticking = false;
+    follow();
+  });
+};
+addEventListener('scroll', onScroll, { passive: true });
+addEventListener('resize', onScroll);
+html.dataset.step = active;
+follow();
+
 if (scene) {
   const live = scene;
   // The picture the page came with goes on the panel at once; the canvas shows from its first frame.
-  const poster = document.querySelector<HTMLImageElement>('.still img');
+  const poster = document.querySelector<HTMLImageElement>(`.still img[lang="${language()}"]`);
   if (poster) {
     const put = () => void live.panels[0]!.poster(poster, 'Cats').catch(() => undefined);
     if (poster.complete && poster.naturalWidth) put();
@@ -233,19 +255,6 @@ if (scene) {
     html.classList.add('live3d');
   };
   live.start();
-
-  let ticking = false;
-  const onScroll = () => {
-    if (ticking) return;
-    ticking = true;
-    requestAnimationFrame(() => {
-      ticking = false;
-      follow();
-    });
-  };
-  addEventListener('scroll', onScroll, { passive: true });
-  addEventListener('resize', onScroll);
-  follow();
 
   // Past the story nobody sees the panel: stop drawing it and painting for it.
   new IntersectionObserver(([entry]) => {

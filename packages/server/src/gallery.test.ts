@@ -62,14 +62,13 @@ test('gallery: the page, the pictures and the same catalogue as data, in both la
   }
 });
 
-test("gallery: with a sample config, the enabled pages of its most bar-shaped screen as pictures", () => {
+test("gallery: with a sample config, the enabled pages of its most bar-shaped screen as pictures, in each language", () => {
   const out = mkdtempSync(join(tmpdir(), 'kiosko-gallery-'));
   try {
     buildGallery(registry, { out, pages: sample });
     const data = JSON.parse(readFileSync(join(out, 'gallery.json'), 'utf8')) as GalleryData;
-    assert.deepEqual(data.pages, [{ id: 'a', name: 'First Page', file: 'img/page-first-page.jpg', width: 480, height: 116 }]);
-    const jpeg = readFileSync(join(out, 'img/page-first-page.jpg'));
-    assert.deepEqual([...jpeg.subarray(0, 3)], [0xff, 0xd8, 0xff], 'a JPEG');
+    assert.deepEqual(data.pages, [{ id: 'a', name: 'First Page', file: { en: 'img/page-first-page.jpg', es: 'img/page-first-page.es.jpg' }, width: 480, height: 116 }]);
+    for (const file of Object.values(data.pages[0]!.file)) assert.deepEqual([...readFileSync(join(out, file)).subarray(0, 3)], [0xff, 0xd8, 0xff], `${file}: a JPEG`);
     assert.ok(!existsSync(join(out, 'img/page-off.jpg')));
   } finally {
     rmSync(out, { recursive: true, force: true });

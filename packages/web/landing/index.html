@@ -40,9 +40,23 @@
         <canvas id="panel"></canvas>
         <!-- Where the 3D can't be (no WebGL, no scripts): the same panel, as a picture. With 3D it is
              the picture the panel starts with. -->
-        <noscript><style>.still { opacity: 1 !important; }</style></noscript>
+        <noscript>
+          <style>
+            /* No scripts: the picture stays with the first section, and the rest is read as plain text. */
+            .still { opacity: 1 !important; }
+            .stage { position: absolute; left: 0; right: 0; top: 0; }
+            .step:not(.hero), .step.editor { min-height: 0; padding-top: 56px; padding-bottom: 56px; }
+            .pin { position: static; height: auto; display: block; padding: 0; }
+            .window, .fine.under, .hint { display: none; }
+          </style>
+        </noscript>
         <div class="still">
-          <div class="slab"><img src="{{POSTER}}" width="1920" height="462" alt="" /><span>THERMALRIGHT</span></div>
+          <!-- One picture for each language: the one that isn't shown isn't fetched (it is lazy). -->
+          <div class="slab">
+            <img lang="en" src="{{POSTER}}" width="1920" height="462" alt="" loading="lazy" />
+            <img lang="es" src="{{POSTER_ES}}" width="1920" height="462" alt="" loading="lazy" />
+            <span>THERMALRIGHT</span>
+          </div>
         </div>
       </div>
 
@@ -86,8 +100,8 @@
             <div class="view"><iframe data-src="demo/?tour=1" title="The Kiosko editor, driving itself" tabindex="-1" loading="lazy"></iframe></div>
           </div>
           <p class="fine under">
-            <span lang="en">The real editor, in your browser, on autopilot. The panel shows what it composes, as it does.</span>
-            <span lang="es">El editor de verdad, en tu navegador, en piloto automático. El panel enseña lo que compone, según lo hace.</span>
+            <span lang="en">The real editor, in your browser, on autopilot.<span class="only3d"> The panel shows what it composes, as it does.</span></span>
+            <span lang="es">El editor de verdad, en tu navegador, en piloto automático.<span class="only3d"> El panel enseña lo que compone, según lo hace.</span></span>
             <a href="demo/"><span lang="en">Take the wheel →</span><span lang="es">Coge tú el ratón →</span></a>
           </p>
         </div>
@@ -216,6 +230,7 @@ kiosko start --open</code></pre>
       <span lang="es">Thermalright y Trofeo Vision son marcas de su propietario; Kiosko es un proyecto independiente de código abierto.</span>
     </p>
   </footer>
-  <script type="module" src="{{JS}}"></script>
+  <!-- If it can't be loaded, the picture of the panel stays. -->
+  <script type="module" src="{{JS}}" onerror="document.documentElement.classList.add('no3d')"></script>
 </body>
 </html>

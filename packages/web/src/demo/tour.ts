@@ -15,12 +15,14 @@
  */
 import { effect } from '@preact/signals';
 import { newPage, newWidget, type Tile } from '@kiosko/core/model';
-import { TOUR_CHANNEL, type TourMessage } from '../../demo/protocol.ts';
+import { TOUR_CHANNEL, type TourMessage, type TourOrder } from '../../demo/protocol.ts';
 import { addTileAt } from '../editor/Stage.tsx';
 import { config, draftPage, draftScreen, draftTile, edit, go, page, pageId, screen, screenId, selectedTile, selectedWidget, uiTheme, widgets } from '../store.ts';
 
 /** The page it composes; one left from a previous round is removed. */
 const PAGE_NAME = 'My desk';
+
+const language = (l: unknown): 'en' | 'es' | null => (l === 'es' || l === 'en' ? l : null);
 
 /** Asked for in the address: the editor drives itself and keeps nothing. */
 export function touring(): boolean {
@@ -42,9 +44,15 @@ export function startTour(): void {
 
   const channel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel(TOUR_CHANNEL) : null;
   let paused = false;
-  channel?.addEventListener('message', (e: MessageEvent<{ type?: string }>) => {
+  // The language of the page it is shown on (`&lang=es`, and `lang` messages when the visitor changes it).
+  let lang = language(new URLSearchParams(location.search).get('lang'));
+  channel?.addEventListener('message', (e: MessageEvent<TourOrder>) => {
     if (e.data?.type === 'pause') paused = true;
     else if (e.data?.type === 'play') paused = false;
+    else if (e.data?.type === 'lang') {
+      lang = language(e.data.lang);
+      if (lang && config.value) edit((d) => (d.locale = lang!));
+    }
   });
   // What is on the editor now, for whoever shows it elsewhere.
   effect(() => {
@@ -140,9 +148,9 @@ export function startTour(): void {
     await wait(800);
   };
   /** Sets an option of the selected widget, pointing at its field in the inspector first. */
-  const option = async (label: string, key: string, value: unknown) => {
-    const named = [...document.querySelectorAll('.inspector label, .inspector .field-label')].find((l) => l.textContent?.trim().toLowerCase().startsWith(label.toLowerCase()));
-    const field = named?.closest('.field') ?? named ?? $('.inspector');
+  const option = async (key: string, value: unknown) => {
+    // The fields of a widget's options are named after them (Inspector: `o-<widget>-<option>`).
+    const field = $(`.inspector [id^="o-"][id$="-${key}"]`)?.closest('.field') ?? $('.inspector');
     field?.scrollIntoView({ block: 'center' });
     if (await pointAt(field, 0.55, 0.7, 600)) await click();
     edit((d) => {
@@ -172,6 +180,7 @@ export function startTour(): void {
       // Shown alone: the other pages don't take its turn away while it is being composed.
       ds.pinnedPage = blank.id;
       d.theme = 'midnight';
+      if (lang) d.locale = lang;
     });
     pageId.value = blank.id;
     selectedTile.value = null;
@@ -196,8 +205,8 @@ export function startTour(): void {
     await pointAt(tileBox(pipelines), 0.5, 0.5, 600);
     await click();
     await wait(500);
-    await option('Rows', 'rows', 3);
-    await option('Layout', 'layout', 'detailed');
+    await option('rows', 3);
+    await option('layout', 'detailed');
 
     // One tile, two widgets: they take turns.
     await carry('mirror/countdown', 'countd', { x: 18, y: 2, w: 6, h: 4 });

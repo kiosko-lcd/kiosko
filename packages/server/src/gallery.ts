@@ -19,8 +19,8 @@ type Both = { en: string; es: string };
 export interface GalleryData {
   count: number;
   plugins: { id: string; version: string; name: Both; description: Both; widgets: { type: string; name: Both; description: Both; file: string; width: number; height: number }[] }[];
-  /** Pages of a sample screen, as pictures (`pages` option). */
-  pages: { id: string; name: string; file: string; width: number; height: number }[];
+  /** Pages of a sample screen, as pictures in each language (`pages` option). */
+  pages: { id: string; name: string; file: Both; width: number; height: number }[];
 }
 
 /** The editor running in the browser with sample data (built by the Pages workflow next to the gallery). */
@@ -84,15 +84,21 @@ a.try{display:inline-block;margin-top:10px;padding:8px 14px;border-radius:10px;b
   if (o.pages) {
     const sample = normalize(o.pages);
     const screen = [...sample.screens].sort((a, b) => b.width / b.height - a.width / a.height)[0];
-    const rt = new Runtime(registry, sample, { demo: true });
-    try {
-      for (const page of screen?.pages.filter((p) => p.enabled !== false) ?? []) {
-        const file = `img/page-${slug(page.name || page.id)}.jpg`;
-        writeFileSync(join(o.out, file), rt.preview(screen!, page, { now, demo: true }).canvas.toBuffer('image/jpeg', 88));
-        data.pages.push({ id: page.id, name: page.name, file, width: screen!.width, height: screen!.height });
+    for (const page of screen?.pages.filter((p) => p.enabled !== false) ?? []) {
+      const name = `img/page-${slug(page.name || page.id)}`;
+      data.pages.push({ id: page.id, name: page.name, file: { en: `${name}.jpg`, es: `${name}.es.jpg` }, width: screen!.width, height: screen!.height });
+    }
+    // The widgets speak the config's language: each picture is painted once in each.
+    for (const lang of ['en', 'es'] as const) {
+      const rt = new Runtime(registry, { ...sample, locale: lang }, { demo: true });
+      try {
+        for (const listed of data.pages) {
+          const page = screen!.pages.find((p) => p.id === listed.id)!;
+          writeFileSync(join(o.out, listed.file[lang]), rt.preview(screen!, page, { now, demo: true }).canvas.toBuffer('image/jpeg', 88));
+        }
+      } finally {
+        rt.stop();
       }
-    } finally {
-      rt.stop();
     }
   }
   data.count = count;

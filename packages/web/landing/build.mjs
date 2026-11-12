@@ -1,6 +1,7 @@
 // The site (https://kioskolcd.dev/), run from packages/web/build.mjs --site [--out site]:
 //
 //   gallery/               every widget, painted (`kiosko gallery`), and gallery.json
+//   schema/v1/config.json  the config's JSON Schema (`kiosko config schema`)
 //   demo/                  the editor in the browser and the panel in 3D (demo/build.mjs)
 //   index.html             the front page (this folder): a story told over the 3D panel,
 //   demo/assets/landing.*  then the plugins (from gallery.json) and how to start
@@ -53,6 +54,13 @@ export async function buildSite({ out, editorOptions }) {
       env: { ...process.env, KIOSKO_HOME: home },
     });
     if (cli.status !== 0) throw new Error('site build: the gallery failed');
+    // The config's JSON Schema at its stable address, https://kioskolcd.dev/schema/v1/config.json :
+    // configs point at it, and so does the front page.
+    const schema = spawnSync(process.execPath, ['--conditions=source', join(root, 'packages/server/src/cli.ts'), 'config', 'schema', '--out', join(out, 'schema/v1/config.json')], {
+      stdio: 'inherit',
+      env: { ...process.env, KIOSKO_HOME: home },
+    });
+    if (schema.status !== 0) throw new Error('site build: the config schema failed');
   } finally {
     rmSync(home, { recursive: true, force: true });
   }
@@ -75,12 +83,13 @@ export async function buildSite({ out, editorOptions }) {
 
   // The first page of the sample screen that has something moving: the picture the panel starts with.
   const poster = gallery.pages.find((p) => p.name === 'Cats') ?? gallery.pages[0];
-  if (!poster || !existsSync(join(out, 'gallery', poster.file))) throw new Error('site build: the gallery painted no sample page for the front page');
+  if (!poster || !existsSync(join(out, 'gallery', poster.file.en)) || !existsSync(join(out, 'gallery', poster.file.es))) throw new Error('site build: the gallery painted no sample page for the front page');
   const version = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version;
   const fill = {
     CSS: `demo/assets/landing.css?v=${hash('landing.css')}`,
     JS: `demo/assets/landing.js?v=${hash('landing.js')}`,
-    POSTER: `gallery/${poster.file}`,
+    POSTER: `gallery/${poster.file.en}`,
+    POSTER_ES: `gallery/${poster.file.es}`,
     PLUGINS: pluginCards(gallery),
     PLUGIN_COUNT: String(gallery.plugins.length),
     WIDGET_COUNT: String(gallery.count),
@@ -91,5 +100,5 @@ export async function buildSite({ out, editorOptions }) {
     return fill[key];
   });
   writeFileSync(join(out, 'index.html'), page);
-  console.log(`site → ${out}: front page with ${gallery.plugins.length} plugins and ${gallery.count} widgets, gallery/, demo/, demo/3d/`);
+  console.log(`site → ${out}: front page with ${gallery.plugins.length} plugins and ${gallery.count} widgets, gallery/, demo/, demo/3d/, schema/`);
 }
