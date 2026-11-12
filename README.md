@@ -228,6 +228,103 @@ The USB connection is **experimental**: panel output is verified on Linux, and o
 Windows the installer, the service and the panel listing are, but a panel under
 WinUSB has not been driven yet. More in [docs/usb.md](docs/usb.md).
 
+### Monitoring GPUs and tokens per second on Windows, set up by an agent
+
+The same agent can put the state of your AI box on a panel: GPU temperature, load
+and VRAM (the `gpu` plugin) and tokens per second, loaded models and queues of your
+local LLM servers (the `llm` plugin). Both ship with the installer (and come with
+`npm install -g kiosko`), so there is nothing extra to install: `kiosko doctor` lists
+`gpu` and `llm` on its `plugins` line.
+
+1. **GPUs.** With the default `auto` back end Kiosko runs `nvidia-smi`, which the
+   NVIDIA driver installs on Windows. Check it first:
+
+   ```powershell
+   nvidia-smi --query-gpu=name,temperature.gpu,utilization.gpu,memory.used,memory.total --format=csv
+   ```
+
+   `rocm-smi`, `amd-smi` and the sysfs readings are Linux only, so **AMD and Intel
+   GPUs can't be read locally on Windows**. Read them from another machine instead:
+   set `ssh` to a Linux host with key login (`ssh -o BatchMode=yes` is used, so no
+   password prompts) or `url` to a Prometheus exporter ([DCGM
+   exporter](https://github.com/NVIDIA/dcgm-exporter) or
+   [nvidia_gpu_exporter](https://github.com/utkuozdemir/nvidia_gpu_exporter), both
+   NVIDIA). Per-process VRAM comes from `nvidia-smi` too and can come out empty on
+   Windows.
+2. **Tokens per second.** What a server can tell Kiosko depends on the server:
+
+   | Server | `kind` | Usual address | Gives |
+   |---|---|---|---|
+   | llama.cpp `llama-server --metrics` | `llamacpp` | `http://127.0.0.1:8080` | tokens/s, queue, KV cache, loaded model (rates are computed between reads of its counters) |
+   | vLLM | `vllm` | `http://127.0.0.1:8000` | tokens/s, queue, KV cache (from its `/metrics`) |
+   | Hugging Face TGI | `tgi` | where you run it | what its metrics expose |
+   | Ollama | `ollama` | `http://127.0.0.1:11434` | loaded models, VRAM, keep-alive; **no tokens/s** (Ollama doesn't expose it) |
+   | LM Studio, any OpenAI-compatible | `openai` | `http://127.0.0.1:1234` | model list, up or down |
+
+   Check that the server answers (`curl.exe http://127.0.0.1:8080/metrics` for
+   llama.cpp). If the user wants tokens/s and only runs Ollama, say so: the widgets
+   will show it as loaded but without a rate.
+3. **Configure it** (agent). The sources are set once under `sources`, the widgets go
+   in a screen's tiles (`gpu/cards`, `gpu/vram`, `gpu/history`; `llm/throughput`,
+   `llm/models`, `llm/queue`, `llm/status`). This one is checked with
+   `kiosko config validate`; use the serial `kiosko usb` printed (or
+   `{ "driver": "virtual" }` to look at it in the editor first):
+
+   ```json
+   {
+     "$schema": "https://kioskolcd.dev/schema/v1/config.json",
+     "version": 1,
+     "sources": {
+       "gpu/devices": { "backend": "nvidia" },
+       "llm/servers": {
+         "endpoints": [
+           { "name": "ollama", "kind": "ollama", "url": "http://127.0.0.1:11434" },
+           { "name": "llama.cpp", "kind": "llamacpp", "url": "http://127.0.0.1:8080" }
+         ]
+       }
+     },
+     "screens": [
+       {
+         "id": "ai-box", "name": "AI box", "width": 1920, "height": 462, "rotate": 180,
+         "device": { "driver": "usb", "serial": "2025ECF47BED" },
+         "pages": [{
+           "id": "ai-home", "name": "AI", "tiles": [
+             { "id": "ai-gpu", "x": 0, "y": 0, "w": 12, "h": 6, "widgets": [{ "id": "ai-gpu-w", "type": "gpu/cards", "options": {} }] },
+             { "id": "ai-tps", "x": 12, "y": 0, "w": 12, "h": 6, "widgets": [
+               { "id": "ai-tps-w", "type": "llm/throughput", "options": {} },
+               { "id": "ai-queue-w", "type": "llm/queue", "options": {} }
+             ] }
+           ]
+         }]
+       }
+     ]
+   }
+   ```
+
+   Apply it as in steps 6 and 7 above (`kiosko config validate`, then
+   `kiosko config import config.json --apply`). The sources' options also live in
+   the editor, under **Settings → Data sources**.
+4. **See it without looking at the panel.** `kiosko render --page AI --live --out ai.png`
+   paints that page with the real data and writes a PNG: an agent can open it to
+   check that the GPUs and the rates show up. When something is missing the tile says
+   why, in the system's language: on a PC without an NVIDIA GPU the GPU tile reads
+   "no GPU: nvidia-smi not found", and each server that doesn't answer is marked
+   "down". The editor's *Activity* log has the details.
+
+A prompt that works: *"On this Windows PC, install Kiosko with the silent installer
+from github.com/kiosko-lcd/kiosko/releases/latest. I run llama.cpp on port 8080 with
+`--metrics` and have an NVIDIA GPU. Write a config.json for my panel (serial from
+`kiosko usb`) with the GPU cards and tokens per second, following
+https://kioskolcd.dev/schema/v1/config.json, validate it with
+`kiosko config validate` and apply it. Then render the page with `--live` and tell
+me what it shows."*
+
+What is verified: the `gpu` and `llm` plugins load on Windows (`kiosko doctor` lists
+them) and the config above passes `kiosko config validate`. Reading a real NVIDIA GPU
+on Windows has not been tried (the test machine had none), and the readers of both
+plugins are covered by their own tests on sample output, not by a live run of
+llama.cpp or vLLM on Windows.
+
 ## Plugins
 
 Two plugins ship inside Kiosko: `core` (clock, calendar day, text note,
