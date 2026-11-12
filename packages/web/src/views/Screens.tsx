@@ -233,6 +233,11 @@ function ScreenCard({ s }: { s: Screen }) {
             <input type="range" min={0} max={100} value={s.jpegQuality} onInput={(e) => set((x) => (x.jpegQuality = Number((e.target as HTMLInputElement).value)), 'q')} />
             <span class="slider-value">{s.jpegQuality || 'PNG'}</span>
           </div>
+          <label class="field-label">{tr('screens.maxKB')}</label>
+          <div class="field field-row">
+            <input class="input num" type="number" min={0} step={10} value={Math.round(s.maxBytes / 1000)} onChange={(e) => set((x) => (x.maxBytes = Math.max(0, Math.round(Number((e.target as HTMLInputElement).value) || 0)) * 1000))} aria-label="KB" />
+            <span class="muted small">{tr('screens.maxKBHelp')}</span>
+          </div>
           <label class="field-label">{tr('screens.fps')}</label>
           <div class="slider-row">
             <input type="range" min={1} max={30} value={s.maxFps} onInput={(e) => set((x) => (x.maxFps = Number((e.target as HTMLInputElement).value)), 'fps')} />

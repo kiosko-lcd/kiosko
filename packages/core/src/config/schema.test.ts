@@ -21,7 +21,7 @@ const branch = (union: S, tag: string) => union.oneOf.find((b: S) => (b.properti
 // without listing it here fails `npm run check`; the test below then fails
 // until the schema describes it too.
 const CONFIG_KEYS = { $schema: 1, version: 1, locale: 1, timeFormat: 1, theme: 1, location: 1, workday: 1, sources: 1, plugins: 1, screens: 1, server: 1 } satisfies Record<keyof Config, 1>;
-const SCREEN_KEYS = { id: 1, name: 1, enabled: 1, width: 1, height: 1, rotate: 1, device: 1, pages: 1, pinnedPage: 1, interludes: 1, pixelShift: 1, sleepWhenIdle: 1, jpegQuality: 1, maxFps: 1 } satisfies Record<keyof Screen, 1>;
+const SCREEN_KEYS = { id: 1, name: 1, enabled: 1, width: 1, height: 1, rotate: 1, device: 1, pages: 1, pinnedPage: 1, interludes: 1, pixelShift: 1, sleepWhenIdle: 1, jpegQuality: 1, maxBytes: 1, maxFps: 1 } satisfies Record<keyof Screen, 1>;
 const PAGE_KEYS = { id: 1, name: 1, enabled: 1, durationMs: 1, when: 1, grid: 1, gravity: 1, background: 1, tiles: 1 } satisfies Record<keyof Page, 1>;
 const TILE_KEYS = { id: 1, x: 1, y: 1, w: 1, h: 1, locked: 1, widgets: 1, rotateMs: 1, chrome: 1 } satisfies Record<keyof Tile, 1>;
 const WIDGET_KEYS = { id: 1, type: 1, title: 1, options: 1, intervalMs: 1, when: 1, disabled: 1, zoom: 1, takeOver: 1, hideWhenEmpty: 1 } satisfies Record<keyof WidgetInstance, 1>;
@@ -70,6 +70,7 @@ const FULL: Config = {
       pixelShift: { enabled: false, amplitude: 1, periodMs: 60_000 },
       sleepWhenIdle: true,
       jpegQuality: 80,
+      maxBytes: 300_000,
       maxFps: 10,
     },
   ],

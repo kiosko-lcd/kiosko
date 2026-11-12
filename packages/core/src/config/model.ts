@@ -131,9 +131,18 @@ export interface Screen {
   sleepWhenIdle: boolean;
   /** JPEG quality for photo-like pages; 0 = PNG. */
   jpegQuality: number;
+  /**
+   * Largest frame to send, in bytes; a bigger one is re-encoded at a lower
+   * JPEG quality until it fits. LY panels (Trofeo Vision and friends) silently
+   * drop frames over ~500 KB and keep showing the last one. 0 = no limit.
+   */
+  maxBytes: number;
   /** Frames per second ceiling for animations. */
   maxFps: number;
 }
+
+/** Default `maxBytes`: under the ~500 KB LY panels accept, with some margin. */
+export const DEFAULT_MAX_BYTES = 480_000;
 
 export interface Config {
   /** JSON Schema of the file, for editors. Kept as written; `CONFIG_SCHEMA_ID` when missing. */
@@ -188,6 +197,7 @@ export function newScreen(name: string, width = 1920, height = 462, device: Devi
     pixelShift: { enabled: true, amplitude: 2, periodMs: 8 * 60_000 },
     sleepWhenIdle: false,
     jpegQuality: 90,
+    maxBytes: DEFAULT_MAX_BYTES,
     maxFps: 12,
   };
 }
