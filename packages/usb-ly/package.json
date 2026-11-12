@@ -1,6 +1,6 @@
 {
   "name": "@loksly/usb-ly",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Node driver for the Thermalright LY USB LCD panels (Trofeo Vision 9.16 and siblings): talks USB from Node, no Python or trcc needed.",
   "type": "module",
   "license": "MIT",

@@ -15,7 +15,7 @@ import { execFileSync } from 'node:child_process';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const out = join(root, 'dist', 'kiosko');
 const rootPkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
-const version = rootPkg.version ?? '0.2.0';
+const version = rootPkg.version ?? '0.2.1';
 
 rmSync(out, { recursive: true, force: true });
 mkdirSync(out, { recursive: true });
@@ -53,6 +53,10 @@ const deps = {};
 for (const name of ['@napi-rs/canvas', 'dejavu-fonts-ttf']) {
   deps[name] = JSON.parse(readFileSync(join(root, 'node_modules', name, 'package.json'), 'utf8')).version.replace(/^/, '^');
 }
+// The official plugins version on their own: Kiosko 0.2.1 takes any 0.2.x of them (a plugin
+// fixed in 0.2.1 must not exclude one still at 0.2.0).
+const [major, minor] = version.split('.');
+const pluginRange = `^${major}.${minor}.0`;
 // libusb for the `usb` driver: optional, so a platform without a prebuilt binary still installs Kiosko.
 const usbVersion = JSON.parse(readFileSync(join(root, 'node_modules', 'usb', 'package.json'), 'utf8')).version.replace(/^/, '^');
 const pkg = {
@@ -70,7 +74,7 @@ const pkg = {
   dependencies: deps,
   // The official plugins live in their own repos; installing Kiosko brings
   // them along. Optional, so a missing one never breaks the install.
-  optionalDependencies: { usb: usbVersion, ...Object.fromEntries(['agents', 'cats', 'system', 'vitals', 'usage', 'weather', 'calendar', 'news', 'mirror', 'gitlab', 'github', 'calls', 'timesheet', 'llm', 'gpu'].map((id) => [`kiosko-plugin-${id}`, `^${version}`])) },
+  optionalDependencies: { usb: usbVersion, ...Object.fromEntries(['agents', 'cats', 'system', 'vitals', 'usage', 'weather', 'calendar', 'news', 'mirror', 'gitlab', 'github', 'calls', 'timesheet', 'llm', 'gpu'].map((id) => [`kiosko-plugin-${id}`, pluginRange])) },
 };
 writeFileSync(join(out, 'package.json'), `${JSON.stringify(pkg, null, 2)}\n`);
 for (const f of ['README.md', 'LICENSE']) cpSync(join(root, f), join(out, f));

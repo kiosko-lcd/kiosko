@@ -1,6 +1,6 @@
 {
   "name": "@loksly/trcc-client",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Dependency-free Node client for the REST API of `trcc serve` (Thermalright USB LCD panels on Linux).",
   "type": "module",
   "license": "MIT",
