@@ -12,6 +12,7 @@
     "packages/agent-sessions",
     "packages/lcd-canvas-kit",
     "packages/trcc-client",
+    "packages/usb-ly",
     "packages/weather-astro",
     "packages/sdk",
     "packages/core",

@@ -1,0 +1,137 @@
+{
+ "_": "Produced by trcc 9.12 LyLcd._prepare_frame; payload[i] = (i*31+7) & 255",
+ "vectors": [
+  {
+   "pid": 21512,
+   "length": 0,
+   "frameLength": 2048,
+   "sha256": "f8c7d473a1e5c1401e0826bf1966ba84381dde46291229b929447586214bed81"
+  },
+  {
+   "pid": 21512,
+   "length": 1,
+   "frameLength": 2048,
+   "sha256": "c11ca6b0fb23f4fa881903a651334395612fdc68687aec29dfbce1eae4943594"
+  },
+  {
+   "pid": 21512,
+   "length": 495,
+   "frameLength": 2048,
+   "sha256": "fa463644d33db66c6a3d576bda71514f886c2e02e54563cd8d250d2263ef6fd3"
+  },
+  {
+   "pid": 21512,
+   "length": 496,
+   "frameLength": 2048,
+   "sha256": "7a265a531c50b90d6a526c9e564325ac83fed4e78162854008f55e1783b4f293"
+  },
+  {
+   "pid": 21512,
+   "length": 497,
+   "frameLength": 2048,
+   "sha256": "bc46c4f23ae9b9958bd34b07a37c8f4f373d0f55532ec48cc79391eb8a5412ef"
+  },
+  {
+   "pid": 21512,
+   "length": 1983,
+   "frameLength": 2048,
+   "sha256": "715c3ce53b94ff13c772e12488e15246bacead61ce2cf56e858510b65deba4ff"
+  },
+  {
+   "pid": 21512,
+   "length": 1984,
+   "frameLength": 4096,
+   "sha256": "afd5daa4b88a214fb1797d11e043ac9999c59a18241e0f39cf60c11a473a934d"
+  },
+  {
+   "pid": 21512,
+   "length": 1985,
+   "frameLength": 4096,
+   "sha256": "bf86e94cb31ee12fb9c8ebff6fb0ac11b9ca232f24471da11182c2fc79ff578d"
+  },
+  {
+   "pid": 21512,
+   "length": 4000,
+   "frameLength": 6144,
+   "sha256": "20792fcd28f47a12631d8d7d7f21dd3b25c1f7793f60c4a02910278085dfebfc"
+  },
+  {
+   "pid": 21512,
+   "length": 70000,
+   "frameLength": 73728,
+   "sha256": "e39c4e860ba12de1cf53b0c79ae911518f3aaaf5cd7c60dafb11bf570ad6041c"
+  },
+  {
+   "pid": 21512,
+   "length": 511871,
+   "frameLength": 528384,
+   "sha256": "d3dbc9fd2f92a52ec58dd1235d684804ad978890d20ab39a4337e1edb8f8c56e"
+  },
+  {
+   "pid": 21513,
+   "length": 0,
+   "frameLength": 512,
+   "sha256": "309ad9231c4fbf02df465f26c0c8675b18a8eebd2fe843b25fa64c82307adb61"
+  },
+  {
+   "pid": 21513,
+   "length": 1,
+   "frameLength": 512,
+   "sha256": "e353087123f94f3f3cfac74c899d64b7e92ec57abc0493536d95bcc089d2f259"
+  },
+  {
+   "pid": 21513,
+   "length": 495,
+   "frameLength": 512,
+   "sha256": "570e1707c01d6b7e7456fc9b8012206badb91eaf16f623da00745608376338c4"
+  },
+  {
+   "pid": 21513,
+   "length": 496,
+   "frameLength": 1024,
+   "sha256": "a83e45688a42edbc67d1440043c0e36b35253738891cae892299e6856d4eee3f"
+  },
+  {
+   "pid": 21513,
+   "length": 497,
+   "frameLength": 1024,
+   "sha256": "950947aba159e8a68bf021eebe566cfb093b441a2134f5344d185dd49d038b67"
+  },
+  {
+   "pid": 21513,
+   "length": 1983,
+   "frameLength": 2048,
+   "sha256": "722f04840db7edabe3e71b5e14a34c369d94f18ff94944af0e2fc9e593f23ec4"
+  },
+  {
+   "pid": 21513,
+   "length": 1984,
+   "frameLength": 2560,
+   "sha256": "c42226c2d40edaa50a162aa83bd52b5ef88893019dbe0cba91069073e72bb8e0"
+  },
+  {
+   "pid": 21513,
+   "length": 1985,
+   "frameLength": 2560,
+   "sha256": "08e45ccd7c3a0b1a0043418ac5687ce3a8ae74a66bcf5b47a94f48e20f029781"
+  },
+  {
+   "pid": 21513,
+   "length": 4000,
+   "frameLength": 4608,
+   "sha256": "6e4247998aa2265f987f786c06f7106b81a5723ce88096506c67d1a3636f6ca9"
+  },
+  {
+   "pid": 21513,
+   "length": 70000,
+   "frameLength": 72704,
+   "sha256": "44b577febcf7ab6cd32a113f6edc16c09b135227e05cd12f73d9887af2c8c6ef"
+  },
+  {
+   "pid": 21513,
+   "length": 511871,
+   "frameLength": 528384,
+   "sha256": "b8adcbed1403af2e66885bb657898700f8ca161e2a997642026a221a7306a643"
+  }
+ ]
+}

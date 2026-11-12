@@ -1,0 +1,31 @@
+{
+  "name": "@loksly/usb-ly",
+  "version": "0.1.0",
+  "description": "Node driver for the Thermalright LY USB LCD panels (Trofeo Vision 9.16 and siblings): talks USB from Node, no Python or trcc needed.",
+  "type": "module",
+  "license": "MIT",
+  "author": "Loksly",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kiosko-lcd/kiosko.git",
+    "directory": "packages/usb-ly"
+  },
+  "keywords": ["thermalright", "lcd", "usb", "trofeo-vision", "ly"],
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": ["dist", "src", "!src/**/*.test.ts", "!src/golden.json", "README.md", "LICENSE"],
+  "engines": { "node": ">=20" },
+  "optionalDependencies": {
+    "usb": "^2.15.0"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "node --conditions=source --test 'src/**/*.test.ts'",
+    "check": "tsc -p tsconfig.json --noEmit"
+  }
+}
