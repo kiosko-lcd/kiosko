@@ -32,7 +32,7 @@ function Permissions({ p }: { p: PluginInfo }) {
   return (
     <div class="plugin-perms">
       {entries.map((k) => (
-        <span class="perm-chip" title={tr(`perm.${k}Help`)}>
+        <span class="perm-chip" title={`${tr(`perm.${k}Help`)} ${p.permissions[k]!.map(what).join(', ')}`}>
           <Icon name={PERMISSION_ICONS[k]} size={12} /> {tr(`perm.${k}`)}: {p.permissions[k]!.map(what).join(', ')}
         </span>
       ))}
