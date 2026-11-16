@@ -130,3 +130,16 @@ test('reload: new code without a restart; the problem when it fails', async () =
     s.done();
   }
 });
+
+test('kiosko plugins new: a plugin that declares its API and permissions, with tests and a build', async () => {
+  const { newPluginFiles } = await import('./plugins-cli.ts');
+  const { SDK_VERSION } = await import('@kiosko/sdk');
+  const files = newPluginFiles('solar-meter');
+  assert.deepEqual(Object.keys(files).sort(), ['.gitignore', 'README.md', 'build.mjs', 'package.json', 'src/index.test.ts', 'src/index.ts', 'tsconfig.json']);
+  const pkg = JSON.parse(files['package.json']!) as { name: string; kiosko: { id: string; sdk: string }; peerDependencies: Record<string, string> };
+  const range = `^${SDK_VERSION.split('.').slice(0, 2).join('.')}.0`;
+  assert.equal(pkg.name, 'kiosko-plugin-solar-meter');
+  assert.deepEqual([pkg.kiosko.id, pkg.kiosko.sdk, pkg.peerDependencies['@kiosko/sdk']], ['solar-meter', range, range]);
+  assert.match(files['src/index.ts']!, /id: 'solar-meter',\n  name: \{ en: 'Solar Meter'/);
+  assert.match(files['src/index.ts']!, /permissions: \{ network: \['user'\] \}/);
+});
