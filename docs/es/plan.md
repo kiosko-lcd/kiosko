@@ -792,6 +792,33 @@ Lo que cambia en el camino:
       imágenes de cámaras en capturas ni en la demo; la CPU y el ancho de
       banda USB con varios flujos; y el quemado de una imagen fija durante
       horas (desplazamiento de píxeles y reposo).
+24. **Logs en vivo** (`kiosko-plugin-logs`). Los errores aparecen según
+    ocurren y se quedan la tesela. Hoy lo más cercano es `system/health`,
+    que lista las unidades de systemd caídas pero no lo que dicen.
+    - *De dónde*, con una fuente de empuje (`watch`) por cada uno:
+      **journald** (`journalctl -f -o json`, con unidad y prioridad),
+      **un fichero** (seguir el final, sobrevivir a la rotación),
+      **Docker** (por el socket, los contenedores elegidos), **macOS**
+      (`log stream --style ndjson`), **Windows** (Visor de eventos con
+      `Get-WinEvent`), **Kubernetes** (`kubectl logs -f`) y **Loki** (su
+      API de *tail*). Más adelante, recibir **syslog** por UDP de la red
+      (router, NAS).
+    - *Filtrar*: por nivel (error, aviso…), por unidad o contenedor, y por
+      patrones a incluir y excluir (`t.filter`, con expresiones regulares
+      opcionales).
+    - *Widgets*: el final del log en monoespaciada, con los errores en rojo
+      y los avisos en ámbar, la hora relativa y las líneas repetidas
+      agrupadas («×37»); una curva de errores por minuto; y «el último
+      error», grande, para una tesela pequeña.
+    - *Cuándo molesta*: un error se queda la tesela un rato (`urgent`, con
+      su duración como opción); reposo cuando el log está tranquilo.
+    - Cuidado con: los secretos y datos personales que acaban en los logs
+      (enmascarar tokens, contraseñas en URLs y correos antes de pintar;
+      nunca logs reales en capturas ni en la demo); los permisos (leer el
+      journal del sistema exige el grupo `systemd-journal` o `adm`, y el
+      socket de Docker equivale a root); un log desbocado (búfer circular y
+      emitir como mucho una vez por segundo); y las opciones con
+      `risk: ['exec', 'path']`.
 
 ### Decisiones abiertas para ti
 
