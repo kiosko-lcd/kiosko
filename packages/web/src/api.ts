@@ -90,6 +90,8 @@ export interface JsonSchema {
     slider?: boolean;
     widget?: string;
     labels?: Record<string, string | Record<string, string>>;
+    /** Values to offer, from a source's live data (`GET /api/choices`). */
+    choices?: { source: string; list: string };
   };
 }
 
@@ -169,6 +171,8 @@ export const api = {
   refreshWidget: (id: string) => fetch(`/api/widgets/${encodeURIComponent(id)}/refresh`, { method: 'POST', headers: H, body: '{}' }).then((r) => ok(r)),
   discover: (url?: string) => fetch(`/api/devices/discover${url ? `?url=${encodeURIComponent(url)}` : ''}`).then((r) => ok<{ trcc: { key: string; width: number; height: number }[]; usb: { serial: string; key: string; width: number; height: number; rotate?: number; location: string; error?: string }[] }>(r)),
   logs: () => fetch('/api/logs').then((r) => ok<{ at: number; scope: string; message: string }[]>(r)),
+  /** Values a source offers for an option, from its live data (or its demo data before there is any). */
+  choices: (source: string, list: string) => fetch(`/api/choices?source=${encodeURIComponent(source)}&list=${encodeURIComponent(list)}`).then((r) => ok<{ choices: { value: string; label?: string; group?: string }[]; from: 'live' | 'demo' | 'none'; error?: string }>(r)),
   install: (name: string) => fetch('/api/plugins/install', { method: 'POST', headers: H, body: JSON.stringify({ name }) }).then((r) => ok<{ ok: boolean; output: string; ids: string[]; problem: string | null; restartNeeded: boolean; state: AppState }>(r)),
   removePlugin: (id: string) => fetch(`/api/plugins/${encodeURIComponent(id)}`, { method: 'DELETE', headers: H }).then((r) => ok<AppState>(r)),
   reloadPlugin: (id: string) => fetch(`/api/plugins/${encodeURIComponent(id)}/reload`, { method: 'POST', headers: H }).then((r) => ok<AppState>(r)),

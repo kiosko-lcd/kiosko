@@ -361,6 +361,23 @@ export interface SourceDefinition<OF extends ObjectField<any> = ObjectField<any>
    */
   watch?: (ctx: SourceContext<Infer<OF>>, emit: (data: D) => void) => () => void;
   demo?: (ctx: { now: number; locale: string }) => D;
+  /**
+   * Named lists of values for the editor to offer in options, made from
+   * this source's latest data (or its demo data before there is any): the
+   * entities of a Home Assistant, the calendars read, the repos seen. A
+   * field asks for one with `choices: { source: 'plugin/source', list }`.
+   * Plain and quick: they run when the editor opens a form.
+   */
+  choices?: Record<string, (data: D, ctx: { locale: string; t: (text: Localized) => string }) => Choice[]>;
+}
+
+/** One value the editor offers for an option (see `SourceDefinition.choices`). */
+export interface Choice {
+  value: string;
+  /** What the person sees, when it isn't the value itself (`Living room` for `sensor.living_room`). */
+  label?: string;
+  /** Heading to group it under (`Sensors`, `Lights`). */
+  group?: string;
 }
 
 export interface InterludePlayer {

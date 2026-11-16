@@ -9,7 +9,7 @@ import { pathToFileURL } from 'node:url';
 import { sourceOptionsField, sourceTiming } from './config/sources.ts';
 import { fullType, incompatibility, packageMeta, pluginOf } from './plugin-meta.ts';
 import { installSdkResolver } from './sdk-resolver.ts';
-import { localize, toJsonSchema, type InterludeDefinition, type PluginDefinition, type SourceDefinition, type TemplateTile, type WidgetDefinition } from '@kiosko/sdk';
+import { localize, toJsonSchema, type Choice, type InterludeDefinition, type PluginDefinition, type SourceDefinition, type TemplateTile, type WidgetDefinition } from '@kiosko/sdk';
 
 export interface LoadedPlugin {
   def: PluginDefinition;
@@ -201,6 +201,30 @@ export class Registry {
     this.add(mod.default, origin);
     if (this.plugins.size > before) this.entries.set(mod.default.id, { entry, origin });
     return mod.default;
+  }
+
+  /**
+   * The values a source offers for an option (see `SourceDefinition.choices`),
+   * from `data` (its latest), or from its demo data when it has none yet.
+   * At most 1000, never throwing: a list that fails is empty, with why.
+   */
+  choices(source: string, list: string, data: unknown, locale: string): { choices: Choice[]; from: 'live' | 'demo' | 'none'; error?: string } {
+    const def = this.source(source);
+    const fn = def?.choices?.[list];
+    if (!def || !fn) return { choices: [], from: 'none', error: def ? `${source} has no list "${list}"` : `no source ${source}` };
+    const from = data !== undefined ? 'live' : def.demo ? 'demo' : 'none';
+    if (from === 'none') return { choices: [], from };
+    try {
+      const value = from === 'live' ? data : def.demo!({ now: Date.now(), locale });
+      const out = fn(value, { locale, t: (x) => localize(x, locale) });
+      const clean = (Array.isArray(out) ? out : [])
+        .filter((c): c is Choice => !!c && typeof c.value === 'string' && c.value !== '')
+        .slice(0, 1000)
+        .map((c) => ({ value: c.value, ...(typeof c.label === 'string' && c.label !== c.value ? { label: c.label } : {}), ...(typeof c.group === 'string' ? { group: c.group } : {}) }));
+      return { choices: clean, from };
+    } catch (err) {
+      return { choices: [], from, error: err instanceof Error ? err.message : String(err) };
+    }
   }
 
   /** What the editor needs to know about every widget, source and interlude (JSON-safe). */

@@ -157,6 +157,7 @@ export const api: typeof httpApi = {
   refreshWidget: async () => ({ ok: true }),
   discover: async () => ({ trcc: [], usb: [] }),
   logs: async () => (await start()).logs(),
+  choices: async (source: string, list: string) => (await start()).choices(source, list),
   install: async () => {
     throw notHere();
   },

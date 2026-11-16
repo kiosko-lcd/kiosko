@@ -56,6 +56,13 @@ export interface StageFrame {
   what: string | null;
 }
 
+/** What GET /api/choices answers. */
+export interface ChoicesResult {
+  choices: { value: string; label?: string; group?: string }[];
+  from: 'live' | 'demo' | 'none';
+  error?: string;
+}
+
 export interface RendererApi {
   /** Loads fonts and plugins and starts from `stored` (or the showcase, if null or broken). */
   init(stored: unknown): Promise<{ config: Config; fromShowcase: boolean }>;
@@ -68,6 +75,8 @@ export interface RendererApi {
   logs(): Promise<LogEntry[]>;
   /** Paints these channels continuously, as `stage` events, until called again (none = stop). */
   stage(channels: StageChannel[]): Promise<void>;
+  /** Values a source offers for an option (the server's GET /api/choices). */
+  choices(source: string, list: string): Promise<ChoicesResult>;
 }
 
 /** localStorage key of the demo's config ({ rev, config }): the editor demo keeps it, the 3D and front pages read it. */

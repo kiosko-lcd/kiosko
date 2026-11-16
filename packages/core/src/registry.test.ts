@@ -136,3 +136,32 @@ test('catalog: permissions, what it needs from others and whether it is here, it
   r.setDisabled(['weather']);
   assert.equal(r.catalog('en').find((p) => p.id === 'cats')!.requires[1]!.ok, false);
 });
+
+test('choices: a source offers values for options from its live data, or its demo data before there is any', async () => {
+  const { t, toJsonSchema } = await import('@kiosko/sdk');
+  const r = new Registry();
+  r.add(definePlugin({
+    id: 'ha', name: 'HA', version: '1.0.0',
+    sources: [{
+      id: 'states', name: 'States', read: async () => ({}),
+      demo: () => ({ e: { 'light.k': 'Kitchen' } }),
+      choices: {
+        entities: (d: { e: Record<string, string> }) => Object.entries(d.e).map(([value, label]) => ({ value, label, group: value.split('.')[0] })),
+        broken: () => { throw new Error('boom'); },
+        messy: () => [{ value: '' }, { value: 'a', label: 'a' }, null, { value: 3 }] as never,
+      },
+    }],
+  }));
+  assert.deepEqual(r.choices('ha/states', 'entities', { e: { 'sensor.t': 'Temp' } }, 'en'), { choices: [{ value: 'sensor.t', label: 'Temp', group: 'sensor' }], from: 'live' });
+  assert.deepEqual(r.choices('ha/states', 'entities', undefined, 'en'), { choices: [{ value: 'light.k', label: 'Kitchen', group: 'light' }], from: 'demo' });
+  assert.deepEqual(r.choices('ha/states', 'broken', {}, 'en'), { choices: [], from: 'live', error: 'boom' });
+  // Empty values, non-strings and labels equal to the value are cleaned up.
+  assert.deepEqual(r.choices('ha/states', 'messy', {}, 'en').choices, [{ value: 'a' }]);
+  assert.match(r.choices('ha/states', 'nope', {}, 'en').error!, /no list "nope"/);
+  assert.match(r.choices('zz/top', 'x', {}, 'en').error!, /no source/);
+  // Fields point at the list; the JSON Schema carries it for the editor.
+  const field = t.object({ entity: t.string({ choices: { source: 'ha/states', list: 'entities' } }), only: t.filter({ choices: { source: 'ha/states', list: 'entities' } }) });
+  const schema = toJsonSchema(field) as { properties: Record<string, { 'x-ui': { choices?: unknown } }> };
+  assert.deepEqual(schema.properties.entity!['x-ui'].choices, { source: 'ha/states', list: 'entities' });
+  assert.deepEqual(schema.properties.only!['x-ui'].choices, { source: 'ha/states', list: 'entities' });
+});

@@ -218,6 +218,13 @@ export function startServer(o: ServerOptions) {
 
     if (p === '/api/logs' && m === 'GET') return json(res, 200, runtime.logs.slice(-200));
 
+    // Values to offer for an option, from a source's live data (or its demo data before there is any).
+    if (p === '/api/choices' && m === 'GET') {
+      const source = url.searchParams.get('source') ?? '';
+      const list = url.searchParams.get('list') ?? '';
+      return json(res, 200, runtime.registry.choices(source, list, runtime.hub.data(source), resolveLocale(runtime.config)));
+    }
+
     if (p === '/api/plugins/install' && m === 'POST') {
       const b = (await body(req)) as { name?: string };
       const name = String(b.name ?? '').trim();

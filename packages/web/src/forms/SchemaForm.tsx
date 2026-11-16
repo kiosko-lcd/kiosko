@@ -3,11 +3,56 @@
  * hints from @kiosko/sdk's `t` builder). Plugins get a good editor for free.
  */
 import { useEffect, useState } from 'preact/hooks';
-import type { JsonSchema } from '../api.ts';
+import { api, type JsonSchema } from '../api.ts';
 import { Icon } from '../icons.tsx';
 import { loc, tr } from '../i18n.ts';
 
 type Value = unknown;
+
+type Choice = { value: string; label?: string; group?: string };
+const choiceCache = new Map<string, { at: number; list: Choice[] }>();
+
+/** The values a source offers for a field (`x-ui.choices`), fetched once and kept for half a minute. */
+function useChoices(ref: { source: string; list: string } | undefined): Choice[] {
+  const key = ref ? `${ref.source}|${ref.list}` : '';
+  const [list, setList] = useState<Choice[]>(() => choiceCache.get(key)?.list ?? []);
+  useEffect(() => {
+    if (!ref) return;
+    const hit = choiceCache.get(key);
+    if (hit && Date.now() - hit.at < 30_000) return void setList(hit.list);
+    let alive = true;
+    api
+      .choices(ref.source, ref.list)
+      .then((r) => {
+        choiceCache.set(key, { at: Date.now(), list: r.choices });
+        if (alive) setList(r.choices);
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [key]);
+  return list;
+}
+
+/** A text input that offers a source's values in a searchable list, and still takes any text. */
+function ChoiceInput({ id, value, placeholder, choices, onChange }: { id: string; value: string; placeholder?: string | undefined; choices: { source: string; list: string }; onChange: (v: string) => void }) {
+  const list = useChoices(choices);
+  const listId = `${id}-choices`;
+  const known = list.find((c) => c.value === value);
+  return (
+    <>
+      <input id={id} class="input mono" list={listId} placeholder={placeholder} value={value} spellcheck={false} onInput={(e) => onChange((e.target as HTMLInputElement).value)} />
+      <datalist id={listId}>
+        {list.map((c) => (
+          <option value={c.value}>{[c.label, c.group].filter(Boolean).join(' · ')}</option>
+        ))}
+      </datalist>
+      {known?.label && <div class="muted small choice-label">{known.label}</div>}
+      {!!value && !known && list.length > 0 && <div class="muted small choice-label warn">{tr('choices.unknown')}</div>}
+    </>
+  );
+}
 
 export function SchemaForm({ schema, value, onChange, idPrefix = 'f' }: { schema: JsonSchema; value: Record<string, unknown>; onChange: (v: Record<string, unknown>, key?: string) => void; idPrefix?: string }) {
   const [advanced, setAdvanced] = useState(false);
@@ -98,6 +143,7 @@ function Control({ id, name, schema, value, onChange }: { id: string; name: stri
       if (ui.widget === 'color') return <ColorInput id={id} value={String(value ?? '')} onChange={onChange} />;
       if (ui.multiline) return <textarea id={id} class="input" rows={4} placeholder={ui.placeholder} value={String(value ?? '')} onInput={(e) => onChange((e.target as HTMLTextAreaElement).value)} />;
       if (ui.secret) return <SecretInput id={id} value={String(value ?? '')} placeholder={ui.placeholder} onChange={onChange} />;
+      if (ui.choices) return <ChoiceInput id={id} value={String(value ?? '')} placeholder={ui.placeholder} choices={ui.choices} onChange={onChange} />;
       return <input id={id} class="input" type={ui.format === 'time' ? 'time' : ui.format === 'date' ? 'date' : 'text'} placeholder={ui.placeholder} value={String(value ?? '')} onInput={(e) => onChange((e.target as HTMLInputElement).value)} spellcheck={false} />;
     case 'integer':
     case 'number': {
@@ -127,7 +173,7 @@ function Control({ id, name, schema, value, onChange }: { id: string; name: stri
       );
     }
     case 'array':
-      if (ui.widget === 'filter' || schema['x-filter']) return <FilterInput id={id} value={Array.isArray(value) ? value.map(String) : []} placeholder={schema.items?.['x-ui']?.placeholder} onChange={onChange} />;
+      if (ui.widget === 'filter' || schema['x-filter']) return <FilterInput id={id} value={Array.isArray(value) ? value.map(String) : []} placeholder={schema.items?.['x-ui']?.placeholder} choices={ui.choices ?? schema.items?.['x-ui']?.choices} onChange={onChange} />;
       return <ListInput id={id} schema={schema} value={Array.isArray(value) ? value : []} onChange={onChange} />;
     case 'object':
       if (schema.properties) {
@@ -212,18 +258,44 @@ export function DurationInput({ id, value, min, onChange }: { id?: string; value
 const splitPatterns = (text: string) => text.split(/[,\n]/).map((p) => p.trim()).filter(Boolean);
 
 /** A `t.filter()` list, edited as one line of comma-separated patterns ("web, acme/*, !*-old"). */
-function FilterInput({ id, value, placeholder, onChange }: { id: string; value: string[]; placeholder?: string; onChange: (v: string[]) => void }) {
+function FilterInput({ id, value, placeholder, choices, onChange }: { id: string; value: string[]; placeholder?: string | undefined; choices?: { source: string; list: string } | undefined; onChange: (v: string[]) => void }) {
   const [text, setText] = useState(value.join(', '));
+  const [open, setOpen] = useState(false);
+  const list = useChoices(choices);
   // Undo, or another tab: take the new value unless it is what is being typed.
   useEffect(() => {
     if (splitPatterns(text).join('\n') !== value.join('\n')) setText(value.join(', '));
   }, [value.join('\n')]);
+  const set = (next: string[]) => {
+    setText(next.join(', '));
+    onChange(next);
+  };
+  const shown = open ? list : list.slice(0, 12);
   return (
-    <input id={id} class="input mono" value={text} placeholder={placeholder} spellcheck={false} onInput={(e) => {
-      const v = (e.target as HTMLInputElement).value;
-      setText(v);
-      onChange(splitPatterns(v));
-    }} />
+    <>
+      <input id={id} class="input mono" value={text} placeholder={placeholder} spellcheck={false} onInput={(e) => {
+        const v = (e.target as HTMLInputElement).value;
+        setText(v);
+        onChange(splitPatterns(v));
+      }} />
+      {list.length > 0 && (
+        <div class="choice-chips">
+          {shown.map((c) => {
+            const on = value.includes(c.value);
+            return (
+              <button type="button" class={`choice-chip ${on ? 'on' : ''}`} title={[c.value, c.group].filter(Boolean).join(' · ')} onClick={() => set(on ? value.filter((v) => v !== c.value) : [...value, c.value])}>
+                {on && <Icon name="check" size={11} />} {c.label ?? c.value}
+              </button>
+            );
+          })}
+          {list.length > shown.length && (
+            <button type="button" class="choice-chip more" onClick={() => setOpen(true)}>
+              {tr('choices.more').replace('{n}', String(list.length - shown.length))}
+            </button>
+          )}
+        </div>
+      )}
+    </>
   );
 }
 

@@ -38,9 +38,24 @@ interface Common<T> {
   risk?: Risk | readonly Risk[];
 }
 
+/**
+ * Where the editor finds values to offer for a text field: a named list of
+ * a source (see `SourceDefinition.choices`), computed from its live data,
+ * e.g. the entities of the user's Home Assistant. The field stays free
+ * text: a value that isn't in the list is kept.
+ */
+export interface ChoicesRef {
+  /** `plugin/source`. */
+  source: string;
+  /** The name of the list in that source's `choices`. */
+  list: string;
+}
+
 export interface StringField extends Common<string> {
   kind: 'string';
   placeholder?: string;
+  /** Values to offer, from a source's live data (see `ChoicesRef`). */
+  choices?: ChoicesRef;
   multiline?: boolean;
   /** Tokens, URLs with credentials…: masked in the editor and never logged. */
   secret?: boolean;
@@ -123,9 +138,9 @@ export const t = {
    * `repos`, `calendars`, `people`) and give it a `label`; the `help`
    * explaining the patterns comes with it.
    */
-  filter: (o: Opts<ListField<StringField>, 'item'> = {}): ListField<StringField> => ({
+  filter: ({ choices, ...o }: Opts<ListField<StringField>, 'item'> & { choices?: ChoicesRef } = {}): ListField<StringField> => ({
     kind: 'list',
-    item: { kind: 'string', default: '', placeholder: 'name, group/*, !old-*' },
+    item: { kind: 'string', default: '', placeholder: 'name, group/*, !old-*', ...(choices ? { choices } : {}) },
     default: [],
     filter: true,
     help: FILTER_HELP,
@@ -238,7 +253,7 @@ export function toJsonSchema(f: Field): Record<string, unknown> {
   };
   switch (f.kind) {
     case 'string':
-      return { ...base, type: 'string', ...(f.format === 'date' ? { format: 'date' } : {}), ...(f.maxLength ? { maxLength: f.maxLength } : {}), 'x-ui': { ...ui, secret: f.secret, multiline: f.multiline, placeholder: f.placeholder, format: f.format } };
+      return { ...base, type: 'string', ...(f.format === 'date' ? { format: 'date' } : {}), ...(f.maxLength ? { maxLength: f.maxLength } : {}), 'x-ui': { ...ui, secret: f.secret, multiline: f.multiline, placeholder: f.placeholder, format: f.format, choices: f.choices } };
     case 'color':
       return { ...base, type: 'string', 'x-ui': { ...ui, widget: 'color' } };
     case 'number':
@@ -248,7 +263,7 @@ export function toJsonSchema(f: Field): Record<string, unknown> {
     case 'enum':
       return { ...base, type: 'string', enum: [...f.values], 'x-ui': { ...ui, labels: f.labels } };
     case 'list':
-      return { ...base, type: 'array', items: toJsonSchema(f.item), maxItems: f.max, ...(f.filter ? { 'x-ui': { ...ui, widget: 'filter' }, 'x-filter': true } : {}) };
+      return { ...base, type: 'array', items: toJsonSchema(f.item), maxItems: f.max, ...(f.filter ? { 'x-ui': { ...ui, widget: 'filter', choices: f.item.kind === 'string' ? f.item.choices : undefined }, 'x-filter': true } : {}) };
     case 'map':
       return { ...base, type: 'object', additionalProperties: { type: 'string' } };
     case 'object':
