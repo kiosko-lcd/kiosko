@@ -10,7 +10,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { Registry, composeWidget, normalize } from '@kiosko/core';
+import { Registry, composeWidget, normalize, pluginManifest } from '@kiosko/core';
 import { localize, themeById, type Field, type PluginDefinition } from '@kiosko/sdk';
 import core from '@kiosko/plugin-core';
 
@@ -22,6 +22,35 @@ const pluginsRoot = resolve(root, '../kiosko-plugins');
 const L = (x: Parameters<typeof localize>[0]) => localize(x, 'en');
 const rootPkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as { version: string };
 const VERSION = rootPkg.version;
+/** The plugin API range official plugins are written for: this minor version. */
+const SDK_RANGE = `^${VERSION.split('.').slice(0, 2).join('.')}.0`;
+
+/** What a plugin declares it does, in words, for its README. */
+function permissionLines(def: PluginDefinition): string[] {
+  const p = def.permissions ?? {};
+  const what = (v: string) => (v === 'user' ? 'the ones you set in its options' : v === 'lan' ? 'your local network' : `\`${v}\``);
+  const out: string[] = [];
+  if (p.network?.length) out.push(`**Internet**: contacts ${p.network.map(what).join(', ')}.`);
+  if (p.exec?.length) out.push(`**Runs**: ${p.exec.map(what).join(', ')}.`);
+  if (p.files?.length) out.push(`**Reads**: ${p.files.map(what).join(', ')}.`);
+  if (p.devices?.length) out.push(`**Devices**: ${p.devices.join(', ')}.`);
+  if (!out.length) out.push('Nothing outside Kiosko: no network, no programs, no files of yours.');
+  return out;
+}
+
+/** The test every official plugin carries: each widget paints with its demo data everywhere without throwing. */
+const checkTest = `// Written by kiosko's scripts/scaffold-plugin-repos.ts: every widget paints with
+// its demo data at several sizes, in every theme and language, without throwing.
+// \`kiosko plugins check\` shows the rest (spills, slow paints, conventions).
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { checkPlugin } from '@kiosko/sdk/testing';
+import plugin from './index.ts';
+
+test('every widget paints with its demo data, at every size, theme and language, without throwing', () => {
+  assert.deepEqual(checkPlugin(plugin).filter((i) => /threw/.test(i.problem)), []);
+});
+`;
 
 /** What each plugin needs outside Kiosko, said once in its README. */
 const REQUIREMENTS: Record<string, string[]> = {
@@ -39,6 +68,7 @@ const REQUIREMENTS: Record<string, string[]> = {
   calendar: ['The ICS address of a published calendar (Outlook: *Settings → Calendar → Shared calendars → Publish*; Google: *Secret address in iCal format*). Treat it as a password.'],
   news: ['Internet access to the RSS feeds (Spanish outlets by default; any RSS/Atom feed with images works).'],
   mirror: ['Location in Kiosko → Settings for air quality, earthquakes and the rain radar. *Now playing* reads MPRIS (Linux).'],
+  homeassistant: ['Home Assistant reachable from this machine, and a long-lived access token: in Home Assistant, your profile → *Security* → *Long-lived access tokens* → *Create token*. A user that is not an administrator is enough.', 'Node 22 or newer (its built-in WebSocket); no other dependency.'],
   calls: ['Linux with PulseAudio or PipeWire (`pipewire-pulse`) and `pactl`. Elsewhere the source reports `available: false` and the widget says "Calls unavailable".'],
 };
 
@@ -188,7 +218,9 @@ for (const { dir, def } of loaded) {
   const imports = importsOf(dir);
   const devDependencies: Record<string, string> = { '@kiosko/sdk': VERSIONS['@kiosko/sdk']!, '@types/node': '^24.0.0', esbuild: '^0.25.0', typescript: '^5.9.3' };
   for (const m of imports) if (VERSIONS[m] && m !== '@kiosko/sdk') devDependencies[m] = VERSIONS[m]!;
-  if (imports.has('@napi-rs/canvas') || imports.has('@kiosko/core')) devDependencies['@napi-rs/canvas'] = VERSIONS['@napi-rs/canvas']!;
+  // Its tests paint (@kiosko/sdk/testing, the generated check): they need the canvas and the drawing kit.
+  devDependencies['@napi-rs/canvas'] = VERSIONS['@napi-rs/canvas']!;
+  devDependencies['@loksly/lcd-canvas-kit'] = VERSIONS['@loksly/lcd-canvas-kit']!;
   const old = existsSync(join(dir, 'package.json')) ? (JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8')) as { description?: string }) : {};
   const pkg = {
     name: repo,
@@ -202,8 +234,10 @@ for (const { dir, def } of loaded) {
     repository: { type: 'git', url: `git+https://github.com/${owner}/${repo}.git` },
     bugs: { url: `https://github.com/${owner}/${repo}/issues` },
     exports: { '.': { source: './src/index.ts', default: './dist/index.js' } },
-    kiosko: { plugin: './dist/index.js', id },
-    files: ['dist', 'README.md', 'LICENSE'],
+    // Read before its code runs: an incompatible Kiosko (or system) refuses it.
+    kiosko: { plugin: './dist/index.js', id, sdk: def.sdk ?? SDK_RANGE, manifest: './kiosko-manifest.json' },
+    ...(def.platforms ? { os: def.platforms } : {}),
+    files: ['dist', 'docs', 'kiosko-manifest.json', 'README.md', 'LICENSE'],
     engines: { node: '>=22.18' },
     scripts: {
       build: 'node build.mjs',
@@ -211,6 +245,7 @@ for (const { dir, def } of loaded) {
       check: 'tsc -p tsconfig.json',
       prepublishOnly: 'npm run build',
     },
+    peerDependencies: { '@kiosko/sdk': def.sdk ?? SDK_RANGE },
     devDependencies: Object.fromEntries(Object.entries(devDependencies).sort()),
   };
   writeFileSync(join(dir, 'package.json'), `${JSON.stringify(pkg, null, 2)}\n`);
@@ -220,6 +255,7 @@ for (const { dir, def } of loaded) {
   writeFileSync(join(dir, 'LICENSE'), readFileSync(join(root, 'LICENSE'), 'utf8'));
   mkdirSync(join(dir, '.github', 'workflows'), { recursive: true });
   writeFileSync(join(dir, '.github', 'workflows', 'ci.yml'), ciYml);
+  writeFileSync(join(dir, 'src', 'kiosko-check.test.ts'), checkTest);
 
   // Screenshots, painted with demo data by Kiosko's own compositor.
   mkdirSync(join(dir, 'docs'), { recursive: true });
@@ -250,7 +286,13 @@ ${optionsTable(s.options)}`);
 ${L(i.description)} Add it in Kiosko → Screens → Interludes.
 
 ${optionsTable(i.options)}`);
+  // The store's record, next to package.json (`kiosko plugins manifest` writes the same).
+  const screenshots = Object.fromEntries((def.widgets ?? []).map((w) => [w.id, `docs/${w.id}.png`]));
+  writeFileSync(join(dir, 'kiosko-manifest.json'), `${JSON.stringify(pluginManifest(def, { pkg, screenshots }), null, 2)}\n`);
   const req = REQUIREMENTS[id] ?? [];
+  // Hand-written notes the definition can't say (how gestures work, an API key's limits): kept as they are.
+  const extra = existsSync(join(dir, 'docs', 'README-extra.md')) ? readFileSync(join(dir, 'docs', 'README-extra.md'), 'utf8').trim() : '';
+  const needs = [...(def.requires ?? []).map((t) => `- Needs \`${t}\` from [kiosko-plugin-${t.split('/')[0]}](../kiosko-plugin-${t.split('/')[0]}).`), ...(def.optional ?? []).map((t) => `- Uses \`${t}\` from [kiosko-plugin-${t.split('/')[0]}](../kiosko-plugin-${t.split('/')[0]}) when it is there.`)];
   const readme = `# ${repo}
 
 ${L(def.description)}
@@ -269,9 +311,14 @@ npm install --prefix ~/.config/kiosko/plugins ${repo}
 
 (macOS: \`~/Library/Application Support/Kiosko/plugins\`, Windows: \`%APPDATA%\\Kiosko\\plugins\`.)
 ${req.length ? `\n## Requirements\n\n${req.map((r) => `- ${r}`).join('\n')}\n` : ''}
+## What it does on your machine
+
+${permissionLines(def).map((l) => `- ${l}`).join('\n')}
+${needs.length ? `\n${needs.join('\n')}\n` : ''}
 ${widgets.length ? `## Widgets\n\n${widgets.join('\n')}` : ''}
 ${sources.length ? `## Data sources\n\n${sources.join('\n')}` : ''}
 ${interludes.length ? `## Interludes\n\n${interludes.join('\n')}` : ''}
+${extra ? `${extra}\n` : ''}
 ## Development
 
 \`\`\`sh
