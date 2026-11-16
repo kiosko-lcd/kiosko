@@ -593,6 +593,38 @@ Lo que cambia en el camino:
       compartida y caché, y que los datos de bolsa tienen licencia: verlos
       en tu panel es uso personal, pero no redistribuirlos (ojo con la demo
       web y las capturas: datos de muestra, no reales).
+14. **El tráfico de tu ruta.** Hoy `mirror/trafficmap` pinta el flujo de
+    TomTom alrededor de tu ubicación: un mapa, que no sabe adónde vas. Lo que
+    se busca es «a la oficina hoy: 34 min, 9 más de lo normal, sal ya».
+    - *Rutas*: una o varias con nombre (casa → oficina, oficina → casa,
+      colegio), origen y destino por dirección o coordenadas, guardadas solo
+      en local.
+    - *Proveedor*, intercambiable:
+      - **TomTom Routing** con tráfico en vivo: la misma clave gratuita que
+        el mapa (unas 2.500 peticiones/día), da duración con tráfico y sin
+        él, y el retraso.
+      - **HERE Routing** (capa gratuita) o **Mapbox Directions** con perfil
+        `driving-traffic` como alternativas; **Google Routes** es de pago
+        por uso.
+      - **OSRM/Valhalla** no tienen tráfico en vivo: solo como respaldo.
+      - En España, las incidencias de la **DGT** (datos abiertos DATEX II,
+        gratis): obras, accidentes y cortes que tocan la ruta.
+    - *Widgets*: el tiempo de la ruta en grande con el retraso frente a lo
+      normal (verde, ámbar, rojo por umbrales) y la hora de llegada si sales
+      ahora; la ruta alternativa si es más rápida; las incidencias en el
+      camino; opcional, un mapa de la ruta con su tráfico (reusar las
+      teselas de `trafficmap`).
+    - *Cuándo*: solo en la franja en que importa, con la jornada de Ajustes
+      (`ctx.workday`): la ida antes de la hora de entrada y la vuelta al
+      acabar, nada en festivos ni fines de semana (y reposo el resto del
+      tiempo). Que se quede la tesela si el retraso pasa de un umbral cerca
+      de la hora de salir: «sal ya» o «sal 10 min antes».
+    - *Con la agenda*: si la próxima reunión tiene lugar, el tiempo hasta
+      allí y a qué hora salir (enlaza con el punto 12).
+    - Cuidado con: el límite de peticiones (consultar cada 5 min solo dentro
+      de la franja), que origen y destino son datos personales (en local,
+      fuera de capturas y de la demo), y medir «lo normal» guardando un
+      histórico propio por franja horaria si el proveedor no lo da.
 
 ### Decisiones abiertas para ti
 
