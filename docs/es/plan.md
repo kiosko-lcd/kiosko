@@ -733,6 +733,38 @@ Lo que cambia en el camino:
       margen al salir), detectar aplicaciones en los tres sistemas sin
       permisos raros, y enseñar en el editor por qué está cada página en
       pantalla («fijada por: juego abierto»).
+22. **Fractales** (`kiosko-plugin-fractals`): animaciones generativas para
+    lucir el panel. Lo pesado va en interludios (se preparan antes de
+    reproducirse, en `prepare`); lo ligero, como animación de tesela
+    (`animation`, 600 fotogramas como mucho). Que algo se mueva además
+    ayuda contra el quemado. Por orden de impacto:
+    - **Llama fractal que se revela** (*fractal flame*, el algoritmo de
+      Apophysis y Electric Sheep), como interludio: millones de puntos sobre
+      transformaciones no lineales (espiral, remolino, esfera…) acumulados
+      con densidad logarítmica, así que la imagen aparece como una foto en
+      el revelador, de un polvo tenue a filamentos luminosos. Semilla por
+      franja horaria: cada cuarto de hora, una obra distinta; paleta del
+      tema. Unos 20 ms por millón de puntos en JS: cabe en `prepare`.
+      **Recomendada**: es la que hace que alguien se pare a mirar.
+    - **Árbol que crece**, como widget de tesela: ramas recursivas que
+      brotan, se mecen y florecen; vectorial y barato, y en una franja
+      ancha, un bosque. Ligado a datos: crece con la jornada (horas,
+      commits, tokens) y florece al acabarla; la estación y el viento de
+      `weather/current`. **Recomendado** como compañero diario.
+    - **Julia que se transforma**: el parámetro recorre el borde del
+      Mandelbrot y la figura se retuerce; bucle perfecto, color continuo,
+      barato.
+    - **Zoom en el Mandelbrot** (valle de los caballitos de mar): clásico
+      pero caro a 1920×462 (media resolución y escalar) y sin zoom muy
+      profundo (la precisión de `double` se acaba).
+    - Más ligeros: el **helecho de Barnsley** o el juego del caos punto a
+      punto, la **curva del dragón** desplegándose, y **coral o rayo**
+      (agregación por difusión, figuras de Lichtenberg) creciendo desde un
+      punto.
+    - Cuidado con: el tiempo de `prepare` en máquinas modestas (calcular a
+      menos resolución o menos puntos según lo que tarde el primer
+      fotograma), la memoria de 300 fotogramas a pantalla completa, y que se
+      vea bien en los cinco temas (incluido `paper`, claro).
 
 ### Decisiones abiertas para ti
 
