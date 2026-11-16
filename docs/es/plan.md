@@ -468,6 +468,37 @@ Lo que cambia en el camino:
      fabricantes, de la misma familia que las insignias del punto 8.
    - Pendiente: alta como afiliado, facturación e impuestos de las
      comisiones, y qué tiendas cubren los países de los usuarios.
+10. **Más idiomas, empezando por el chino.** Prioridad: el **chino
+    tradicional de Taiwán (`zh-TW`)**, el del fabricante de los paneles
+    (Thermalright), y el **chino simplificado (`zh-CN`)**, el de la China
+    continental. Son dos traducciones distintas (caracteres y a veces
+    vocabulario: 分鐘/分钟, 設定/设置), no una con dos nombres. Lo que hay hoy
+    y lo que falta:
+    - *Textos*: el editor (`packages/web/src/i18n.ts`, unas 450 claves) y
+      los plugins (`Localized`, hoy `{ en, es }`) solo tienen inglés y
+      español. Hay comprobaciones sueltas de `locale.startsWith('es')` en el
+      editor y la demo que habría que llevar al sistema de traducciones.
+    - *Variantes regionales*: `localize` ya busca primero la etiqueta
+      completa (`zh-TW`) y luego el idioma (`zh`), pero `ctx.fmt` (horas,
+      «hace 5 min», duraciones) elige sus palabras solo por idioma: hay que
+      dejarle distinguir `zh-TW` de `zh-CN`. Fechas y números ya salen bien
+      con `Intl`.
+    - *Fuentes del panel*: DejaVu no tiene caracteres chinos, así que el
+      panel pintaría cuadros vacíos. Hace falta una fuente CJK (Noto Sans
+      CJK TC y SC, o Source Han Sans) que pesa megas: descargarla bajo
+      demanda al elegir el idioma (en `cacheDir` no, en `dataDir`), o
+      recortarla a los caracteres usados. Comprobar también las versalitas
+      (`smallCaps`) y el `tracking` de las etiquetas, que no tienen sentido
+      en chino, y los recortes de texto (`truncate` mide por caracteres).
+    - *Editor web*: Inter tampoco tiene chino; basta con caer en la fuente
+      del sistema (PingFang, Microsoft JhengHei/YaHei, Noto).
+    - *Traducción*: primera versión con IA y revisión por un hablante
+      nativo (¿el propio fabricante?), un fichero por idioma para que la
+      comunidad pueda aportar otros, y una prueba que avise de claves sin
+      traducir. Los plugins oficiales, igual, con `zh-TW` y `zh-CN` en sus
+      `Localized`.
+    - Después: documentación (README, `docs/plugins.md`) y la web
+      (kioskolcd.dev) en chino, y el resto de idiomas que pida la gente.
 
 ### Decisiones abiertas para ti
 
