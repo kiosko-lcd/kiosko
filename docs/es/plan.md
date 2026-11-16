@@ -625,6 +625,56 @@ Lo que cambia en el camino:
       de la franja), que origen y destino son datos personales (en local,
       fuera de capturas y de la demo), y medir «lo normal» guardando un
       histórico propio por franja horaria si el proveedor no lo da.
+15. **Redes sociales** (`kiosko-plugin-social`). Lo difícil son las APIs,
+    cada vez más cerradas:
+    - Abiertas y gratis: **Bluesky** (AT Protocol) y **Mastodon** (API de
+      cada instancia). Por aquí se empieza.
+    - Con clave: **YouTube Data API** (suscriptores, visitas, último vídeo),
+      **Twitch** (en directo o no), **Reddit** (OAuth, con límites).
+    - Cerradas o de pago: **X** (API de pago), **Instagram** y **Facebook**
+      (solo cuentas profesionales vía Graph API; la Basic Display API se
+      cerró en 2024), **LinkedIn** (sin API útil). No prometerlas.
+    - *Widgets*: tus cifras (seguidores, «me gusta», suscriptores) con su
+      tendencia; menciones y notificaciones sin leer, que pueden quedarse la
+      tesela; el último post de una cuenta o una lista; «en directo» de los
+      canales que sigues.
+    - Cuidado con: los tokens (secretos, en local) y no mostrar contenido
+      ajeno sin filtro en un panel siempre encendido (filtro de palabras,
+      solo cuentas elegidas).
+16. **Marco de fotos** (`kiosko-plugin-photos`). El widget **Imagen** de
+    `core` ya muestra una carpeta por turnos; el marco va más allá:
+    - *De dónde*: carpeta local o del NAS, **Immich**, **Nextcloud** y
+      WebDAV, **Synology Photos**, álbumes compartidos de **iCloud** (enlace
+      público). **Google Photos** ya no deja leer la biblioteca desde 2025
+      (solo el selector o lo que suba la propia app): no prometerlo.
+    - *Cómo se ve*: recorte inteligente para paneles muy apaisados (una
+      franja de 1920×462 corta cabezas): centrar en caras o en lo
+      importante; movimiento lento tipo Ken Burns con la API `animation`;
+      transiciones; fecha y lugar de la foto (EXIF) en una esquina; «tal día
+      como hoy, hace 3 años».
+    - *Qué fotos*: álbumes elegidos, aleatorio sin repetir hasta agotar,
+      favoritas, excluir capturas de pantalla y fotos privadas por etiqueta.
+    - Cuidado con: decodificar en `fetch` y reducir al tamaño del panel
+      (fotos de 20 MP), caché en `cacheDir`, y que es contenido personal
+      (fuera de la demo y de capturas).
+17. **Deportes: resultados y agenda** (`kiosko-plugin-sports`), un plugin
+    con una fuente de **equipos y competiciones favoritos** compartida:
+    - *Proveedores*: **football-data.org** (gratis con clave, ligas
+      principales), **API-Football** (capa gratuita de 100 peticiones/día),
+      **TheSportsDB** (muchos deportes), **Jolpica** (F1, sucesor de
+      Ergast) y **OpenF1** (tiempos en vivo). Los de ESPN no son oficiales:
+      como respaldo, no como base.
+    - *Resultados*: marcador en directo de tus equipos (que se queda la
+      tesela con un gol y lo celebra con una animación corta), resultados de
+      la jornada, clasificación con tu equipo resaltado.
+    - *Agenda*: próximos partidos con fecha, hora local, competición y
+      **canal de TV** (no hay una API limpia de dónde se emite en España: a
+      investigar); la cuenta atrás al siguiente; y exportarla como
+      calendario o leer los ICS que publican muchos clubes con el plugin de
+      calendario (punto 12).
+    - *Cuándo*: consultar cada pocos segundos solo durante los partidos de
+      tus equipos, y cada pocas horas el resto del tiempo, por los límites de las
+      APIs gratuitas.
 
 ### Decisiones abiertas para ti
 
