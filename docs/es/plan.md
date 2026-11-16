@@ -765,6 +765,33 @@ Lo que cambia en el camino:
       menos resolución o menos puntos según lo que tarde el primer
       fotograma), la memoria de 300 fotogramas a pantalla completa, y que se
       vea bien en los cinco temas (incluido `paper`, claro).
+23. **Cámaras de seguridad (RTSP)** (`kiosko-plugin-cameras`). Lo útil no
+    es tenerlas siempre puestas, sino que salgan solas cuando pasa algo.
+    - *Hace falta un modo de vídeo en vivo*: ni `animation` ni los
+      interludios sirven (precalculan sus fotogramas). Un widget que recibe
+      fotogramas continuamente y repinta solo su tesela, a 5-10 fps; con el
+      compositor y el tope de ~500 KB por fotograma de los paneles LY es
+      viable. Pieza del SDK que también valdría para el reproductor de
+      vídeos propios (punto 3) y el visualizador de audio.
+    - *Decodificar*: `ffmpeg` como proceso hijo (RTSP → reducido al tamaño
+      de la tesela → JPEG por stdout a los fps pedidos), sin dependencias
+      nativas, en los tres sistemas. Usar el **subflujo** de la cámara
+      (640×360 o similar), no el principal, para que varias quepan en la
+      CPU. Sin `ffmpeg`: **go2rtc**, **Frigate** o **Home Assistant**
+      (`camera_proxy`) ya dan instantáneas o MJPEG por HTTP; y para una
+      instantánea lenta ya basta el widget **Imagen** con la URL.
+    - *Widgets*: una cámara, un mosaico de 2-4 o una que va rotando; hora y
+      nombre sobreimpresos; aviso si deja de responder.
+    - *Eventos*: con **Frigate** (personas, coches) o el timbre y los
+      sensores de movimiento de Home Assistant (`homeassistant/states`), la
+      cámara de la puerta se queda la tesela unos segundos (`urgent`), con
+      el recuadro de lo detectado. Reposo el resto del tiempo, o solo de
+      noche, o solo con movimiento.
+    - Cuidado con: las credenciales van en la URL RTSP (secreto, y la
+      opción con `risk: ['network', 'exec']` porque lanza `ffmpeg`); nunca
+      imágenes de cámaras en capturas ni en la demo; la CPU y el ancho de
+      banda USB con varios flujos; y el quemado de una imagen fija durante
+      horas (desplazamiento de píxeles y reposo).
 
 ### Decisiones abiertas para ti
 
