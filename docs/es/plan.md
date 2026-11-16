@@ -564,6 +564,35 @@ Lo que cambia en el camino:
       vez (mismo `UID` o mismo título y hora);
     - en el editor, elegir los calendarios de la tesela con casillas con sus
       nombres, no escribiendo patrones.
+13. **Finanzas: bolsa, índices, divisas y cripto** (`kiosko-plugin-finance`).
+    - *De dónde sacar los datos*, con un proveedor intercambiable porque
+      ninguno es perfecto:
+      - **Yahoo Finance**: el más completo y sin clave, pero su API no es
+        oficial (cambia sin aviso, a veces pide cookie y «crumb», y sus
+        términos no permiten usarla así). Bien como opción, no como única.
+      - **Google Finance**: no tiene API desde 2012 (solo `GOOGLEFINANCE` en
+        Hojas de cálculo); descartado salvo que aparezca algo.
+      - Con clave gratuita: **Finnhub** (60 peticiones/min), **Twelve Data**
+        (800/día), **Alpha Vantage** (25/día, poco). Sin clave: **Stooq**
+        (CSV, con retraso).
+      - Divisas: el **BCE** (oficial, gratis, una vez al día) vía Frankfurter;
+        cripto: **CoinGecko** (sin clave).
+    - *Widgets*: una cotización en grande con la curva del día (al estilo de
+      la entidad de Home Assistant); una lista de valores; una cinta que
+      pasa en una franja; el estado del mercado (abierto, cerrado, preapertura,
+      con su horario y festivos por bolsa); y, opcional, el valor de una
+      cartera con las posiciones guardadas solo en local.
+    - *Avisos*: umbrales por valor (precio o % del día) que pintan y se
+      quedan la tesela, como el resto de plugins; reposo con el mercado
+      cerrado.
+    - *Colores*: subidas y bajadas con `up`/`down` y flecha, nunca con
+      `ok`/`alert`, y el ajuste verde/rojo del punto 10 (en China y Taiwán
+      el rojo es subir). Este plugin es el primero que lo necesita.
+    - *A tener en cuenta*: avisar del retraso de cada proveedor (15-20 min
+      en muchos mercados), respetar sus límites con una sola fuente
+      compartida y caché, y que los datos de bolsa tienen licencia: verlos
+      en tu panel es uso personal, pero no redistribuirlos (ojo con la demo
+      web y las capturas: datos de muestra, no reales).
 
 ### Decisiones abiertas para ti
 
