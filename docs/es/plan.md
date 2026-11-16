@@ -546,6 +546,24 @@ Lo que cambia en el camino:
       tiene sentido por perfil y no mezclado; no leer dos veces el mismo
       feed si lo usan dos perfiles (caché por URL); y la migración de las
       configuraciones actuales al perfil por defecto.
+12. **Agenda: unión por defecto, separación clara.** La fuente
+    `calendar/events` lee todos los ICS (hasta 10) y une sus reuniones; cada
+    widget puede quedarse con algunos por el nombre del calendario
+    (`calendars`, con `*` y `!`). La unión por defecto es lo correcto (el día
+    es uno: la cuenta atrás tiene que ver también la reunión personal que
+    pisa la de trabajo) y separar sirve para paneles compartidos o una
+    tesela solo de festivos. Aquí no hacen falta los perfiles del punto 11:
+    leer todo una vez y elegir por tesela es más simple y barato. Lo que
+    falta:
+    - un **nombre propio por dirección**, porque el que trae el ICS a veces
+      es genérico o repetido (los publicados de Outlook), y entonces el
+      filtro no los distingue;
+    - un **color por calendario** y su marca en la agenda y en la próxima
+      reunión, para saber de cuál es cada una al verlos unidos;
+    - comprobar que una reunión invitada en dos calendarios sale una sola
+      vez (mismo `UID` o mismo título y hora);
+    - en el editor, elegir los calendarios de la tesela con casillas con sus
+      nombres, no escribiendo patrones.
 
 ### Decisiones abiertas para ti
 
