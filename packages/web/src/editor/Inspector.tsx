@@ -285,15 +285,20 @@ export function WidgetPicker({ onPick, onCancel }: { onPick: (type: string) => v
   );
 }
 
-/** Where the widget's data stands: own fetch and shared sources, live from the server. */
+/** A widget's `render` slower than this delays every panel (the runtime's SLOW_PAINT_MS). */
+const SLOW_PAINT_MS = 50;
+
+/** Where the widget's data stands (own fetch and shared sources) and how long it takes to paint, live from the server. */
 function DataStatus({ id, sources, hasFetch }: { id: string; sources: string[]; hasFetch: boolean }) {
-  if (!hasFetch && !sources.length) return null;
-  if (app.value?.demo) return <div class="data-status demo"><Icon name="flask-conical" size={13} /> {tr('data.demo')}</div>;
+  if (app.value?.demo) return hasFetch || sources.length ? <div class="data-status demo"><Icon name="flask-conical" size={13} /> {tr('data.demo')}</div> : null;
   const st = status.value;
+  const paint = st?.paint?.find((p) => p.instance === id);
+  if (!hasFetch && !sources.length && !paint) return null;
   const rows = [
     ...(hasFetch ? [st?.fetches.find((f) => f.id === id) ?? { type: tr('data.own'), ok: true, error: null, updatedAt: null }] : []),
     ...sources.map((s) => st?.sources.find((x) => x.type === s) ?? { type: s, ok: true, error: null, updatedAt: null }),
   ];
+  const slow = !!paint && paint.avgMs > SLOW_PAINT_MS;
   return (
     <div class="data-status">
       {rows.map((r) => (
@@ -303,6 +308,13 @@ function DataStatus({ id, sources, hasFetch }: { id: string; sources: string[]; 
           <span>{!r.ok ? r.error : r.updatedAt ? `${tr('data.updated')} ${new Date(r.updatedAt).toLocaleTimeString()}` : tr('data.waiting')}</span>
         </div>
       ))}
+      {paint && (
+        <div class={`data-row ${slow ? 'bad' : 'ok'}`} title={slow ? tr('data.slowHelp') : ''}>
+          <span class="dot" />
+          <code>{tr('data.paint')}</code>
+          <span>{tr('data.paintMs').replace('{avg}', String(paint.avgMs)).replace('{max}', String(paint.maxMs))}</span>
+        </div>
+      )}
     </div>
   );
 }

@@ -104,6 +104,8 @@ export interface Status {
   screens: { id: string; name: string; page: string | null; pinned: string | null; interlude: string | null; device: { driver: string; ok: boolean; message: string; framesSent: number; lastSentAt: number | null; detected?: { width: number; height: number; rotate?: number } }; lastFrameAt: number | null; sleeping: boolean }[];
   sources: { type: string; ok: boolean; error: string | null; updatedAt: number | null; intervalMs?: number }[];
   fetches: { id: string; type: string; ok: boolean; error: string | null; updatedAt: number | null }[];
+  /** How long each widget instance takes to paint on the panels, slowest first. */
+  paint?: { instance: string; type: string; lastMs: number; avgMs: number; maxMs: number; paints: number }[];
   problems: { origin: string; message: string }[];
 }
 
