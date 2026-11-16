@@ -118,6 +118,15 @@ The grid is fixed (a panel doesn't scroll): 24×6 cells on a 1920×462 panel,
 panel is refused rather than losing a tile. **Auto-arrange** packs everything
 masonry-style.
 
+**Portrait panels.** Stand a strip on its side and pick *Screens → Orientation →
+Portrait*: you design a 462×1920 picture (6×24 cells) and Kiosko turns it for
+the panel. The pages turn with it: columns become bands, top to bottom, and a
+summary strip across the top stays across the top; the page templates have
+portrait versions of their own. If the picture comes out upside down, *Turn
+180°*. In `config.json` that is `"width": 462, "height": 1920, "rotate": 90`
+(or 270): `width` × `height` are the picture as you see it, `rotate` how the
+panel is mounted.
+
 ## Let an AI write your config
 
 Everything lives in one `config.json`, described by a JSON Schema at a stable
@@ -182,8 +191,9 @@ can run in PowerShell.
    kiosko usb test --serial 202592047DAE --rotate 180 --seconds 10
    ```
 
-   The Trofeo Vision wants `--rotate 180`; when a screen's rotation doesn't match what
-   the panel's firmware expects, Kiosko says so in the editor's *Activity* log.
+   The Trofeo Vision wants `--rotate 180`; when a screen's picture would come out upside
+   down for what the panel's firmware expects, Kiosko says so in the editor's *Activity*
+   log. Standing it on its side (portrait) is a quarter turn from that: 90 or 270.
 5. **Write the config** (agent): one `screens[]` entry per panel in
    `%APPDATA%\Kiosko\config.json`, each with `"device": { "driver": "usb", "serial": "…" }`.
    Start from the screen Kiosko wrote on its first run, or from this one (it is

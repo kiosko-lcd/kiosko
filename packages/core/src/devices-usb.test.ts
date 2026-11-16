@@ -68,7 +68,7 @@ test('usb: the first frame connects and goes out at once; the status says which 
   assert.equal(dev.status.ok, true);
   assert.equal(dev.status.framesSent, 1);
   assert.match(dev.status.message, /SER1 PM 65 SUB 5 1920×462/);
-  assert.deepEqual(dev.status.detected, { width: 1920, height: 462 });
+  assert.deepEqual(dev.status.detected, { width: 1920, height: 462, rotate: 180 });
   assert.equal(log.filter((m) => /rotation/.test(m)).length, 0, 'the screen turns the picture as the firmware wants');
   dev.close();
   assert.equal(pipe.closed, true);
@@ -78,8 +78,18 @@ test('usb: warns when the screen is mounted differently from what the firmware e
   const log: string[] = [];
   const dev = new UsbDevice({ driver: 'usb' }, (m) => log.push(m), { open: () => panelOver(new Pipe()), rotate: 0 });
   await dev.send(jpeg(1000));
-  assert.ok(log.some((m) => /expects rotation 180° but this screen has 0°/.test(m)));
+  assert.ok(log.some((m) => /expects rotation 180° but this screen has 0°: the picture may come out upside down/.test(m)));
   dev.close();
+});
+
+test('usb: a panel on its side (portrait) is a quarter turn from the firmware either way: no warning', async () => {
+  for (const rotate of [90, 270]) {
+    const log: string[] = [];
+    const dev = new UsbDevice({ driver: 'usb' }, (m) => log.push(m), { open: () => panelOver(new Pipe()), rotate });
+    await dev.send(jpeg(1000));
+    assert.equal(log.filter((m) => /rotation/.test(m)).length, 0, `${rotate}°`);
+    dev.close();
+  }
 });
 
 test('usb: an unchanged frame is sent again every keepalive; a new one right away', async () => {
