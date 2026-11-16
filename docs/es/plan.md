@@ -673,8 +673,66 @@ Lo que cambia en el camino:
       calendario o leer los ICS que publican muchos clubes con el plugin de
       calendario (punto 12).
     - *Cuándo*: consultar cada pocos segundos solo durante los partidos de
-      tus equipos, y cada pocas horas el resto del tiempo, por los límites de las
-      APIs gratuitas.
+      tus equipos, y cada pocas horas el resto del tiempo, por los límites
+      de las APIs gratuitas.
+18. **Widget genérico REST/JSON y webhook de entrada.** Dos piezas en `core`
+    que convierten en widget cualquier cosa sin escribir un plugin:
+    - *REST/JSON*: una URL (con cabeceras y secreto opcionales), una ruta
+      dentro de la respuesta (`$.data.temperature`, o una expresión
+      sencilla para listas) y una presentación: número grande con unidad y
+      umbrales, lista, curva con histórico propio, texto. Con `intervalMs`,
+      `timeoutMs` y `risk: 'network'` como cualquier fuente.
+    - *Webhook*: `POST /api/push/<nombre>` con un JSON (`{ "value": 42,
+      "text": "Backup terminado", "level": "warn", "ttlMs": 3600000 }`) que
+      pinta un widget **Push** con ese nombre; `level: alert` se queda la
+      tesela y `ttlMs` lo apaga solo. Sirve para scripts, cron, CI, Home
+      Assistant, n8n.
+    - *Seguridad*: el servidor hoy solo escucha en local y se protege de
+      CSRF y DNS rebinding; el push necesitaría un token por nombre (y
+      decidir si se permite desde la red local), sin abrir el resto de la
+      API.
+    - Recetas en la documentación: «el último backup», «el despliegue»,
+      «la temperatura del acuario» con `curl`.
+19. **FPS del juego, ventiladores y refrigeración líquida.** Es lo primero
+    que enseña el software del fabricante (TRCC) y lo que espera quien
+    compra el panel para su PC.
+    - *FPS y tiempos de fotograma*: MangoHud (Linux, registro a fichero o su
+      socket), PresentMon (Windows, la base de las métricas de Intel y AMD);
+      FPS medios, 1 % bajos y una curva de tiempos de fotograma que delata
+      los tirones. Solo con un juego abierto.
+    - *Ventiladores, bombas y líquido*: liquidctl (AIO y controladores de
+      Corsair, NZXT…, en Linux, macOS y Windows), lm-sensors en Linux,
+      LibreHardwareMonitor en Windows (por su servidor web o WMI): RPM,
+      temperatura del líquido, curvas.
+    - Encaja con el punto 21: al abrir un juego, la página de juego.
+20. **Precio de la luz por horas** (España, PVPC). Red Eléctrica publica el
+    precio de cada hora del día y, hacia las 20:30, el de mañana: API de
+    REData o ESIOS, gratis (ESIOS pide un token gratuito).
+    - *Widgets*: el precio de ahora frente al del día (barato, normal, caro
+      en verde, gris, ámbar), las 24 barras del día con la hora actual
+      marcada, y «la hora más barata para la lavadora» (ventana de N horas
+      seguidas más barata de lo que queda de día, y de mañana si ya está).
+    - Opcional: el excedente solar o el consumo desde Home Assistant
+      (`homeassistant/states`) para decir «ahora gastas con luz cara».
+    - Plugin en la carpeta de oficiales con nombre neutral
+      (`kiosko-plugin-electricity`) y el PVPC como primer proveedor, para
+      que otros países añadan el suyo (Nord Pool, aWATTar, Octopus).
+21. **Páginas según el contexto.** Hoy una página puede mostrarse siempre,
+    en horario laboral o fuera (`when`), y una pantalla puede fijar una
+    (`pinnedPage`). Faltan condiciones que cambien de página solas:
+    - *Señales*: una aplicación abierta (un juego, OBS, la herramienta de
+      videollamadas), estar en una llamada (`calls/active` ya existe), la
+      hora o el día, una reunión que empieza, un widget urgente de otra
+      página, el valor de una fuente («si la luz está cara»), o un webhook
+      del punto 18.
+    - *Modelo*: reglas por página con prioridad (`showWhen: { app:
+      'steam_app_*' }`, `{ source: 'calls/active', is: true }`), que mandan
+      sobre el turno normal mientras se cumplen, y vuelta a la rotación al
+      dejar de cumplirse.
+    - *Cuidado con*: el parpadeo (un tiempo mínimo en cada página y un
+      margen al salir), detectar aplicaciones en los tres sistemas sin
+      permisos raros, y enseñar en el editor por qué está cada página en
+      pantalla («fijada por: juego abierto»).
 
 ### Decisiones abiertas para ti
 
