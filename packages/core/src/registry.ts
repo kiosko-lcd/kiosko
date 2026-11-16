@@ -7,8 +7,9 @@ import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from '
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { sourceOptionsField, sourceTiming } from './config/sources.ts';
+import { fullType, incompatibility, packageMeta, pluginOf } from './plugin-meta.ts';
 import { installSdkResolver } from './sdk-resolver.ts';
-import { localize, toJsonSchema, type InterludeDefinition, type PluginDefinition, type SourceDefinition, type WidgetDefinition } from '@kiosko/sdk';
+import { localize, toJsonSchema, type InterludeDefinition, type PluginDefinition, type SourceDefinition, type TemplateTile, type WidgetDefinition } from '@kiosko/sdk';
 
 export interface LoadedPlugin {
   def: PluginDefinition;
@@ -24,17 +25,78 @@ export class Registry {
   private plugins = new Map<string, LoadedPlugin>();
   /** Problems found while loading, for the editor's Plugins page. */
   readonly problems: { origin: string; message: string }[] = [];
+  /**
+   * Plugins found but not loaded because they don't fit this Kiosko (plugin
+   * API version, operating system). Those found through their package.json
+   * were refused before their code ran.
+   */
+  readonly refused: { id?: string; version?: string; origin: string; reason: string }[] = [];
+  /** Where a plugin's code came from, to load it again (`reload`). */
+  private entries = new Map<string, { entry: string; origin: string }>();
+
+  private refuse(r: { id?: string | undefined; version?: string | undefined; origin: string; reason: string }): void {
+    this.refused.push({ origin: r.origin, reason: r.reason, ...(r.id ? { id: r.id } : {}), ...(r.version ? { version: r.version } : {}) });
+    this.problems.push({ origin: r.origin, message: `${r.id ? `"${r.id}" ` : ''}not loaded: ${r.reason}` });
+  }
 
   add(def: PluginDefinition, origin = 'builtin'): void {
     if (!def || typeof def !== 'object' || !ID.test(def.id ?? '')) {
       this.problems.push({ origin, message: `invalid plugin id ${JSON.stringify(def?.id)}` });
       return;
     }
+    const why = incompatibility(def);
+    if (why) return this.refuse({ id: def.id, version: def.version, origin, reason: why });
     if (this.plugins.has(def.id)) {
       this.problems.push({ origin, message: `plugin "${def.id}" already loaded from ${this.plugins.get(def.id)!.origin}` });
       return;
     }
     this.plugins.set(def.id, { def, origin, enabled: true });
+  }
+
+  /** Forgets a plugin (removed, or about to be loaded again). Its module stays in memory: ES modules can't be unloaded. */
+  remove(id: string): boolean {
+    this.entries.delete(id);
+    return this.plugins.delete(id);
+  }
+
+  /**
+   * Imports a plugin's code again from where it came, so a rebuilt or
+   * updated plugin runs without restarting Kiosko. Only its entry file is
+   * read again: a plugin should be one bundled file (what `npm run build`
+   * makes). Returns the problem, or null.
+   */
+  async reload(id: string): Promise<string | null> {
+    const e = this.entries.get(id);
+    if (!e) return this.plugins.has(id) ? `"${id}" is built in and can't be reloaded` : `"${id}" is not loaded`;
+    const old = this.plugins.get(id)!;
+    this.plugins.delete(id);
+    const problems = this.problems.length;
+    try {
+      const def = await this.loadEntry(e.entry, e.origin, Date.now());
+      if (def && this.plugins.has(id)) {
+        this.plugins.get(id)!.enabled = old.enabled;
+        return null;
+      }
+    } catch (err) {
+      this.problems.push({ origin: e.origin, message: err instanceof Error ? err.message : String(err) });
+    }
+    // The new code didn't load: keep the old one running.
+    this.plugins.set(id, old);
+    this.entries.set(id, e);
+    return this.problems.slice(problems).map((p) => p.message).join('; ') || `"${id}" did not load again`;
+  }
+
+  /** Loads one plugin folder (just installed or linked), as `loadDir` does for each. Returns the ids it added. */
+  async loadOne(folder: string): Promise<string[]> {
+    installSdkResolver();
+    const before = new Set(this.plugins.keys());
+    await this.loadFolder(folder);
+    return [...this.plugins.keys()].filter((id) => !before.has(id));
+  }
+
+  /** Where a loaded plugin came from (its folder), or undefined for a built-in one. */
+  originOf(id: string): string | undefined {
+    return this.entries.get(id)?.origin;
   }
 
   setDisabled(ids: string[]): void {
@@ -110,6 +172,10 @@ export class Registry {
       let entry = ['index.mjs', 'index.js'].map((f) => join(folder, f)).find(existsSync);
       if (existsSync(pkgPath)) {
         const pkg = JSON.parse(readFileSync(pkgPath, 'utf8')) as { main?: string; kiosko?: { plugin?: string } };
+        // Checked before importing: an incompatible plugin's code never runs.
+        const meta = packageMeta(pkg);
+        const why = incompatibility(meta);
+        if (why) return this.refuse({ id: meta.id, version: meta.version, origin: folder, reason: why });
         const rel = pkg.kiosko?.plugin ?? pkg.main;
         if (rel) entry = join(folder, rel);
       }
@@ -123,18 +189,24 @@ export class Registry {
     }
   }
 
-  private async loadEntry(entry: string, origin: string): Promise<void> {
-    const mod = (await import(pathToFileURL(entry).href)) as { default?: PluginDefinition };
+  private async loadEntry(entry: string, origin: string, version?: number): Promise<PluginDefinition | undefined> {
+    // A query makes Node import the file again (ES modules are cached by URL): how `reload` gets new code.
+    const url = pathToFileURL(entry).href + (version ? `?v=${version}` : '');
+    const mod = (await import(url)) as { default?: PluginDefinition };
     if (!mod.default) {
       this.problems.push({ origin, message: 'the module has no default export (use `export default definePlugin({...})`)' });
-      return;
+      return undefined;
     }
+    const before = this.plugins.size;
     this.add(mod.default, origin);
+    if (this.plugins.size > before) this.entries.set(mod.default.id, { entry, origin });
+    return mod.default;
   }
 
   /** What the editor needs to know about every widget, source and interlude (JSON-safe). */
   catalog(locale: string) {
     const L = (x: Parameters<typeof localize>[0]) => localize(x, locale);
+    const has = (type: string) => !!(this.widget(type) ?? this.source(type) ?? this.interlude(type));
     return this.list().map(({ def, origin, enabled }) => ({
       id: def.id,
       name: L(def.name),
@@ -142,7 +214,20 @@ export class Registry {
       description: L(def.description),
       author: def.author,
       homepage: def.homepage,
+      repository: def.repository,
+      license: def.license,
       icon: def.icon,
+      sdk: def.sdk ?? null,
+      platforms: def.platforms ?? null,
+      permissions: def.permissions ?? {},
+      /** What it needs from other plugins, and whether that is here (installed and on). */
+      requires: (def.requires ?? []).map((type) => ({ type, plugin: pluginOf(type), ok: has(type) })),
+      templates: (def.templates ?? []).map((tp) => {
+        // Bare widget ids are the plugin's own: written out in full for the editor.
+        const tiles = (list: TemplateTile[] | undefined): TemplateTile[] | undefined =>
+          list?.map((tile) => ({ ...tile, widgets: tile.widgets.map((w): TemplateTile['widgets'][number] => (typeof w === 'string' ? fullType(def.id, w) : [fullType(def.id, w[0]), w[1]])) }));
+        return { id: `${def.id}/${tp.id}`, name: L(tp.name), icon: tp.icon ?? 'layout-template', wide: tiles(tp.wide)!, square: tiles(tp.square), tall: tiles(tp.tall) };
+      }),
       builtin: origin === 'builtin',
       origin,
       enabled,

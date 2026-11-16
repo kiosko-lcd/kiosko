@@ -11,6 +11,7 @@ export * from './compositor.ts';
 export * from './animation.ts';
 export * from './runtime.ts';
 export * from './registry.ts';
+export * from './plugin-meta.ts';
 export * from './devices.ts';
 export * from './fonts.ts';
 export * from './paths.ts';

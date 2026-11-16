@@ -131,6 +131,13 @@ class ScreenRunner {
     return r.out;
   }
 
+  /** Forgets every painted tile: the next frame is painted from scratch (a plugin's code changed). */
+  invalidate(): void {
+    this.tiles.clear();
+    this.last = null;
+    this.dirty = true;
+  }
+
   reconfigure(screen: Screen): void {
     const key = JSON.stringify(screen.device);
     if (key !== this.deviceKey) {
@@ -501,6 +508,21 @@ export class Runtime extends EventEmitter {
     }
     this.hub.retain(sources, this.config);
     this.fetches.retain(instances);
+  }
+
+  /**
+   * After a plugin's code changed (installed, reloaded, removed): its sources
+   * and fetches start again with the new code and every screen repaints
+   * from scratch.
+   */
+  pluginsChanged(ids: string[]): void {
+    for (const id of ids) {
+      this.hub.forget(id);
+      this.fetches.forget(id);
+    }
+    for (const r of this.runners.values()) r.invalidate();
+    this.refreshWanted();
+    this.emit('config', this.config);
   }
 
   /** Applies a new config: screens added, removed or changed; data kept where possible. */
