@@ -520,6 +520,32 @@ Lo que cambia en el camino:
       `Localized`.
     - Después: documentación (README, `docs/plugins.md`) y la web
       (kioskolcd.dev) en chino, y el resto de idiomas que pida la gente.
+11. **Noticias por tesela, no globales.** Que una pantalla muestre noticias
+    de un tema (tecnología, deportes, tu ciudad) y otra de otro. Hoy los
+    feeds RSS se configuran una vez, en la fuente compartida `news/deck`
+    (Ajustes → Fuentes de datos), que los lee, agrupa la misma noticia entre
+    cabeceras y ordena el mazo para todos; cada widget solo puede filtrar
+    por cabecera (`outlets`). Sirve para «solo El País aquí», no para temas
+    con feeds distintos (las secciones de cada periódico tienen su RSS).
+    - *Propuesta, general para el SDK*: **perfiles de fuente**, varias
+      configuraciones con nombre de una misma fuente (`news/deck` «General»,
+      «Tecnología», «Deportes»), cada una con sus feeds y leída por separado;
+      cada widget elige el suyo con una opción (`profile`), y el inspector
+      permite crear uno nuevo desde la propia tesela. Valdría igual para
+      otros plugins que hoy tienen una sola configuración: varias cuentas de
+      GitHub o GitLab, dos Home Assistant, calendarios de trabajo y
+      personales.
+    - *Alternativa más corta, solo en noticias*: una opción `feeds` en el
+      widget que, si se rellena, sustituye a los globales, y la fuente lee
+      la unión agrupando por conjunto de feeds. Más rápido, pero cada plugin
+      tendría que reinventarlo.
+    - *Además*: un filtro por palabras clave por tesela (`topics`, con `!`
+      para excluir) sobre titular y entradilla, que con los feeds generales
+      ya da temas sin configurar nada más.
+    - Cuidado con: el agrupado entre cabeceras («lo cuentan 4 medios»), que
+      tiene sentido por perfil y no mezclado; no leer dos veces el mismo
+      feed si lo usan dos perfiles (caché por URL); y la migración de las
+      configuraciones actuales al perfil por defecto.
 
 ### Decisiones abiertas para ti
 
