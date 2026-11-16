@@ -393,7 +393,81 @@ Lo que cambia en el camino:
 4. Emisor USB propio por número de serie y PR aguas arriba a
    `thermalright-trcc-linux` para `--serial`.
 5. Envoltorio de escritorio (Tauri) con icono en la bandeja.
-6. Galería pública de maquetas exportadas y de plugins.
+6. Galería pública de maquetas exportadas (los plugins, en la tienda del
+   punto 8).
+7. **Actualizar plugins desde el editor.** Hoy un plugin instalado desde npm
+   se queda en su versión hasta que se reinstala a mano.
+   - *Detectar*: el servidor pregunta al registro de npm por la última
+     versión (`dist-tags.latest`) al arrancar y luego una vez al día, con
+     caché en `cacheDir` y ETag, y sin quejarse si no hay red. Compara por
+     semver con la instalada y con lo que la nueva pide de Kiosko
+     (`peerDependencies` de `@kiosko/sdk`, `engines`): una versión que
+     necesita un Kiosko más nuevo no se ofrece, se avisa («requiere Kiosko ≥
+     x.y»).
+   - *Interfaz*: insignia «Actualización disponible» en la tarjeta del plugin
+     (vista Plugins) y un contador en la barra lateral; botón **Actualizar**
+     (y «Actualizar todos») que reinstala con el mismo camino que «Instalar
+     de npm» (`--ignore-scripts`), enseña las novedades (releases de GitHub
+     si `repository` apunta allí) y recarga el plugin o pide reiniciar.
+   - *Seguridad*: antes de aplicar, decir si la versión nueva trae opciones
+     con `risk` nuevas (ejecutar, red, ficheros); guardar la versión anterior
+     y volver a ella sola si la nueva no carga.
+   - Por decidir: los plugins oficiales van como dependencias opcionales del
+     producto y se actualizan con él; ¿se ofrecen también sueltos? Y el
+     mismo aviso para el propio Kiosko.
+8. **Tienda de plugins** (sustituye a la galería de plugins del punto 6). Hay
+   que trabajarla antes de escribir código; lo que se ha pensado:
+   - *Catálogo*: un índice propio (en kioskolcd.dev o un repo
+     `kiosko-lcd/plugin-index`) alimentado desde npm (palabra clave
+     `kiosko-plugin`) con lo que la propia definición del plugin dice:
+     widgets, fuentes, requisitos y opciones con riesgo, lo mismo que ya
+     extrae `plugins:scaffold`. Las capturas las genera el compositor con
+     los datos de demo, en varios temas y tamaños, no se suben a mano: así
+     son fieles a lo que se verá en el panel.
+   - *Ficha*: capturas, descripción, requisitos, **permisos** (qué puede
+     hacer: ejecutar programas, conectarse a hosts, leer ficheros; sale de
+     `risk`), versiones y novedades, compatibilidad con la versión de Kiosko
+     y el sistema operativo, y notas del autor (puntualizaciones, límites
+     conocidos).
+   - *Valoraciones y comentarios*: exigen cuentas (¿con GitHub?), moderación,
+     anti-spam y denuncias. Alternativa ligera para empezar: las Discussions
+     del repo de cada plugin, enlazadas desde la ficha.
+   - *Insignias*: «Oficial» (de kiosko-lcd); «Verificado» (autor
+     identificado y código revisado en una versión concreta, ligado al hash
+     `integrity` de npm, que se pierde al publicar una versión sin revisar);
+     «Probado en» tal panel; «Popular». Falta definir el proceso de revisión
+     y quién lo hace.
+   - *Instalar*: un clic desde la ficha, en el editor (el mismo camino que
+     npm) y con enlace profundo desde la web.
+   - *Riesgos*: un plugin ejecuta código con los permisos del usuario, así
+     que la tienda es cadena de suministro: provenance de npm, revisión, y
+     una lista de versiones retiradas que el editor consulte para avisar o
+     desactivar.
+   - Abierto: plugins de pago, alojamiento y coste, términos de uso y RGPD
+     de los comentarios.
+9. **Venta afiliada de hardware.** Recomendar paneles compatibles desde el
+   portal de configuración y recibir parte del ingreso de las ventas que
+   salgan de ahí. Hay que trabajarlo; lo pensado:
+   - *Dónde*: la vista Pantallas ya detecta el panel del usuario; si no hay
+     ninguno (o en la demo web), una sección «Paneles compatibles» con
+     resolución, protocolo y estado de soporte por sistema operativo
+     (verificado en un panel real o no). Nunca en el propio panel, solo en
+     el editor y en la web.
+   - *Cómo*: dos vías, no excluyentes. Programas de afiliados ya existentes
+     (Amazon Afiliados, AliExpress Portals, tiendas de los fabricantes):
+     rápido y sin negociar. Acuerdos directos con fabricantes (Thermalright
+     y otros) con código de referido o descuento: más margen, pero hay que
+     negociar y medir.
+   - *Atribución sin telemetría*: Kiosko es local y no rastrea; el enlace
+     lleva el identificador de afiliado y la atribución la hace la tienda.
+     No se añade telemetría para esto.
+   - *Transparencia*: marcar los enlaces como de afiliado (lo exigen la
+     normativa de consumo de la UE, la FTC y las propias plataformas), decir
+     que financian el proyecto y permitir ocultar la sección.
+   - *Encaje con la tienda*: un sello «Compatible con Kiosko» para
+     fabricantes, de la misma familia que las insignias del punto 8.
+   - Pendiente: alta como afiliado, facturación e impuestos de las
+     comisiones, y qué tiendas cubren los países de los usuarios.
 
 ### Decisiones abiertas para ti
 
