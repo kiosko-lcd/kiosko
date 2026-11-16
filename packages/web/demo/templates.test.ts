@@ -36,3 +36,15 @@ test('on a portrait panel the templates are stacked bands, across the whole widt
   const cats = pageFromTemplate(TEMPLATES.find((t) => t.id === 'cats')!, 'c', 462, 1920, has, () => undefined);
   assert.deepEqual(cats.tiles.map((t) => [t.widgets[0]!.type, t.x, t.y, t.w, t.h]), [['cats/room', 0, 0, 6, 17], ['weather/forecast', 0, 17, 6, 7]]);
 });
+
+test("plugins' templates join the menu, and a built-in one steps aside once its plugin brings its own", async () => {
+  const { allTemplates } = await import('../src/editor/templates.ts');
+  const catsOwn = { id: 'cats/room', name: 'Cats room', icon: 'cat', wide: [{ x: 0, y: 0, w: 1, h: 1, widgets: ['cats/room'] as (string | [string, Record<string, unknown>])[] }] };
+  const ids = (catalog: { id: string; templates: typeof catsOwn[] }[]) => allTemplates(catalog, () => true).map((t) => t.id);
+  assert.deepEqual(ids([]), ['blank', 'agents', 'cats', 'news', 'clock', 'system']);
+  assert.deepEqual(ids([{ id: 'cats', templates: [catsOwn] }]), ['blank', 'cats/room', 'agents', 'news', 'clock', 'system']);
+  const t = allTemplates([{ id: 'cats', templates: [catsOwn] }], () => true)[1]!;
+  assert.equal(t.name, 'Cats room');
+  const page = pageFromTemplate(t, 'x', 1920, 462, has, () => undefined);
+  assert.deepEqual(page.tiles.map((x) => [x.widgets[0]!.type, x.w, x.h]), [['cats/room', 24, 6]]);
+});

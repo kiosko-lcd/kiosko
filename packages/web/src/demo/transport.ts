@@ -160,6 +160,12 @@ export const api: typeof httpApi = {
   install: async () => {
     throw notHere();
   },
+  removePlugin: async () => {
+    throw notHere();
+  },
+  reloadPlugin: async () => {
+    throw notHere();
+  },
   async setPluginEnabled(id: string, enabled: boolean) {
     await start();
     const cfg = JSON.parse(JSON.stringify(current!.config)) as Config;

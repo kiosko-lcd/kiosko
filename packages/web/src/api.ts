@@ -20,6 +20,23 @@ export interface WidgetInfo {
   hideWhenEmpty: boolean | null;
 }
 
+/** What a plugin declares it does on the machine (see the SDK's `Permissions`). */
+export interface PluginPermissions {
+  network?: string[];
+  exec?: string[];
+  files?: string[];
+  devices?: string[];
+}
+
+export interface TemplateTileInfo {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  widgets: (string | [string, Record<string, unknown>])[];
+  chrome?: 'card' | 'bare';
+}
+
 export interface PluginInfo {
   id: string;
   name: string;
@@ -27,7 +44,17 @@ export interface PluginInfo {
   description: string;
   author?: string;
   homepage?: string;
+  repository?: string;
+  license?: string;
   icon?: string;
+  /** Plugin API range it is written for, if it says. */
+  sdk: string | null;
+  platforms: string[] | null;
+  permissions: PluginPermissions;
+  /** What it needs from other plugins and whether that is here. */
+  requires: { type: string; plugin: string; ok: boolean }[];
+  /** Page templates it offers, with full widget types. */
+  templates: { id: string; name: string; icon: string; wide: TemplateTileInfo[]; square?: TemplateTileInfo[] | undefined; tall?: TemplateTileInfo[] | undefined }[];
   builtin: boolean;
   origin: string;
   enabled: boolean;
@@ -86,6 +113,8 @@ export interface AppState {
   locale: string;
   config: Config;
   catalog: PluginInfo[];
+  /** Plugins found but not loaded: they don't fit this Kiosko (plugin API, operating system). */
+  refused: { id?: string; version?: string; origin: string; reason: string }[];
   categories: { id: string; label: string | Record<string, string> }[];
   themes: ThemeInfo[];
   presets: { id: string; name: string; width: number; height: number }[];
@@ -138,7 +167,9 @@ export const api = {
   refreshWidget: (id: string) => fetch(`/api/widgets/${encodeURIComponent(id)}/refresh`, { method: 'POST', headers: H, body: '{}' }).then((r) => ok(r)),
   discover: (url?: string) => fetch(`/api/devices/discover${url ? `?url=${encodeURIComponent(url)}` : ''}`).then((r) => ok<{ trcc: { key: string; width: number; height: number }[]; usb: { serial: string; key: string; width: number; height: number; rotate?: number; location: string; error?: string }[] }>(r)),
   logs: () => fetch('/api/logs').then((r) => ok<{ at: number; scope: string; message: string }[]>(r)),
-  install: (name: string) => fetch('/api/plugins/install', { method: 'POST', headers: H, body: JSON.stringify({ name }) }).then((r) => ok<{ ok: boolean; output: string; restartNeeded: boolean }>(r)),
+  install: (name: string) => fetch('/api/plugins/install', { method: 'POST', headers: H, body: JSON.stringify({ name }) }).then((r) => ok<{ ok: boolean; output: string; ids: string[]; problem: string | null; restartNeeded: boolean; state: AppState }>(r)),
+  removePlugin: (id: string) => fetch(`/api/plugins/${encodeURIComponent(id)}`, { method: 'DELETE', headers: H }).then((r) => ok<AppState>(r)),
+  reloadPlugin: (id: string) => fetch(`/api/plugins/${encodeURIComponent(id)}/reload`, { method: 'POST', headers: H }).then((r) => ok<AppState>(r)),
   setPluginEnabled: (id: string, enabled: boolean) => fetch(`/api/plugins/${encodeURIComponent(id)}/enabled`, { method: 'POST', headers: H, body: JSON.stringify({ enabled }) }).then((r) => ok<AppState>(r)),
 };
 

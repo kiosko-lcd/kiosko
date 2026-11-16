@@ -88,6 +88,7 @@ export class DemoRenderer implements RendererApi {
       version: serverPackage.version,
       locale,
       catalog: this.registry.catalog(locale),
+      refused: this.registry.refused,
       // Plain data, typed as the editor reads it from the server's JSON.
       categories: CATEGORIES as unknown as RuntimeState['categories'],
       themes: THEMES as unknown as RuntimeState['themes'],

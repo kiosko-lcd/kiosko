@@ -16,7 +16,10 @@ interface Frac {
 }
 
 export interface Template {
-  id: 'blank' | 'agents' | 'cats' | 'news' | 'clock' | 'system';
+  /** Built-in ones: `blank`, `agents`… (named by `tpl.<id>`); a plugin's: `plugin/id`. */
+  id: string;
+  /** A plugin's template brings its own name; built-in ones are translated in the editor. */
+  name?: string;
   icon: string;
   /** Widget types that must exist for the template to make sense. */
   needs: string[];
@@ -29,6 +32,8 @@ export interface Template {
 
 /** A landscape layout turned a quarter: what went left to right goes top to bottom. */
 const turned = (fracs: Frac[]): Frac[] => fracs.map((f) => ({ ...f, x: f.y, y: f.x, w: f.h, h: f.w }));
+
+export type { Frac };
 
 export const TEMPLATES: Template[] = [
   { id: 'blank', icon: 'square-dashed', needs: [], wide: [] },
@@ -129,6 +134,26 @@ export const TEMPLATES: Template[] = [
 
 export function available(t: Template, has: (type: string) => boolean): boolean {
   return t.needs.every(has);
+}
+
+/** A template a plugin declares (from the catalog), in the editor's terms. */
+export function pluginTemplate(tp: { id: string; name: string; icon: string; wide: Frac[]; square?: Frac[] | undefined; tall?: Frac[] | undefined }): Template {
+  return { id: tp.id, name: tp.name, icon: tp.icon, needs: [], wide: tp.wide, ...(tp.square ? { square: tp.square } : {}), ...(tp.tall ? { tall: tp.tall } : {}) };
+}
+
+/**
+ * Every template the menu offers: blank, then plugins' own, then the
+ * built-in ones whose plugin doesn't bring one of its own any more (the
+ * built-in `agents` steps aside once the agents plugin declares a template).
+ */
+export function allTemplates(catalog: { id: string; templates: Parameters<typeof pluginTemplate>[0][] }[], has: (type: string) => boolean): Template[] {
+  const fromPlugins = catalog.flatMap((p) => p.templates.map(pluginTemplate));
+  const withOwn = new Set(catalog.filter((p) => p.templates.length).map((p) => p.id));
+  return [
+    ...TEMPLATES.filter((t) => t.id === 'blank'),
+    ...fromPlugins,
+    ...TEMPLATES.filter((t) => t.id !== 'blank' && !withOwn.has(t.id) && available(t, has)),
+  ];
 }
 
 /** A new page built from a template for a `width×height` screen. */

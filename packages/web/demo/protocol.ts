@@ -15,7 +15,7 @@ export interface LogEntry {
 }
 
 /** The parts of the server's /api/state that come from the runtime. */
-export type RuntimeState = Pick<AppState, 'version' | 'locale' | 'catalog' | 'categories' | 'themes' | 'presets' | 'status' | 'official'>;
+export type RuntimeState = Pick<AppState, 'version' | 'locale' | 'catalog' | 'refused' | 'categories' | 'themes' | 'presets' | 'status' | 'official'>;
 
 export interface PreviewResult {
   blob: Blob;
