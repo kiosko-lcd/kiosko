@@ -492,6 +492,27 @@ Lo que cambia en el camino:
       en chino, y los recortes de texto (`truncate` mide por caracteres).
     - *Editor web*: Inter tampoco tiene chino; basta con caer en la fuente
       del sistema (PingFang, Microsoft JhengHei/YaHei, Noto).
+    - *Colores con significado cultural*: en China y Taiwán **el rojo es
+      subir y el verde es bajar** (bolsa, precios, cualquier variación), al
+      revés que en Occidente. Para errores y peligro el rojo sigue
+      significando peligro (alarmas, semáforos, errores en sus propias
+      aplicaciones), así que `alert`/`warn`/`ok` se quedan como están.
+      Además el rojo tiene una carga positiva (suerte, celebración) que el
+      verde no tiene, así que no conviene pintar de rojo lo bueno ni de
+      verde lo que no lo es. Qué hacer:
+      - separar en el tema el color de **subida y bajada** (`up`, `down`)
+        del de **estado** (`alert`, `warn`, `ok`); hoy cualquier widget que
+        marque una variación usa `ok`/`alert` y la invertiría mal;
+      - un ajuste «Color de las subidas: verde (Occidente) / rojo (Asia
+        oriental)» que tome por defecto el del idioma (`zh`, y también
+        `ja` y `ko` en bolsa), igual que la hora de 12 o 24 h;
+      - una regla en la guía de plugins (`docs/plugins.md`, «Option
+        conventions»): variaciones con `up`/`down`, nunca con `ok`/`alert`;
+        y en los temas, no fiarlo todo al color (flecha o signo junto al
+        número), que además ayuda a los daltónicos;
+      - revisar los widgets que ya muestran tendencias: la de Home Assistant
+        va en gris neutro con flecha (sirve en ambas culturas), y la futura
+        de bolsa y cripto de la lista de ideas tendría que nacer con esto.
     - *Traducción*: primera versión con IA y revisión por un hablante
       nativo (¿el propio fabricante?), un fichero por idioma para que la
       comunidad pueda aportar otros, y una prueba que avise de claves sin
