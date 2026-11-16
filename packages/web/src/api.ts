@@ -53,6 +53,8 @@ export interface PluginInfo {
   permissions: PluginPermissions;
   /** What it needs from other plugins and whether that is here. */
   requires: { type: string; plugin: string; ok: boolean }[];
+  /** What it uses from other plugins when they are there. */
+  optional: { type: string; plugin: string; ok: boolean }[];
   /** Page templates it offers, with full widget types. */
   templates: { id: string; name: string; icon: string; wide: TemplateTileInfo[]; square?: TemplateTileInfo[] | undefined; tall?: TemplateTileInfo[] | undefined }[];
   builtin: boolean;

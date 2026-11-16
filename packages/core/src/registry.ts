@@ -246,6 +246,8 @@ export class Registry {
       permissions: def.permissions ?? {},
       /** What it needs from other plugins, and whether that is here (installed and on). */
       requires: (def.requires ?? []).map((type) => ({ type, plugin: pluginOf(type), ok: has(type) })),
+      /** What it uses from other plugins when they are there. */
+      optional: (def.optional ?? []).map((type) => ({ type, plugin: pluginOf(type), ok: has(type) })),
       templates: (def.templates ?? []).map((tp) => {
         // Bare widget ids are the plugin's own: written out in full for the editor.
         const tiles = (list: TemplateTile[] | undefined): TemplateTile[] | undefined =>

@@ -116,6 +116,8 @@ export interface PluginManifest {
   riskyOptions: ManifestOption[];
   /** Types of other plugins it needs, and the plugins that bring them. */
   requires: { type: string; plugin: string }[];
+  /** Types of other plugins it uses when they are there. */
+  optional: { type: string; plugin: string }[];
   widgets: ManifestWidget[];
   sources: { type: string; name: Localized; description?: Localized; polled: boolean; intervalMs?: number; options: Record<string, unknown> | null }[];
   interludes: { type: string; name: Localized; description?: Localized; icon?: string; fps: number }[];
@@ -200,6 +202,7 @@ export function pluginManifest(def: PluginDefinition, o: { screenshots?: Record<
       ...(def.interludes ?? []).flatMap((i) => riskyOptions(i.options).map((r) => ({ ...r, path: `${def.id}/${i.id}: ${r.path}` }))),
     ],
     requires: (def.requires ?? []).map((type) => ({ type, plugin: pluginOf(type) })),
+    optional: (def.optional ?? []).map((type) => ({ type, plugin: pluginOf(type) })),
     widgets: widgets.map((w) => ({
       type: `${def.id}/${w.id}`,
       name: w.name,

@@ -500,6 +500,12 @@ export interface PluginDefinition {
    * editor says which are missing and offers to install their plugins.
    */
   requires?: string[];
+  /**
+   * Sources or widgets of other plugins it uses when they are there, and
+   * does without otherwise (the weather in a corner): never asked for, only
+   * mentioned.
+   */
+  optional?: string[];
   /** The operating systems it works on. Omitted: all. Also npm's `os` in package.json. */
   platforms?: Platform[];
   widgets?: WidgetDefinition<any, any>[];
