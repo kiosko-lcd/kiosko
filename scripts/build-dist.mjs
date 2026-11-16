@@ -74,7 +74,7 @@ const pkg = {
   dependencies: deps,
   // The official plugins live in their own repos; installing Kiosko brings
   // them along. Optional, so a missing one never breaks the install.
-  optionalDependencies: { usb: usbVersion, ...Object.fromEntries(['agents', 'cats', 'system', 'vitals', 'usage', 'weather', 'calendar', 'news', 'mirror', 'gitlab', 'github', 'calls', 'timesheet', 'llm', 'gpu'].map((id) => [`kiosko-plugin-${id}`, pluginRange])) },
+  optionalDependencies: { usb: usbVersion, ...Object.fromEntries(['agents', 'cats', 'system', 'vitals', 'usage', 'weather', 'calendar', 'news', 'mirror', 'gitlab', 'github', 'calls', 'timesheet', 'llm', 'gpu', 'homeassistant'].map((id) => [`kiosko-plugin-${id}`, pluginRange])) },
 };
 writeFileSync(join(out, 'package.json'), `${JSON.stringify(pkg, null, 2)}\n`);
 for (const f of ['README.md', 'LICENSE']) cpSync(join(root, f), join(out, f));

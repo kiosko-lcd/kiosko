@@ -11,6 +11,7 @@ import cats from 'kiosko-plugin-cats';
 import github from 'kiosko-plugin-github';
 import gitlab from 'kiosko-plugin-gitlab';
 import gpu from 'kiosko-plugin-gpu';
+import homeassistant from 'kiosko-plugin-homeassistant';
 import llm from 'kiosko-plugin-llm';
 import mirror from 'kiosko-plugin-mirror';
 import news from 'kiosko-plugin-news';
@@ -23,7 +24,7 @@ import { BUILTIN_PLUGINS, OFFICIAL_PLUGINS } from '../../server/src/builtin.ts';
 
 export { OFFICIAL_PLUGINS };
 
-const OFFICIAL: Record<string, PluginDefinition> = { agents, calendar, calls, cats, github, gitlab, gpu, llm, mirror, news, system, timesheet, usage, vitals, weather };
+const OFFICIAL: Record<string, PluginDefinition> = { agents, calendar, calls, cats, github, gitlab, gpu, homeassistant, llm, mirror, news, system, timesheet, usage, vitals, weather };
 
 /** Built-in plugins first, then the official ones in the CLI's order. */
 export function demoPlugins(): { def: PluginDefinition; origin: string }[] {

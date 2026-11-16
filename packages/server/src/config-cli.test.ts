@@ -78,6 +78,7 @@ const EXPECTED_RISKS: Record<string, Record<string, unknown>> = {
   'timesheet/activity': { dir: 'path' },
   'llm/servers': { 'endpoints[].url': 'network' },
   'gpu/devices': { ssh: 'exec', url: 'network' },
+  'homeassistant/states': { url: 'network' },
 };
 
 test('the plugins mark every option that runs programs, contacts hosts or reads paths', () => {

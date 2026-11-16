@@ -345,9 +345,9 @@ async function fullCheck(browser) {
   await page.locator('.rail-btn').nth(2).click();
   await page.waitForSelector('.plugin-card');
   const ids = await page.$$eval('.plugin-title small', (l) => l.map((e) => e.textContent?.split('·')[0]?.trim()));
-  const official = ['agents', 'cats', 'system', 'vitals', 'usage', 'weather', 'calendar', 'news', 'mirror', 'gitlab', 'github', 'calls', 'timesheet', 'llm', 'gpu'];
+  const official = ['agents', 'cats', 'system', 'vitals', 'usage', 'weather', 'calendar', 'news', 'mirror', 'gitlab', 'github', 'calls', 'timesheet', 'llm', 'gpu', 'homeassistant'];
   const missing = ['core', 'legacy', ...official].filter((id) => !ids.includes(id));
-  check('Plugins page lists every plugin', !missing.length && ids.length === 17, `${ids.length} plugins${missing.length ? `, missing ${missing}` : ''}`);
+  check('Plugins page lists every plugin', !missing.length && ids.length === 2 + official.length, `${ids.length} plugins${missing.length ? `, missing ${missing}` : ''}`);
   // Switching a plugin off takes its widgets out of the library; back on, back in.
   const count = async () => Number(await page.locator('.library .count').innerText().catch(() => 'NaN'));
   const cats = page.locator('.plugin-card', { hasText: 'cats · ' }).locator('[role=switch]');
