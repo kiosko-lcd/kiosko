@@ -174,6 +174,7 @@ function Control({ id, name, schema, value, onChange }: { id: string; name: stri
     }
     case 'array':
       if (ui.widget === 'filter' || schema['x-filter']) return <FilterInput id={id} value={Array.isArray(value) ? value.map(String) : []} placeholder={schema.items?.['x-ui']?.placeholder} choices={ui.choices ?? schema.items?.['x-ui']?.choices} onChange={onChange} />;
+      if (isTagList(schema)) return <TagInput id={id} value={Array.isArray(value) ? value.map(String) : []} placeholder={schema.items?.['x-ui']?.placeholder} onChange={onChange} />;
       return <ListInput id={id} schema={schema} value={Array.isArray(value) ? value : []} onChange={onChange} />;
     case 'object':
       if (schema.properties) {
@@ -299,8 +300,70 @@ function FilterInput({ id, value, placeholder, choices, onChange }: { id: string
   );
 }
 
+/**
+ * A list of short words (process names, titles to skip): chips that wrap, an × on each, and a
+ * box to add more. Not for secrets (they would show), choices, or a list whose order matters,
+ * which a plugin asks for with `x-ui: { widget: 'list' }`.
+ */
+const isTagList = (schema: JsonSchema) => {
+  const it = schema.items;
+  return !!it && it.type === 'string' && !it.enum && !it['x-ui']?.secret && !it['x-ui']?.choices && !schema['x-ui']?.choices && schema['x-ui']?.widget !== 'list';
+};
+
+function TagInput({ id, value, placeholder, onChange }: { id: string; value: string[]; placeholder?: string | undefined; onChange: (v: string[]) => void }) {
+  const [text, setText] = useState('');
+  const add = (raw: string) => {
+    const words = raw.split(/[,\n]/).map((w) => w.trim()).filter((w) => w && !value.includes(w));
+    if (words.length) onChange([...value, ...words]);
+    setText('');
+  };
+  return (
+    <div class="tags" id={id} onClick={(e) => (e.currentTarget.querySelector('input') as HTMLInputElement | null)?.focus()}>
+      {value.map((w, i) => (
+        <span class="tag">
+          {w}
+          <button type="button" class="tag-x" title={tr('common.delete')} aria-label={`${tr('common.delete')} ${w}`} onClick={() => onChange(value.filter((_, j) => j !== i))}>
+            <Icon name="x" size={12} />
+          </button>
+        </span>
+      ))}
+      <input class="tag-new" value={text} placeholder={value.length ? tr('common.addMore') : placeholder ?? tr('common.addMore')} spellcheck={false}
+        onInput={(e) => {
+          const v = (e.target as HTMLInputElement).value;
+          if (/[,\n]/.test(v)) add(v);
+          else setText(v);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            add(text);
+          } else if (e.key === 'Backspace' && !text && value.length) onChange(value.slice(0, -1));
+        }}
+        onBlur={() => text.trim() && add(text)} />
+    </div>
+  );
+}
+
+/** What a list item shows while folded: its first two short texts (never a secret), or its number. */
+function itemSummary(item: JsonSchema, v: unknown, i: number): string {
+  const o = (v ?? {}) as Record<string, unknown>;
+  const texts = Object.entries(item.properties ?? {})
+    .filter(([, s]) => (s.type === 'string' || s.enum) && !s['x-ui']?.secret && !s['x-ui']?.advanced)
+    .map(([k]) => o[k])
+    .filter((x): x is string => typeof x === 'string' && x.trim() !== '')
+    .map((x) => x.replace(/^https?:\/\//, ''));
+  return texts.slice(0, 2).join(' · ') || `#${i + 1}`;
+}
+
+/**
+ * A list, one line per item: a plain value is edited in place, with its buttons beside it; an
+ * item with fields of its own (a feed, a server) folds to a summary line and opens to be edited,
+ * so a long list doesn't repeat every field and every hint.
+ */
 function ListInput({ id, schema, value, onChange }: { id: string; schema: JsonSchema; value: unknown[]; onChange: (v: unknown[]) => void }) {
   const item = schema.items ?? { type: 'string' };
+  const folds = item.type === 'object' && !!item.properties;
+  const [open, setOpen] = useState<number | null>(null);
   const blank = () => (item.type === 'object' ? JSON.parse(JSON.stringify(item.default ?? Object.fromEntries(Object.entries(item.properties ?? {}).map(([k, s]) => [k, s.default])))) : item.default ?? (item.type === 'number' || item.type === 'integer' ? 0 : ''));
   const set = (i: number, v: unknown) => onChange(value.map((x, j) => (j === i ? v : x)));
   const move = (i: number, d: number) => {
@@ -308,34 +371,60 @@ function ListInput({ id, schema, value, onChange }: { id: string; schema: JsonSc
     if (j < 0 || j >= value.length) return;
     const next = [...value];
     [next[i], next[j]] = [next[j], next[i]];
+    if (open === i) setOpen(j);
+    else if (open === j) setOpen(i);
     onChange(next);
   };
+  const remove = (i: number) => {
+    if (open === i) setOpen(null);
+    else if (open !== null && open > i) setOpen(open - 1);
+    onChange(value.filter((_, j) => j !== i));
+  };
+  const actions = (i: number) => (
+    <div class="list-actions">
+      <button type="button" class="icon-btn" onClick={() => move(i, -1)} disabled={i === 0} title={tr('common.moveUp')} aria-label={tr('common.moveUp')}>
+        <Icon name="arrow-up" size={14} />
+      </button>
+      <button type="button" class="icon-btn" onClick={() => move(i, 1)} disabled={i === value.length - 1} title={tr('common.moveDown')} aria-label={tr('common.moveDown')}>
+        <Icon name="arrow-down" size={14} />
+      </button>
+      <button type="button" class="icon-btn danger" onClick={() => remove(i)} title={tr('common.delete')} aria-label={tr('common.delete')}>
+        <Icon name="trash-2" size={14} />
+      </button>
+    </div>
+  );
   return (
     <div class="list" id={id}>
-      {value.map((v, i) => (
-        <div class="list-item">
-          <div class="list-body">
-            {item.type === 'object' && item.properties ? (
-              <SchemaForm schema={item} value={(v as Record<string, unknown>) ?? {}} onChange={(nv) => set(i, nv)} idPrefix={`${id}-${i}`} />
-            ) : (
-              <Control id={`${id}-${i}`} name="" schema={item} value={v} onChange={(nv) => set(i, nv)} />
+      {value.map((v, i) =>
+        folds ? (
+          <div class={`list-item folds ${open === i ? 'open' : ''}`}>
+            <div class="list-line">
+              <button type="button" class="list-sum" aria-expanded={open === i} onClick={() => setOpen(open === i ? null : i)}>
+                <Icon name={open === i ? 'chevron-down' : 'chevron-right'} size={14} />
+                <span>{itemSummary(item, v, i)}</span>
+              </button>
+              {actions(i)}
+            </div>
+            {open === i && (
+              <div class="list-body">
+                <SchemaForm schema={item} value={(v as Record<string, unknown>) ?? {}} onChange={(nv) => set(i, nv)} idPrefix={`${id}-${i}`} />
+              </div>
             )}
           </div>
-          <div class="list-actions">
-            <button type="button" class="icon-btn" onClick={() => move(i, -1)} disabled={i === 0} title="↑">
-              <Icon name="arrow-up" size={14} />
-            </button>
-            <button type="button" class="icon-btn" onClick={() => move(i, 1)} disabled={i === value.length - 1} title="↓">
-              <Icon name="arrow-down" size={14} />
-            </button>
-            <button type="button" class="icon-btn danger" onClick={() => onChange(value.filter((_, j) => j !== i))} title={tr('common.delete')}>
-              <Icon name="trash-2" size={14} />
-            </button>
+        ) : (
+          <div class="list-item line">
+            <div class="list-body">
+              <Control id={`${id}-${i}`} name="" schema={item} value={v} onChange={(nv) => set(i, nv)} />
+            </div>
+            {actions(i)}
           </div>
-        </div>
-      ))}
+        ),
+      )}
       {(schema.maxItems === undefined || value.length < schema.maxItems) && (
-        <button type="button" class="btn ghost small" onClick={() => onChange([...value, blank()])}>
+        <button type="button" class="btn ghost small" onClick={() => {
+          if (folds) setOpen(value.length);
+          onChange([...value, blank()]);
+        }}>
           <Icon name="plus" size={14} /> {tr('common.add')}
         </button>
       )}
