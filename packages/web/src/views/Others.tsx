@@ -112,7 +112,7 @@ function Updates() {
               <span class="small">{p.blocked}</span>
             </div>
           ))}
-          <p class="muted small">{tr('updates.checked').replace('{at}', new Date(u.checkedAt).toLocaleString())}</p>
+          <p class="muted small">{tr('updates.checked').replace('{at}', new Date(u.checkedAt).toLocaleString(a.locale))}</p>
         </section>
       )}
     </>
