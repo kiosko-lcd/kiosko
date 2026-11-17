@@ -393,7 +393,432 @@ Lo que cambia en el camino:
 4. Emisor USB propio por número de serie y PR aguas arriba a
    `thermalright-trcc-linux` para `--serial`.
 5. Envoltorio de escritorio (Tauri) con icono en la bandeja.
-6. Galería pública de maquetas exportadas y de plugins.
+6. Galería pública de maquetas exportadas (los plugins, en la tienda del
+   punto 8).
+7. **Actualizar plugins desde el editor.** Hoy un plugin instalado desde npm
+   se queda en su versión hasta que se reinstala a mano.
+   - *Detectar*: el servidor pregunta al registro de npm por la última
+     versión (`dist-tags.latest`) al arrancar y luego una vez al día, con
+     caché en `cacheDir` y ETag, y sin quejarse si no hay red. Compara por
+     semver con la instalada y con lo que la nueva pide de Kiosko
+     (`peerDependencies` de `@kiosko/sdk`, `engines`): una versión que
+     necesita un Kiosko más nuevo no se ofrece, se avisa («requiere Kiosko ≥
+     x.y»).
+   - *Interfaz*: insignia «Actualización disponible» en la tarjeta del plugin
+     (vista Plugins) y un contador en la barra lateral; botón **Actualizar**
+     (y «Actualizar todos») que reinstala con el mismo camino que «Instalar
+     de npm» (`--ignore-scripts`), enseña las novedades (releases de GitHub
+     si `repository` apunta allí) y recarga el plugin o pide reiniciar.
+   - *Seguridad*: antes de aplicar, decir si la versión nueva trae opciones
+     con `risk` nuevas (ejecutar, red, ficheros); guardar la versión anterior
+     y volver a ella sola si la nueva no carga.
+   - Por decidir: los plugins oficiales van como dependencias opcionales del
+     producto y se actualizan con él; ¿se ofrecen también sueltos? Y el
+     mismo aviso para el propio Kiosko.
+8. **Tienda de plugins** (sustituye a la galería de plugins del punto 6). Hay
+   que trabajarla antes de escribir código; lo que se ha pensado:
+   - *Catálogo*: un índice propio (en kioskolcd.dev o un repo
+     `kiosko-lcd/plugin-index`) alimentado desde npm (palabra clave
+     `kiosko-plugin`) con lo que la propia definición del plugin dice:
+     widgets, fuentes, requisitos y opciones con riesgo, lo mismo que ya
+     extrae `plugins:scaffold`. Las capturas las genera el compositor con
+     los datos de demo, en varios temas y tamaños, no se suben a mano: así
+     son fieles a lo que se verá en el panel.
+   - *Ficha*: capturas, descripción, requisitos, **permisos** (qué puede
+     hacer: ejecutar programas, conectarse a hosts, leer ficheros; sale de
+     `risk`), versiones y novedades, compatibilidad con la versión de Kiosko
+     y el sistema operativo, y notas del autor (puntualizaciones, límites
+     conocidos).
+   - *Valoraciones y comentarios*: exigen cuentas (¿con GitHub?), moderación,
+     anti-spam y denuncias. Alternativa ligera para empezar: las Discussions
+     del repo de cada plugin, enlazadas desde la ficha.
+   - *Insignias*: «Oficial» (de kiosko-lcd); «Verificado» (autor
+     identificado y código revisado en una versión concreta, ligado al hash
+     `integrity` de npm, que se pierde al publicar una versión sin revisar);
+     «Probado en» tal panel; «Popular». Falta definir el proceso de revisión
+     y quién lo hace.
+   - *Instalar*: un clic desde la ficha, en el editor (el mismo camino que
+     npm) y con enlace profundo desde la web.
+   - *Riesgos*: un plugin ejecuta código con los permisos del usuario, así
+     que la tienda es cadena de suministro: provenance de npm, revisión, y
+     una lista de versiones retiradas que el editor consulte para avisar o
+     desactivar.
+   - Abierto: plugins de pago, alojamiento y coste, términos de uso y RGPD
+     de los comentarios.
+9. **Venta afiliada de hardware.** Recomendar paneles compatibles desde el
+   portal de configuración y recibir parte del ingreso de las ventas que
+   salgan de ahí. Hay que trabajarlo; lo pensado:
+   - *Dónde*: la vista Pantallas ya detecta el panel del usuario; si no hay
+     ninguno (o en la demo web), una sección «Paneles compatibles» con
+     resolución, protocolo y estado de soporte por sistema operativo
+     (verificado en un panel real o no). Nunca en el propio panel, solo en
+     el editor y en la web.
+   - *Cómo*: dos vías, no excluyentes. Programas de afiliados ya existentes
+     (Amazon Afiliados, AliExpress Portals, tiendas de los fabricantes):
+     rápido y sin negociar. Acuerdos directos con fabricantes (Thermalright
+     y otros) con código de referido o descuento: más margen, pero hay que
+     negociar y medir.
+   - *Atribución sin telemetría*: Kiosko es local y no rastrea; el enlace
+     lleva el identificador de afiliado y la atribución la hace la tienda.
+     No se añade telemetría para esto.
+   - *Transparencia*: marcar los enlaces como de afiliado (lo exigen la
+     normativa de consumo de la UE, la FTC y las propias plataformas), decir
+     que financian el proyecto y permitir ocultar la sección.
+   - *Encaje con la tienda*: un sello «Compatible con Kiosko» para
+     fabricantes, de la misma familia que las insignias del punto 8.
+   - Pendiente: alta como afiliado, facturación e impuestos de las
+     comisiones, y qué tiendas cubren los países de los usuarios.
+10. **Más idiomas, empezando por el chino.** Prioridad: el **chino
+    tradicional de Taiwán (`zh-TW`)**, el del fabricante de los paneles
+    (Thermalright), y el **chino simplificado (`zh-CN`)**, el de la China
+    continental. Son dos traducciones distintas (caracteres y a veces
+    vocabulario: 分鐘/分钟, 設定/设置), no una con dos nombres. Lo que hay hoy
+    y lo que falta:
+    - *Textos*: el editor (`packages/web/src/i18n.ts`, unas 450 claves) y
+      los plugins (`Localized`, hoy `{ en, es }`) solo tienen inglés y
+      español. Hay comprobaciones sueltas de `locale.startsWith('es')` en el
+      editor y la demo que habría que llevar al sistema de traducciones.
+    - *Variantes regionales*: `localize` ya busca primero la etiqueta
+      completa (`zh-TW`) y luego el idioma (`zh`), pero `ctx.fmt` (horas,
+      «hace 5 min», duraciones) elige sus palabras solo por idioma: hay que
+      dejarle distinguir `zh-TW` de `zh-CN`. Fechas y números ya salen bien
+      con `Intl`.
+    - *Fuentes del panel*: DejaVu no tiene caracteres chinos, así que el
+      panel pintaría cuadros vacíos. Hace falta una fuente CJK (Noto Sans
+      CJK TC y SC, o Source Han Sans) que pesa megas: descargarla bajo
+      demanda al elegir el idioma (en `cacheDir` no, en `dataDir`), o
+      recortarla a los caracteres usados. Comprobar también las versalitas
+      (`smallCaps`) y el `tracking` de las etiquetas, que no tienen sentido
+      en chino, y los recortes de texto (`truncate` mide por caracteres).
+    - *Editor web*: Inter tampoco tiene chino; basta con caer en la fuente
+      del sistema (PingFang, Microsoft JhengHei/YaHei, Noto).
+    - *Colores con significado cultural*: en China y Taiwán **el rojo es
+      subir y el verde es bajar** (bolsa, precios, cualquier variación), al
+      revés que en Occidente. Para errores y peligro el rojo sigue
+      significando peligro (alarmas, semáforos, errores en sus propias
+      aplicaciones), así que `alert`/`warn`/`ok` se quedan como están.
+      Además el rojo tiene una carga positiva (suerte, celebración) que el
+      verde no tiene, así que no conviene pintar de rojo lo bueno ni de
+      verde lo que no lo es. Qué hacer:
+      - separar en el tema el color de **subida y bajada** (`up`, `down`)
+        del de **estado** (`alert`, `warn`, `ok`); hoy cualquier widget que
+        marque una variación usa `ok`/`alert` y la invertiría mal;
+      - un ajuste «Color de las subidas: verde (Occidente) / rojo (Asia
+        oriental)» que tome por defecto el del idioma (`zh`, y también
+        `ja` y `ko` en bolsa), igual que la hora de 12 o 24 h;
+      - una regla en la guía de plugins (`docs/plugins.md`, «Option
+        conventions»): variaciones con `up`/`down`, nunca con `ok`/`alert`;
+        y en los temas, no fiarlo todo al color (flecha o signo junto al
+        número), que además ayuda a los daltónicos;
+      - revisar los widgets que ya muestran tendencias: la de Home Assistant
+        va en gris neutro con flecha (sirve en ambas culturas), y la futura
+        de bolsa y cripto de la lista de ideas tendría que nacer con esto.
+    - *Traducción*: primera versión con IA y revisión por un hablante
+      nativo (¿el propio fabricante?), un fichero por idioma para que la
+      comunidad pueda aportar otros, y una prueba que avise de claves sin
+      traducir. Los plugins oficiales, igual, con `zh-TW` y `zh-CN` en sus
+      `Localized`.
+    - Después: documentación (README, `docs/plugins.md`) y la web
+      (kioskolcd.dev) en chino, y el resto de idiomas que pida la gente.
+11. **Noticias por tesela, no globales.** Que una pantalla muestre noticias
+    de un tema (tecnología, deportes, tu ciudad) y otra de otro. Hoy los
+    feeds RSS se configuran una vez, en la fuente compartida `news/deck`
+    (Ajustes → Fuentes de datos), que los lee, agrupa la misma noticia entre
+    cabeceras y ordena el mazo para todos; cada widget solo puede filtrar
+    por cabecera (`outlets`). Sirve para «solo El País aquí», no para temas
+    con feeds distintos (las secciones de cada periódico tienen su RSS).
+    - *Propuesta, general para el SDK*: **perfiles de fuente**, varias
+      configuraciones con nombre de una misma fuente (`news/deck` «General»,
+      «Tecnología», «Deportes»), cada una con sus feeds y leída por separado;
+      cada widget elige el suyo con una opción (`profile`), y el inspector
+      permite crear uno nuevo desde la propia tesela. Valdría igual para
+      otros plugins que hoy tienen una sola configuración: varias cuentas de
+      GitHub o GitLab, dos Home Assistant, calendarios de trabajo y
+      personales.
+    - *Alternativa más corta, solo en noticias*: una opción `feeds` en el
+      widget que, si se rellena, sustituye a los globales, y la fuente lee
+      la unión agrupando por conjunto de feeds. Más rápido, pero cada plugin
+      tendría que reinventarlo.
+    - *Además*: un filtro por palabras clave por tesela (`topics`, con `!`
+      para excluir) sobre titular y entradilla, que con los feeds generales
+      ya da temas sin configurar nada más.
+    - Cuidado con: el agrupado entre cabeceras («lo cuentan 4 medios»), que
+      tiene sentido por perfil y no mezclado; no leer dos veces el mismo
+      feed si lo usan dos perfiles (caché por URL); y la migración de las
+      configuraciones actuales al perfil por defecto.
+12. **Agenda: unión por defecto, separación clara.** La fuente
+    `calendar/events` lee todos los ICS (hasta 10) y une sus reuniones; cada
+    widget puede quedarse con algunos por el nombre del calendario
+    (`calendars`, con `*` y `!`). La unión por defecto es lo correcto (el día
+    es uno: la cuenta atrás tiene que ver también la reunión personal que
+    pisa la de trabajo) y separar sirve para paneles compartidos o una
+    tesela solo de festivos. Aquí no hacen falta los perfiles del punto 11:
+    leer todo una vez y elegir por tesela es más simple y barato. Lo que
+    falta:
+    - un **nombre propio por dirección**, porque el que trae el ICS a veces
+      es genérico o repetido (los publicados de Outlook), y entonces el
+      filtro no los distingue;
+    - un **color por calendario** y su marca en la agenda y en la próxima
+      reunión, para saber de cuál es cada una al verlos unidos;
+    - comprobar que una reunión invitada en dos calendarios sale una sola
+      vez (mismo `UID` o mismo título y hora);
+    - en el editor, elegir los calendarios de la tesela con casillas con sus
+      nombres, no escribiendo patrones.
+13. **Finanzas: bolsa, índices, divisas y cripto** (`kiosko-plugin-finance`).
+    - *De dónde sacar los datos*, con un proveedor intercambiable porque
+      ninguno es perfecto:
+      - **Yahoo Finance**: el más completo y sin clave, pero su API no es
+        oficial (cambia sin aviso, a veces pide cookie y «crumb», y sus
+        términos no permiten usarla así). Bien como opción, no como única.
+      - **Google Finance**: no tiene API desde 2012 (solo `GOOGLEFINANCE` en
+        Hojas de cálculo); descartado salvo que aparezca algo.
+      - Con clave gratuita: **Finnhub** (60 peticiones/min), **Twelve Data**
+        (800/día), **Alpha Vantage** (25/día, poco). Sin clave: **Stooq**
+        (CSV, con retraso).
+      - Divisas: el **BCE** (oficial, gratis, una vez al día) vía Frankfurter;
+        cripto: **CoinGecko** (sin clave).
+    - *Widgets*: una cotización en grande con la curva del día (al estilo de
+      la entidad de Home Assistant); una lista de valores; una cinta que
+      pasa en una franja; el estado del mercado (abierto, cerrado, preapertura,
+      con su horario y festivos por bolsa); y, opcional, el valor de una
+      cartera con las posiciones guardadas solo en local.
+    - *Avisos*: umbrales por valor (precio o % del día) que pintan y se
+      quedan la tesela, como el resto de plugins; reposo con el mercado
+      cerrado.
+    - *Colores*: subidas y bajadas con `up`/`down` y flecha, nunca con
+      `ok`/`alert`, y el ajuste verde/rojo del punto 10 (en China y Taiwán
+      el rojo es subir). Este plugin es el primero que lo necesita.
+    - *A tener en cuenta*: avisar del retraso de cada proveedor (15-20 min
+      en muchos mercados), respetar sus límites con una sola fuente
+      compartida y caché, y que los datos de bolsa tienen licencia: verlos
+      en tu panel es uso personal, pero no redistribuirlos (ojo con la demo
+      web y las capturas: datos de muestra, no reales).
+14. **El tráfico de tu ruta.** Hoy `mirror/trafficmap` pinta el flujo de
+    TomTom alrededor de tu ubicación: un mapa, que no sabe adónde vas. Lo que
+    se busca es «a la oficina hoy: 34 min, 9 más de lo normal, sal ya».
+    - *Rutas*: una o varias con nombre (casa → oficina, oficina → casa,
+      colegio), origen y destino por dirección o coordenadas, guardadas solo
+      en local.
+    - *Proveedor*, intercambiable:
+      - **TomTom Routing** con tráfico en vivo: la misma clave gratuita que
+        el mapa (unas 2.500 peticiones/día), da duración con tráfico y sin
+        él, y el retraso.
+      - **HERE Routing** (capa gratuita) o **Mapbox Directions** con perfil
+        `driving-traffic` como alternativas; **Google Routes** es de pago
+        por uso.
+      - **OSRM/Valhalla** no tienen tráfico en vivo: solo como respaldo.
+      - En España, las incidencias de la **DGT** (datos abiertos DATEX II,
+        gratis): obras, accidentes y cortes que tocan la ruta.
+    - *Widgets*: el tiempo de la ruta en grande con el retraso frente a lo
+      normal (verde, ámbar, rojo por umbrales) y la hora de llegada si sales
+      ahora; la ruta alternativa si es más rápida; las incidencias en el
+      camino; opcional, un mapa de la ruta con su tráfico (reusar las
+      teselas de `trafficmap`).
+    - *Cuándo*: solo en la franja en que importa, con la jornada de Ajustes
+      (`ctx.workday`): la ida antes de la hora de entrada y la vuelta al
+      acabar, nada en festivos ni fines de semana (y reposo el resto del
+      tiempo). Que se quede la tesela si el retraso pasa de un umbral cerca
+      de la hora de salir: «sal ya» o «sal 10 min antes».
+    - *Con la agenda*: si la próxima reunión tiene lugar, el tiempo hasta
+      allí y a qué hora salir (enlaza con el punto 12).
+    - Cuidado con: el límite de peticiones (consultar cada 5 min solo dentro
+      de la franja), que origen y destino son datos personales (en local,
+      fuera de capturas y de la demo), y medir «lo normal» guardando un
+      histórico propio por franja horaria si el proveedor no lo da.
+15. **Redes sociales** (`kiosko-plugin-social`). Lo difícil son las APIs,
+    cada vez más cerradas:
+    - Abiertas y gratis: **Bluesky** (AT Protocol) y **Mastodon** (API de
+      cada instancia). Por aquí se empieza.
+    - Con clave: **YouTube Data API** (suscriptores, visitas, último vídeo),
+      **Twitch** (en directo o no), **Reddit** (OAuth, con límites).
+    - Cerradas o de pago: **X** (API de pago), **Instagram** y **Facebook**
+      (solo cuentas profesionales vía Graph API; la Basic Display API se
+      cerró en 2024), **LinkedIn** (sin API útil). No prometerlas.
+    - *Widgets*: tus cifras (seguidores, «me gusta», suscriptores) con su
+      tendencia; menciones y notificaciones sin leer, que pueden quedarse la
+      tesela; el último post de una cuenta o una lista; «en directo» de los
+      canales que sigues.
+    - Cuidado con: los tokens (secretos, en local) y no mostrar contenido
+      ajeno sin filtro en un panel siempre encendido (filtro de palabras,
+      solo cuentas elegidas).
+16. **Marco de fotos** (`kiosko-plugin-photos`). El widget **Imagen** de
+    `core` ya muestra una carpeta por turnos; el marco va más allá:
+    - *De dónde*: carpeta local o del NAS, **Immich**, **Nextcloud** y
+      WebDAV, **Synology Photos**, álbumes compartidos de **iCloud** (enlace
+      público). **Google Photos** ya no deja leer la biblioteca desde 2025
+      (solo el selector o lo que suba la propia app): no prometerlo.
+    - *Cómo se ve*: recorte inteligente para paneles muy apaisados (una
+      franja de 1920×462 corta cabezas): centrar en caras o en lo
+      importante; movimiento lento tipo Ken Burns con la API `animation`;
+      transiciones; fecha y lugar de la foto (EXIF) en una esquina; «tal día
+      como hoy, hace 3 años».
+    - *Qué fotos*: álbumes elegidos, aleatorio sin repetir hasta agotar,
+      favoritas, excluir capturas de pantalla y fotos privadas por etiqueta.
+    - Cuidado con: decodificar en `fetch` y reducir al tamaño del panel
+      (fotos de 20 MP), caché en `cacheDir`, y que es contenido personal
+      (fuera de la demo y de capturas).
+17. **Deportes: resultados y agenda** (`kiosko-plugin-sports`), un plugin
+    con una fuente de **equipos y competiciones favoritos** compartida:
+    - *Proveedores*: **football-data.org** (gratis con clave, ligas
+      principales), **API-Football** (capa gratuita de 100 peticiones/día),
+      **TheSportsDB** (muchos deportes), **Jolpica** (F1, sucesor de
+      Ergast) y **OpenF1** (tiempos en vivo). Los de ESPN no son oficiales:
+      como respaldo, no como base.
+    - *Resultados*: marcador en directo de tus equipos (que se queda la
+      tesela con un gol y lo celebra con una animación corta), resultados de
+      la jornada, clasificación con tu equipo resaltado.
+    - *Agenda*: próximos partidos con fecha, hora local, competición y
+      **canal de TV** (no hay una API limpia de dónde se emite en España: a
+      investigar); la cuenta atrás al siguiente; y exportarla como
+      calendario o leer los ICS que publican muchos clubes con el plugin de
+      calendario (punto 12).
+    - *Cuándo*: consultar cada pocos segundos solo durante los partidos de
+      tus equipos, y cada pocas horas el resto del tiempo, por los límites
+      de las APIs gratuitas.
+18. **Widget genérico REST/JSON y webhook de entrada.** Dos piezas en `core`
+    que convierten en widget cualquier cosa sin escribir un plugin:
+    - *REST/JSON*: una URL (con cabeceras y secreto opcionales), una ruta
+      dentro de la respuesta (`$.data.temperature`, o una expresión
+      sencilla para listas) y una presentación: número grande con unidad y
+      umbrales, lista, curva con histórico propio, texto. Con `intervalMs`,
+      `timeoutMs` y `risk: 'network'` como cualquier fuente.
+    - *Webhook*: `POST /api/push/<nombre>` con un JSON (`{ "value": 42,
+      "text": "Backup terminado", "level": "warn", "ttlMs": 3600000 }`) que
+      pinta un widget **Push** con ese nombre; `level: alert` se queda la
+      tesela y `ttlMs` lo apaga solo. Sirve para scripts, cron, CI, Home
+      Assistant, n8n.
+    - *Seguridad*: el servidor hoy solo escucha en local y se protege de
+      CSRF y DNS rebinding; el push necesitaría un token por nombre (y
+      decidir si se permite desde la red local), sin abrir el resto de la
+      API.
+    - Recetas en la documentación: «el último backup», «el despliegue»,
+      «la temperatura del acuario» con `curl`.
+19. **FPS del juego, ventiladores y refrigeración líquida.** Es lo primero
+    que enseña el software del fabricante (TRCC) y lo que espera quien
+    compra el panel para su PC.
+    - *FPS y tiempos de fotograma*: MangoHud (Linux, registro a fichero o su
+      socket), PresentMon (Windows, la base de las métricas de Intel y AMD);
+      FPS medios, 1 % bajos y una curva de tiempos de fotograma que delata
+      los tirones. Solo con un juego abierto.
+    - *Ventiladores, bombas y líquido*: liquidctl (AIO y controladores de
+      Corsair, NZXT…, en Linux, macOS y Windows), lm-sensors en Linux,
+      LibreHardwareMonitor en Windows (por su servidor web o WMI): RPM,
+      temperatura del líquido, curvas.
+    - Encaja con el punto 21: al abrir un juego, la página de juego.
+20. **Precio de la luz por horas** (España, PVPC). Red Eléctrica publica el
+    precio de cada hora del día y, hacia las 20:30, el de mañana: API de
+    REData o ESIOS, gratis (ESIOS pide un token gratuito).
+    - *Widgets*: el precio de ahora frente al del día (barato, normal, caro
+      en verde, gris, ámbar), las 24 barras del día con la hora actual
+      marcada, y «la hora más barata para la lavadora» (ventana de N horas
+      seguidas más barata de lo que queda de día, y de mañana si ya está).
+    - Opcional: el excedente solar o el consumo desde Home Assistant
+      (`homeassistant/states`) para decir «ahora gastas con luz cara».
+    - Plugin en la carpeta de oficiales con nombre neutral
+      (`kiosko-plugin-electricity`) y el PVPC como primer proveedor, para
+      que otros países añadan el suyo (Nord Pool, aWATTar, Octopus).
+21. **Páginas según el contexto.** Hoy una página puede mostrarse siempre,
+    en horario laboral o fuera (`when`), y una pantalla puede fijar una
+    (`pinnedPage`). Faltan condiciones que cambien de página solas:
+    - *Señales*: una aplicación abierta (un juego, OBS, la herramienta de
+      videollamadas), estar en una llamada (`calls/active` ya existe), la
+      hora o el día, una reunión que empieza, un widget urgente de otra
+      página, el valor de una fuente («si la luz está cara»), o un webhook
+      del punto 18.
+    - *Modelo*: reglas por página con prioridad (`showWhen: { app:
+      'steam_app_*' }`, `{ source: 'calls/active', is: true }`), que mandan
+      sobre el turno normal mientras se cumplen, y vuelta a la rotación al
+      dejar de cumplirse.
+    - *Cuidado con*: el parpadeo (un tiempo mínimo en cada página y un
+      margen al salir), detectar aplicaciones en los tres sistemas sin
+      permisos raros, y enseñar en el editor por qué está cada página en
+      pantalla («fijada por: juego abierto»).
+22. **Fractales** (`kiosko-plugin-fractals`): animaciones generativas para
+    lucir el panel. Lo pesado va en interludios (se preparan antes de
+    reproducirse, en `prepare`); lo ligero, como animación de tesela
+    (`animation`, 600 fotogramas como mucho). Que algo se mueva además
+    ayuda contra el quemado. Por orden de impacto:
+    - **Llama fractal que se revela** (*fractal flame*, el algoritmo de
+      Apophysis y Electric Sheep), como interludio: millones de puntos sobre
+      transformaciones no lineales (espiral, remolino, esfera…) acumulados
+      con densidad logarítmica, así que la imagen aparece como una foto en
+      el revelador, de un polvo tenue a filamentos luminosos. Semilla por
+      franja horaria: cada cuarto de hora, una obra distinta; paleta del
+      tema. Unos 20 ms por millón de puntos en JS: cabe en `prepare`.
+      **Recomendada**: es la que hace que alguien se pare a mirar.
+    - **Árbol que crece**, como widget de tesela: ramas recursivas que
+      brotan, se mecen y florecen; vectorial y barato, y en una franja
+      ancha, un bosque. Ligado a datos: crece con la jornada (horas,
+      commits, tokens) y florece al acabarla; la estación y el viento de
+      `weather/current`. **Recomendado** como compañero diario.
+    - **Julia que se transforma**: el parámetro recorre el borde del
+      Mandelbrot y la figura se retuerce; bucle perfecto, color continuo,
+      barato.
+    - **Zoom en el Mandelbrot** (valle de los caballitos de mar): clásico
+      pero caro a 1920×462 (media resolución y escalar) y sin zoom muy
+      profundo (la precisión de `double` se acaba).
+    - Más ligeros: el **helecho de Barnsley** o el juego del caos punto a
+      punto, la **curva del dragón** desplegándose, y **coral o rayo**
+      (agregación por difusión, figuras de Lichtenberg) creciendo desde un
+      punto.
+    - Cuidado con: el tiempo de `prepare` en máquinas modestas (calcular a
+      menos resolución o menos puntos según lo que tarde el primer
+      fotograma), la memoria de 300 fotogramas a pantalla completa, y que se
+      vea bien en los cinco temas (incluido `paper`, claro).
+23. **Cámaras de seguridad (RTSP)** (`kiosko-plugin-cameras`). Lo útil no
+    es tenerlas siempre puestas, sino que salgan solas cuando pasa algo.
+    - *Hace falta un modo de vídeo en vivo*: ni `animation` ni los
+      interludios sirven (precalculan sus fotogramas). Un widget que recibe
+      fotogramas continuamente y repinta solo su tesela, a 5-10 fps; con el
+      compositor y el tope de ~500 KB por fotograma de los paneles LY es
+      viable. Pieza del SDK que también valdría para el reproductor de
+      vídeos propios (punto 3) y el visualizador de audio.
+    - *Decodificar*: `ffmpeg` como proceso hijo (RTSP → reducido al tamaño
+      de la tesela → JPEG por stdout a los fps pedidos), sin dependencias
+      nativas, en los tres sistemas. Usar el **subflujo** de la cámara
+      (640×360 o similar), no el principal, para que varias quepan en la
+      CPU. Sin `ffmpeg`: **go2rtc**, **Frigate** o **Home Assistant**
+      (`camera_proxy`) ya dan instantáneas o MJPEG por HTTP; y para una
+      instantánea lenta ya basta el widget **Imagen** con la URL.
+    - *Widgets*: una cámara, un mosaico de 2-4 o una que va rotando; hora y
+      nombre sobreimpresos; aviso si deja de responder.
+    - *Eventos*: con **Frigate** (personas, coches) o el timbre y los
+      sensores de movimiento de Home Assistant (`homeassistant/states`), la
+      cámara de la puerta se queda la tesela unos segundos (`urgent`), con
+      el recuadro de lo detectado. Reposo el resto del tiempo, o solo de
+      noche, o solo con movimiento.
+    - Cuidado con: las credenciales van en la URL RTSP (secreto, y la
+      opción con `risk: ['network', 'exec']` porque lanza `ffmpeg`); nunca
+      imágenes de cámaras en capturas ni en la demo; la CPU y el ancho de
+      banda USB con varios flujos; y el quemado de una imagen fija durante
+      horas (desplazamiento de píxeles y reposo).
+24. **Logs en vivo** (`kiosko-plugin-logs`). Los errores aparecen según
+    ocurren y se quedan la tesela. Hoy lo más cercano es `system/health`,
+    que lista las unidades de systemd caídas pero no lo que dicen.
+    - *De dónde*, con una fuente de empuje (`watch`) por cada uno:
+      **journald** (`journalctl -f -o json`, con unidad y prioridad),
+      **un fichero** (seguir el final, sobrevivir a la rotación),
+      **Docker** (por el socket, los contenedores elegidos), **macOS**
+      (`log stream --style ndjson`), **Windows** (Visor de eventos con
+      `Get-WinEvent`), **Kubernetes** (`kubectl logs -f`) y **Loki** (su
+      API de *tail*). Más adelante, recibir **syslog** por UDP de la red
+      (router, NAS).
+    - *Filtrar*: por nivel (error, aviso…), por unidad o contenedor, y por
+      patrones a incluir y excluir (`t.filter`, con expresiones regulares
+      opcionales).
+    - *Widgets*: el final del log en monoespaciada, con los errores en rojo
+      y los avisos en ámbar, la hora relativa y las líneas repetidas
+      agrupadas («×37»); una curva de errores por minuto; y «el último
+      error», grande, para una tesela pequeña.
+    - *Cuándo molesta*: un error se queda la tesela un rato (`urgent`, con
+      su duración como opción); reposo cuando el log está tranquilo.
+    - Cuidado con: los secretos y datos personales que acaban en los logs
+      (enmascarar tokens, contraseñas en URLs y correos antes de pintar;
+      nunca logs reales en capturas ni en la demo); los permisos (leer el
+      journal del sistema exige el grupo `systemd-journal` o `adm`, y el
+      socket de Docker equivale a root); un log desbocado (búfer circular y
+      emitir como mucho una vez por segundo); y las opciones con
+      `risk: ['exec', 'path']`.
 
 ### Decisiones abiertas para ti
 
