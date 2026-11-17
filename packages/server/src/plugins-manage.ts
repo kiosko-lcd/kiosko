@@ -8,6 +8,7 @@ import { execFile } from 'node:child_process';
 import { existsSync, lstatSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, relative, resolve, sep } from 'node:path';
 import { packageMeta, paths, type Registry, type Runtime } from '@kiosko/core';
+import type { Permissions } from '@kiosko/sdk';
 
 /** An npm package name (optionally scoped) with an optional version or range: no URLs, paths or flags. */
 export const NPM_NAME = /^(@[a-z0-9][\w.-]*\/)?[a-z0-9][\w.-]*(@[\w.^~<>=*-]+)?$/i;
@@ -37,37 +38,81 @@ export interface ManageOptions {
   npm?: Npm;
 }
 
+/** What a newer version declares on top of the old one (hosts, programs, files, devices), to say so. */
+export function addedPermissions(before: Permissions | undefined, after: Permissions | undefined): Permissions {
+  const out: Permissions = {};
+  for (const k of ['network', 'exec', 'files', 'devices'] as const) {
+    const added = (after?.[k] ?? []).filter((v) => !(before?.[k] ?? []).includes(v));
+    if (added.length) out[k] = added;
+  }
+  return out;
+}
+
+export interface InstallResult {
+  ids: string[];
+  output: string;
+  restart: boolean;
+  problem?: string;
+  /** The new code didn't load and the previous version is back (reinstalled, or the copy that came with Kiosko). */
+  rolledBack?: boolean;
+  /** What the new version declares doing that the one it replaced didn't. */
+  addedPermissions?: Permissions;
+}
+
 /**
  * Installs a package from npm into the plugins folder and loads it at once.
- * Installing a newer version of a loaded plugin replaces it. Returns the
- * plugin ids now running, or `restart: true` when the new code could only
- * take over after a restart.
+ * Installing a newer version of a loaded plugin replaces it in place. If the
+ * new code doesn't load, the previous version comes back: the one installed
+ * here is reinstalled, or the copy that came with Kiosko is put back, so a
+ * bad update never leaves the plugin missing.
  */
-export async function installPlugin(spec: string, o: ManageOptions): Promise<{ ids: string[]; output: string; restart: boolean; problem?: string }> {
+export async function installPlugin(spec: string, o: ManageOptions): Promise<InstallResult> {
   if (!NPM_NAME.test(spec)) throw new Error('not a valid npm package name');
   const dir = o.dir ?? paths.plugins;
   ensureFolder(dir);
-  const output = await (o.npm ?? realNpm)(['install', '--no-audit', '--no-fund', '--ignore-scripts', spec], dir);
-  const folder = join(dir, 'node_modules', packageName(spec));
-  if (!existsSync(join(folder, 'package.json'))) return { ids: [], output, restart: true, problem: `${packageName(spec)} was installed but has no package.json` };
-  const meta = packageMeta(JSON.parse(readFileSync(join(folder, 'package.json'), 'utf8')));
-  const id = meta.id;
+  const npm = o.npm ?? realNpm;
   const r = o.registry;
+  const folder = join(dir, 'node_modules', packageName(spec));
+  // What was there before: the version installed here (to reinstall it), and the plugin loaded (to restore it).
+  const readPkg = () => (existsSync(join(folder, 'package.json')) ? (JSON.parse(readFileSync(join(folder, 'package.json'), 'utf8')) as Record<string, any>) : null);
+  const beforePkg = readPkg();
+  const beforeId = beforePkg ? packageMeta(beforePkg).id : undefined;
+  const output = await npm(['install', '--no-audit', '--no-fund', '--ignore-scripts', spec], dir);
+  const pkg = readPkg();
+  if (!pkg) return { ids: [], output, restart: true, problem: `${packageName(spec)} was installed but has no package.json` };
+  const id = packageMeta(pkg).id;
+  const prev = id ? r.plugin(id) : beforeId ? r.plugin(beforeId) : undefined;
+  const prevOrigin = prev ? (r.originOf(prev.def.id) ?? prev.origin) : undefined;
   let ids: string[] = [];
   let problem: string | undefined;
-  if (id && r.plugin(id) && r.originOf(id) === folder) {
+  if (id && prev && r.originOf(id) === folder) {
     // An update of a plugin installed here: its entry file is read again.
     problem = (await r.reload(id)) ?? undefined;
     if (!problem) ids = [id];
   } else {
     // New, or replacing a copy that came with Kiosko (the folder's wins, as at start-up).
-    if (id && r.plugin(id)) r.remove(id);
+    if (prev) r.remove(prev.def.id);
     const before = r.problems.length;
     ids = await r.loadOne(folder);
     if (!ids.length) problem = r.problems.slice(before).map((p) => p.message).join('; ') || 'it did not load';
   }
+  if (problem && prev) {
+    // Put the previous version back.
+    if (prevOrigin === folder && beforePkg?.version) {
+      await npm(['install', '--no-audit', '--no-fund', '--ignore-scripts', `${packageName(spec)}@${beforePkg.version}`], dir);
+      if (!r.plugin(prev.def.id)) await r.loadOne(folder);
+      else await r.reload(prev.def.id);
+    } else {
+      await npm(['uninstall', '--no-audit', '--no-fund', packageName(spec)], dir);
+      if (!r.plugin(prev.def.id)) r.add(prev.def, prev.origin);
+    }
+    o.runtime.pluginsChanged([prev.def.id]);
+    return { ids: [], output, restart: false, problem, rolledBack: true };
+  }
   if (ids.length) o.runtime.pluginsChanged(ids);
-  return { ids, output, restart: false, ...(problem ? { problem } : {}) };
+  const now = id ? r.plugin(id) : undefined;
+  const added = prev && now ? addedPermissions(prev.def.permissions, now.def.permissions) : {};
+  return { ids, output, restart: false, ...(problem ? { problem } : {}), ...(Object.keys(added).length ? { addedPermissions: added } : {}) };
 }
 
 /**

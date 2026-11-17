@@ -88,6 +88,9 @@ function Rail() {
       {NAV.map((n) => (
         <button class={`rail-btn ${view.value === n.id ? 'on' : ''}`} data-view={n.id} onClick={() => go(n.id)} title={tr(`nav.${n.id}`)} aria-current={view.value === n.id}>
           <Icon name={n.icon} size={20} />
+          {n.id === 'plugins' && (app.value?.updates?.plugins.filter((u) => u.version).length ?? 0) > 0 && (
+            <b class="rail-badge" title={tr('updates.badge')}>{app.value!.updates!.plugins.filter((u) => u.version).length}</b>
+          )}
           <span>{tr(`nav.${n.id}`)}</span>
         </button>
       ))}

@@ -15,7 +15,7 @@ import { THEMES } from '@kiosko/sdk';
 import { CATEGORIES } from '@kiosko/sdk';
 import { OFFICIAL_PLUGINS } from './builtin.ts';
 import { installPlugin, reloadPlugin, removePlugin } from './plugins-manage.ts';
-import { PANEL_PRESETS, discoverTrcc, discoverUsb, normalize, paths, resolveLocale, saveConfig, type Config, type FrameInfo, type Runtime, type Screen } from '@kiosko/core';
+import { PANEL_PRESETS, checkUpdates, discoverTrcc, discoverUsb, normalize, paths, resolveLocale, saveConfig, type Config, type FrameInfo, type Runtime, type Screen, type UpdateCheck } from '@kiosko/core';
 
 const require = createRequire(import.meta.url);
 
@@ -39,6 +39,13 @@ export interface ServerOptions {
   /** Folder with the built editor (index.html, assets). */
   webDir?: string;
   version: string;
+  /**
+   * Ask npm once a day for newer versions of the plugins (and of Kiosko).
+   * Default: on, except in demo mode or with KIOSKO_NO_UPDATE_CHECK=1.
+   */
+  checkUpdates?: boolean;
+  /** How the update check asks npm (tests). */
+  updateCheck?: () => Promise<UpdateCheck>;
 }
 
 function webRoot(): string {
@@ -84,6 +91,19 @@ export function startServer(o: ServerOptions) {
   const clients = new Set<ServerResponse>();
   const thumbs = new Map<string, Buffer>();
   let restartNeeded = false;
+  // Newer plugins (and Kiosko) on npm, checked shortly after start and then daily.
+  let updates: UpdateCheck | null = null;
+  const askNpm = o.updateCheck ?? (() => checkUpdates(runtime.registry.packages(), { kioskoVersion: o.version }));
+  const refreshUpdates = async (): Promise<UpdateCheck> => {
+    updates = await askNpm();
+    send('config', { rev, by: null });
+    return updates;
+  };
+  const checking = o.checkUpdates ?? (!runtime.demoMode && process.env.KIOSKO_NO_UPDATE_CHECK !== '1');
+  const updateTimers = checking
+    ? [setTimeout(() => void refreshUpdates().catch(() => undefined), 20_000), setInterval(() => void refreshUpdates().catch(() => undefined), 24 * 3600_000)]
+    : [];
+  for (const t of updateTimers) t.unref?.();
   /** Bumped on every save, so a stale editor tab can't overwrite newer changes. */
   let rev = Date.now();
 
@@ -107,6 +127,7 @@ export function startServer(o: ServerOptions) {
       config: runtime.config,
       catalog: runtime.registry.catalog(locale),
       refused: runtime.registry.refused,
+      updates: updates && { checkedAt: updates.checkedAt, plugins: updates.plugins, kiosko: updates.kiosko ?? null },
       categories: CATEGORIES,
       themes: THEMES,
       presets: PANEL_PRESETS,
@@ -234,7 +255,7 @@ export function startServer(o: ServerOptions) {
         if (r.restart) restartNeeded = true;
         rev++;
         send('config', { rev, by: null });
-        return json(res, 200, { ok: true, output: r.output, ids: r.ids, problem: r.problem ?? null, restartNeeded, state: state() });
+        return json(res, 200, { ok: true, output: r.output, ids: r.ids, problem: r.problem ?? null, rolledBack: !!r.rolledBack, addedPermissions: r.addedPermissions ?? null, restartNeeded, state: state() });
       } catch (err) {
         return json(res, /valid npm/.test(String(err)) ? 400 : 500, { error: err instanceof Error ? err.message : String(err) });
       }
@@ -249,6 +270,35 @@ export function startServer(o: ServerOptions) {
         rev++;
         send('config', { rev, by: null });
         return json(res, 200, state());
+      } catch (err) {
+        return json(res, 500, { error: err instanceof Error ? err.message : String(err) });
+      }
+    }
+
+    if (p === '/api/plugins/updates' && m === 'GET') {
+      if (url.searchParams.get('refresh') === '1' || !updates) {
+        try {
+          await refreshUpdates();
+        } catch (err) {
+          return json(res, 502, { error: err instanceof Error ? err.message : String(err) });
+        }
+      }
+      return json(res, 200, updates);
+    }
+
+    // Installs the newest version of a plugin that fits this Kiosko (from the last check).
+    mm = /^\/api\/plugins\/([^/]+)\/update$/.exec(p);
+    if (mm && m === 'POST') {
+      const id = decodeURIComponent(mm[1]!);
+      const u = updates?.plugins.find((x) => x.id === id);
+      if (!u?.version) return json(res, 409, { error: u?.blocked ? `can't update "${id}": ${u.blocked}` : `no update for "${id}"` });
+      try {
+        const r = await installPlugin(`${u.package}@${u.version}`, { registry: runtime.registry, runtime });
+        if (!r.problem && updates) updates = { ...updates, plugins: updates.plugins.filter((x) => x.id !== id) };
+        if (r.restart) restartNeeded = true;
+        rev++;
+        send('config', { rev, by: null });
+        return json(res, 200, { ok: !r.problem, ids: r.ids, problem: r.problem ?? null, rolledBack: !!r.rolledBack, addedPermissions: r.addedPermissions ?? null, version: u.version, state: state() });
       } catch (err) {
         return json(res, 500, { error: err instanceof Error ? err.message : String(err) });
       }
@@ -329,6 +379,7 @@ export function startServer(o: ServerOptions) {
     server,
     close() {
       clearInterval(statusTimer);
+      for (const t of updateTimers) clearTimeout(t);
       for (const c of clients) c.end();
       server.close();
     },

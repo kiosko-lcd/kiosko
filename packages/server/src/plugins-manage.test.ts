@@ -144,3 +144,69 @@ test('kiosko plugins new: a plugin that declares its API and permissions, with t
   assert.match(files['src/index.ts']!, /id: 'solar-meter',\n  name: \{ en: 'Solar Meter'/);
   assert.match(files['src/index.ts']!, /permissions: \{ network: \['user'\] \}/);
 });
+
+test('install: a bad update brings the previous version back; a new one says what more it does', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'kiosko-update-'));
+  try {
+    const published: Record<string, string> = {
+      '1.0.0': "export default definePlugin({ id: 'up', name: 'Up', version: '1.0.0', permissions: { network: ['a.dev'] }, widgets: [{ id: 'w', name: 'W', render() {} }] });",
+      '1.1.0': 'export default {',
+      '1.2.0': "export default definePlugin({ id: 'up', name: 'Up', version: '1.2.0', permissions: { network: ['a.dev', 'b.dev'], exec: ['git'] }, widgets: [{ id: 'w', name: 'W', render() {} }] });",
+    };
+    const calls: string[] = [];
+    const npm: Npm = async (args) => {
+      calls.push(args.filter((a) => !a.startsWith('--')).join(' '));
+      const folder = join(dir, 'node_modules', 'kiosko-plugin-up');
+      if (args[0] === 'uninstall') {
+        rmSync(folder, { recursive: true, force: true });
+        return '';
+      }
+      const version = args.at(-1)!.split('@')[1] ?? '1.0.0';
+      mkdirSync(folder, { recursive: true });
+      writeFileSync(join(folder, 'package.json'), JSON.stringify({ name: 'kiosko-plugin-up', version, type: 'module' }));
+      writeFileSync(join(folder, 'index.js'), `import { definePlugin } from '@kiosko/sdk';\n${published[version]}\n`);
+      return 'ok';
+    };
+    const registry = new Registry();
+    const o = { registry, runtime: { pluginsChanged: () => undefined }, dir, npm };
+    await installPlugin('kiosko-plugin-up@1.0.0', o);
+    assert.equal(registry.plugin('up')!.def.version, '1.0.0');
+    const bad = await installPlugin('kiosko-plugin-up@1.1.0', o);
+    assert.equal(bad.rolledBack, true);
+    assert.ok(bad.problem);
+    assert.equal(registry.plugin('up')!.def.version, '1.0.0', 'the old one runs');
+    assert.deepEqual(calls.slice(-1), ['install kiosko-plugin-up@1.0.0'], 'and is installed again');
+    const good = await installPlugin('kiosko-plugin-up@1.2.0', o);
+    assert.equal(registry.plugin('up')!.def.version, '1.2.0');
+    assert.deepEqual(good.addedPermissions, { network: ['b.dev'], exec: ['git'] });
+    assert.deepEqual(registry.packages(), [{ id: 'up', package: 'kiosko-plugin-up', version: '1.2.0' }]);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('install: replacing the copy that came with Kiosko, and failing, puts that copy back', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'kiosko-update-'));
+  try {
+    const npm: Npm = async (args) => {
+      const folder = join(dir, 'node_modules', 'kiosko-plugin-gpu');
+      if (args[0] === 'uninstall') {
+        rmSync(folder, { recursive: true, force: true });
+        return '';
+      }
+      mkdirSync(folder, { recursive: true });
+      writeFileSync(join(folder, 'package.json'), JSON.stringify({ name: 'kiosko-plugin-gpu', version: '9.0.0', type: 'module' }));
+      writeFileSync(join(folder, 'index.js'), 'throw new Error("broken build")');
+      return 'ok';
+    };
+    const registry = new Registry();
+    registry.add(definePlugin({ id: 'gpu', name: 'GPU', version: '0.2.1' }), 'npm:kiosko-plugin-gpu');
+    const r = await installPlugin('kiosko-plugin-gpu@9.0.0', { registry, runtime: { pluginsChanged: () => undefined }, dir, npm });
+    assert.equal(r.rolledBack, true);
+    assert.equal(registry.plugin('gpu')!.def.version, '0.2.1');
+    assert.equal(registry.plugin('gpu')!.origin, 'npm:kiosko-plugin-gpu');
+    assert.equal(existsSync(join(dir, 'node_modules', 'kiosko-plugin-gpu')), false);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

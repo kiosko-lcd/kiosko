@@ -164,6 +164,12 @@ export const api: typeof httpApi = {
   removePlugin: async () => {
     throw notHere();
   },
+  updatePlugin: async () => {
+    throw notHere();
+  },
+  checkUpdates: async () => {
+    throw notHere();
+  },
   reloadPlugin: async () => {
     throw notHere();
   },

@@ -40,6 +40,85 @@ function Permissions({ p }: { p: PluginInfo }) {
   );
 }
 
+/** What a permission list says, in one line ("Internet: b.dev · Runs: git"). */
+const permissionsLine = (p: PluginInfo['permissions']) =>
+  (Object.keys(PERMISSION_ICONS) as (keyof PluginInfo['permissions'])[])
+    .filter((k) => p[k]?.length)
+    .map((k) => `${tr(`perm.${k}`)}: ${p[k]!.join(', ')}`)
+    .join(' · ');
+
+/** Newer versions on npm: Kiosko itself, and every plugin, with Update and Update all. */
+function Updates() {
+  const a = app.value!;
+  const u = a.updates;
+  const [busy, setBusy] = useState<string | null>(null);
+  if (KIOSKO_DEMO || !u) return null;
+  const ready = u.plugins.filter((p) => p.version);
+  const blocked = u.plugins.filter((p) => !p.version && p.blocked);
+  const nameOf = (id: string) => a.catalog.find((p) => p.id === id)?.name ?? id;
+  const update = async (id: string): Promise<void> => {
+    setBusy(id);
+    try {
+      const r = await api.updatePlugin(id);
+      app.value = r.state;
+      config.value = r.state.config;
+      status.value = r.state.status;
+      if (r.problem) notify(tr(r.rolledBack ? 'updates.rolledBack' : 'updates.failed').replace('{name}', nameOf(id)).replace('{why}', r.problem), 'error');
+      else if (r.addedPermissions && Object.keys(r.addedPermissions).length) notify(tr('updates.morePermissions').replace('{name}', nameOf(id)).replace('{v}', r.version).replace('{what}', permissionsLine(r.addedPermissions)), 'ok');
+      else notify(tr('updates.done').replace('{name}', nameOf(id)).replace('{v}', r.version), 'ok');
+    } catch (err) {
+      notify(String(err instanceof Error ? err.message : err), 'error');
+    } finally {
+      setBusy(null);
+    }
+  };
+  return (
+    <>
+      {u.kiosko && (
+        <div class="banner info">
+          <Icon name="sparkles" size={16} /> {tr('updates.kiosko').replace('{latest}', u.kiosko.latest).replace('{current}', u.kiosko.current)}
+        </div>
+      )}
+      {(ready.length > 0 || blocked.length > 0) && (
+        <section class="card updates">
+          <div class="card-head">
+            <h3>
+              <Icon name="circle-arrow-up" size={16} /> {tr('updates.title')}
+            </h3>
+            <div class="tb-spacer" />
+            {ready.length > 1 && (
+              <button class="btn small primary" disabled={!!busy} onClick={async () => {
+                for (const p of ready) await update(p.id);
+              }}>
+                {tr('updates.all')}
+              </button>
+            )}
+          </div>
+          {ready.map((p) => (
+            <div class="update-item">
+              <b>{nameOf(p.id)}</b>
+              <span class="mono muted">{p.current} → {p.version}</span>
+              {p.blocked && <span class="muted small">{tr('updates.notLatest').replace('{latest}', p.latest)}</span>}
+              <div class="tb-spacer" />
+              <button class="btn small primary" disabled={!!busy} onClick={() => update(p.id)}>
+                <Icon name={busy === p.id ? 'loader' : 'download'} size={13} /> {busy === p.id ? tr('updates.updating') : tr('updates.update')}
+              </button>
+            </div>
+          ))}
+          {blocked.map((p) => (
+            <div class="update-item muted">
+              <b>{nameOf(p.id)}</b>
+              <span class="mono">{p.current} · {p.latest}</span>
+              <span class="small">{p.blocked}</span>
+            </div>
+          ))}
+          <p class="muted small">{tr('updates.checked').replace('{at}', new Date(u.checkedAt).toLocaleString())}</p>
+        </section>
+      )}
+    </>
+  );
+}
+
 export function Plugins() {
   const a = app.value!;
   const [name, setName] = useState('');
@@ -80,6 +159,7 @@ export default definePlugin({
           <Icon name="rotate-ccw" size={16} /> {tr('plugins.restart')}
         </div>
       )}
+      <Updates />
       {(status.value?.problems.length ?? 0) > 0 && (
         <div class="banner error">
           <b>{tr('plugins.problems')}</b>
@@ -141,6 +221,7 @@ export default definePlugin({
                 </small>
               </div>
               <div class="tb-spacer" />
+              {a.updates?.plugins.find((x) => x.id === p.id && x.version) && <span class="pill update-pill" title={tr('updates.title')}>v{a.updates.plugins.find((x) => x.id === p.id)!.version}</span>}
               {p.builtin && <span class="pill">{tr('plugins.builtin')}</span>}
               {!p.builtin && (a.official ?? []).some((o) => o.id === p.id) && <span class="pill official-pill">{tr('plugins.officialShort')}</span>}
               <Toggle checked={p.enabled} onChange={async (v) => {
