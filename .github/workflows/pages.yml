@@ -27,7 +27,7 @@ jobs:
       - name: Clone the official plugins next to Kiosko
         run: |
           mkdir -p ../kiosko-plugins
-          for p in agents cats system vitals usage weather calendar news mirror gitlab github calls timesheet llm gpu; do
+          for p in agents cats system vitals usage weather calendar news mirror gitlab github calls timesheet llm gpu homeassistant; do
             git clone --depth 1 "https://github.com/${{ github.repository_owner }}/kiosko-plugin-$p" "../kiosko-plugins/kiosko-plugin-$p" || echo "no kiosko-plugin-$p"
           done
       - run: npm install --no-audit --no-fund

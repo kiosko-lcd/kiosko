@@ -161,7 +161,7 @@ can run in PowerShell.
    silently, with the tasks "start when I sign in" and "add `kiosko` to PATH":
 
    ```powershell
-   .\Kiosko-Setup-0.2.1-x64.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /TASKS=service,path
+   .\Kiosko-Setup-0.2.2-x64.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /TASKS=service,path
    ```
 
    Open a new terminal afterwards so `kiosko` is on the `PATH` (or use
