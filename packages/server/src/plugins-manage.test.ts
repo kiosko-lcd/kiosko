@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { Registry } from '@kiosko/core';
 import { definePlugin } from '@kiosko/sdk';
@@ -87,11 +87,12 @@ test('remove: uninstalls what npm installed, unlinks a link, leaves hand-made fo
     assert.deepEqual(s.changed.at(-1), ['hello']);
 
     // A linked checkout.
-    const checkout = join(s.dir, '..', `${s.dir.split('/').pop()}-checkout`);
+    const checkout = join(dirname(s.dir), `${basename(s.dir)}-checkout`);
     mkdirSync(checkout, { recursive: true });
     writeFileSync(join(checkout, 'package.json'), JSON.stringify({ name: 'kiosko-plugin-dev', type: 'module' }));
     writeFileSync(join(checkout, 'index.js'), code('dev', '0.0.1'));
-    symlinkSync(checkout, join(s.dir, 'dev'), 'dir');
+    // As `kiosko plugins link` does: a junction on Windows (no privileges needed).
+    symlinkSync(checkout, join(s.dir, 'dev'), process.platform === 'win32' ? 'junction' : 'dir');
     await registry.loadOne(join(s.dir, 'dev'));
     assert.deepEqual(await removePlugin('dev', o), { removed: true });
     assert.equal(existsSync(join(s.dir, 'dev')), false);
