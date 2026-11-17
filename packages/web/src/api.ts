@@ -37,6 +37,16 @@ export interface TemplateTileInfo {
   chrome?: 'card' | 'bare';
 }
 
+/** A newer version of an installed plugin: `version` is what Update installs; `blocked`, why `latest` can't be. */
+export interface PluginUpdate {
+  id: string;
+  package: string;
+  current: string;
+  latest: string;
+  version?: string;
+  blocked?: string;
+}
+
 export interface PluginInfo {
   id: string;
   name: string;
@@ -121,6 +131,8 @@ export interface AppState {
   catalog: PluginInfo[];
   /** Plugins found but not loaded: they don't fit this Kiosko (plugin API, operating system). */
   refused: { id?: string; version?: string; origin: string; reason: string }[];
+  /** Newer versions on npm, from the last daily check (null before it, and in the demo). */
+  updates?: { checkedAt: number; plugins: PluginUpdate[]; kiosko: { current: string; latest: string } | null } | null;
   categories: { id: string; label: string | Record<string, string> }[];
   themes: ThemeInfo[];
   presets: { id: string; name: string; width: number; height: number }[];
@@ -176,6 +188,10 @@ export const api = {
   /** Values a source offers for an option, from its live data (or its demo data before there is any). */
   choices: (source: string, list: string) => fetch(`/api/choices?source=${encodeURIComponent(source)}&list=${encodeURIComponent(list)}`).then((r) => ok<{ choices: { value: string; label?: string; group?: string }[]; from: 'live' | 'demo' | 'none'; error?: string }>(r)),
   install: (name: string) => fetch('/api/plugins/install', { method: 'POST', headers: H, body: JSON.stringify({ name }) }).then((r) => ok<{ ok: boolean; output: string; ids: string[]; problem: string | null; restartNeeded: boolean; state: AppState }>(r)),
+  /** Installs the newest version of a plugin that fits this Kiosko. */
+  updatePlugin: (id: string) => fetch(`/api/plugins/${encodeURIComponent(id)}/update`, { method: 'POST', headers: H }).then((r) => ok<{ ok: boolean; problem: string | null; rolledBack: boolean; addedPermissions: PluginPermissions | null; version: string; state: AppState }>(r)),
+  /** Asks npm now instead of waiting for the daily check. */
+  checkUpdates: () => fetch('/api/plugins/updates?refresh=1').then((r) => ok<unknown>(r)),
   removePlugin: (id: string) => fetch(`/api/plugins/${encodeURIComponent(id)}`, { method: 'DELETE', headers: H }).then((r) => ok<AppState>(r)),
   reloadPlugin: (id: string) => fetch(`/api/plugins/${encodeURIComponent(id)}/reload`, { method: 'POST', headers: H }).then((r) => ok<AppState>(r)),
   setPluginEnabled: (id: string, enabled: boolean) => fetch(`/api/plugins/${encodeURIComponent(id)}/enabled`, { method: 'POST', headers: H, body: JSON.stringify({ enabled }) }).then((r) => ok<AppState>(r)),

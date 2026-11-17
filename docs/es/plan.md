@@ -395,7 +395,7 @@ Lo que cambia en el camino:
 5. Envoltorio de escritorio (Tauri) con icono en la bandeja.
 6. Galería pública de maquetas exportadas (los plugins, en la tienda del
    punto 8).
-7. **Actualizar plugins desde el editor.** Hoy un plugin instalado desde npm
+7. **Actualizar plugins desde el editor.** *Hecho*: comprobación diaria en npm (solo versiones compatibles), Actualizar y Actualizar todos, vuelta atrás si la nueva no carga, aviso de permisos nuevos y de versiones nuevas de Kiosko. Lo que sigue era el plan. Hoy un plugin instalado desde npm
    se queda en su versión hasta que se reinstala a mano.
    - *Detectar*: el servidor pregunta al registro de npm por la última
      versión (`dist-tags.latest`) al arrancar y luego una vez al día, con

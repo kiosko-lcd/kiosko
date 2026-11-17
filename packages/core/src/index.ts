@@ -13,6 +13,7 @@ export * from './runtime.ts';
 export * from './registry.ts';
 export * from './plugin-meta.ts';
 export * from './plugin-lint.ts';
+export * from './plugin-updates.ts';
 export * from './devices.ts';
 export * from './fonts.ts';
 export * from './paths.ts';

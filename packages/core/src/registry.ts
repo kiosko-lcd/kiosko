@@ -96,6 +96,30 @@ export class Registry {
     return [...this.plugins.keys()].filter((id) => !before.has(id));
   }
 
+  /**
+   * The plugins that came from npm, with their package and the version
+   * installed: the ones that can be updated. Installed in the plugins folder
+   * (read from their package.json) or brought along with Kiosko (`npm:`
+   * origin). Built-in, linked and hand-copied plugins are left out.
+   */
+  packages(): { id: string; package: string; version: string }[] {
+    const out: { id: string; package: string; version: string }[] = [];
+    for (const { def, origin } of this.plugins.values()) {
+      if (origin.startsWith('npm:')) {
+        out.push({ id: def.id, package: origin.slice(4), version: def.version });
+        continue;
+      }
+      if (!/[\\/]node_modules[\\/]/.test(origin)) continue;
+      try {
+        const pkg = JSON.parse(readFileSync(join(origin, 'package.json'), 'utf8')) as { name?: string; version?: string };
+        if (pkg.name) out.push({ id: def.id, package: pkg.name, version: pkg.version ?? def.version });
+      } catch {
+        /* no package.json: not something npm can update */
+      }
+    }
+    return out;
+  }
+
   /** Where a loaded plugin came from (its folder), or undefined for a built-in one. */
   originOf(id: string): string | undefined {
     return this.entries.get(id)?.origin;
