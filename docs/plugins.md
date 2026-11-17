@@ -490,6 +490,15 @@ the SDK, the drawing kit and the canvas). Run `kiosko plugins check` and
 **Plugins → Install from npm** (with `--ignore-scripts`): it loads at once, and
 installing a newer version replaces it in place.
 
+Once a day Kiosko asks npm for newer versions of the plugins it got from npm
+(and of itself) and the Plugins page offers **Update**. It only offers a
+version whose package.json says it fits this Kiosko (`kiosko.sdk`, or the
+`@kiosko/sdk` peer range, and `os`); a newer one that doesn't is shown with
+why. If the new version doesn't load, the previous one comes back, and if it
+declares more permissions than the old one, the editor says which. Publish a
+fix as a patch within the same range and every Kiosko it fits will offer it.
+`KIOSKO_NO_UPDATE_CHECK=1` turns the daily check off.
+
 
 ## Animations
 
