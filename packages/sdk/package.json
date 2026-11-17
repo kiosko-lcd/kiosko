@@ -19,6 +19,11 @@
       "source": "./src/format.ts",
       "types": "./dist/format.d.ts",
       "default": "./dist/format.js"
+    },
+    "./testing": {
+      "source": "./src/testing.ts",
+      "types": "./dist/testing.d.ts",
+      "default": "./dist/testing.js"
     }
   },
   "files": [

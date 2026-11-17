@@ -1,16 +1,57 @@
 /** Plugins, Settings and Activity views. */
 import { useState } from 'preact/hooks';
-import { api } from '../api.ts';
+import { api, type AppState, type PluginInfo } from '../api.ts';
 import { SchemaForm, Toggle } from '../forms/SchemaForm.tsx';
 import { Icon } from '../icons.tsx';
 import { fmtMs, tr } from '../i18n.ts';
-import { app, config, edit, logs, notify, reloadState, setUiTheme, status, uiTheme } from '../store.ts';
+import { app, config, edit, logs, notify, setUiTheme, status, uiTheme } from '../store.ts';
 import { DemoNote } from '../demo/ui.tsx';
+
+/** Runs a plugin action, shows how it went and takes the new state. */
+async function pluginAction(run: () => Promise<AppState | { state: AppState; problem: string | null }>, done: string): Promise<void> {
+  try {
+    const r = await run();
+    const st = 'state' in r ? r.state : r;
+    app.value = st;
+    config.value = st.config;
+    status.value = st.status;
+    const problem = 'problem' in r ? r.problem : null;
+    notify(problem ?? done, problem ? 'error' : 'ok');
+  } catch (err) {
+    notify(String(err instanceof Error ? err.message : err), 'error');
+  }
+}
+
+const PERMISSION_ICONS: Record<keyof PluginInfo['permissions'], string> = { network: 'globe', exec: 'square-terminal', files: 'folder-open', devices: 'usb' };
+
+/** What a plugin says it does on the machine, as chips: "Internet: api.github.com", "Runs: nvidia-smi". */
+function Permissions({ p }: { p: PluginInfo }) {
+  const entries = (Object.keys(PERMISSION_ICONS) as (keyof PluginInfo['permissions'])[]).filter((k) => p.permissions[k]?.length);
+  if (!entries.length) return null;
+  const what = (v: string) => (v === 'user' ? tr('perm.user') : v === 'lan' ? tr('perm.lan') : v);
+  return (
+    <div class="plugin-perms">
+      {entries.map((k) => (
+        <span class="perm-chip" title={`${tr(`perm.${k}Help`)} ${p.permissions[k]!.map(what).join(', ')}`}>
+          <Icon name={PERMISSION_ICONS[k]} size={12} /> {tr(`perm.${k}`)}: {p.permissions[k]!.map(what).join(', ')}
+        </span>
+      ))}
+    </div>
+  );
+}
 
 export function Plugins() {
   const a = app.value!;
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
+  const isOfficial = (id: string) => (a.official ?? []).find((o) => o.id === id);
+  // Installed in the plugins folder (npm or a link): the ones that can be reloaded and removed here.
+  const ownFolder = (p: PluginInfo) => !p.builtin && !p.origin.startsWith('npm:');
+  const install = async (spec: string) => {
+    setBusy(true);
+    await pluginAction(() => api.install(spec), tr('toast.installed'));
+    setBusy(false);
+  };
   const [copied, setCopied] = useState(false);
   const snippet = `// ${a.paths.plugins}/hello/index.js
 import { definePlugin, defineWidget, t } from '@kiosko/sdk';
@@ -62,18 +103,7 @@ export default definePlugin({
               {missing.map((o) => (
                 <div class="official-item">
                   <span class="mono">{o.npm}</span>
-                  <button class="btn small primary" disabled={busy} onClick={async () => {
-                    setBusy(true);
-                    try {
-                      await api.install(o.npm);
-                      notify(tr('toast.installed'), 'ok');
-                      await reloadState();
-                    } catch (err) {
-                      notify(String(err instanceof Error ? err.message : err), 'error');
-                    } finally {
-                      setBusy(false);
-                    }
-                  }}>
+                  <button class="btn small primary" disabled={busy || KIOSKO_DEMO} onClick={() => install(o.npm)}>
                     <Icon name="download" size={13} /> {tr('common.add')}
                   </button>
                 </div>
@@ -82,6 +112,21 @@ export default definePlugin({
           </section>
         );
       })()}
+      {(a.refused ?? []).length > 0 && (
+        <section class="card refused">
+          <h3>
+            <Icon name="circle-slash" size={16} /> {tr('plugins.refused')}
+          </h3>
+          <p class="muted small">{tr('plugins.refusedHint')}</p>
+          {a.refused.map((r) => (
+            <div class="refused-item">
+              <b class="mono">{r.id ?? r.origin}</b>
+              {r.version && <span class="muted mono"> v{r.version}</span>}
+              <span class="muted small"> · {r.reason}</span>
+            </div>
+          ))}
+        </section>
+      )}
       <div class="plugin-grid">
         {a.catalog.map((p) => (
           <article class={`card plugin-card ${p.enabled ? '' : 'disabled'}`}>
@@ -104,6 +149,27 @@ export default definePlugin({
               }} />
             </div>
             <p class="muted small">{p.description}</p>
+            <div class="plugin-meta muted small">
+              {p.author && <span><Icon name="user" size={12} /> {p.author}</span>}
+              {p.license && <span><Icon name="scale" size={12} /> {p.license}</span>}
+              {p.sdk && <span title={tr('plugins.sdkHelp')}><Icon name="plug" size={12} /> API {p.sdk}</span>}
+              {(p.repository ?? p.homepage) && (
+                <a href={(p.repository ?? p.homepage)!.replace(/^git\+/, '').replace(/\.git$/, '')} target="_blank" rel="noopener noreferrer">
+                  <Icon name="external-link" size={12} /> {tr('plugins.source')}
+                </a>
+              )}
+            </div>
+            <Permissions p={p} />
+            {p.requires.filter((r) => !r.ok).map((r) => (
+              <div class="plugin-needs">
+                <Icon name="triangle-alert" size={13} /> {tr('plugins.needs')} <span class="mono">{r.type}</span>
+                {isOfficial(r.plugin) && !a.catalog.some((x) => x.id === r.plugin) && (
+                  <button class="btn small ghost" disabled={busy || KIOSKO_DEMO} onClick={() => install(isOfficial(r.plugin)!.npm)}>
+                    <Icon name="download" size={12} /> {tr('plugins.installIt').replace('{id}', r.plugin)}
+                  </button>
+                )}
+              </div>
+            ))}
             <div class="plugin-stats">
               {p.widgets.length > 0 && <span>{p.widgets.length} {tr('plugins.widgets')}</span>}
               {p.sources.length > 0 && <span>{p.sources.length} {tr('plugins.sources')}</span>}
@@ -121,6 +187,18 @@ export default definePlugin({
                 </span>
               ))}
             </div>
+            {ownFolder(p) && !KIOSKO_DEMO && (
+              <div class="plugin-actions">
+                <button class="btn ghost small" title={tr('plugins.reloadHelp')} onClick={() => pluginAction(() => api.reloadPlugin(p.id), tr('toast.reloaded'))}>
+                  <Icon name="refresh-cw" size={13} /> {tr('plugins.reload')}
+                </button>
+                <button class="btn ghost small danger" onClick={() => {
+                  if (confirm(tr('plugins.removeConfirm').replace('{name}', p.name))) void pluginAction(() => api.removePlugin(p.id), tr('toast.removed'));
+                }}>
+                  <Icon name="trash-2" size={13} /> {tr('plugins.remove')}
+                </button>
+              </div>
+            )}
           </article>
         ))}
       </div>
@@ -141,16 +219,8 @@ export default definePlugin({
           ) : <form class="row" onSubmit={async (e) => {
             e.preventDefault();
             if (!name.trim()) return;
-            setBusy(true);
-            try {
-              await api.install(name.trim());
-              notify(tr('toast.installed'), 'ok');
-              await reloadState();
-            } catch (err) {
-              notify(String(err instanceof Error ? err.message : err), 'error');
-            } finally {
-              setBusy(false);
-            }
+            await install(name.trim());
+            setName('');
           }}>
             <input class="input mono" placeholder={tr('plugins.installPh')} value={name} onInput={(e) => setName((e.target as HTMLInputElement).value)} />
             <button class="btn primary" disabled={busy}>

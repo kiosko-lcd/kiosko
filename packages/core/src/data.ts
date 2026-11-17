@@ -202,6 +202,16 @@ export class SourceHub {
     }
     this.states.clear();
   }
+
+  /** Stops the sources of a plugin whose code changed (reloaded, removed); the next `retain` starts them again with the new code. */
+  forget(pluginId: string): void {
+    for (const [type, st] of this.states) {
+      if (type.split('/')[0] !== pluginId) continue;
+      st.stop?.();
+      st.abort.abort();
+      this.states.delete(type);
+    }
+  }
 }
 
 /** The interval a widget asks for after a fetch (`intervalOf`), or its `intervalMs`. */
@@ -322,6 +332,15 @@ export class FetchHost {
   stop(): void {
     for (const st of this.states.values()) st.abort.abort();
     this.states.clear();
+  }
+
+  /** Drops the fetches of a plugin whose code changed; the next `retain` starts them again. Their last data is lost. */
+  forget(pluginId: string): void {
+    for (const [id, st] of this.states) {
+      if (st.type.split('/')[0] !== pluginId) continue;
+      st.abort.abort();
+      this.states.delete(id);
+    }
   }
 }
 

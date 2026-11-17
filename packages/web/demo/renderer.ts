@@ -15,7 +15,7 @@ import { CATEGORIES, THEMES, themeById } from '@kiosko/sdk';
 import serverPackage from '../../server/package.json' with { type: 'json' };
 import showcase from '../../../examples/showcase.json' with { type: 'json' };
 import { MISSING_OFFICIAL, OFFICIAL_PLUGINS, demoPlugins } from './plugins.ts';
-import type { FromWorker, LogEntry, PreviewResult, RendererApi, RendererEvent, RuntimeState, StageChannel, ToWorker } from './protocol.ts';
+import type { ChoicesResult, FromWorker, LogEntry, PreviewResult, RendererApi, RendererEvent, RuntimeState, StageChannel, ToWorker } from './protocol.ts';
 import { fontsReady, toBlob } from './shims/canvas.ts';
 import { Stage } from './stage.ts';
 
@@ -88,6 +88,7 @@ export class DemoRenderer implements RendererApi {
       version: serverPackage.version,
       locale,
       catalog: this.registry.catalog(locale),
+      refused: this.registry.refused,
       // Plain data, typed as the editor reads it from the server's JSON.
       categories: CATEGORIES as unknown as RuntimeState['categories'],
       themes: THEMES as unknown as RuntimeState['themes'],
@@ -136,6 +137,11 @@ export class DemoRenderer implements RendererApi {
 
   async stage(channels: StageChannel[]): Promise<void> {
     this.show.start(channels);
+  }
+
+  async choices(source: string, list: string): Promise<ChoicesResult> {
+    // The demo has no live sources: the lists come from their demo data.
+    return this.registry.choices(source, list, undefined, resolveLocale(this.rt.config));
   }
 
   /**

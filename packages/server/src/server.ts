@@ -7,14 +7,14 @@
  * a foreign web page can't send without a CORS preflight, which we never
  * grant) and the Host header must be the one we listen on (DNS rebinding).
  */
-import { execFile } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { createRequire } from 'node:module';
 import { dirname, extname, join, normalize as normPath, resolve } from 'node:path';
 import { THEMES } from '@kiosko/sdk';
 import { CATEGORIES } from '@kiosko/sdk';
 import { OFFICIAL_PLUGINS } from './builtin.ts';
+import { installPlugin, reloadPlugin, removePlugin } from './plugins-manage.ts';
 import { PANEL_PRESETS, discoverTrcc, discoverUsb, normalize, paths, resolveLocale, saveConfig, type Config, type FrameInfo, type Runtime, type Screen } from '@kiosko/core';
 
 const require = createRequire(import.meta.url);
@@ -106,6 +106,7 @@ export function startServer(o: ServerOptions) {
       locale,
       config: runtime.config,
       catalog: runtime.registry.catalog(locale),
+      refused: runtime.registry.refused,
       categories: CATEGORIES,
       themes: THEMES,
       presets: PANEL_PRESETS,
@@ -217,21 +218,50 @@ export function startServer(o: ServerOptions) {
 
     if (p === '/api/logs' && m === 'GET') return json(res, 200, runtime.logs.slice(-200));
 
+    // Values to offer for an option, from a source's live data (or its demo data before there is any).
+    if (p === '/api/choices' && m === 'GET') {
+      const source = url.searchParams.get('source') ?? '';
+      const list = url.searchParams.get('list') ?? '';
+      return json(res, 200, runtime.registry.choices(source, list, runtime.hub.data(source), resolveLocale(runtime.config)));
+    }
+
     if (p === '/api/plugins/install' && m === 'POST') {
       const b = (await body(req)) as { name?: string };
       const name = String(b.name ?? '').trim();
-      // Only npm package names (optionally scoped) with an optional version: no URLs, no paths, no flags.
-      if (!/^(@[a-z0-9][\w.-]*\/)?[a-z0-9][\w.-]*(@[\w.^~<>=-]+)?$/i.test(name)) return json(res, 400, { error: 'not a valid npm package name' });
-      mkdirSync(paths.plugins, { recursive: true });
-      const pkg = join(paths.plugins, 'package.json');
-      if (!existsSync(pkg)) writeFileSync(pkg, JSON.stringify({ name: 'kiosko-user-plugins', private: true, type: 'module' }, null, 2));
-      const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-      execFile(npm, ['install', '--no-audit', '--no-fund', '--ignore-scripts', name], { cwd: paths.plugins, timeout: 180_000, shell: process.platform === 'win32' }, (err, stdout, stderr) => {
-        if (err) return json(res, 500, { error: (stderr || err.message).slice(-2000) });
-        restartNeeded = true;
-        json(res, 200, { ok: true, output: stdout.slice(-2000), restartNeeded });
-      });
-      return;
+      try {
+        // Only npm package names (optionally scoped) with an optional version: no URLs, no paths, no flags.
+        const r = await installPlugin(name, { registry: runtime.registry, runtime });
+        if (r.restart) restartNeeded = true;
+        rev++;
+        send('config', { rev, by: null });
+        return json(res, 200, { ok: true, output: r.output, ids: r.ids, problem: r.problem ?? null, restartNeeded, state: state() });
+      } catch (err) {
+        return json(res, /valid npm/.test(String(err)) ? 400 : 500, { error: err instanceof Error ? err.message : String(err) });
+      }
+    }
+
+    mm = /^\/api\/plugins\/([^/]+)$/.exec(p);
+    if (mm && m === 'DELETE') {
+      const id = decodeURIComponent(mm[1]!);
+      try {
+        const r = await removePlugin(id, { registry: runtime.registry, runtime });
+        if (!r.removed) return json(res, 409, { error: `can't remove "${id}": ${r.reason}` });
+        rev++;
+        send('config', { rev, by: null });
+        return json(res, 200, state());
+      } catch (err) {
+        return json(res, 500, { error: err instanceof Error ? err.message : String(err) });
+      }
+    }
+
+    mm = /^\/api\/plugins\/([^/]+)\/reload$/.exec(p);
+    if (mm && m === 'POST') {
+      const id = decodeURIComponent(mm[1]!);
+      const problem = await reloadPlugin(id, { registry: runtime.registry, runtime });
+      if (problem) return json(res, 409, { error: problem });
+      rev++;
+      send('config', { rev, by: null });
+      return json(res, 200, state());
     }
 
     mm = /^\/api\/plugins\/([^/]+)\/enabled$/.exec(p);

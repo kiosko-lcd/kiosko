@@ -70,6 +70,8 @@ export interface TileResult {
   /** Id of the widget instance shown, or null if none is visible. */
   shown: string | null;
   error?: string;
+  /** How long the shown widget's `render` took, in ms, when it painted (not when the tile came from the cache). */
+  renderMs?: number;
 }
 
 export interface ComposeResult {
@@ -320,8 +322,10 @@ function drawTileContent(g: SKRSContext2D, input: ComposeInput, r: Resolved, rec
     g.translate(outer.x * (1 - zoom), outer.y * (1 - zoom));
     g.scale(zoom, zoom);
   }
+  const t0 = performance.now();
   try {
     r.def.render(g, ctx);
+    out.renderMs = performance.now() - t0;
   } catch (err) {
     out.error = err instanceof Error ? err.message : String(err);
     input.log?.(r.inst.type, `render failed: ${out.error}`);

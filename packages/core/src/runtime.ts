@@ -131,6 +131,13 @@ class ScreenRunner {
     return r.out;
   }
 
+  /** Forgets every painted tile: the next frame is painted from scratch (a plugin's code changed). */
+  invalidate(): void {
+    this.tiles.clear();
+    this.last = null;
+    this.dirty = true;
+  }
+
   reconfigure(screen: Screen): void {
     const key = JSON.stringify(screen.device);
     if (key !== this.deviceKey) {
@@ -199,6 +206,12 @@ class ScreenRunner {
       canvas = result.canvas;
       this.animatable = result.animatable;
       this.nextAt = Math.min(result.nextAt, now + 60_000);
+      // How long each widget took (the ones painted now, not those from the cache).
+      for (const t of result.tiles) {
+        if (t.renderMs === undefined || !t.shown) continue;
+        const type = page.tiles.find((x) => x.id === t.id)?.widgets.find((w) => w.id === t.shown)?.type ?? '?';
+        this.rt.paintTimes.record(t.shown, type, t.renderMs, now, this.rt.log);
+      }
       // Pages and work hours change by the clock: check at least every minute.
     } else {
       canvas = CANVAS.createCanvas(screen.width, screen.height);
@@ -421,10 +434,60 @@ class ScreenRunner {
   }
 }
 
+/** A widget's `render` taking longer than this slows every panel: frames are painted one after another. */
+export const SLOW_PAINT_MS = 50;
+const SLOW_WARN_EVERY_MS = 10 * 60_000;
+
+export interface PaintTime {
+  instance: string;
+  type: string;
+  /** The last paint, the running average (recent paints weigh more) and the slowest, in ms. */
+  lastMs: number;
+  avgMs: number;
+  maxMs: number;
+  paints: number;
+}
+
+/**
+ * How long each widget instance takes to paint on the panels, to name the
+ * one that slows them down (in Activity, and in the inspector).
+ */
+export class PaintTimes {
+  private times = new Map<string, PaintTime & { warnedAt: number }>();
+
+  record(instance: string, type: string, ms: number, now: number, log: (scope: string, msg: string) => void): void {
+    const t = this.times.get(instance) ?? { instance, type, lastMs: ms, avgMs: ms, maxMs: ms, paints: 0, warnedAt: Number.NEGATIVE_INFINITY };
+    t.type = type;
+    t.lastMs = ms;
+    t.avgMs = t.paints ? t.avgMs * 0.8 + ms * 0.2 : ms;
+    t.maxMs = Math.max(t.maxMs, ms);
+    t.paints++;
+    this.times.set(instance, t);
+    if (ms > SLOW_PAINT_MS && now - t.warnedAt >= SLOW_WARN_EVERY_MS) {
+      t.warnedAt = now;
+      log(type, `painting took ${Math.round(ms)} ms; a widget should paint in under ${SLOW_PAINT_MS} ms, or it delays every panel (keep the heavy work in fetch or a source)`);
+    }
+  }
+
+  /** Every instance measured, slowest (on average) first. */
+  list(): PaintTime[] {
+    return [...this.times.values()].map(({ warnedAt: _, ...t }) => ({ ...t, lastMs: round(t.lastMs), avgMs: round(t.avgMs), maxMs: round(t.maxMs) })).sort((a, b) => b.avgMs - a.avgMs);
+  }
+
+  /** Forgets instances that are gone. */
+  retain(ids: Set<string>): void {
+    for (const id of this.times.keys()) if (!ids.has(id)) this.times.delete(id);
+  }
+}
+
+const round = (ms: number) => Math.round(ms * 10) / 10;
+
 export class Runtime extends EventEmitter {
   config: Config;
   readonly hub: SourceHub;
   readonly fetches: FetchHost;
+  /** How long each widget takes to paint on the panels. */
+  readonly paintTimes = new PaintTimes();
   private runners = new Map<string, ScreenRunner>();
   private timer: NodeJS.Timeout | null = null;
   readonly logs: LogEntry[] = [];
@@ -495,12 +558,28 @@ export class Runtime extends EventEmitter {
       }
       for (const slot of r.screen.interludes) for (const s of this.registry.interlude(slot.type)?.sources ?? []) if (slot.enabled) sources.add(s);
     }
+    this.paintTimes.retain(new Set(instances.map((i) => i.inst.id)));
     if (this.demoMode) {
       sources.clear();
       instances.length = 0;
     }
     this.hub.retain(sources, this.config);
     this.fetches.retain(instances);
+  }
+
+  /**
+   * After a plugin's code changed (installed, reloaded, removed): its sources
+   * and fetches start again with the new code and every screen repaints
+   * from scratch.
+   */
+  pluginsChanged(ids: string[]): void {
+    for (const id of ids) {
+      this.hub.forget(id);
+      this.fetches.forget(id);
+    }
+    for (const r of this.runners.values()) r.invalidate();
+    this.refreshWanted();
+    this.emit('config', this.config);
   }
 
   /** Applies a new config: screens added, removed or changed; data kept where possible. */
@@ -581,6 +660,8 @@ export class Runtime extends EventEmitter {
       })),
       sources: this.hub.status(),
       fetches: this.fetches.status(),
+      /** Paint times of the widgets on the panels, slowest first. */
+      paint: this.paintTimes.list(),
       problems: this.registry.problems,
     };
   }

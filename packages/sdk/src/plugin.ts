@@ -361,6 +361,23 @@ export interface SourceDefinition<OF extends ObjectField<any> = ObjectField<any>
    */
   watch?: (ctx: SourceContext<Infer<OF>>, emit: (data: D) => void) => () => void;
   demo?: (ctx: { now: number; locale: string }) => D;
+  /**
+   * Named lists of values for the editor to offer in options, made from
+   * this source's latest data (or its demo data before there is any): the
+   * entities of a Home Assistant, the calendars read, the repos seen. A
+   * field asks for one with `choices: { source: 'plugin/source', list }`.
+   * Plain and quick: they run when the editor opens a form.
+   */
+  choices?: Record<string, (data: D, ctx: { locale: string; t: (text: Localized) => string }) => Choice[]>;
+}
+
+/** One value the editor offers for an option (see `SourceDefinition.choices`). */
+export interface Choice {
+  value: string;
+  /** What the person sees, when it isn't the value itself (`Living room` for `sensor.living_room`). */
+  label?: string;
+  /** Heading to group it under (`Sensors`, `Lights`). */
+  group?: string;
 }
 
 export interface InterludePlayer {
@@ -396,6 +413,67 @@ export interface InterludeDefinition<OF extends ObjectField<any> = ObjectField<a
   skip?: (ctx: { sources: Record<string, unknown>; now: number; options: Infer<OF> }) => boolean;
 }
 
+/**
+ * The version of the plugin API this Kiosko speaks. A plugin says which
+ * versions it was written for in `PluginDefinition.sdk` (and in its
+ * package.json, `"kiosko": { "sdk": "^0.2.0" }`, so it can be refused before
+ * it runs); the registry compares them with `satisfies`.
+ */
+export const SDK_VERSION = '0.2.1';
+
+/**
+ * What a plugin does on the machine, declared for the person who installs
+ * it: the Plugins page and the plugin store show it next to the plugin. It
+ * is a promise, not (yet) a fence: plugins run with the user's rights. Keep
+ * it honest and small; options with a `risk` (see `Risk`) are listed apart.
+ */
+export interface Permissions {
+  /**
+   * Hosts it contacts on its own: exact names (`api.github.com`,
+   * `*.open-meteo.com`), `user` for the hosts the user types in its options
+   * (a feed, a Home Assistant), `lan` for the local network.
+   */
+  network?: string[];
+  /** Programs it runs (`nvidia-smi`, `pactl`, `ssh`); `user` for a command the user configures. */
+  exec?: string[];
+  /** Files or folders it reads or writes besides its own `dataDir`/`cacheDir` (`~/.aimonitor/sessions`); `user` for paths the user configures. */
+  files?: string[];
+  /** Hardware or system services it talks to: `usb`, `audio` (whether the microphone is in use), `mpris` (what is playing), `bluetooth`… */
+  devices?: string[];
+}
+
+/** One tile of a page template, in fractions of the page (0..1). */
+export interface TemplateTile {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  /** Widget types, stacked; a bare id (`clock`) is this plugin's own. With options: `['clock', { showDate: true }]`. */
+  widgets: (string | [string, Record<string, unknown>])[];
+  chrome?: 'card' | 'bare';
+}
+
+/**
+ * A starting layout the editor offers under "New page", made of this
+ * plugin's widgets (and others', if installed: tiles whose widgets are all
+ * missing are left out).
+ */
+export interface PageTemplate {
+  /** Unique inside the plugin. */
+  id: string;
+  name: Localized;
+  /** An icon of the editor (Lucide name). */
+  icon?: string;
+  /** For strips and wide panels. */
+  wide: TemplateTile[];
+  /** For square-ish panels; defaults to `wide`. */
+  square?: TemplateTile[];
+  /** For portrait panels; defaults to `wide` turned a quarter (columns become bands). */
+  tall?: TemplateTile[];
+}
+
+export type Platform = 'linux' | 'darwin' | 'win32';
+
 export interface PluginDefinition {
   /** npm-like id: lowercase, digits and dashes. Stable: configs refer to it. */
   id: string;
@@ -404,11 +482,37 @@ export interface PluginDefinition {
   description?: Localized;
   author?: string;
   homepage?: string;
+  /** Where its code lives (a git URL): the store links to it. */
+  repository?: string;
   license?: string;
   icon?: string;
+  /**
+   * The plugin API versions it works with, as an npm range (`^0.2.0`).
+   * Without it, any Kiosko is assumed to fit. Put the same in package.json
+   * (`"kiosko": { "sdk": … }`) so an incompatible plugin is refused before
+   * its code runs.
+   */
+  sdk?: string;
+  /** What it does on the machine (see `Permissions`). */
+  permissions?: Permissions;
+  /**
+   * Sources or widgets of other plugins it needs (`agents/sessions`): the
+   * editor says which are missing and offers to install their plugins.
+   */
+  requires?: string[];
+  /**
+   * Sources or widgets of other plugins it uses when they are there, and
+   * does without otherwise (the weather in a corner): never asked for, only
+   * mentioned.
+   */
+  optional?: string[];
+  /** The operating systems it works on. Omitted: all. Also npm's `os` in package.json. */
+  platforms?: Platform[];
   widgets?: WidgetDefinition<any, any>[];
   sources?: SourceDefinition<any, any>[];
   interludes?: InterludeDefinition<any>[];
+  /** Page layouts the editor offers, built from its widgets (see `PageTemplate`). */
+  templates?: PageTemplate[];
 }
 
 /* Identity helpers: they only exist so TypeScript infers option and data types. */

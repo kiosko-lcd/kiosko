@@ -5,11 +5,11 @@ import { useEffect, useState } from 'preact/hooks';
 import { api } from '../api.ts';
 import { Icon } from '../icons.tsx';
 import { tr } from '../i18n.ts';
-import { canRedo, canUndo, widgets, draftPage, draftScreen, edit, go, lastFrame, liveMode, page, pageId, redo, screen, selectedTile, showGrid, status, undo } from '../store.ts';
+import { app, canRedo, canUndo, widgets, draftPage, draftScreen, edit, go, lastFrame, liveMode, page, pageId, redo, screen, selectedTile, showGrid, status, undo } from '../store.ts';
 import { Inspector } from './Inspector.tsx';
 import { Library } from './Library.tsx';
 import { Stage } from './Stage.tsx';
-import { TEMPLATES, available, pageFromTemplate } from './templates.ts';
+import { allTemplates, pageFromTemplate } from './templates.ts';
 import { DemoLiveOff } from '../demo/ui.tsx';
 
 export function Editor() {
@@ -229,15 +229,18 @@ function AddPage({ onAdd }: { onAdd: (p: Page) => void }) {
       {open && (
         <div class="popover up" onMouseLeave={() => setOpen(false)}>
           <div class="popover-title">{tr('pages.template')}</div>
-          {TEMPLATES.filter((t) => available(t, has)).map((t) => (
-            <button class="menu-item" onClick={() => {
-              const name = t.id === 'blank' ? `${tr('inspector.page')} ${s.pages.length + 1}` : tr(`tpl.${t.id}`);
-              onAdd(t.id === 'blank' ? newPage(name, s.width, s.height) : pageFromTemplate(t, name, s.width, s.height, has, titleOf));
-              setOpen(false);
-            }}>
-              <Icon name={t.icon} size={16} /> <span>{tr(`tpl.${t.id}`)}</span>
-            </button>
-          ))}
+          {allTemplates((app.value?.catalog ?? []).filter((p) => p.enabled), has).map((t) => {
+            const label = t.name ?? tr(`tpl.${t.id}` as Parameters<typeof tr>[0]);
+            return (
+              <button class="menu-item" onClick={() => {
+                const name = t.id === 'blank' ? `${tr('inspector.page')} ${s.pages.length + 1}` : label;
+                onAdd(t.id === 'blank' ? newPage(name, s.width, s.height) : pageFromTemplate(t, name, s.width, s.height, has, titleOf));
+                setOpen(false);
+              }}>
+                <Icon name={t.icon} size={16} /> <span>{label}</span>
+              </button>
+            );
+          })}
         </div>
       )}
     </div>

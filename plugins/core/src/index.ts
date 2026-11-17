@@ -392,6 +392,9 @@ export default definePlugin({
   id: 'core',
   name: { en: 'Essentials', es: 'Básicos' },
   version: '0.2.1',
+  sdk: '^0.2.0',
+  // The picture widget reads the image (or folder, or URL) you give it.
+  permissions: { files: ['user'], network: ['user'] },
   description: { en: 'Clock, date, notes, lists and pictures.', es: 'Reloj, fecha, notas, listas e imágenes.' },
   author: 'Kiosko',
   license: 'MIT',

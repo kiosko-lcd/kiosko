@@ -1,9 +1,19 @@
 # Writing Kiosko plugins
 
 A plugin is one ES module whose default export is `definePlugin({...})`. It can
-contribute **widgets** (paint inside a tile), **sources** (shared data) and
-**interludes** (full-screen animations). Built-in plugins use exactly the same
-contract, so `plugins/*` in this repository are the best examples.
+contribute **widgets** (paint inside a tile), **sources** (shared data),
+**interludes** (full-screen animations) and **page templates**. Built-in
+plugins use exactly the same contract, so `plugins/*` in this repository are
+the best examples.
+
+The quickest start:
+
+```sh
+kiosko plugins new solar-meter     # a widget, a source, tests and a build, ready to run
+cd kiosko-plugin-solar-meter && npm install && npm test
+npm run kiosko:check               # Kiosko's conventions; every widget at several sizes, themes and languages
+npm run build && npm run dev       # link it into your Kiosko and reload it on every build
+```
 
 ## Where plugins live
 
@@ -15,10 +25,69 @@ contract, so `plugins/*` in this repository are the best examples.
 
 Each plugin is a folder with an `index.js` (or a `package.json` whose
 `"kiosko": { "plugin": "./entry.js" }` or `main` points at it), or a package
-installed there with npm named `kiosko-plugin-*`. Restart Kiosko after adding
-one. `import … from '@kiosko/sdk'` (and `@loksly/lcd-canvas-kit`,
+installed there with npm named `kiosko-plugin-*`. Plugins installed from the
+editor (**Plugins → Install from npm**) load at once; a folder you copy there by
+hand loads on the next start, or with **Reload** once it is there. `import … from '@kiosko/sdk'` (and `@loksly/lcd-canvas-kit`,
 `@loksly/weather-astro`, `@napi-rs/canvas`) resolve to Kiosko's own copies, so
 a plugin needs no `npm install` of its own.
+
+## The plugin
+
+```js
+export default definePlugin({
+  id: 'crypto',                       // lowercase, digits, dashes; configs refer to it
+  name: { en: 'Crypto', es: 'Cripto' },
+  version: '1.0.0',
+  description: { en: 'Coin prices.', es: 'Cotizaciones.' },
+  sdk: '^0.2.0',                      // the plugin API it is written for
+  permissions: { network: ['api.coingecko.com'] },
+  requires: [],                       // other plugins' sources/widgets it needs: ['agents/sessions']
+  optional: ['weather/current'],      // …and the ones it uses when they are there
+  platforms: ['linux', 'darwin', 'win32'],
+  widgets: [price],
+  sources: [],
+  templates: [],                      // page layouts, see Page templates
+});
+```
+
+| Field | |
+|---|---|
+| `sdk` | The plugin API range it works with, as npm writes ranges. A Kiosko outside it doesn't load the plugin and says why. Put the same in package.json (`"kiosko": { "sdk": "^0.2.0" }`): that one is read **before** the plugin's code runs. |
+| `permissions` | What it does on the machine, shown on the Plugins page and in the store before anyone installs it: `network` (hosts it contacts; `user` for the ones the user types, `lan` for the local network), `exec` (programs it runs), `files` (files or folders it reads besides its own `dataDir`/`cacheDir`), `devices` (`usb`, `audio`, `mpris`…). A promise, not yet a fence: plugins run with the user's rights. Keep it honest. |
+| `requires`, `optional` | Types of other plugins (`plugin/source`). The editor says what `requires` is missing and offers to install it. |
+| `platforms` | Operating systems it works on (`linux`, `darwin`, `win32`); omitted, all. npm's `os` in package.json says the same before running. |
+| `templates` | Starting page layouts the editor offers under **New page** (see below). |
+| `repository`, `homepage`, `author`, `license` | Shown on the Plugins page and in the store. |
+
+### Page templates
+
+```js
+templates: [{
+  id: 'dashboard',
+  name: { en: 'Prices', es: 'Cotizaciones' },
+  icon: 'bitcoin',
+  wide: [                                          // fractions of the page, 0..1
+    { x: 0, y: 0, w: 0.6, h: 1, widgets: ['price'], chrome: 'bare' },
+    { x: 0.6, y: 0, w: 0.4, h: 1, widgets: [['core/clock', { showDate: true }], 'weather/forecast'] },
+  ],
+  square: [ /* … */ ],   // for square-ish panels; defaults to wide
+  tall: [ /* … */ ],     // for portrait panels; defaults to wide turned a quarter
+}],
+```
+
+Bare ids are the plugin's own (`price` → `crypto/price`). Widgets of plugins
+that aren't installed are left out, and so is a tile left empty.
+
+### The manifest
+
+`kiosko plugins manifest` writes `kiosko-manifest.json` next to package.json
+(`"kiosko": { "manifest": "./kiosko-manifest.json" }`): the record a plugin
+store reads without running anything. Identity and authorship, versions and
+the plugin API, platforms, the languages its texts come in, categories and
+tags, permissions, the options that run, connect or read (`risk`) and the
+secret ones, what it needs, and every widget with its sizes, options (as JSON
+Schema) and screenshot (`docs/<widget>.png`, painted with its demo data).
+Ratings and reviews belong to the store, not to the manifest.
 
 ## A widget
 
@@ -150,6 +219,11 @@ t.filter({ label })                // patterns for matchFilter: ["web", "acme/*"
 ...listOptions({ layouts })        // rows and layout, see Lists
 ```
 
+A text field or a filter can offer values from a source's live data, so the
+user picks instead of typing ids: `t.string({ choices: { source:
+'homeassistant/states', list: 'entities' } })`, `t.filter({ choices })`. The
+source makes the list (see Shared sources); the field stays free text.
+
 Every field takes `label`, `help` and `advanced` (hidden behind "Advanced").
 `secret: true` masks the value in the editor. Unknown keys in the user's config
 are kept, wrong types fall back to the default; `validate` never throws.
@@ -248,6 +322,35 @@ either; `ctx.intervalMs` and `ctx.timeoutMs` tell you the values in use. (A
 source that still has an option with one of these names keeps it, with its
 own meaning, and Kiosko uses the definition's value instead: drop the option
 to hand it over.)
+
+A source can also make **lists of values** for options, from its latest data
+(or its demo data before there is any):
+
+```js
+choices: {
+  entities: (data) => Object.values(data.entities).map((e) => ({ value: e.id, label: e.name, group: e.domain })),
+},
+```
+
+Fields ask for one with `choices: { source: 'homeassistant/states', list:
+'entities' }`. Keep them quick: they run when the editor opens a form.
+
+### Talking to APIs
+
+`createHttp` gives every plugin the same polite client:
+
+```js
+import { createHttp } from '@kiosko/sdk';
+const http = createHttp({ agent: 'kiosko-plugin-crypto/1.0.0' });
+// in read() or fetch():
+const { data } = await http.json(url, { signal: ctx.signal });
+```
+
+It sends back each URL's ETag / Last-Modified and returns the remembered body
+on a 304; on a 429 or 503 it throws an `HttpError` with `retryAt` (from
+`Retry-After`, or GitHub's rate-limit headers) and leaves that host alone
+until then; it passes the signal on; and it names your plugin and Kiosko in
+the User-Agent, never the person.
 
 ## Option conventions
 
@@ -350,23 +453,42 @@ Screens schedule interludes against the wall clock (every 15 min = at :00,
 
 ## Testing your plugin
 
-```sh
-node --conditions=source scripts/render-widgets.ts --entry path/to/plugin/index.js --out tmp/w --size 600x300
+`@kiosko/sdk/testing` paints widgets the way Kiosko does, with their demo data
+unless you give other:
+
+```js
+import { checkPlugin, renderWidget, widgetState } from '@kiosko/sdk/testing';
+
+const r = renderWidget(price, { size: { w: 400, h: 200 }, locale: 'es', theme: 'paper' });
+assert.deepEqual(r.texts.slice(0, 2), ['64 250', '+2,4 %']);   // every text drawn, in order
+assert.equal(r.outside, 0);                                    // pixels painted outside its box
+assert.equal(widgetState(price, 'urgent', { data: { change: 12 } }), true);
+assert.deepEqual(checkPlugin(plugin), []);                     // every widget, several sizes, themes, languages
 ```
 
-renders every widget with its demo data and reports errors. In unit tests,
-`createBaseContext({ now, locale })` builds the host-independent part of a
-context (`t`, `fmt`, `workday`, `location`…), so a hand-made context only adds
-what the test is about. In the editor,
-**Plugins** lists load problems, and a widget that throws shows its error in
-its tile without breaking the rest of the frame.
+`kiosko plugins check [folder]` runs the same painting check plus the
+conventions of this guide (option names and units, threshold pairs, risks,
+languages missing from texts, demos, sizes, what it uses from other plugins)
+and exits with an error when something throws. `createBaseContext({ now,
+locale })` builds the host-independent part of a context for other unit tests.
+
+While Kiosko runs: `kiosko plugins dev [folder]` links your checkout and
+reloads it on every build, without restarting. The Plugins page lists load
+problems (and plugins refused for another plugin API or system), and a widget
+that throws shows its error in its tile without breaking the rest of the frame.
+Activity names a widget that takes over 50 ms to paint, and the inspector shows
+its paint time: keep heavy work in `fetch` or a source, `render` only paints.
 
 ## Publishing
 
-Name the package `kiosko-plugin-<name>`, add `"kiosko": { "plugin": "./index.js" }`
-to its `package.json`, and list `@kiosko/sdk` as a peer dependency. Users
-install it from **Plugins → Install from npm** (installed with
-`--ignore-scripts`).
+Name the package `kiosko-plugin-<name>`. Its package.json says
+`"kiosko": { "plugin": "./dist/index.js", "sdk": "^0.2.0", "manifest":
+"./kiosko-manifest.json" }`, lists `@kiosko/sdk` as a peer dependency, and
+publishes one bundled file (what `kiosko plugins new` sets up; Kiosko provides
+the SDK, the drawing kit and the canvas). Run `kiosko plugins check` and
+`kiosko plugins manifest` before `npm publish`. Users install it from
+**Plugins → Install from npm** (with `--ignore-scripts`): it loads at once, and
+installing a newer version replaces it in place.
 
 
 ## Animations
