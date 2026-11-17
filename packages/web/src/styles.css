@@ -385,8 +385,9 @@ span.day { display: inline-grid; place-items: center; cursor: default; flex: non
 .page-card:hover { transform: translateY(-1px); border-color: var(--line-2); }
 .page-card.on { border-color: color-mix(in srgb, var(--accent) 70%, transparent); box-shadow: 0 0 0 3px var(--accent-soft); }
 .page-card.off { opacity: 0.55; }
-.page-thumb { background: #000; max-height: 120px; width: 100%; display: grid; place-items: center; overflow: hidden; }
-.page-thumb img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.page-thumb { background: #000; max-height: 120px; width: 100%; position: relative; overflow: hidden; }
+/* Absolutely placed so `contain` fits a tall (portrait) page whole instead of showing its middle. */
+.page-thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; display: block; }
 .page-card-meta { display: flex; align-items: center; gap: 6px; padding: 5px 6px 5px 10px; font-size: 12.5px; font-weight: 650; }
 .page-card-meta .page-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pages-bar > .tb-label { align-self: center; }

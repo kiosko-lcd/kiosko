@@ -14,7 +14,7 @@
 // The pure parts of the SDK only: the editor imports this file.
 import type { TimeFormat } from '@kiosko/sdk/format';
 import { DEFAULT_WORKDAY, isWorkingAt, type Workday } from '@kiosko/sdk/workday';
-import { suggestGrid, type Gravity, type GridSpec } from '../layout/grid.ts';
+import { rescale, suggestGrid, type Gravity, type GridSpec } from '../layout/grid.ts';
 
 export const CONFIG_VERSION = 1;
 
@@ -238,4 +238,111 @@ export function whenMatches(when: When | undefined, working: boolean): boolean {
 /** Every widget instance of a screen, with where it lives. */
 export function* widgetsOf(screen: Screen): Generator<{ page: Page; tile: Tile; widget: WidgetInstance }> {
   for (const page of screen.pages) for (const tile of page.tiles) for (const widget of tile.widgets) yield { page, tile, widget };
+}
+
+/* ---------- orientation ---------- */
+
+/**
+ * A screen's `width` × `height` are the picture as it is designed and seen
+ * (what the editor shows); `rotate` is how the panel is mounted. A quarter
+ * turn (90° or 270°) means the panel stands on its side: the picture is
+ * portrait while the panel's own resolution is landscape, or the other way
+ * round.
+ */
+export const isQuarterTurn = (rotate: number): boolean => rotate === 90 || rotate === 270;
+
+/** The panel's own resolution (what it reports, what presets list) for a screen. */
+export function panelSize(s: Pick<Screen, 'width' | 'height' | 'rotate'>): { width: number; height: number } {
+  return isQuarterTurn(s.rotate) ? { width: s.height, height: s.width } : { width: s.width, height: s.height };
+}
+
+/** Whether the picture is portrait (taller than wide). */
+export const isPortrait = (s: Pick<Screen, 'width' | 'height'>): boolean => s.height > s.width;
+
+/**
+ * A page's layout turned a quarter: what went left to right goes top to
+ * bottom (x ↔ y, w ↔ h), then fitted to the grid suggested for the new
+ * size. Columns of a strip become bands of a tall panel instead of being
+ * squashed. Thin rows across the whole top (a summary strip) are headers:
+ * they stay across the top, about as tall as they were, instead of turning
+ * into a sliver down the side. Gravity follows the turn (left ↔ up).
+ */
+export function transposePage(page: Page, width: number, height: number): void {
+  const { cols, rows } = page.grid;
+  const grid = suggestGrid(width, height);
+  grid.gap = page.grid.gap;
+  grid.padding = page.grid.padding;
+  // Headers: full-width tiles stacked from the top, each at most an eighth of the height (one row on a strip).
+  const thin = Math.max(1, Math.round(rows / 8));
+  const headers: Tile[] = [];
+  let top = 0;
+  for (;;) {
+    const h = page.tiles.find((t) => t.x === 0 && t.w === cols && t.y === top && t.h <= thin);
+    if (!h || top + h.h >= rows) break;
+    headers.push(h);
+    top += h.h;
+  }
+  // The picture before the turn was height × width: keep the headers' height in pixels, in the new rows.
+  const cellBefore = width / rows, cellAfter = height / grid.rows;
+  let y = 0;
+  const bands = headers.map((h) => {
+    const band = { ...h, x: 0, y, w: grid.cols, h: Math.max(1, Math.round((h.h * cellBefore) / cellAfter)) };
+    y += band.h;
+    return band;
+  });
+  const rest = page.tiles.filter((t) => !headers.includes(t)).map((t) => ({ ...t, x: t.y - top, y: t.x, w: t.h, h: t.w }));
+  const turned = { ...page.grid, cols: rows - top, rows: cols };
+  const body = rescale(rest, turned, { ...grid, rows: grid.rows - y }).map((t) => ({ ...t, y: t.y + y }));
+  page.tiles = [...bands, ...body];
+  page.grid = grid;
+  page.gravity = page.gravity === 'left' ? 'up' : page.gravity === 'up' ? 'left' : page.gravity;
+}
+
+/** Fits every page of a screen to a new picture size, keeping proportions (the same orientation). */
+export function resizePages(s: Screen, width: number, height: number): void {
+  for (const p of s.pages) {
+    const g = suggestGrid(width, height);
+    g.gap = p.grid.gap;
+    g.padding = p.grid.padding;
+    p.tiles = rescale(p.tiles, p.grid, g);
+    p.grid = g;
+  }
+}
+
+/**
+ * Mounts the panel at `rotate`. Going from upright to on its side (or back)
+ * swaps the picture's width and height and turns every page's layout with
+ * it, so the screen keeps matching the panel's resolution.
+ */
+export function setRotation(s: Screen, rotate: Rotation): void {
+  if (isQuarterTurn(rotate) !== isQuarterTurn(s.rotate)) {
+    const width = s.height, height = s.width;
+    for (const p of s.pages) transposePage(p, width, height);
+    s.width = width;
+    s.height = height;
+  }
+  s.rotate = rotate;
+}
+
+/** Sets the panel's own resolution (a preset, what was detected), keeping the screen's orientation. */
+export function setPanelSize(s: Screen, width: number, height: number): void {
+  const pic = isQuarterTurn(s.rotate) ? { width: height, height: width } : { width, height };
+  if (pic.width === s.width && pic.height === s.height) return;
+  resizePages(s, pic.width, pic.height);
+  s.width = pic.width;
+  s.height = pic.height;
+}
+
+/** Turns the panel's mounting by `by` degrees from where it is (a quarter turn changes the orientation). */
+export function turnScreen(s: Screen, by: 90 | 180 | 270): void {
+  setRotation(s, (((s.rotate + by) % 360) as Rotation));
+}
+
+/**
+ * The picture size a detected panel wants for a screen mounted at `rotate`.
+ * A panel reports its size as seen at its firmware's own angle (`detected.rotate`,
+ * 0 when unknown); a quarter turn from that angle stands it on its side.
+ */
+export function detectedPicture(detected: { width: number; height: number; rotate?: number }, rotate: number): { width: number; height: number } {
+  return isQuarterTurn((((rotate - (detected.rotate ?? 0)) % 360) + 360) % 360) ? { width: detected.height, height: detected.width } : { width: detected.width, height: detected.height };
 }

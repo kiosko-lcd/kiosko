@@ -23,7 +23,12 @@ export interface Template {
   wide: Frac[];
   /** For square-ish panels; defaults to `wide`. */
   square?: Frac[];
+  /** For portrait panels (a strip on its side); defaults to `wide` turned a quarter, columns becoming bands. */
+  tall?: Frac[];
 }
+
+/** A landscape layout turned a quarter: what went left to right goes top to bottom. */
+const turned = (fracs: Frac[]): Frac[] => fracs.map((f) => ({ ...f, x: f.y, y: f.x, w: f.h, h: f.w }));
 
 export const TEMPLATES: Template[] = [
   { id: 'blank', icon: 'square-dashed', needs: [], wide: [] },
@@ -41,6 +46,12 @@ export const TEMPLATES: Template[] = [
       { x: 0, y: 0, w: 1, h: 1 / 6, widgets: ['agents/summary'], chrome: 'bare' },
       { x: 0, y: 1 / 6, w: 1, h: 3 / 6, widgets: ['agents/sessions'], chrome: 'bare' },
       { x: 0, y: 4 / 6, w: 1, h: 2 / 6, widgets: ['usage/rail', 'vitals/vitals'], chrome: 'bare' },
+    ],
+    tall: [
+      { x: 0, y: 0, w: 1, h: 1 / 24, widgets: ['agents/summary'], chrome: 'bare' },
+      { x: 0, y: 1 / 24, w: 1, h: 13 / 24, widgets: ['agents/sessions'], chrome: 'bare' },
+      { x: 0, y: 14 / 24, w: 1, h: 5 / 24, widgets: ['vitals/vitals'], chrome: 'bare' },
+      { x: 0, y: 19 / 24, w: 1, h: 5 / 24, widgets: ['usage/rail'], chrome: 'bare' },
     ],
   },
   {
@@ -67,6 +78,12 @@ export const TEMPLATES: Template[] = [
       { x: 0, y: 0, w: 1, h: 0.65, widgets: ['news/column'], chrome: 'bare' },
       { x: 0, y: 0.65, w: 1, h: 0.35, widgets: ['weather/forecast'] },
     ],
+    tall: [
+      { x: 0, y: 0, w: 1, h: 11 / 24, widgets: ['news/headline'], chrome: 'bare' },
+      { x: 0, y: 11 / 24, w: 1, h: 5 / 24, widgets: ['weather/forecast'] },
+      { x: 0, y: 16 / 24, w: 1, h: 3 / 24, widgets: [['core/clock', { showDate: true }]], chrome: 'bare' },
+      { x: 0, y: 19 / 24, w: 1, h: 5 / 24, widgets: ['mirror/rainmap', 'mirror/earthquakes'] },
+    ],
   },
   {
     id: 'clock',
@@ -83,6 +100,12 @@ export const TEMPLATES: Template[] = [
       { x: 0.5, y: 1 / 3, w: 0.5, h: 1 / 3, widgets: ['weather/forecast'] },
       { x: 0.5, y: 2 / 3, w: 0.5, h: 1 / 3, widgets: ['mirror/compliments'] },
     ],
+    tall: [
+      { x: 0, y: 0, w: 1, h: 4 / 24, widgets: [['core/clock', { showDate: true }]], chrome: 'bare' },
+      { x: 0, y: 4 / 24, w: 1, h: 6 / 24, widgets: ['core/date'] },
+      { x: 0, y: 10 / 24, w: 1, h: 6 / 24, widgets: ['calendar/next', 'weather/forecast'] },
+      { x: 0, y: 16 / 24, w: 1, h: 8 / 24, widgets: ['calendar/agenda', 'mirror/compliments'] },
+    ],
   },
   {
     id: 'system',
@@ -96,6 +119,11 @@ export const TEMPLATES: Template[] = [
       { x: 0, y: 0, w: 1, h: 0.5, widgets: ['vitals/vitals'], chrome: 'bare' },
       { x: 0, y: 0.5, w: 1, h: 0.5, widgets: ['system/health'] },
     ],
+    tall: [
+      { x: 0, y: 0, w: 1, h: 7 / 24, widgets: ['vitals/vitals'], chrome: 'bare' },
+      { x: 0, y: 7 / 24, w: 1, h: 10 / 24, widgets: ['system/health'] },
+      { x: 0, y: 17 / 24, w: 1, h: 7 / 24, widgets: ['gpu/cards', 'usage/rail'] },
+    ],
   },
 ];
 
@@ -107,8 +135,10 @@ export function available(t: Template, has: (type: string) => boolean): boolean 
 export function pageFromTemplate(t: Template, name: string, width: number, height: number, has: (type: string) => boolean, titleOf: (type: string) => string | undefined): Page {
   const page = newPage(name, width, height);
   page.grid = suggestGrid(width, height);
-  const squareish = width / height < 1.6;
-  const fracs = squareish ? (t.square ?? t.wide) : t.wide;
+  const ratio = width / height;
+  const tall = ratio < 0.7;
+  const squareish = !tall && ratio < 1.6;
+  const fracs = tall ? (t.tall ?? turned(t.wide)) : squareish ? (t.square ?? t.wide) : t.wide;
   const { cols, rows } = page.grid;
   const tiles: Tile[] = [];
   for (const f of fracs) {

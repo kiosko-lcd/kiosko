@@ -1,7 +1,6 @@
 /** Screens (physical panels): connection, resolution, rotation, burn-in care and interludes. */
 import { useState } from 'preact/hooks';
-import { rescale, suggestGrid } from '@kiosko/core/layout';
-import { newId, newScreen, type DeviceConfig, type Screen } from '@kiosko/core/model';
+import { detectedPicture, isPortrait, newId, newScreen, panelSize, resizePages, setPanelSize, turnScreen, type DeviceConfig, type Screen } from '@kiosko/core/model';
 import { api } from '../api.ts';
 import { DurationInput, SchemaForm, Toggle } from '../forms/SchemaForm.tsx';
 import { Icon } from '../icons.tsx';
@@ -11,8 +10,10 @@ import { DemoFrame, dt, exportScreen } from '../demo/ui.tsx';
 
 export function Screens() {
   const cfg = config.value!;
-  const add = (preset?: { width: number; height: number; name: string; device?: DeviceConfig }) => {
+  const add = (preset?: { width: number; height: number; name: string; device?: DeviceConfig; rotate?: number }) => {
     const s = newScreen(preset?.name ?? 'Panel', preset?.width ?? 1920, preset?.height ?? 462, preset?.device);
+    // The angle the panel's firmware asks for: at it, the panel is upright and the picture is the size it reports.
+    if (preset?.rotate === 90 || preset?.rotate === 180 || preset?.rotate === 270) s.rotate = preset.rotate;
     edit((d) => d.screens.push(s));
     screenId.value = s.id;
     pageId.value = s.pages[0]!.id;
@@ -38,10 +39,10 @@ export function Screens() {
   );
 }
 
-function AddScreen({ onAdd }: { onAdd: (p?: { width: number; height: number; name: string; device?: DeviceConfig }) => void }) {
+function AddScreen({ onAdd }: { onAdd: (p?: { width: number; height: number; name: string; device?: DeviceConfig; rotate?: number }) => void }) {
   const [open, setOpen] = useState(false);
   const [found, setFound] = useState<{ key: string; width: number; height: number }[] | null>(null);
-  const [usbFound, setUsbFound] = useState<{ serial: string; key: string; width: number; height: number; location: string; error?: string }[]>([]);
+  const [usbFound, setUsbFound] = useState<{ serial: string; key: string; width: number; height: number; rotate?: number; location: string; error?: string }[]>([]);
   return (
     <div class="add-screen">
       <button class="btn primary" onClick={() => setOpen(!open)}>
@@ -80,7 +81,7 @@ function AddScreen({ onAdd }: { onAdd: (p?: { width: number; height: number; nam
           {found && !found.length && !usbFound.length && <div class="muted small pad">{tr('screens.noneDetected')}</div>}
           {usbFound.map((f) => (
             <button class="menu-item" title={f.error ?? f.location} onClick={() => {
-              onAdd({ width: f.width || 1920, height: f.height || 462, name: f.key, device: { driver: 'usb', ...(f.serial ? { serial: f.serial } : {}) } });
+              onAdd({ width: f.width || 1920, height: f.height || 462, name: f.key, device: { driver: 'usb', ...(f.serial ? { serial: f.serial } : {}) }, ...(f.rotate !== undefined ? { rotate: f.rotate } : {}) });
               setOpen(false);
             }}>
               <Icon name="usb" size={16} /> <span>{f.key}</span>
@@ -120,15 +121,14 @@ function ScreenCard({ s }: { s: Screen }) {
     if (x) fn(x);
   }, key);
   const setDevice = (dev: DeviceConfig) => set((x) => (x.device = dev));
-  const resize = (width: number, height: number) => set((x) => {
-    x.width = width;
-    x.height = height;
-    for (const p of x.pages) {
-      const g = suggestGrid(width, height);
-      p.tiles = rescale(p.tiles, p.grid, g);
-      p.grid = g;
-    }
-  });
+  // Sizes here are the panel's own (as presets list them and the panel reports them); the screen keeps its orientation.
+  const native = panelSize(s);
+  const resize = (width: number, height: number) => set((x) => setPanelSize(x, width, height));
+  // Orientation is the picture's (portrait when taller than wide): some panels stand upright at 90°.
+  const portrait = isPortrait(s);
+  const orient = (want: boolean) => want !== portrait && set((x) => turnScreen(x, 90));
+  const detected = st?.device.detected;
+  const wanted = detected ? detectedPicture(detected, s.rotate) : null;
   const interludes = (app.value?.catalog ?? []).flatMap((p) => (p.enabled ? p.interludes : []));
   const dev = s.device;
   return (
@@ -161,7 +161,7 @@ function ScreenCard({ s }: { s: Screen }) {
         <div>
           <label class="field-label">{tr('screens.resolution')}</label>
           <div class="row">
-            <select class="input" value={app.value?.presets.find((p) => p.width === s.width && p.height === s.height)?.id ?? ''} onChange={(e) => {
+            <select class="input" value={app.value?.presets.find((p) => p.width === native.width && p.height === native.height)?.id ?? ''} onChange={(e) => {
               const p = app.value?.presets.find((x) => x.id === (e.target as HTMLSelectElement).value);
               if (p) resize(p.width, p.height);
             }}>
@@ -170,23 +170,35 @@ function ScreenCard({ s }: { s: Screen }) {
                 <option value={p.id}>{p.name}</option>
               ))}
             </select>
-            <input class="input num" type="number" value={s.width} onChange={(e) => resize(Number((e.target as HTMLInputElement).value) || s.width, s.height)} aria-label="width" />
+            <input class="input num" type="number" value={native.width} onChange={(e) => resize(Number((e.target as HTMLInputElement).value) || native.width, native.height)} aria-label="width" />
             <span class="muted">×</span>
-            <input class="input num" type="number" value={s.height} onChange={(e) => resize(s.width, Number((e.target as HTMLInputElement).value) || s.height)} aria-label="height" />
+            <input class="input num" type="number" value={native.height} onChange={(e) => resize(native.width, Number((e.target as HTMLInputElement).value) || native.height)} aria-label="height" />
           </div>
-          {st?.device.detected && (st.device.detected.width !== s.width || st.device.detected.height !== s.height) && (
-            <button class="btn ghost small warn" onClick={() => resize(st.device.detected!.width, st.device.detected!.height)}>
-              <Icon name="triangle-alert" size={14} /> {tr('screens.detected')}: {st.device.detected.width}×{st.device.detected.height}
+          {wanted && (wanted.width !== s.width || wanted.height !== s.height) && (
+            <button class="btn ghost small warn" onClick={() => set((x) => {
+              resizePages(x, wanted.width, wanted.height);
+              x.width = wanted.width;
+              x.height = wanted.height;
+            })}>
+              <Icon name="triangle-alert" size={14} /> {tr('screens.detected')}: {wanted.width}×{wanted.height}
             </button>
           )}
-          <label class="field-label">{tr('screens.rotation')}</label>
+          <label class="field-label">{tr('screens.orientation')}</label>
           <div class="segmented">
-            {([0, 90, 180, 270] as const).map((r) => (
-              <button class={s.rotate === r ? 'on' : ''} onClick={() => set((x) => (x.rotate = r))}>
-                {r}°
-              </button>
-            ))}
+            <button class={portrait ? '' : 'on'} onClick={() => orient(false)}>
+              <Icon name="rectangle-horizontal" size={14} /> {tr('screens.landscape')}
+            </button>
+            <button class={portrait ? 'on' : ''} onClick={() => orient(true)}>
+              <Icon name="rectangle-vertical" size={14} /> {tr('screens.portrait')}
+            </button>
           </div>
+          <div class="row">
+            <button class="btn ghost small" onClick={() => set((x) => turnScreen(x, 180))}>
+              <Icon name="refresh-cw" size={14} /> {tr('screens.flip')}
+            </button>
+            <span class="muted small">{tr('screens.angle')}: {s.rotate}°</span>
+          </div>
+          <p class="muted small">{portrait ? tr('screens.portraitHelp').replace('{w}', String(s.width)).replace('{h}', String(s.height)) : tr('screens.flippedHelp')}</p>
           <label class="field-label">{tr('screens.driver')}</label>
           <div class="segmented">
             {(['virtual', 'usb', 'trcc', 'file'] as const).map((d) => (
@@ -321,7 +333,8 @@ function LiveThumb({ s }: { s: Screen }) {
   const f = lastFrame.value[s.id];
   const at = f?.at ?? status.value?.screens.find((x) => x.id === s.id)?.lastFrameAt ?? null;
   return (
-    <div class="live-thumb" style={{ aspectRatio: `${s.width} / ${s.height}`, maxWidth: s.width >= s.height ? '100%' : '320px' }}>
+    // A portrait panel stays at most 420 px tall, so the settings under it stay in view.
+    <div class="live-thumb" style={{ aspectRatio: `${s.width} / ${s.height}`, maxWidth: s.width >= s.height ? '100%' : `${Math.round(Math.min(320, (420 * s.width) / s.height))}px` }}>
       {KIOSKO_DEMO ? <DemoFrame screen={s} pageId={f?.pageId} at={at} /> : at ? <img src={api.liveFrameUrl(s.id, at)} alt="" /> : <div class="panel-loading" />}
       {f?.interlude && <span class="live-badge"><Icon name="clapperboard" size={13} /> {tr('stage.interlude')}</span>}
       {f?.sleeping && <span class="live-badge"><Icon name="moon" size={13} /> {tr('stage.sleeping')}</span>}

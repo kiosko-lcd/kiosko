@@ -3,7 +3,7 @@
  * what's installed, so the editor never opens on an empty canvas. Only
  * widgets whose plugin is present are used.
  */
-import { newPage, newScreen, newTile, newWidget, normalize, type Config, type Registry, type Tile } from '@kiosko/core';
+import { newPage, newScreen, newTile, newWidget, normalize, rescale, suggestGrid, transposePage, type Config, type Registry, type Tile } from '@kiosko/core';
 
 export function starterConfig(registry: Registry, o: { width?: number; height?: number; locale?: string } = {}): Config {
   const width = o.width ?? 1920;
@@ -29,6 +29,13 @@ export function starterConfig(registry: Registry, o: { width?: number; height?: 
     if (welcome) welcome.options = { text: es ? 'Hola.\nArrastra widgets desde la biblioteca para montar tu panel.' : 'Hi there.\nDrag widgets from the library to build your panel.', maxSize: 54 };
   }
   page.tiles = tiles;
+  // Laid out for a 1920×462 strip: turned a quarter for a portrait screen, fitted for any other.
+  if (height > width) transposePage(page, width, height);
+  else {
+    const grid = suggestGrid(width, height);
+    page.tiles = rescale(page.tiles, page.grid, grid);
+    page.grid = grid;
+  }
   screen.pages = [page];
   screen.interludes = registry.interlude('agents/runner') ? [{ id: 'interlude-runner', type: 'agents/runner', enabled: false, everyMs: 15 * 60_000, maxSeconds: 30, options: {} }] : [];
   return normalize({ screens: [screen], locale: 'auto' });

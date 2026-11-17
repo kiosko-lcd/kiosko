@@ -19,7 +19,8 @@ export interface DeviceStatus {
   ok: boolean;
   message: string;
   /** Resolution the hardware reports, if it does. */
-  detected?: { width: number; height: number };
+  /** What the panel reports: its size as seen at its firmware's own angle (`rotate`, when known). */
+  detected?: { width: number; height: number; rotate?: number };
   framesSent: number;
   lastSentAt: number | null;
 }
@@ -229,9 +230,11 @@ export class UsbDevice implements Device {
     this.panel = panel;
     const m = panel.info?.model;
     if (m) {
-      this.status.detected = { width: m.width, height: m.height };
-      // The picture is turned in the compositor, before encoding: the firmware's mount angle must match the screen's.
-      if (this.rotate !== undefined && m.rotate !== this.rotate) this.log(`the panel's firmware expects rotation ${m.rotate}° but this screen has ${this.rotate}°: the picture may come out turned`);
+      this.status.detected = { width: m.width, height: m.height, rotate: m.rotate };
+      // The picture is turned in the compositor, before encoding. Upright, the screen's angle must be the firmware's
+      // mount angle; on its side (portrait) either quarter turn from it is right, depending on which way the panel
+      // stands. Only half a turn away is surely wrong: the picture comes out upside down.
+      if (this.rotate !== undefined && (((this.rotate - m.rotate) % 360) + 360) % 360 === 180) this.log(`the panel's firmware expects rotation ${m.rotate}° but this screen has ${this.rotate}°: the picture may come out upside down`);
     }
     this.say(this.describe(), true);
   }
@@ -263,13 +266,13 @@ export async function listUsb(): Promise<{ ok: boolean; panels: { serial?: strin
 }
 
 /** The LY panels libusb sees right now, for the "add screen" menu. Never throws. */
-export async function discoverUsb(): Promise<{ serial: string; key: string; width: number; height: number; location: string; error?: string }[]> {
+export async function discoverUsb(): Promise<{ serial: string; key: string; width: number; height: number; rotate?: number; location: string; error?: string }[]> {
   try {
     const found = await findPanels(await loadUsb());
     const out = [];
     for (const f of found) {
       // The resolution needs the hello, which needs the device: only if no other process has it.
-      let model: { width: number; height: number } | undefined;
+      let model: { width: number; height: number; rotate?: number } | undefined;
       if (f.serial) {
         try {
           const p = await LyPanel.open({ serial: f.serial });
@@ -279,7 +282,7 @@ export async function discoverUsb(): Promise<{ serial: string; key: string; widt
           /* held by another process, or no driver: listed anyway */
         }
       }
-      out.push({ serial: f.serial ?? '', key: f.serial ?? `usb ${f.location}`, width: model?.width ?? 0, height: model?.height ?? 0, location: f.location, ...(f.error ? { error: f.error } : {}) });
+      out.push({ serial: f.serial ?? '', key: f.serial ?? `usb ${f.location}`, width: model?.width ?? 0, height: model?.height ?? 0, ...(model?.rotate !== undefined ? { rotate: model.rotate } : {}), location: f.location, ...(f.error ? { error: f.error } : {}) });
     }
     return out;
   } catch {
