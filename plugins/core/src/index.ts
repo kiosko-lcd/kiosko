@@ -391,7 +391,7 @@ export const image = defineWidget({
 export default definePlugin({
   id: 'core',
   name: { en: 'Essentials', es: 'Básicos' },
-  version: '0.2.1',
+  version: '0.2.2',
   sdk: '^0.2.0',
   // The picture widget reads the image (or folder, or URL) you give it.
   permissions: { files: ['user'], network: ['user'] },

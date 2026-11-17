@@ -1,14 +1,21 @@
 {
   "name": "@kiosko/server",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Kiosko daemon: drives the panels and serves the visual editor.",
   "type": "module",
   "license": "MIT",
-  "bin": { "kiosko": "./dist/cli.js" },
-  "exports": { ".": { "source": "./src/index.ts", "default": "./dist/index.js" } },
+  "bin": {
+    "kiosko": "./dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "default": "./dist/index.js"
+    }
+  },
   "dependencies": {
-    "@kiosko/core": "0.2.1",
-    "@kiosko/sdk": "0.2.1",
-    "@kiosko/web": "0.2.1"
+    "@kiosko/core": "0.2.2",
+    "@kiosko/sdk": "0.2.2",
+    "@kiosko/web": "0.2.2"
   }
 }

@@ -1,10 +1,19 @@
 {
   "name": "@kiosko/plugin-core",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Basic Kiosko widgets: clock, date, text, image and a separator.",
   "type": "module",
   "license": "MIT",
-  "exports": { ".": { "source": "./src/index.ts", "default": "./dist/index.js" } },
-  "kiosko": { "plugin": "./dist/index.js" },
-  "peerDependencies": { "@kiosko/sdk": "*" }
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "kiosko": {
+    "plugin": "./dist/index.js"
+  },
+  "peerDependencies": {
+    "@kiosko/sdk": "*"
+  }
 }
