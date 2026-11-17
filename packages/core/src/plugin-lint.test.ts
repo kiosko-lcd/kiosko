@@ -51,6 +51,7 @@ test('lintOptions: what follows the conventions passes', () => {
     diskAlert: t.integer({ default: 95, min: 0, max: 100, unit: '%' }),
     showSeconds: t.boolean(),
     maxProcesses: t.integer({ default: 5 }),
+    tileMin: t.integer({ default: 320, unit: 'px' }),
     url: t.string({ format: 'url', risk: 'network' }),
     token: t.string({ secret: true }),
   }), 'widget'), []);

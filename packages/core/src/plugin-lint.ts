@@ -44,7 +44,8 @@ export function lintOptions(where: string, f: Field | undefined, kind: 'widget' 
     const name = last(path);
     if (x.kind === 'number' && x.unit === 'ms' && !/Ms$/.test(name)) warn(path, 'a duration: name it …Ms (rotateMs, maxAgeMs)');
     if (x.kind === 'number' && /Ms$/.test(name) && x.unit !== 'ms') warn(path, 'named …Ms but not a duration: use t.duration()');
-    if (/(Min|Mins|Minutes|Hours|Secs|Seconds)$/.test(name) && x.kind === 'number') warn(path, 'durations are milliseconds with t.duration() and a name ending in Ms');
+    // …Minutes is a duration; …Min only when nothing else says what it is (tileMin in px is a minimum).
+    if (x.kind === 'number' && (/(Minutes|Hours|Secs|Seconds)$/.test(name) || (/Mins?$/.test(name) && (!x.unit || x.unit === 'min')))) warn(path, 'durations are milliseconds with t.duration() and a name ending in Ms');
     if (/(Crit|Critical)$/.test(name)) warn(path, 'thresholds are …Warn (amber) and …Alert (red), never …Crit');
     if (/Warn$/.test(name) && !names.has(path.replace(/Warn$/, 'Alert'))) warn(path, `thresholds come in pairs: add ${name.replace(/Warn$/, 'Alert')}`);
     if (/Alert$/.test(name) && !names.has(path.replace(/Alert$/, 'Warn'))) warn(path, `thresholds come in pairs: add ${name.replace(/Alert$/, 'Warn')}`);

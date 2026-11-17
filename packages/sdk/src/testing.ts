@@ -170,7 +170,12 @@ export function checkPlugin(p: PluginDefinition, o: { locales?: string[]; themes
           const r = renderWidget(w, { size, theme, locale });
           if (r.error) issues.push({ type, where, problem: `render threw: ${r.error}` });
           else if (r.outside > 0) issues.push({ type, where, problem: `painted ${r.outside} px outside its box` });
-          if (r.ms > slow) issues.push({ type, where, problem: `render took ${Math.round(r.ms)} ms` });
+          // The first paint pays for loading fonts and compiling code; on the panel a widget paints
+          // again and again. Slow means slow every time: the best of three.
+          if (r.ms > slow && !r.error) {
+            const ms = Math.min(r.ms, renderWidget(w, { size, theme, locale }).ms, renderWidget(w, { size, theme, locale }).ms);
+            if (ms > slow) issues.push({ type, where, problem: `render took ${Math.round(ms)} ms` });
+          }
         }
       }
     }
