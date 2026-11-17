@@ -451,21 +451,9 @@ export function Settings() {
             </>
           ) : <p class="muted small">{tr('settings.sourcesHint')}</p>}
           <div class="sources">
-            {sources.map((s) => {
-              const st = status.value?.sources.find((x) => x.type === s.type);
-              return (
-                <div class="source-block">
-                  <div class="source-head">
-                    <b>{s.name}</b>
-                    <code class="muted">{s.type}</code>
-                    {s.intervalMs && <span class="muted small">· {fmtMs(st?.intervalMs ?? (cfg.sources[s.type]?.intervalMs as number | undefined) ?? s.intervalMs)}</span>}
-                    {st && <span class={`status-pill ${st.ok ? 'ok' : 'bad'}`} title={st.error ?? ''}><span class="dot" /> {st.ok ? (st.updatedAt ? new Date(st.updatedAt).toLocaleTimeString() : '…') : st.error}</span>}
-                  </div>
-                  <p class="muted small">{s.description}</p>
-                  <SchemaForm schema={s.options!} value={cfg.sources[s.type] ?? {}} onChange={(v, k) => edit((d) => (d.sources[s.type] = v), `src-${s.type}-${k}`)} idPrefix={`src-${s.type}`} />
-                </div>
-              );
-            })}
+            {sources.map((s) => (
+              <SourceRow key={s.type} s={s} />
+            ))}
           </div>
         </section>
       )}
@@ -492,6 +480,35 @@ export function Settings() {
           <pre class="code">kiosko import-aimonitor --write</pre>
         </section>
       </div>
+    </div>
+  );
+}
+
+/**
+ * One data source: a line with its name, how often it's read and how it's doing, that opens to
+ * its settings. Folded by default (there are a dozen); one that is failing opens by itself.
+ */
+function SourceRow({ s }: { s: PluginInfo['sources'][number] }) {
+  const cfg = config.value!;
+  const st = status.value?.sources.find((x) => x.type === s.type);
+  const [open, setOpen] = useState(!!st && !st.ok);
+  const every = s.intervalMs && fmtMs(st?.intervalMs ?? (cfg.sources[s.type]?.intervalMs as number | undefined) ?? s.intervalMs);
+  return (
+    <div class={`source-block ${open ? 'open' : ''}`}>
+      <button type="button" class="source-head" aria-expanded={open} onClick={() => setOpen(!open)}>
+        <Icon name={open ? 'chevron-down' : 'chevron-right'} size={16} />
+        <b>{s.name}</b>
+        <code class="muted">{s.type}</code>
+        {every && <span class="muted small">· {every}</span>}
+        {!open && <span class="source-desc muted small">{s.description}</span>}
+        {st && <span class={`status-pill ${st.ok ? 'ok' : 'bad'}`} title={st.error ?? ''}><span class="dot" /> {st.ok ? (st.updatedAt ? new Date(st.updatedAt).toLocaleTimeString() : '…') : st.error}</span>}
+      </button>
+      {open && (
+        <div class="source-body">
+          <p class="muted small">{s.description}</p>
+          <SchemaForm schema={s.options!} value={cfg.sources[s.type] ?? {}} onChange={(v, k) => edit((d) => (d.sources[s.type] = v), `src-${s.type}-${k}`)} idPrefix={`src-${s.type}`} />
+        </div>
+      )}
     </div>
   );
 }
