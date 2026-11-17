@@ -33,6 +33,7 @@ export class Registry {
   readonly refused: { id?: string; version?: string; origin: string; reason: string }[] = [];
   /** Where a plugin's code came from, to load it again (`reload`). */
   private entries = new Map<string, { entry: string; origin: string }>();
+  private reloads = 0;
 
   private refuse(r: { id?: string | undefined; version?: string | undefined; origin: string; reason: string }): void {
     this.refused.push({ origin: r.origin, reason: r.reason, ...(r.id ? { id: r.id } : {}), ...(r.version ? { version: r.version } : {}) });
@@ -72,7 +73,8 @@ export class Registry {
     this.plugins.delete(id);
     const problems = this.problems.length;
     try {
-      const def = await this.loadEntry(e.entry, e.origin, Date.now());
+      // Unique per reload: two within the same millisecond would get the first one's cached module.
+      const def = await this.loadEntry(e.entry, e.origin, `${Date.now()}-${++this.reloads}`);
       if (def && this.plugins.has(id)) {
         this.plugins.get(id)!.enabled = old.enabled;
         return null;
@@ -189,7 +191,7 @@ export class Registry {
     }
   }
 
-  private async loadEntry(entry: string, origin: string, version?: number): Promise<PluginDefinition | undefined> {
+  private async loadEntry(entry: string, origin: string, version?: string): Promise<PluginDefinition | undefined> {
     // A query makes Node import the file again (ES modules are cached by URL): how `reload` gets new code.
     const url = pathToFileURL(entry).href + (version ? `?v=${version}` : '');
     const mod = (await import(url)) as { default?: PluginDefinition };
