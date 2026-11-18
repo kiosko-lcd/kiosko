@@ -97,6 +97,8 @@ class ScreenRunner {
   interlude: { slotId: string; type: string; stopAt: number } | null = null;
   /** Switched off from outside (Home Assistant, the API): black until switched on. Not saved. */
   off = false;
+  /** An interlude asked for now (the editor, Home Assistant): played as soon as the screen is free. */
+  private wanted: string | null = null;
   /** When `fit` last told the log that frames were shrunk, to say it now and then, not every frame. */
   private fitLoggedAt = 0;
   /** Instance ids on the current page, to know if a data change concerns us. */
@@ -169,7 +171,10 @@ class ScreenRunner {
     if (this.busy || !this.screen.enabled) return;
     this.busy = true;
     try {
-      if (!this.off && (await this.maybeInterlude(now))) return;
+      // One asked for goes first; otherwise the one due, if any.
+      const asked = this.wanted;
+      this.wanted = null;
+      if (!this.off && (await this.maybeInterlude(now, asked ?? undefined))) return;
       const page = this.currentPage(now);
       if (page?.id !== this.page?.id) {
         this.page = page;
@@ -430,10 +435,18 @@ class ScreenRunner {
     return true;
   }
 
+  /**
+   * Plays an interlude as soon as the screen is free: now if it is, or right
+   * after the paint or animation under way (asked in the middle of one, it
+   * used to be dropped without a word).
+   */
   async playNow(slotId: string): Promise<void> {
-    if (this.busy || this.off) return;
+    if (this.off) return;
+    this.wanted = slotId;
+    if (this.busy) return;
     this.busy = true;
     try {
+      this.wanted = null;
       await this.maybeInterlude(Date.now(), slotId);
     } finally {
       this.busy = false;

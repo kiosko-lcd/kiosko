@@ -288,3 +288,27 @@ test('runtime: two screens play their interludes at the same time, even when fra
     rt.stop();
   }
 });
+
+test('runtime: an interlude asked for while the screen is busy plays right after, it is not dropped', async () => {
+  const reg = new Registry();
+  let played = 0;
+  reg.add(definePlugin({
+    id: 'i', name: 'I', version: '1',
+    interludes: [{ id: 'once', name: 'Once', fps: 30, prepare: async () => (played++, { frames: 2, draw: () => undefined }) }],
+  }));
+  const rt = new Runtime(reg, norm({ screens: [{ id: 'a', name: 'a', width: 32, height: 16, device: { driver: 'virtual' }, interludes: [{ id: 'x', type: 'i/once', enabled: false, everyMs: 3_600_000 }], pages: [] }] }));
+  const r = (rt as unknown as { runners: Map<string, { busy: boolean }> }).runners;
+  rt.start();
+  try {
+    await sleep(100);
+    // As if a paint were under way.
+    r.get('a')!.busy = true;
+    rt.playInterlude('a', 'x');
+    await sleep(100);
+    assert.equal(played, 0, 'not while busy');
+    r.get('a')!.busy = false;
+    await until(() => played === 1);
+  } finally {
+    rt.stop();
+  }
+});
