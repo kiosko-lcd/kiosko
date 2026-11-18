@@ -61,7 +61,9 @@ test('Home Assistant sees a device per screen and drives it: page, display, inte
     assert.equal(JSON.parse(seen.get('homeassistant/button/desk/panel1_run/config')!).name, 'Play: Show');
     assert.equal(broker.retained.get('kiosko/desk/status'), 'online');
     assert.equal(seen.get('kiosko/desk/panel1/page'), 'Auto');
-    await until(() => seen.get('kiosko/desk/panel1/shown') === 'Home');
+    // The page on the panel now (they take turns by the clock): its name.
+    const names: Record<string, string> = { home: 'Home', cam: 'Camera', dup: 'Home (2)' };
+    await until(() => !!rt.status().screens[0]!.page && seen.get('kiosko/desk/panel1/shown') === names[rt.status().screens[0]!.page!]);
 
     // Pin a page: the screen shows it, and says so.
     ha.publish('kiosko/desk/panel1/page/set', 'Camera');
