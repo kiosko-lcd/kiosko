@@ -90,6 +90,8 @@ class ScreenRunner {
   pinned: string | null = null;
   private playedSlot = new Map<string, number>();
   interlude: { slotId: string; type: string; stopAt: number } | null = null;
+  /** Switched off from outside (Home Assistant, the API): black until switched on. Not saved. */
+  off = false;
   /** When `fit` last told the log that frames were shrunk, to say it now and then, not every frame. */
   private fitLoggedAt = 0;
   /** Instance ids on the current page, to know if a data change concerns us. */
@@ -162,7 +164,7 @@ class ScreenRunner {
     if (this.busy || !this.screen.enabled) return;
     this.busy = true;
     try {
-      if (await this.maybeInterlude(now)) return;
+      if (!this.off && (await this.maybeInterlude(now))) return;
       const page = this.currentPage(now);
       if (page?.id !== this.page?.id) {
         this.page = page;
@@ -188,7 +190,7 @@ class ScreenRunner {
     const theme = this.rt.theme();
     let result: ComposeResult | null = null;
     let canvas: Canvas;
-    if (page) {
+    if (page && !this.off) {
       result = composePage({
         cfg: this.rt.config,
         screen,
@@ -221,7 +223,7 @@ class ScreenRunner {
       this.animatable = [];
       this.nextAt = now + 60_000;
     }
-    const sleeping = !!(screen.sleepWhenIdle && result?.idle);
+    const sleeping = this.off || !!(screen.sleepWhenIdle && result?.idle);
     if (sleeping) {
       const g = canvas.getContext('2d');
       g.fillStyle = '#000';
@@ -414,7 +416,7 @@ class ScreenRunner {
   }
 
   async playNow(slotId: string): Promise<void> {
-    if (this.busy) return;
+    if (this.busy || this.off) return;
     this.busy = true;
     try {
       await this.maybeInterlude(Date.now(), slotId);
@@ -641,6 +643,16 @@ export class Runtime extends EventEmitter {
     this.runners.get(screenId)?.stopInterlude();
   }
 
+  /** Switches a screen's picture off (black) or back on, until the next restart. */
+  setOff(screenId: string, off: boolean): void {
+    const r = this.runners.get(screenId);
+    if (!r || r.off === off) return;
+    r.off = off;
+    if (off) r.stopInterlude();
+    r.dirty = true;
+    this.emit('screen', { screenId, off });
+  }
+
   refreshWidget(instanceId: string): void {
     this.fetches.refresh(instanceId);
   }
@@ -657,6 +669,7 @@ export class Runtime extends EventEmitter {
         device: r.device.status as DeviceStatus,
         lastFrameAt: r.lastInfo?.at ?? null,
         sleeping: r.lastInfo?.sleeping ?? false,
+        off: r.off,
       })),
       sources: this.hub.status(),
       fetches: this.fetches.status(),

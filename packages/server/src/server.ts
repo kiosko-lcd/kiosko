@@ -15,6 +15,7 @@ import { THEMES } from '@kiosko/sdk';
 import { CATEGORIES } from '@kiosko/sdk';
 import { OFFICIAL_PLUGINS } from './builtin.ts';
 import { installPlugin, reloadPlugin, removePlugin } from './plugins-manage.ts';
+import { HomeAssistantBridge } from './homeassistant.ts';
 import { PANEL_PRESETS, checkUpdates, discoverTrcc, discoverUsb, normalize, paths, resolveLocale, saveConfig, type Config, type FrameInfo, type Runtime, type Screen, type UpdateCheck } from '@kiosko/core';
 
 const require = createRequire(import.meta.url);
@@ -46,6 +47,8 @@ export interface ServerOptions {
   checkUpdates?: boolean;
   /** How the update check asks npm (tests). */
   updateCheck?: () => Promise<UpdateCheck>;
+  /** Kiosko as a device in Home Assistant (over MQTT), when the config asks for it. Default: on, except in demo mode. */
+  homeassistant?: boolean;
 }
 
 function webRoot(): string {
@@ -114,7 +117,10 @@ export function startServer(o: ServerOptions) {
   runtime.on('frame', (f: FrameInfo) => send('frame', { screenId: f.screenId, pageId: f.pageId, at: f.at, interlude: f.interlude, sleeping: f.sleeping, tiles: f.tiles }));
   runtime.on('log', (e) => send('log', e));
   runtime.on('config', () => thumbs.clear());
-  const statusTimer = setInterval(() => send('status', runtime.status()), 3000);
+  // Home Assistant, over MQTT: connects only when the config has it switched on.
+  const bridge = (o.homeassistant ?? !runtime.demoMode) ? new HomeAssistantBridge(runtime, o.version) : null;
+  const fullStatus = () => ({ ...runtime.status(), homeassistant: bridge?.status() ?? { enabled: false, state: 'off', error: null } });
+  const statusTimer = setInterval(() => send('status', fullStatus()), 3000);
 
   const allowedHosts = new Set([`127.0.0.1:${o.port}`, `localhost:${o.port}`, `[::1]:${o.port}`, `${o.host}:${o.port}`]);
 
@@ -131,7 +137,7 @@ export function startServer(o: ServerOptions) {
       categories: CATEGORIES,
       themes: THEMES,
       presets: PANEL_PRESETS,
-      status: runtime.status(),
+      status: fullStatus(),
       paths: { config: o.configPath, plugins: paths.plugins, home: paths.home },
       restartNeeded,
       official: OFFICIAL_PLUGINS,
@@ -379,6 +385,7 @@ export function startServer(o: ServerOptions) {
     server,
     close() {
       clearInterval(statusTimer);
+      bridge?.stop();
       for (const t of updateTimers) clearTimeout(t);
       for (const c of clients) c.end();
       server.close();

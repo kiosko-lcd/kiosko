@@ -27,7 +27,20 @@ export function normalize(raw: unknown): Config {
     sources: c.sources ?? {},
     plugins: { disabled: c.plugins?.disabled ?? [] },
     server: { ...DEFAULT_CONFIG.server, ...(c.server ?? {}) },
+    ...(c.homeassistant && typeof c.homeassistant === 'object' ? { homeassistant: normalizeHa(c.homeassistant) } : {}),
     screens,
+  };
+}
+
+function normalizeHa(h: Partial<NonNullable<Config['homeassistant']>>): NonNullable<Config['homeassistant']> {
+  const id = String(h.nodeId ?? '').toLowerCase().replace(/[^a-z0-9_-]+/g, '_').replace(/^_+|_+$/g, '');
+  return {
+    enabled: h.enabled ?? false,
+    broker: typeof h.broker === 'string' ? h.broker.trim() : '',
+    ...(h.username ? { username: String(h.username) } : {}),
+    ...(h.password ? { password: String(h.password) } : {}),
+    discoveryPrefix: (typeof h.discoveryPrefix === 'string' && h.discoveryPrefix.trim()) || 'homeassistant',
+    nodeId: id || 'kiosko',
   };
 }
 

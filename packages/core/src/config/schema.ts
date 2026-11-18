@@ -218,6 +218,20 @@ export function configSchema(plugins: readonly PluginDefinition[]): S {
           port: { type: 'integer', minimum: 1, maximum: 65535, default: DEFAULT_CONFIG.server.port },
         },
       },
+      homeassistant: {
+        type: 'object',
+        additionalProperties: false,
+        description: 'Kiosko as a device in Home Assistant, over MQTT discovery: each screen with its page to choose, a switch to turn it off and a button per interlude.',
+        required: ['broker'],
+        properties: {
+          enabled: { type: 'boolean', default: false },
+          broker: { type: 'string', description: 'The MQTT broker Home Assistant uses: mqtt://host:1883, or mqtts:// for TLS.' },
+          username: { type: 'string' },
+          password: { type: 'string', 'x-secret': true },
+          discoveryPrefix: { type: 'string', default: 'homeassistant', description: "Home Assistant's MQTT discovery prefix." },
+          nodeId: { type: 'string', pattern: '^[a-z0-9_-]+$', description: "This Kiosko's id in the topics, so several machines don't collide. Default: kiosko." },
+        },
+      },
     },
     $defs: {
       id: { type: 'string', pattern: ID_PATTERN, 'x-pattern-hint': 'an id of letters, digits, ".", "_" or "-" (no spaces, at most 80)', description: 'Stable id, unique among its siblings (widget ids: unique in the whole config). Generated when missing.' },
