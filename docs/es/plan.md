@@ -819,6 +819,37 @@ Lo que cambia en el camino:
       socket de Docker equivale a root); un log desbocado (búfer circular y
       emitir como mucho una vez por segundo); y las opciones con
       `risk: ['exec', 'path']`.
+25. **Cada pantalla en su propio hilo, configurable en la interfaz.** Desde
+    la 0.2.4 el JPEG se codifica fuera del hilo de Node y las pantallas ya
+    no se turnan, pero siguen pintando todas en el mismo hilo: un widget
+    lento en una (`news/column` ~300 ms, `timesheet/hours` ~240 ms, los
+    gatos preparando su animación ~800 ms) frena a las demás. Medido el
+    2026-11-18 con tres paneles de 1920×462 y el corredor de 8 bits a la
+    vez: 8–11 fps en vez de 12.
+    - *Qué*: un `worker_thread` por pantalla, con su `composePage`, su
+      caché de teselas, sus animaciones y sus interludios. El hilo
+      principal se queda con el servidor, las fuentes y los `fetch`, y
+      reparte a cada hilo los datos que cambian (no el registro entero de
+      cada vez).
+    - *Configurable en la interfaz*: en Ajustes, «Pintar cada pantalla en
+      su propio hilo»: **automático** (sí con dos o más pantallas activas
+      y núcleos de sobra), **siempre** o **nunca** (todo en el hilo
+      principal, como ahora: menos memoria, útil en una Raspberry). Y por
+      pantalla, para dejar en el principal una sin animaciones. Mostrar el
+      coste: memoria de cada hilo y fps reales de cada pantalla.
+    - *Lo difícil*: los plugins se cargan una vez por hilo (más memoria y
+      arranque más lento; su estado de módulo deja de ser compartido entre
+      pantallas: cachés, el módulo `seen` de la cámara); los datos viajan
+      por mensajes (clonado estructurado: nada de clases ni funciones en
+      los datos de las fuentes, o se reconstruyen en el hilo; `History`
+      del plugin de Home Assistant es una clase); las imágenes ya cargadas
+      (`Image` de @napi-rs/canvas) no cruzan entre hilos y hay que
+      pasarlas como bytes; `ctx.log` y los tiempos de pintado vuelven al
+      principal; y el editor sigue pintando sus vistas previas en el
+      principal, que debe dar lo mismo que el hilo.
+    - *Antes de hacerlo*: medir cuánto del tiempo es pintar y cuánto
+      codificar en una máquina modesta, y si basta con arreglar los widgets
+      lentos (pintar en `fetch`, cachear lo que no cambia).
 
 ### Decisiones abiertas para ti
 
