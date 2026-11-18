@@ -51,8 +51,13 @@ function lazyJpeg(c: Canvas): () => Buffer {
   return () => (b ??= c.toBuffer('image/jpeg', 88));
 }
 
-function encode(c: Canvas, kind: 'png' | 'jpeg', quality: number): Buffer {
-  return kind === 'jpeg' ? c.toBuffer('image/jpeg', Math.max(1, Math.min(100, quality || 90))) : c.toBuffer('image/png');
+/**
+ * Encodes on libuv's thread pool, not on the JS thread: a 1920×462 JPEG takes
+ * ~35 ms, so two screens playing at 12 fps took most of the only thread there
+ * is, and they ended up taking turns (one froze while the other played).
+ */
+function encode(c: Canvas, kind: 'png' | 'jpeg', quality: number): Promise<Buffer> {
+  return kind === 'jpeg' ? c.encode('jpeg', Math.max(1, Math.min(100, quality || 90))) : c.encode('png');
 }
 
 /** Lowest JPEG quality `encodeFit` goes down to. */
@@ -64,14 +69,14 @@ const MIN_FIT_QUALITY = 20;
  * LY panels drop frames over ~500 KB and keep showing the previous one, so a
  * photo-heavy page at quality 100 looked frozen. `over` says nothing fitted.
  */
-export function encodeFit(c: Canvas, kind: 'png' | 'jpeg', quality: number, maxBytes: number): { out: Buffer; quality: number; over: boolean } {
+export async function encodeFit(c: Canvas, kind: 'png' | 'jpeg', quality: number, maxBytes: number): Promise<{ out: Buffer; quality: number; over: boolean }> {
   const q0 = Math.max(1, Math.min(100, quality || 90));
-  let out = encode(c, kind, q0);
+  let out = await encode(c, kind, q0);
   if (kind !== 'jpeg' || !(maxBytes > 0) || out.length <= maxBytes) return { out, quality: q0, over: false };
   let q = q0;
   while (q > MIN_FIT_QUALITY) {
     q = Math.max(MIN_FIT_QUALITY, q - 10);
-    out = encode(c, kind, q);
+    out = await encode(c, kind, q);
     if (out.length <= maxBytes) return { out, quality: q, over: false };
   }
   return { out, quality: q, over: true };
@@ -117,8 +122,8 @@ class ScreenRunner {
   }
 
   /** Encodes a frame within the screen's `maxBytes`, saying so in the log (at most every 10 min) when it had to shrink it. */
-  private fit(c: Canvas, kind: 'png' | 'jpeg', quality: number, screen: Screen): Buffer {
-    const r = encodeFit(c, kind, quality, screen.maxBytes);
+  private async fit(c: Canvas, kind: 'png' | 'jpeg', quality: number, screen: Screen): Promise<Buffer> {
+    const r = await encodeFit(c, kind, quality, screen.maxBytes);
     if ((r.quality !== Math.max(1, Math.min(100, quality || 90)) || r.over) && Date.now() - this.fitLoggedAt > 10 * 60_000) {
       this.fitLoggedAt = Date.now();
       this.rt.log(
@@ -228,7 +233,7 @@ class ScreenRunner {
       g.fillRect(0, 0, screen.width, screen.height);
     }
     const kind = encodeFor(screen.device, screen.jpegQuality);
-    const out = this.fit(rotateCanvas(canvas, screen.rotate), kind, screen.jpegQuality, screen);
+    const out = await this.fit(rotateCanvas(canvas, screen.rotate), kind, screen.jpegQuality, screen);
     this.lastInfo = { screenId: screen.id, pageId: page?.id ?? null, at: now, image: lazyJpeg(canvas), tiles: result?.tiles ?? [], interlude: null, sleeping };
     this.rt.emit('frame', this.lastInfo);
     if (this.last?.equals(out)) return;
@@ -266,7 +271,7 @@ class ScreenRunner {
     const kind = encodeFor(this.screen.device, this.screen.jpegQuality || 85);
     const canvas = CANVAS.createCanvas(this.screen.width, this.screen.height);
     const g = canvas.getContext('2d');
-    const start = Date.now();
+    let start = Date.now();
     for (let i = 0; i < frames && this.interlude; i++) {
       g.save();
       try {
@@ -277,7 +282,8 @@ class ScreenRunner {
       } finally {
         g.restore();
       }
-      const out = this.fit(rotateCanvas(canvas, this.screen.rotate), kind, this.screen.jpegQuality || 85, this.screen);
+      // Encoded off the JS thread: meanwhile the other screens paint and play.
+      const out = await this.fit(rotateCanvas(canvas, this.screen.rotate), kind, this.screen.jpegQuality || 85, this.screen);
       await this.device.send(out);
       if (i % 3 === 0) {
         // The interlude draws every frame on the same canvas: snapshot it.
@@ -288,6 +294,13 @@ class ScreenRunner {
       }
       const wait = start + ((i + 1) * 1000) / fps - Date.now();
       if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+      else {
+        // Late (the machine is busy, or another screen is playing too): slow
+        // down rather than catch up in a burst, and let the rest run. A burst
+        // never yields and starves every other screen until it is over.
+        start -= wait;
+        await new Promise((r) => setImmediate(r));
+      }
     }
     this.interlude = null;
     this.last = null;
@@ -348,7 +361,7 @@ class ScreenRunner {
     const memoSources = new Map<string, Record<string, unknown>>();
     const working = this.rt.working(now);
     const kind = encodeFor(screen.device, screen.jpegQuality || 85);
-    const sent: { out: Buffer; snap: Canvas | null }[] = [];
+    const sent: { out: Promise<Buffer>; snap: Canvas | null }[] = [];
     const t0 = Date.now();
     // Every frame is painted before the first is sent: painting and sending
     // at once is slower than either, and the panel drops what comes late.
@@ -381,10 +394,12 @@ class ScreenRunner {
         cache: this.tiles,
         animate,
       });
+      // Encoding goes on in the thread pool while the next frame is painted.
       sent.push({ out: this.fit(rotateCanvas(result.canvas, screen.rotate), kind, screen.jpegQuality || 85, screen), snap: s % 3 === 1 ? result.canvas : null });
       // Let the loop breathe: a long animation must not freeze the timers and the other screens.
       await new Promise((r) => setImmediate(r));
     }
+    const outs = await Promise.all(sent.map((x) => x.out));
     const what = items.map((x) => `${x.animatable.type} ${x.play.plan.id}`).join(' + ');
     this.rt.log(`screen:${screen.name}`, `animating ${what}: ${sent.length} frames at ${fps} fps (painted in ${Date.now() - t0} ms)`);
     const holdAt = hold ? Math.max(0, Math.min(sent.length - 1, hold.index - 1)) : -1;
@@ -394,7 +409,7 @@ class ScreenRunner {
       // Late: skip the frame rather than let the delay pile up.
       const due = Math.floor(((Date.now() - start) * fps) / 1000);
       if (k < due - 1 && k !== holdAt && k < sent.length - 1) continue;
-      await this.device.send(sent[k]!.out);
+      await this.device.send(outs[k]!);
       const snap = sent[k]!.snap;
       if (snap) {
         this.lastInfo = { screenId: screen.id, pageId: page.id, at: Date.now(), image: lazyJpeg(snap), tiles: [], interlude: null, animation: items.map((x) => x.animatable.type).join(', '), sleeping: false };

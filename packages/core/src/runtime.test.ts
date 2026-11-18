@@ -246,3 +246,45 @@ test('runtime: the widget is told how its animation ended, played through or cut
     rt.stop();
   }
 });
+
+test('runtime: two screens play their interludes at the same time, even when frames are slow to make', async () => {
+  // A frame takes 20 ms of the thread, its slot lasts 33 ms: one screen alone
+  // keeps up, two don't. The one that fell behind caught up in a burst that
+  // never let go of the thread, so the other one (waiting on its timer, on
+  // time) froze until the burst was over, and then the other way round.
+  const busy = (ms: number) => {
+    const end = Date.now() + ms;
+    while (Date.now() < end);
+  };
+  const reg = new Registry();
+  reg.add(definePlugin({
+    id: 'i', name: 'I', version: '1',
+    interludes: [{ id: 'slow', name: 'Slow', fps: 30, prepare: async () => ({ frames: 45, draw: () => busy(20) }) }],
+  }));
+  const screen = (id: string) => ({
+    id, name: id, width: 64, height: 32, maxFps: 30, device: { driver: 'virtual' },
+    interludes: [{ id: `${id}-i`, type: 'i/slow', enabled: false, everyMs: 3_600_000, maxSeconds: 10, options: {} }],
+    pages: [{ id: 'p', name: 'p', grid: { cols: 1, rows: 1, gap: 0, padding: 0 }, tiles: [] }],
+  });
+  const rt = new Runtime(reg, norm({ screens: [screen('a'), screen('b')] }));
+  const order: string[] = [];
+  rt.start();
+  try {
+    await sleep(300);
+    // Every frame each screen hands its panel, in order.
+    for (const [id, r] of (rt as unknown as { runners: Map<string, { device: { send: (b: Buffer) => Promise<void> } }> }).runners) {
+      const send = r.device.send.bind(r.device);
+      r.device.send = (b) => (order.push(id), send(b));
+    }
+    rt.playInterlude('a', 'a-i');
+    await sleep(150);
+    rt.playInterlude('b', 'b-i');
+    await until(() => order.filter((x) => x === 'b').length >= 30, 10_000);
+    // From when b starts, both advance together: neither runs on while the other waits.
+    const both = order.slice(order.indexOf('b')).join('').slice(0, 50);
+    const runs = both.match(/a+|b+/g)!.map((r) => r.length);
+    assert.ok(Math.max(...runs) <= 3, `no screen runs ahead of the other: ${both}`);
+  } finally {
+    rt.stop();
+  }
+});
