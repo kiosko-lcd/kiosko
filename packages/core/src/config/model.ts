@@ -161,6 +161,26 @@ export interface Config {
   plugins: { disabled: string[] };
   screens: Screen[];
   server: { host: string; port: number };
+  /** Kiosko as a device in Home Assistant, over MQTT (see docs/homeassistant.md). Absent = off. */
+  homeassistant?: HomeAssistantLink;
+}
+
+/**
+ * How Kiosko shows up in Home Assistant: an MQTT broker (the one Home
+ * Assistant uses, usually its Mosquitto add-on) and MQTT discovery, so each
+ * screen appears with its page to choose, a switch to turn it off and a
+ * button per interlude.
+ */
+export interface HomeAssistantLink {
+  enabled: boolean;
+  /** `mqtt://homeassistant.local:1883`, or `mqtts://` for TLS. */
+  broker: string;
+  username?: string;
+  password?: string;
+  /** Home Assistant's discovery prefix. Default `homeassistant`. */
+  discoveryPrefix: string;
+  /** This Kiosko's id in the topics (`kiosko/<node>/…`), so several machines don't collide. Default `kiosko`. */
+  nodeId: string;
 }
 
 let counter = 0;

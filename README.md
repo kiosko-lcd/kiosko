@@ -101,6 +101,10 @@ screen**, pick your panel model and its connection:
 | **trcc serve** | Linux with [thermalright-trcc-linux](https://github.com/Lexonight1/thermalright-trcc-linux) running `trcc serve`. |
 | **Frame file** | Kiosko writes `frame.jpg` atomically; an external sender (e.g. one bound to a USB serial number, for several identical panels) pushes it to the glass. |
 
+**Home Assistant**: Kiosko can show up there as a device per screen (over
+MQTT), with its page to choose, a switch to turn it off and a button per
+interlude, for your automations: see [docs/homeassistant.md](docs/homeassistant.md).
+
 ## Concepts
 
 ```

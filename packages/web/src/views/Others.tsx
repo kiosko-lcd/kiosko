@@ -1,6 +1,6 @@
 /** Plugins, Settings and Activity views. */
 import { useState } from 'preact/hooks';
-import { api, type AppState, type PluginInfo } from '../api.ts';
+import { api, type AppState, type JsonSchema, type PluginInfo } from '../api.ts';
 import { SchemaForm, Toggle } from '../forms/SchemaForm.tsx';
 import { Icon } from '../icons.tsx';
 import { fmtMs, tr } from '../i18n.ts';
@@ -457,6 +457,7 @@ export function Settings() {
           </div>
         </section>
       )}
+      {!KIOSKO_DEMO && <HomeAssistantCard />}
       <div class="grid-2 gap-lg">
         <section class="card">
           <h3>
@@ -510,6 +511,41 @@ function SourceRow({ s }: { s: PluginInfo['sources'][number] }) {
         </div>
       )}
     </div>
+  );
+}
+
+/** The settings of Kiosko as a device in Home Assistant, as a form, and how the link is doing. */
+const HA_SCHEMA: JsonSchema = {
+  type: 'object',
+  properties: {
+    enabled: { type: 'boolean', default: false, 'x-ui': { label: { en: 'Show Kiosko in Home Assistant', es: 'Mostrar Kiosko en Home Assistant' } } },
+    broker: { type: 'string', default: '', 'x-ui': { label: { en: 'MQTT broker', es: 'Bróker MQTT' }, placeholder: 'mqtt://homeassistant.local:1883', help: { en: "The one Home Assistant uses (its Mosquitto add-on, usually): mqtt://host:1883, or mqtts:// for TLS.", es: 'El que usa Home Assistant (normalmente su complemento Mosquitto): mqtt://host:1883, o mqtts:// con TLS.' } } },
+    username: { type: 'string', default: '', 'x-ui': { label: { en: 'User', es: 'Usuario' }, help: { en: 'A Home Assistant user works with the Mosquitto add-on; a dedicated one is better.', es: 'Con el complemento Mosquitto vale un usuario de Home Assistant; mejor uno solo para esto.' } } },
+    password: { type: 'string', default: '', 'x-ui': { label: { en: 'Password', es: 'Contraseña' }, secret: true } },
+    nodeId: { type: 'string', default: 'kiosko', 'x-ui': { advanced: true, label: { en: 'Id in the topics', es: 'Id en los temas' }, help: { en: 'kiosko/<id>/…: change it if two machines run Kiosko.', es: 'kiosko/<id>/…: cámbialo si dos máquinas tienen Kiosko.' } } },
+    discoveryPrefix: { type: 'string', default: 'homeassistant', 'x-ui': { advanced: true, label: { en: 'Discovery prefix', es: 'Prefijo de descubrimiento' }, help: { en: "Home Assistant's, unless you changed it.", es: 'El de Home Assistant, salvo que lo cambiaras.' } } },
+  },
+};
+
+function HomeAssistantCard() {
+  const cfg = config.value!;
+  const st = status.value?.homeassistant;
+  const value = cfg.homeassistant ?? { enabled: false, broker: '', discoveryPrefix: 'homeassistant', nodeId: 'kiosko' };
+  return (
+    <section class="card">
+      <h3>
+        <Icon name="house" size={16} /> {tr('settings.ha')}
+        {st?.enabled && (
+          <span class={`status-pill ${st.state === 'connected' ? 'ok' : st.state === 'error' ? 'bad' : ''}`} title={st.error ?? ''} style="margin-left:auto">
+            <span class="dot" /> {st.state === 'connected' ? tr('settings.haConnected') : st.state === 'error' ? st.error : tr('settings.haConnecting')}
+          </span>
+        )}
+      </h3>
+      <p class="muted small">{tr('settings.haHint')}</p>
+      <div style="max-width:760px">
+        <SchemaForm schema={HA_SCHEMA} value={value as unknown as Record<string, unknown>} onChange={(v, k) => edit((d) => (d.homeassistant = v as unknown as NonNullable<typeof d.homeassistant>), `ha-${k}`)} idPrefix="ha" />
+      </div>
+    </section>
   );
 }
 
