@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createCanvas } from '@napi-rs/canvas';
-import { measureTracked, registerFontFiles, wrapLines } from './text.ts';
+import { clearTextCache, measureTracked, registerFontFiles, wrapLines } from './text.ts';
 
 /** Widths depend on real fonts; without them there is nothing to test. */
 const MONO = 'TestMono';
@@ -58,4 +58,20 @@ test('wrapLines: degenerate cases', { skip }, () => {
 
 test('wrapLines: collapses line breaks and repeated spaces', { skip }, () => {
   assert.deepEqual(wrapLines(ctx, 'one\n\ntwo   three', W, 3, opts), ['one two three']);
+});
+
+test('measuring is cached by font and character: the same widths, without asking the canvas again', () => {
+  const c = createCanvas(10, 10).getContext('2d');
+  clearTextCache();
+  let asked = 0;
+  const measure = c.measureText.bind(c);
+  (c as unknown as { measureText: typeof measure }).measureText = (t: string) => (asked++, measure(t));
+  const o = { size: 18 };
+  const w1 = measureTracked(c, 'banana', o);
+  const first = asked;
+  assert.equal(first, 3, 'b, a, n: one each');
+  assert.equal(measureTracked(c, 'banana', o), w1);
+  assert.equal(asked, first, 'nothing measured again');
+  measureTracked(c, 'banana', { size: 19 });
+  assert.equal(asked, first + 3, 'another size is another font');
 });
