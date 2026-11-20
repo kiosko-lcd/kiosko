@@ -34,7 +34,7 @@ function pluginCards(data, texts, lang, prefix) {
     .map((p) => {
       const shots = p.widgets
         .slice(0, 2)
-        .map((w) => `<img src="${prefix}gallery/${esc(w.file)}" width="${w.width}" height="${w.height}" loading="lazy" alt="${say(w.name)}" />`)
+        .map((w) => `<img src="${prefix}gallery/${esc(w.file[lang] ?? w.file.en)}" width="${w.width}" height="${w.height}" loading="lazy" alt="${say(w.name)}" />`)
         .join('');
       return `<article class="plugin"><div class="shots">${shots}</div><div class="about"><h3>${say(p.name)} <code>${esc(p.id)}</code></h3><p>${say(p.description)}</p><p class="count">${esc(plural(texts, lang, 'card-widgets', p.widgets.length))}</p></div></article>`;
     })
@@ -53,7 +53,7 @@ export async function buildSite({ out, editorOptions }) {
     const doctor = spawnSync(process.execPath, ['--conditions=source', join(root, 'packages/server/src/cli.ts'), 'doctor'], { encoding: 'utf8', env: { ...process.env, KIOSKO_HOME: home } });
     const fonts = /^fonts +(.*)$/m.exec(doctor.stdout ?? '')?.[1] ?? '';
     if (!fonts || fonts.startsWith('✗')) throw new Error(`site build: ${fonts || 'kiosko doctor said nothing about fonts'}`);
-    const cli = spawnSync(process.execPath, ['--conditions=source', join(root, 'packages/server/src/cli.ts'), 'gallery', '--out', join(out, 'gallery'), '--pages', join(root, 'examples/showcase.json')], {
+    const cli = spawnSync(process.execPath, ['--conditions=source', join(root, 'packages/server/src/cli.ts'), 'gallery', '--all-languages', '--out', join(out, 'gallery'), '--pages', join(root, 'examples/showcase.json')], {
       stdio: 'inherit',
       env: { ...process.env, KIOSKO_HOME: home },
     });
@@ -101,8 +101,8 @@ export async function buildSite({ out, editorOptions }) {
   };
   const template = readFileSync(join(here, 'index.html'), 'utf8');
   for (const l of LANGS) {
-    mkdirSync(join(out, l.dir), { recursive: true });
-    writeFileSync(join(out, l.dir, 'index.html'), renderPage(template, texts, l.id, fill));
+    mkdirSync(join(out, l.path), { recursive: true });
+    writeFileSync(join(out, l.path, 'index.html'), renderPage(template, texts, l.id, fill));
   }
   writeFileSync(join(out, 'sitemap.xml'), sitemap());
   writeFileSync(join(out, 'robots.txt'), 'User-agent: *\nAllow: /\nSitemap: https://kioskolcd.dev/sitemap.xml\n');

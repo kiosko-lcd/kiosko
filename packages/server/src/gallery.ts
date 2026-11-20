@@ -10,73 +10,106 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Runtime, composeWidget, normalize, type Config, type Registry } from '@kiosko/core';
-import { localize, themeById } from '@kiosko/sdk';
+import { LANGUAGES, localize, themeById } from '@kiosko/sdk';
 
-/**
- * The languages the site speaks (packages/web/landing/pages.mjs), and the
- * locale the panel paints each in.
- */
-export const SITE_LANGS = { en: 'en', es: 'es', 'zh-Hant': 'zh-TW', 'zh-Hans': 'zh-CN' } as const;
-export type SiteLang = keyof typeof SITE_LANGS;
-
-/** A text in the languages the site speaks. */
-type Both = Record<SiteLang, string>;
+/** A text in each language the gallery is painted in, by language id. */
+type Both = Record<string, string>;
 
 /** gallery.json: what the front page (packages/web/landing) needs to know. */
 export interface GalleryData {
   count: number;
-  plugins: { id: string; version: string; name: Both; description: Both; widgets: { type: string; name: Both; description: Both; file: string; width: number; height: number }[] }[];
+  /** The language ids it was painted in; the first is the default (`img/…`). */
+  languages: string[];
+  plugins: { id: string; version: string; name: Both; description: Both; widgets: { type: string; name: Both; description: Both; file: Both; width: number; height: number }[] }[];
   /** Pages of a sample screen, as pictures in each language (`pages` option). */
   pages: { id: string; name: string; file: Both; width: number; height: number }[];
 }
 
 /** The editor running in the browser with sample data (built by the Pages workflow next to the gallery). */
 const HOME_URL = 'https://kioskolcd.dev/';
-const DEMO_URL = 'https://kioskolcd.dev/demo/';
 const RELEASES_URL = 'https://github.com/kiosko-lcd/kiosko/releases/latest';
-const USB_URL = 'https://github.com/kiosko-lcd/kiosko/blob/main/docs/usb.md';
+
+/** Where the sample data says the user is, by language: a place its readers know. */
+const PLACES: Record<string, { latitude: number; longitude: number; name: string }> = {
+  'zh-Hant': { latitude: 25.033, longitude: 121.5654, name: '台北' },
+  'zh-Hans': { latitude: 31.2304, longitude: 121.4737, name: '上海' },
+};
+const MADRID = { latitude: 40.4168, longitude: -3.7038, name: 'Madrid' };
+
+/** The gallery page's own words. */
+const T = {
+  title: { en: 'Kiosko widget gallery', es: 'Galería de widgets de Kiosko', 'zh-Hant': 'Kiosko 小工具展示', 'zh-Hans': 'Kiosko 小组件展示' },
+  lede: { en: '{n} widgets, painted with their demo data by the same code that drives the panels.', es: '{n} widgets, pintados con sus datos de muestra por el mismo código que mueve los paneles.', 'zh-Hant': '{n} 個小工具，以範例資料繪製，用的正是驅動面板的同一套程式碼。', 'zh-Hans': '{n} 个小组件，用示例数据绘制，用的正是驱动副屏的同一套代码。' },
+  github: { en: 'Kiosko on GitHub', es: 'Kiosko en GitHub', 'zh-Hant': 'GitHub 上的 Kiosko', 'zh-Hans': 'GitHub 上的 Kiosko' },
+  editor: { en: 'Try the editor in your browser →', es: 'Prueba el editor en tu navegador →', 'zh-Hant': '在瀏覽器中試用編輯器 →', 'zh-Hans': '在浏览器中试用编辑器 →' },
+  in3d: { en: 'See a panel in 3D →', es: 'Ver un panel en 3D →', 'zh-Hant': '以 3D 檢視面板 →', 'zh-Hans': '查看 3D 副屏 →' },
+  os: {
+    en: '<b>On Linux, macOS and Windows.</b> Windows has an installer, no Node.js needed: <a href="{releases}">download Kiosko for Windows</a>. USB panels talk to Kiosko directly: <a href="{usb}">how to connect one</a>.',
+    es: '<b>En Linux, macOS y Windows.</b> Windows tiene instalador, sin necesidad de Node.js: <a href="{releases}">descarga Kiosko para Windows</a>. Los paneles USB hablan directamente con Kiosko: <a href="{usb}">cómo conectar uno</a>.',
+    'zh-Hant': '<b>支援 Linux、macOS 與 Windows。</b>Windows 有安裝程式，不需要 Node.js：<a href="{releases}">下載 Windows 版 Kiosko</a>。USB 面板直接與 Kiosko 溝通：<a href="{usb}">如何連接面板</a>。',
+    'zh-Hans': '<b>支持 Linux、macOS 和 Windows。</b>Windows 有安装程序，无需 Node.js：<a href="{releases}">下载 Windows 版 Kiosko</a>。USB 副屏直接与 Kiosko 通信：<a href="{usb}">如何连接副屏</a>。',
+  },
+};
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'page';
 
-export function buildGallery(registry: Registry, o: { out: string; locale?: string; theme?: string; now?: number; pages?: Config }): number {
-  const locale = o.locale ?? 'en';
+/**
+ * `languages: true`: in every language Kiosko speaks (the site): pictures in
+ * `img/` (English) and `img/<id>/`, a page in `index.html` and `<id>/index.html`.
+ * Otherwise in `locale` only.
+ */
+export function buildGallery(registry: Registry, o: { out: string; locale?: string; languages?: boolean; theme?: string; now?: number; pages?: Config }): number {
   const theme = themeById(o.theme);
   const now = o.now ?? Date.now();
-  const cfg = normalize({ locale, theme: theme.id, location: { latitude: 40.4168, longitude: -3.7038, name: 'Madrid' } });
-  mkdirSync(join(o.out, 'img'), { recursive: true });
-  const L = (x: Parameters<typeof localize>[0]) => localize(x, locale);
-  const langs = Object.entries(SITE_LANGS) as [SiteLang, string][];
-  const both = (x: Parameters<typeof localize>[0]): Both => Object.fromEntries(langs.map(([id, loc]) => [id, localize(x, loc)])) as Both;
-  const data: GalleryData = { count: 0, plugins: [], pages: [] };
-  const sections: string[] = [];
+  const langs = o.languages ? LANGUAGES.map((l) => ({ id: l.id, locale: l.panel, dir: l.dir })) : [{ id: o.locale ?? 'en', locale: o.locale ?? 'en', dir: 'ltr' as const }];
+  const first = langs[0]!.id;
+  const folder = (id: string) => (id === first ? '' : `${id}/`);
+  const both = (x: Parameters<typeof localize>[0]): Both => Object.fromEntries(langs.map((l) => [l.id, localize(x, l.locale)]));
+  const data: GalleryData = { count: 0, languages: langs.map((l) => l.id), plugins: [], pages: [] };
   let count = 0;
-  for (const { def, enabled } of registry.list()) {
-    if (!enabled || !def.widgets?.length) continue;
-    const listed: GalleryData['plugins'][number] = { id: def.id, version: def.version, name: both(def.name), description: both(def.description), widgets: [] };
-    data.plugins.push(listed);
-    const cards = def.widgets.map((w) => {
-      const pref = w.size?.preferred ?? { w: 480, h: 300 };
-      const width = Math.min(1920, pref.w);
-      const height = Math.min(720, pref.h);
-      const file = `img/${def.id}-${w.id}.png`;
-      const r = composeWidget({ cfg, registry, theme, type: `${def.id}/${w.id}`, width, height, now, ...(w.chrome === 'bare' ? {} : { title: L(w.name) }) });
-      writeFileSync(join(o.out, file), r.canvas.toBuffer('image/png'));
-      count++;
-      listed.widgets.push({ type: `${def.id}/${w.id}`, name: both(w.name), description: both(w.description), file, width, height });
-      const wide = width >= 900;
-      return `<figure class="${wide ? 'wide' : ''}"><div class="shot"><img src="${file}" width="${width}" height="${height}" loading="lazy" alt="${esc(L(w.name))}"></div><figcaption><b>${esc(L(w.name))}</b> <code>${def.id}/${w.id}</code><span>${esc(L(w.description))}</span></figcaption></figure>`;
-    });
-    sections.push(`<section><h2>${esc(L(def.name))} <small>${esc(def.id)} · v${esc(def.version)}</small></h2><p>${esc(L(def.description))}</p><div class="grid">${cards.join('')}</div></section>`);
-  }
-  writeFileSync(
-    join(o.out, 'index.html'),
-    `<!doctype html><html lang="${locale}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Kiosko widget gallery</title>
+  const pluginsOf = registry.list().filter(({ def, enabled }) => enabled && def.widgets?.length);
+  for (const lang of langs) {
+    mkdirSync(join(o.out, 'img', folder(lang.id)), { recursive: true });
+    const cfg = normalize({ locale: lang.locale, theme: theme.id, location: PLACES[lang.id] ?? MADRID });
+    const L = (x: Parameters<typeof localize>[0]) => localize(x, lang.locale);
+    const up = folder(lang.id) ? '../' : '';
+    const sections: string[] = [];
+    for (const { def } of pluginsOf) {
+      let listed = data.plugins.find((p) => p.id === def.id);
+      if (!listed) data.plugins.push((listed = { id: def.id, version: def.version, name: both(def.name), description: both(def.description), widgets: [] }));
+      const cards = def.widgets!.map((w) => {
+        const pref = w.size?.preferred ?? { w: 480, h: 300 };
+        const width = Math.min(1920, pref.w);
+        const height = Math.min(720, pref.h);
+        const file = `img/${folder(lang.id)}${def.id}-${w.id}.png`;
+        const r = composeWidget({ cfg, registry, theme, type: `${def.id}/${w.id}`, width, height, now, ...(w.chrome === 'bare' ? {} : { title: L(w.name) }) });
+        writeFileSync(join(o.out, file), r.canvas.toBuffer('image/png'));
+        let shot = listed!.widgets.find((x) => x.type === `${def.id}/${w.id}`);
+        if (!shot) {
+          count++;
+          listed!.widgets.push((shot = { type: `${def.id}/${w.id}`, name: both(w.name), description: both(w.description), file: {}, width, height }));
+        }
+        shot.file[lang.id] = file;
+        const wide = width >= 900;
+        return `<figure class="${wide ? 'wide' : ''}"><div class="shot"><img src="${up}${file}" width="${width}" height="${height}" loading="lazy" alt="${esc(L(w.name))}"></div><figcaption><b>${esc(L(w.name))}</b> <code>${def.id}/${w.id}</code><span>${esc(L(w.description))}</span></figcaption></figure>`;
+      });
+      sections.push(`<section><h2>${esc(L(def.name))} <small>${esc(def.id)} · v${esc(def.version)}</small></h2><p>${esc(L(def.description))}</p><div class="grid">${cards.join('')}</div></section>`);
+    }
+    const home = `${HOME_URL}${folder(lang.id)}`;
+    const usb = `https://github.com/kiosko-lcd/kiosko/blob/main/docs/${lang.id.startsWith('zh') ? `${lang.id}/` : ''}usb.md`;
+    mkdirSync(join(o.out, folder(lang.id)), { recursive: true });
+    writeFileSync(
+      join(o.out, folder(lang.id), 'index.html'),
+      `<!doctype html><html lang="${lang.id}" dir="${lang.dir}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(L(T.title))}</title>
 <style>
 :root{color-scheme:dark;--bg:#0a0d13;--panel:#121722;--line:rgba(255,255,255,.08);--text:#e7ecf4;--dim:#a3adbf}
 body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+html:lang(zh-Hant) body{font-family:"PingFang TC","Microsoft JhengHei","Noto Sans TC","Noto Sans CJK TC",ui-sans-serif,system-ui,sans-serif}
+html:lang(zh-Hans) body{font-family:"PingFang SC","Microsoft YaHei","Noto Sans SC","Noto Sans CJK SC",ui-sans-serif,system-ui,sans-serif}
 header{padding:40px 24px 8px;max-width:1240px;margin:auto}h1{margin:0;font-size:32px;letter-spacing:-.02em}
+html:lang(zh) h1{letter-spacing:0}
 header p{color:var(--dim);margin:6px 0 0}main{max-width:1240px;margin:auto;padding:0 24px 60px}
 h2{margin:36px 0 4px;font-size:20px}h2 small{color:var(--dim);font-weight:500;font-size:13px;margin-left:8px}section>p{color:var(--dim);margin:0 0 14px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;align-items:start}
@@ -86,23 +119,24 @@ figcaption code{color:#22d3ee;font-size:12px}figcaption span{flex-basis:100%;col
 a{color:#22d3ee}
 p.os{margin-top:14px}p.os b{color:var(--text)}
 a.try{display:inline-block;margin-top:10px;padding:8px 14px;border-radius:10px;background:linear-gradient(135deg,#8b5cf6,#22d3ee);color:#fff;font-weight:600;text-decoration:none}
-</style></head><body><header><p><a href="${HOME_URL}">← Kiosko</a></p><h1>Kiosko widget gallery</h1><p>${count} widgets, painted with their demo data by the same code that drives the panels. <a href="https://github.com/kiosko-lcd/kiosko">Kiosko on GitHub</a></p><p><a class="try" href="${DEMO_URL}">Try the editor in your browser →</a> &nbsp; <a class="try" href="${DEMO_URL}3d/">See a panel in 3D →</a></p><p class="os"><b>Now on Linux, macOS and Windows.</b> Windows has an installer, no Node.js needed: <a href="${RELEASES_URL}">download Kiosko for Windows</a>. USB panels talk to Kiosko directly, with no Python: <a href="${USB_URL}">how to connect one</a>.</p></header><main>${sections.join('')}</main></body></html>`,
-  );
+</style></head><body><header><p><a href="${home}">← Kiosko</a></p><h1>${esc(L(T.title))}</h1><p>${esc(L(T.lede).replace('{n}', String(pluginsOf.reduce((n, p) => n + p.def.widgets!.length, 0))))} <a href="https://github.com/kiosko-lcd/kiosko">${esc(L(T.github))}</a></p><p><a class="try" href="${HOME_URL}demo/">${esc(L(T.editor))}</a> &nbsp; <a class="try" href="${HOME_URL}demo/3d/?lang=${lang.locale}">${esc(L(T.in3d))}</a></p><p class="os">${L(T.os).replace('{releases}', RELEASES_URL).replace('{usb}', usb)}</p></header><main>${sections.join('')}</main></body></html>`,
+    );
+  }
   // The pages of a sample screen (the most bar-shaped one), for the front page to show before anything loads.
   if (o.pages) {
     const sample = normalize(o.pages);
     const screen = [...sample.screens].sort((a, b) => b.width / b.height - a.width / a.height)[0];
     for (const page of screen?.pages.filter((p) => p.enabled !== false) ?? []) {
       const name = `img/page-${slug(page.name || page.id)}`;
-      data.pages.push({ id: page.id, name: page.name, file: Object.fromEntries(langs.map(([id]) => [id, id === 'en' ? `${name}.jpg` : `${name}.${id}.jpg`])) as Both, width: screen!.width, height: screen!.height });
+      data.pages.push({ id: page.id, name: page.name, file: Object.fromEntries(langs.map((l) => [l.id, l.id === first ? `${name}.jpg` : `${name}.${l.id}.jpg`])), width: screen!.width, height: screen!.height });
     }
     // The widgets speak the config's language: each picture is painted once in each.
-    for (const [lang, panelLocale] of langs) {
-      const rt = new Runtime(registry, { ...sample, locale: panelLocale }, { demo: true });
+    for (const l of langs) {
+      const rt = new Runtime(registry, { ...sample, locale: l.locale, location: PLACES[l.id] ?? sample.location ?? MADRID }, { demo: true });
       try {
         for (const listed of data.pages) {
           const page = screen!.pages.find((p) => p.id === listed.id)!;
-          writeFileSync(join(o.out, listed.file[lang]), rt.preview(screen!, page, { now, demo: true }).canvas.toBuffer('image/jpeg', 88));
+          writeFileSync(join(o.out, listed.file[l.id]!), rt.preview(screen!, page, { now, demo: true }).canvas.toBuffer('image/jpeg', 88));
         }
       } finally {
         rt.stop();

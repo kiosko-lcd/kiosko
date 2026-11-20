@@ -17,14 +17,14 @@ import { effect } from '@preact/signals';
 import { newPage, newWidget, type Tile } from '@kiosko/core/model';
 import { TOUR_CHANNEL, type TourMessage, type TourOrder } from '../../demo/protocol.ts';
 import { addTileAt } from '../editor/Stage.tsx';
+import { languageById } from '@kiosko/sdk/languages';
 import { config, draftPage, draftScreen, draftTile, edit, go, page, pageId, screen, screenId, selectedTile, selectedWidget, uiTheme, widgets } from '../store.ts';
 
 /** The page it composes; one left from a previous round is removed. */
 const PAGE_NAME = 'My desk';
 
 /** The front page's language (en, es, zh-Hant, zh-Hans) as the locale the config gets: the panel paints in it. */
-const LOCALES: Record<string, string> = { en: 'en', es: 'es', 'zh-Hant': 'zh-TW', 'zh-Hans': 'zh-CN' };
-const language = (l: unknown): string | null => (typeof l === 'string' ? (LOCALES[l] ?? null) : null);
+const language = (l: unknown): string | null => (typeof l === 'string' ? (languageById(l)?.panel ?? null) : null);
 
 /** Asked for in the address: the editor drives itself and keeps nothing. */
 export function touring(): boolean {

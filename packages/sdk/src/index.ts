@@ -2,6 +2,7 @@ export * from './plugin.ts';
 export * from './schema.ts';
 export * from './theme.ts';
 export * from './i18n.ts';
+export * from './languages.ts';
 export * from './format.ts';
 export * from './workday.ts';
 export * from './list.ts';

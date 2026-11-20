@@ -467,13 +467,13 @@ async function openFront(browser, { locale = 'en-US', width = 1440, height = 900
   return { ctx, page, errors };
 }
 
-/** The front page's languages: where each lives and words of its headline (landing/pages.mjs, i18n/). */
-const FRONT_LANGS = [
-  { id: 'en', dir: '', locale: 'en-US', headline: /finally useful/i },
-  { id: 'es', dir: 'es/', locale: 'es-ES', headline: /por fin útil/i },
-  { id: 'zh-Hant', dir: 'zh-Hant/', locale: 'zh-TW', headline: /終於派上用場/ },
-  { id: 'zh-Hans', dir: 'zh-Hans/', locale: 'zh-CN', headline: /终于派上用场/ },
-];
+/** The front page's languages (packages/sdk/src/languages.ts): where each lives, a browser locale that asks for it, and its headline (landing/i18n). */
+const { LANGUAGES } = await import(new URL('../packages/sdk/src/languages.ts', import.meta.url).href);
+const FRONT_LANGS = LANGUAGES.map((l) => {
+  const words = JSON.parse(readFileSync(new URL(`../packages/web/landing/i18n/${l.id}.json`, import.meta.url), 'utf8'));
+  const headline = words['the-little-screen-on-your'].replace(/<[^>]+>/g, '').trim();
+  return { id: l.id, dir: l.id === 'en' ? '' : `${l.id}/`, locale: l.panel === 'en' ? 'en-US' : l.panel, headline: new RegExp(headline.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s*')) };
+});
 
 /** What the page says: its address, its language and its headline. */
 const frontState = (page) =>

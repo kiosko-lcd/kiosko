@@ -12,6 +12,7 @@
  *
  * Without WebGL the page still reads: the panel is a picture and stays one.
  */
+import { languageById } from '@kiosko/sdk/languages';
 import { onRendererEvent, renderer } from '../src/demo/client.ts';
 import { DEMO_CONFIG_KEY, TOUR_CHANNEL, type StageChannel, type TourMessage, type TourOrder } from '../demo/protocol.ts';
 import { Scene3D, type Direction } from '../panel3d/scene.ts';
@@ -58,8 +59,7 @@ const steps = [...story.querySelectorAll<HTMLElement>('.step')].map((el) => ({ e
 /** The page's language, as the site names it (en, es, zh-Hant, zh-Hans). */
 const language = () => html.lang || 'en';
 /** The locale the panel paints in for this page: dates and widget texts. */
-const PANEL_LOCALE: Record<string, string> = { en: 'en', es: 'es', 'zh-Hant': 'zh-TW', 'zh-Hans': 'zh-CN' };
-const panelLocale = () => PANEL_LOCALE[language()] ?? 'en';
+const panelLocale = () => languageById(language())?.panel ?? 'en';
 for (const a of document.querySelectorAll<HTMLAnchorElement>('.lang a[data-lang]')) {
   a.addEventListener('click', () => {
     try {

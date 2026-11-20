@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 // @ts-expect-error plain JavaScript, run by the site build
 import { LANGS, loadTexts, plural, renderPage, sitemap } from './pages.mjs';
 
-type Lang = { id: string; dir: string; hreflang: string[]; panel: string };
+type Lang = { id: string; path: string; hreflang: string[]; panel: string; dir: string };
 const here = fileURLToPath(new URL('.', import.meta.url));
 const texts = loadTexts(join(here, 'i18n')) as Record<string, Record<string, string>>;
 const template = readFileSync(join(here, 'index.html'), 'utf8');
@@ -63,11 +63,11 @@ test('one page per language, each saying what it is and where the others are', (
   for (const l of langs) {
     const page = renderPage(template, texts, l.id, fill) as string;
     assert.doesNotMatch(page, /\{\{/, `${l.id}: something left unfilled`);
-    assert.match(page, new RegExp(`<html lang="${l.id}">`));
-    assert.match(page, new RegExp(`<link rel="canonical" href="https://kioskolcd.dev/${l.dir}" />`));
-    for (const other of langs) for (const h of other.hreflang) assert.match(page, new RegExp(`hreflang="${h}" href="https://kioskolcd.dev/${other.dir}"`), `${l.id}: ${h}`);
+    assert.match(page, new RegExp(`<html lang="${l.id}" dir="${l.dir}">`));
+    assert.match(page, new RegExp(`<link rel="canonical" href="https://kioskolcd.dev/${l.path}" />`));
+    for (const other of langs) for (const h of other.hreflang) assert.match(page, new RegExp(`hreflang="${h}" href="https://kioskolcd.dev/${other.path}"`), `${l.id}: ${h}`);
     // Paths from the site's root: a page one folder down goes up first.
-    const root = l.dir ? '../' : '';
+    const root = l.path ? '../' : '';
     assert.ok(page.includes(`href="${root}demo/"`), `${l.id}: editor link`);
     assert.ok(page.includes(`src="${root}gallery/img/page-cats.${l.id}.jpg"`), `${l.id}: its own poster`);
     assert.ok(page.includes(`data-lang="${l.id}" data-root="${root}"`), `${l.id}: plugin cards in its language`);
@@ -86,4 +86,31 @@ test('the sitemap lists every language with its alternates', () => {
   assert.equal(xml.match(/<url>/g)!.length, langs.length);
   assert.match(xml, /<loc>https:\/\/kioskolcd\.dev\/zh-Hant\/<\/loc>/);
   assert.match(xml, /hreflang="x-default" href="https:\/\/kioskolcd\.dev\/"/);
+});
+
+test('a first visit to / goes to the visitor’s language, for every language the site has', async () => {
+  const { runInNewContext } = await import('node:vm');
+  const page = renderPage(template, texts, 'en', fill) as string;
+  const script = /<script>\s*\(function \(\) \{[\s\S]*?location\.replace[\s\S]*?<\/script>/.exec(page)![0].replace(/<\/?script>/g, '');
+  const go = (languages: string[], saved: string | null = null) => {
+    let went: string | null = null;
+    runInNewContext(script, {
+      Intl, String, Object, window: {},
+      location: { search: '', hash: '', replace: (u: string) => (went = u) },
+      localStorage: { getItem: () => saved },
+      navigator: { languages, language: languages[0] },
+    });
+    return went;
+  };
+  for (const l of langs) assert.equal(go([l.id]), l.path || null, l.id);
+  assert.equal(go(['zh-TW']), 'zh-Hant/');
+  assert.equal(go(['zh-HK']), 'zh-Hant/');
+  assert.equal(go(['yue-HK']), 'zh-Hant/');
+  assert.equal(go(['zh-CN']), 'zh-Hans/');
+  assert.equal(go(['zh-SG']), 'zh-Hans/');
+  assert.equal(go(['es-MX']), 'es/');
+  assert.equal(go(['fr-FR']), null, 'a language the site lacks stays in English');
+  assert.equal(go(['en-GB', 'zh-TW']), null, 'the first one that fits wins');
+  assert.equal(go(['fr-FR', 'zh-TW']), 'zh-Hant/');
+  assert.equal(go(['zh-TW'], 'en'), null, 'a choice made in the menu is kept');
 });

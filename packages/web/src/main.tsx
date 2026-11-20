@@ -2,7 +2,7 @@ import { render } from 'preact';
 import { effect } from '@preact/signals';
 import { Editor } from './editor/Editor.tsx';
 import { Icon } from './icons.tsx';
-import { t, tr, uiLanguage } from './i18n.ts';
+import { UI_LANGUAGES, t, tr, uiLanguage } from './i18n.ts';
 import { app, boot, config, go, online, pageId, saveError, saving, screen, screenId, selectedTile, status, toast, view, type View } from './store.ts';
 import { Screens } from './views/Screens.tsx';
 import { Logs, Plugins, Settings } from './views/Others.tsx';
@@ -141,7 +141,9 @@ function App() {
 // The page's language picks the glyphs (the same Han character is drawn
 // differently in Taiwan and mainland China) and what a screen reader speaks.
 effect(() => {
-  document.documentElement.lang = uiLanguage();
+  const lang = uiLanguage();
+  document.documentElement.lang = lang;
+  document.documentElement.dir = UI_LANGUAGES.find((l) => l.id === lang)?.dir ?? 'ltr';
 });
 
 render(<App />, document.getElementById('app')!);
