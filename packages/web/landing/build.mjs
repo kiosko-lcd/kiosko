@@ -20,17 +20,24 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildDemo } from '../demo/build.mjs';
 import { LANGS, esc, loadTexts, plural, renderPage, sitemap } from './pages.mjs';
+import { languageById } from '../../sdk/src/languages.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, '../../..');
+
+/** The plugins the site offers in `lang`: not those whose service is missing where it is read. */
+const offered = (data, lang) => data.plugins.filter((p) => !languageById(lang)?.plugins?.without.includes(p.id));
 
 /** The plugins as cards, in `lang`: what each is, and a couple of its widgets as painted for the gallery. */
 function pluginCards(data, texts, lang, prefix) {
   const say = (t) => esc(t[lang] ?? t.en);
   // What ships inside Kiosko itself goes last: the others are what there is to discover.
   const builtin = (p) => (p.id === 'legacy' ? 2 : p.id === 'core' ? 1 : 0);
-  return [...data.plugins]
-    .sort((a, b) => builtin(a) - builtin(b))
+  // Where a plugin's service is not offered, it isn't either (languages.ts): local models lead instead.
+  const market = languageById(lang)?.plugins;
+  const first = (p) => { const i = market?.first.indexOf(p.id) ?? -1; return i < 0 ? Infinity : i; };
+  return offered(data, lang)
+    .sort((a, b) => builtin(a) - builtin(b) || first(a) - first(b))
     .map((p) => {
       const shots = p.widgets
         .slice(0, 2)
@@ -98,8 +105,8 @@ export async function buildSite({ out, editorOptions }) {
     JS: `demo/assets/landing.js?v=${hash('landing.js')}`,
     POSTER: Object.fromEntries(LANGS.map((l) => [l.id, `gallery/${poster.file[l.id]}`])),
     PLUGINS: (lang, prefix) => pluginCards(gallery, texts, lang, prefix),
-    PLUGIN_COUNT: String(gallery.plugins.length),
-    WIDGET_COUNT: String(gallery.count),
+    PLUGIN_COUNT: (lang) => String(offered(gallery, lang).length),
+    WIDGET_COUNT: (lang) => String(offered(gallery, lang).reduce((n, p) => n + p.widgets.length, 0)),
     VERSION: esc(version),
   };
   const template = readFileSync(join(here, 'index.html'), 'utf8');

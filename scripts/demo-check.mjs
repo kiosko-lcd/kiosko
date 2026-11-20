@@ -211,6 +211,12 @@ async function pageLanguage(browser) {
   check('opened from a page in Chinese, the sample and the editor speak it (browser in English)', names.some((n) => n.includes('總覽')) && lang.startsWith('zh'), `pages ${names.map((n) => n.slice(0, 8)).join(', ')}; html lang ${lang}`);
   check('no errors with ?lang=', errors.length === 0, errors.join(' | '));
   await ctx.close();
+  // Mainland China: no Claude or Gemini, so no agents, cats or usage in the library; local models are there.
+  const cn = await openDemo(browser, { query: '?lang=zh-CN' });
+  await cn.page.waitForSelector('.lib-item');
+  const types = await cn.page.$$eval('.lib-item', (l) => l.map((e) => e.getAttribute('data-type') ?? ''));
+  check('opened from the Simplified Chinese page: local models, and no agents, cats or usage', !types.some((t) => /^(agents|cats|usage)\//.test(t)) && types.some((t) => t.startsWith('llm/')), `${types.length} widgets: ${types.filter((t) => /^(agents|cats|usage|llm)\//.test(t)).join(', ')}`);
+  await cn.ctx.close();
 }
 
 async function fullCheck(browser) {
@@ -489,7 +495,7 @@ const { LANGUAGES } = await import(new URL('../packages/sdk/src/languages.ts', i
 const FRONT_LANGS = LANGUAGES.map((l) => {
   const words = JSON.parse(readFileSync(new URL(`../packages/web/landing/i18n/${l.id}.json`, import.meta.url), 'utf8'));
   const headline = words['the-little-screen-on-your'].replace(/<[^>]+>/g, '').trim();
-  return { id: l.id, dir: l.id === 'en' ? '' : `${l.id}/`, locale: l.panel === 'en' ? 'en-US' : l.panel, headline: new RegExp(headline.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s*')) };
+  return { id: l.id, plugins: l.plugins, dir: l.id === 'en' ? '' : `${l.id}/`, locale: l.panel === 'en' ? 'en-US' : l.panel, headline: new RegExp(headline.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s*')) };
 });
 
 /** What the page says: its address, its language and its headline. */
@@ -609,6 +615,11 @@ async function frontPage(browser, name) {
     await other.page.waitForURL((u) => u.pathname.endsWith(`/${l.dir}`), { timeout: 10_000 }).catch(() => undefined);
     const got = await frontState(other.page);
     check(`${name} front page: in ${l.id} for a browser in ${l.locale}`, got.lang === l.id && l.headline.test(got.headline) && other.errors().length === 0, `lang ${got.lang} at ${got.path}, "${got.headline}" ${other.errors().slice(0, 2).join(' | ')}`);
+    if (l.plugins) {
+      // Where a plugin's service is not offered (languages.ts), no card for it; local models first.
+      const ids = await other.page.$$eval('.plugin h3 code', (c) => c.map((e) => e.textContent));
+      check(`${name} front page: in ${l.id}, no ${l.plugins.without.join(', ')}; ${l.plugins.first.join(', ')} first`, ids.length > 0 && !ids.some((i) => l.plugins.without.includes(i)) && l.plugins.first.every((f, i) => ids[i] === f), ids.join(', '));
+    }
     if (l.id.startsWith('zh')) await shot(other.page, `front-${l.id}-${name}.jpg`);
     await other.ctx.close();
   }

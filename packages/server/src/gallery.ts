@@ -10,7 +10,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Runtime, SAMPLE_PLACES, composeWidget, localizeSample, normalize, type Config, type Registry } from '@kiosko/core';
-import { LANGUAGES, localize, themeById } from '@kiosko/sdk';
+import { LANGUAGES, languageById, localize, themeById } from '@kiosko/sdk';
 
 /** A text in each language the gallery is painted in, by language id. */
 type Both = Record<string, string>;
@@ -72,6 +72,9 @@ export function buildGallery(registry: Registry, o: { out: string; locale?: stri
     const L = (x: Parameters<typeof localize>[0]) => localize(x, lang.locale);
     const up = folder(lang.id) ? '../' : '';
     const sections: string[] = [];
+    // Plugins whose service is not offered where the language is read (languages.ts) are painted, not listed.
+    const without = languageById(lang.id)?.plugins?.without ?? [];
+    const listedHere = pluginsOf.filter(({ def }) => !without.includes(def.id));
     for (const { def } of pluginsOf) {
       let listed = data.plugins.find((p) => p.id === def.id);
       if (!listed) data.plugins.push((listed = { id: def.id, version: def.version, name: both(def.name), description: both(def.description), widgets: [] }));
@@ -91,7 +94,7 @@ export function buildGallery(registry: Registry, o: { out: string; locale?: stri
         const wide = width >= 900;
         return `<figure class="${wide ? 'wide' : ''}"><div class="shot"><img src="${up}${file}" width="${width}" height="${height}" loading="lazy" alt="${esc(L(w.name))}"></div><figcaption><b>${esc(L(w.name))}</b> <code>${def.id}/${w.id}</code><span>${esc(L(w.description))}</span></figcaption></figure>`;
       });
-      sections.push(`<section><h2>${esc(L(def.name))} <small>${esc(def.id)} · v${esc(def.version)}</small></h2><p>${esc(L(def.description))}</p><div class="grid">${cards.join('')}</div></section>`);
+      if (!without.includes(def.id)) sections.push(`<section><h2>${esc(L(def.name))} <small>${esc(def.id)} · v${esc(def.version)}</small></h2><p>${esc(L(def.description))}</p><div class="grid">${cards.join('')}</div></section>`);
     }
     const home = `${HOME_URL}${folder(lang.id)}`;
     const usb = `https://github.com/kiosko-lcd/kiosko/blob/main/docs/${lang.id.startsWith('zh') ? `${lang.id}/` : ''}usb.md`;
@@ -115,7 +118,7 @@ figcaption code{color:#22d3ee;font-size:12px}figcaption span{flex-basis:100%;col
 a{color:#22d3ee}
 p.os{margin-top:14px}p.os b{color:var(--text)}
 a.try{display:inline-block;margin-top:10px;padding:8px 14px;border-radius:10px;background:linear-gradient(135deg,#8b5cf6,#22d3ee);color:#fff;font-weight:600;text-decoration:none}
-</style></head><body><header><p><a href="${home}">← Kiosko</a></p><h1>${esc(L(T.title))}</h1><p>${esc(L(T.lede).replace('{n}', String(pluginsOf.reduce((n, p) => n + p.def.widgets!.length, 0))))} <a href="https://github.com/kiosko-lcd/kiosko">${esc(L(T.github))}</a></p><p><a class="try" href="${HOME_URL}demo/?lang=${lang.locale}">${esc(L(T.editor))}</a> &nbsp; <a class="try" href="${HOME_URL}demo/3d/?lang=${lang.locale}">${esc(L(T.in3d))}</a></p><p class="os">${L(T.os).replace('{releases}', RELEASES_URL).replace('{usb}', usb)}</p></header><main>${sections.join('')}</main></body></html>`,
+</style></head><body><header><p><a href="${home}">← Kiosko</a></p><h1>${esc(L(T.title))}</h1><p>${esc(L(T.lede).replace('{n}', String(listedHere.reduce((n, p) => n + p.def.widgets!.length, 0))))} <a href="https://github.com/kiosko-lcd/kiosko">${esc(L(T.github))}</a></p><p><a class="try" href="${HOME_URL}demo/?lang=${lang.locale}">${esc(L(T.editor))}</a> &nbsp; <a class="try" href="${HOME_URL}demo/3d/?lang=${lang.locale}">${esc(L(T.in3d))}</a></p><p class="os">${L(T.os).replace('{releases}', RELEASES_URL).replace('{usb}', usb)}</p></header><main>${sections.join('')}</main></body></html>`,
     );
   }
   // The pages of a sample screen (the most bar-shaped one), for the front page to show before anything loads.

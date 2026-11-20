@@ -17,7 +17,7 @@ import { effect } from '@preact/signals';
 import { newPage, newWidget, type Tile } from '@kiosko/core/model';
 import { TOUR_CHANNEL, type TourMessage, type TourOrder } from '../../demo/protocol.ts';
 import { addTileAt } from '../editor/Stage.tsx';
-import { languageById } from '@kiosko/sdk/languages';
+import { LANGUAGES, languageById } from '@kiosko/sdk/languages';
 import { UI_LANGUAGES, tr } from '../i18n.ts';
 import { config, draftPage, draftScreen, draftTile, edit, go, page, pageId, screen, screenId, selectedTile, selectedWidget, uiTheme, widgets } from '../store.ts';
 
@@ -192,7 +192,9 @@ export function startTour(): void {
     await wait(1400);
 
     // From nothing to a panel: four widgets found in the library and dropped where they go.
-    await drop('cats/room', 'cats', { x: 0, y: 0, w: 12, h: 6 });
+    // Where the cats' agents are not offered (languages.ts: mainland China), their stand-in.
+    const room = LANGUAGES.find((l) => l.panel === lang)?.plugins?.instead['cats/room'];
+    await drop(room ?? 'cats/room', room ?? 'cats', { x: 0, y: 0, w: 12, h: 6 });
     const pipelines = await drop('gitlab/pipelines', 'pipel', { x: 12, y: 0, w: 6, h: 6 });
     const clock = await drop('core/clock', 'clock', { x: 18, y: 0, w: 6, h: 3 });
     const weather = await drop('weather/forecast', 'weather', { x: 18, y: 3, w: 6, h: 3 });
