@@ -71,7 +71,7 @@ test('one page per language, each saying what it is and where the others are', (
     for (const other of langs) for (const h of other.hreflang) assert.match(page, new RegExp(`hreflang="${h}" href="https://kioskolcd.dev/${other.path}"`), `${l.id}: ${h}`);
     // Paths from the site's root: a page one folder down goes up first.
     const root = l.path ? '../' : '';
-    assert.ok(page.includes(`href="${root}demo/"`), `${l.id}: editor link`);
+    assert.ok(page.includes(`href="${root}demo/?lang=${l.panel}"`), `${l.id}: the editor, its sample in the page’s language`);
     assert.ok(page.includes(`src="${root}gallery/img/page-cats.${l.id}.jpg"`), `${l.id}: its own poster`);
     assert.ok(page.includes(`data-lang="${l.id}" data-root="${root}"`), `${l.id}: plugin cards in its language`);
     assert.ok(page.includes(`demo/3d/?lang=${l.panel}`), `${l.id}: the 3D page in its language`);

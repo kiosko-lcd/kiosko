@@ -127,8 +127,9 @@ export function renderPage(template, texts, langId, fill) {
     LANG_MENU: LANGS.map((l) => `<li><a href="${root}${l.path || './'}" hreflang="${l.id}" lang="${l.id}" data-lang="${l.id}"${l === lang ? ' aria-current="page"' : ''}>${esc(l.name)}</a></li>`).join(''),
     REDIRECT: lang.path ? '' : redirect(),
     JS_TEXTS: `<script type="application/json" id="kiosko-texts">${JSON.stringify(scriptTexts).replace(/</g, '\\u003c')}</script>`,
-    PLUGINS: typeof fill.PLUGINS === 'function' ? fill.PLUGINS(langId, root) : fill.PLUGINS,
   };
+  // What differs by language (the plugins it offers, how many) comes as a function of it.
+  for (const [k, v] of Object.entries(all)) if (typeof v === 'function') all[k] = v(langId, root);
   const words = template.replace(/\{\{([ta]):([a-z0-9-]+)\}\}/g, (_, kind, key) => (kind === 'a' ? plain(text(texts, langId, key)) : text(texts, langId, key)));
   return words.replace(/\{\{(\w+)\}\}/g, (whole, key) => {
     if (!(key in all)) throw new Error(`site build: index.html asks for ${whole}, which nothing fills`);

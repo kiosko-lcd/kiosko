@@ -203,6 +203,22 @@ async function chooseLanguage(page, name) {
   else await page.locator('.segmented button', { hasText: name }).click();
 }
 
+/** Opened from the Chinese front page (`?lang=`), the sample is in Chinese, whatever the browser speaks. */
+async function pageLanguage(browser) {
+  const { ctx, page, errors } = await openDemo(browser, { query: '?lang=zh-TW' });
+  const names = await page.$$eval('.page-card', (l) => l.map((e) => e.textContent?.trim() ?? ''));
+  const lang = await page.evaluate(() => document.documentElement.lang);
+  check('opened from a page in Chinese, the sample and the editor speak it (browser in English)', names.some((n) => n.includes('總覽')) && lang.startsWith('zh'), `pages ${names.map((n) => n.slice(0, 8)).join(', ')}; html lang ${lang}`);
+  check('no errors with ?lang=', errors.length === 0, errors.join(' | '));
+  await ctx.close();
+  // Mainland China: no Claude or Gemini, so no agents, cats or usage in the library; local models are there.
+  const cn = await openDemo(browser, { query: '?lang=zh-CN' });
+  await cn.page.waitForSelector('.lib-item');
+  const types = await cn.page.$$eval('.lib-item', (l) => l.map((e) => e.getAttribute('data-type') ?? ''));
+  check('opened from the Simplified Chinese page: local models, and no agents, cats or usage', !types.some((t) => /^(agents|cats|usage)\//.test(t)) && types.some((t) => t.startsWith('llm/')), `${types.length} widgets: ${types.filter((t) => /^(agents|cats|usage|llm)\//.test(t)).join(', ')}`);
+  await cn.ctx.close();
+}
+
 async function fullCheck(browser) {
   const { ctx, page, errors } = await openDemo(browser);
 
@@ -479,7 +495,7 @@ const { LANGUAGES } = await import(new URL('../packages/sdk/src/languages.ts', i
 const FRONT_LANGS = LANGUAGES.map((l) => {
   const words = JSON.parse(readFileSync(new URL(`../packages/web/landing/i18n/${l.id}.json`, import.meta.url), 'utf8'));
   const headline = words['the-little-screen-on-your'].replace(/<[^>]+>/g, '').trim();
-  return { id: l.id, dir: l.id === 'en' ? '' : `${l.id}/`, locale: l.panel === 'en' ? 'en-US' : l.panel, headline: new RegExp(headline.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s*')) };
+  return { id: l.id, plugins: l.plugins, dir: l.id === 'en' ? '' : `${l.id}/`, locale: l.panel === 'en' ? 'en-US' : l.panel, headline: new RegExp(headline.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s*')) };
 });
 
 /** What the page says: its address, its language and its headline. */
@@ -575,9 +591,9 @@ async function frontPage(browser, name) {
   const refused = await saidNow();
   check(`${name} front page: a file that is not a config is refused, and says why`, /isn't a Kiosko config/.test(refused) && !(await page.locator('[data-yours="loaded"]').isHidden()), `"${refused}"`);
   await page.locator('[data-yours="edit"]').click();
-  await page.waitForURL(/\/demo\/$/, { timeout: 15_000 }).catch(() => undefined);
+  await page.waitForURL(/\/demo\/(\?lang=[^#]*)?$/, { timeout: 15_000 }).catch(() => undefined);
   const handed = await stored(page);
-  check(`${name} front page: "open it in the editor" hands the config to the demo`, page.url().endsWith('/demo/') && handed?.screens?.[0]?.id === 'mine', `${page.url()} with screens ${handed?.screens?.map((x) => x.id)}`);
+  check(`${name} front page: "open it in the editor" hands the config to the demo`, /\/demo\/(\?lang=[^#]*)?$/.test(page.url()) && handed?.screens?.[0]?.id === 'mine', `${page.url()} with screens ${handed?.screens?.map((x) => x.id)}`);
   await page.evaluate(() => localStorage.removeItem('kiosko.demo.config'));
   await page.goto(home);
 
@@ -599,6 +615,11 @@ async function frontPage(browser, name) {
     await other.page.waitForURL((u) => u.pathname.endsWith(`/${l.dir}`), { timeout: 10_000 }).catch(() => undefined);
     const got = await frontState(other.page);
     check(`${name} front page: in ${l.id} for a browser in ${l.locale}`, got.lang === l.id && l.headline.test(got.headline) && other.errors().length === 0, `lang ${got.lang} at ${got.path}, "${got.headline}" ${other.errors().slice(0, 2).join(' | ')}`);
+    if (l.plugins) {
+      // Where a plugin's service is not offered (languages.ts), no card for it; local models first.
+      const ids = await other.page.$$eval('.plugin h3 code', (c) => c.map((e) => e.textContent));
+      check(`${name} front page: in ${l.id}, no ${l.plugins.without.join(', ')}; ${l.plugins.first.join(', ')} first`, ids.length > 0 && !ids.some((i) => l.plugins.without.includes(i)) && l.plugins.first.every((f, i) => ids[i] === f), ids.join(', '));
+    }
     if (l.id.startsWith('zh')) await shot(other.page, `front-${l.id}-${name}.jpg`);
     await other.ctx.close();
   }
@@ -647,6 +668,7 @@ try {
     try {
       if (name === 'chromium') {
         await fullCheck(browser);
+        await pageLanguage(browser);
         if (measure) {
           for (const [label, q] of [['worker', ''], ['page', '?render=page']]) {
             const m = await longTasks(browser, q);

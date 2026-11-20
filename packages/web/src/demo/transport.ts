@@ -7,6 +7,7 @@
  * conflict and reloads).
  */
 import { localize, type Localized } from '@kiosko/sdk/i18n';
+import { languageById } from '@kiosko/sdk/languages';
 import type { Config, Screen } from '@kiosko/core/model';
 import type { AppState, Status, api as httpApi, connectEvents as httpConnectEvents } from '../api.ts';
 import { DEMO_CONFIG_KEY, type RendererApi, type RendererEvent } from '../../demo/protocol.ts';
@@ -80,13 +81,31 @@ function onEvent(e: RendererEvent): void {
   }
 }
 
+/**
+ * The language of the page that opened the demo (`?lang=zh-Hant` from the
+ * front page's tour, `?lang=zh-TW` from its links), as the panel's locale: the
+ * sample starts in it, not in the browser's. Null: the browser's.
+ */
+const PAGE_LOCALE = /* @__PURE__ */ (() => {
+  if (typeof location === 'undefined') return null;
+  const l = new URLSearchParams(location.search).get('lang');
+  if (!l) return null;
+  const known = languageById(l)?.panel;
+  if (known) return known;
+  try {
+    return Intl.getCanonicalLocales(l)[0] ?? null;
+  } catch {
+    return null;
+  }
+})();
+
 /** Starts the runtime once, from what this browser saved (or the showcase). */
 function start(): Promise<RendererApi> {
   started ??= (async () => {
     onRendererEvent(onEvent);
     const r = await renderer();
     const saved = readSaved();
-    const { config } = await r.init(saved?.config ?? null);
+    const { config } = await r.init(saved?.config ?? null, PAGE_LOCALE ?? undefined);
     current = { rev: saved?.rev ?? 1, config };
     // Another tab of the demo saved: follow it, as the real editor follows the server.
     addEventListener('storage', (e) => {

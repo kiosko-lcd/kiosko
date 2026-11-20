@@ -162,6 +162,8 @@ function follow(): void {
 
 let api: Awaited<ReturnType<typeof renderer>> | null = null;
 /** The sample config the runtime started with, and its bar-shaped screen. */
+/** The sample's pages by id (examples/showcase.json): their names change with the language. */
+const PAGE = { dashboard: 'page-09', cats: 'page-0i', news: 'page-0t' } as const;
 let base: { screens: ShownScreen[] } | null = null;
 let bar: ShownScreen | null = null;
 /** The visitor's own config, as the runtime read it, and the screens of it that get a panel. */
@@ -174,24 +176,24 @@ function channels(): StageChannel[] {
   if (!bar || !watching || document.hidden) return [];
   const on = (id: string, pages: string[], more: Partial<StageChannel> = {}): StageChannel => ({ id, screenId: bar!.id, pages, firstAnimationMs: 60_000, ...more });
   // A stack: a page each (the panels are numbered from the desk up).
-  const above = stacked ? [on('p1', ['Cats'], { firstAnimationMs: 2500, animateMs: [4000, 7000] }), on('p2', ['Dashboard'])] : [];
+  const above = stacked ? [on('p1', [PAGE.cats], { firstAnimationMs: 2500, animateMs: [4000, 7000] }), on('p2', [PAGE.dashboard])] : [];
   switch (active) {
     case 'hero':
-      return [on('p0', ['Cats'], { firstAnimationMs: 1800, animateMs: [3500, 6000] })];
+      return [on('p0', [PAGE.cats], { firstAnimationMs: 1800, animateMs: [3500, 6000] })];
     case 'editor':
       // The page the editor is composing; until it says which, the one from before.
-      return [tour ? { id: 'p0', screenId: tour.screenId, pages: [tour.pageId], firstAnimationMs: 60_000 } : on('p0', ['Cats'])];
+      return [tour ? { id: 'p0', screenId: tour.screenId, pages: [tour.pageId], firstAnimationMs: 60_000 } : on('p0', [PAGE.cats])];
     case 'plugins':
-      return [on('p0', ['News', 'Dashboard', 'Cats'], { pageMs: 4500 })];
+      return [on('p0', [PAGE.news, PAGE.dashboard, PAGE.cats], { pageMs: 4500 })];
     case 'always':
-      return [on('p0', ['Dashboard']), ...above];
+      return [on('p0', [PAGE.dashboard]), ...above];
     case 'yours':
       // A panel for each of the visitor's screens, the first on top, its pages taking turns. Until
       // there is a config, the sample's.
       if (yours) return yours.screens.map((s, i, all) => ({ id: `p${all.length - 1 - i}`, screenId: s.id, pageMs: 6000, firstAnimationMs: 2500 + i * 900 }));
-      return [on('p0', ['Dashboard', 'Cats', 'News'], { pageMs: 5000, firstAnimationMs: 2500 })];
+      return [on('p0', [PAGE.dashboard, PAGE.cats, PAGE.news], { pageMs: 5000, firstAnimationMs: 2500 })];
     default:
-      return [on('p0', ['News']), ...above];
+      return [on('p0', [PAGE.news]), ...above];
   }
 }
 
@@ -463,7 +465,7 @@ if (scene) {
   // The picture the page came with goes on the panel at once; the canvas shows from its first frame.
   const poster = document.querySelector<HTMLImageElement>('.still img');
   if (poster) {
-    const put = () => void live.panels[0]!.poster(poster, 'Cats').catch(() => undefined);
+    const put = () => void live.panels[0]!.poster(poster, PAGE.cats).catch(() => undefined);
     if (poster.complete && poster.naturalWidth) put();
     else poster.addEventListener('load', put, { once: true });
   }
