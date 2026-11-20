@@ -49,90 +49,105 @@ Thanks for wanting to make Kiosko better.
 
 Conventions: TypeScript run directly by Node (type stripping, so no enums,
 namespaces or constructor parameter properties), ESM only, `.ts` extensions
-in imports, comments in English, user-facing texts in English and Spanish.
+in imports, comments in English, user-facing texts in every language Kiosko
+speaks (see Translations).
 
 ## Translations
 
-Kiosko speaks English, Spanish, Traditional Chinese (`zh-Hant`) and
-Simplified Chinese (`zh-Hans`). Adding a language, or fixing one, is welcome
-and needs no knowledge of the code beyond finding the texts. A few rules
-first:
+Kiosko speaks the languages listed in `packages/sdk/src/languages.ts`:
+English, Spanish, Traditional Chinese (`zh-Hant`) and Simplified Chinese
+(`zh-Hans`) today. Adding a language, or fixing one, is welcome and needs no
+knowledge of the code beyond finding the texts.
 
-- **Language tags are BCP 47:** `fr`, `pt-BR`, `de`. Chinese goes by script,
-  not by country: `zh-Hant` (Taiwan, Hong Kong) and `zh-Hans` (mainland
-  China), never a bare `zh`. Kiosko picks the closest one a text has
-  (`pickLocale` in `packages/sdk/src/i18n.ts`) and falls back to English, so
-  English must always be complete.
+### Rules
+
+- **Language tags are BCP 47:** `fr`, `pt-BR`, `de`. A language written in
+  two scripts goes by script, not by country: `zh-Hant` (Taiwan, Hong Kong)
+  and `zh-Hans` (mainland China), never a bare `zh`; `sr-Latn`/`sr-Cyrl`.
+  Kiosko picks the closest one a text has (`pickLocale` in
+  `packages/sdk/src/i18n.ts`: same language and script, then region) and
+  falls back to English, so English must always be complete.
 - **Translate, don't convert.** Two variants of a language are two
   translations: Taiwan and the mainland use different words (設定/设置,
   螢幕/屏幕, 外掛/插件), so converting one script into the other is not
-  enough. Use the words people there see in their own software.
+  enough. Use the words people there see in their own software;
+  `docs/i18n-glossary.md` lists the ones Kiosko's Chinese uses.
 - **Keep what the code fills in**: `${...}` in template literals (their
   order may change), `{name}` placeholders, `\n`, and the quotes of the
   original string.
+- **Counts** have a form per plural rule: `.one`/`.other` in the editor's
+  dictionaries and `-one`/`-other` in the site's, plus `zero`, `two`,
+  `few`, `many` where your language's rules have them (Polish, Russian,
+  Arabic); in plugins, `ctx.plural(n, { en: { one, other }, pl: { one, few,
+  many, other } })`. Never `n === 1 ? … : …`.
 - **Panel labels are tiny**: keep them as short as the English. Help texts
   and descriptions are normal prose. For Chinese, Japanese and Korean,
   full-width punctuation and a space between CJK and Latin letters or digits
-  (`5 分鐘`).
+  (`5 分鐘`). Kiosko never paints CJK smaller than can be read on the panel
+  (Screens → Read from), so a long label may need a bigger tile.
 - **Ask a native speaker to review** before it ships, and say in the pull
   request whether you are one.
-- **Other writing systems**: the panel draws Latin, Greek, Cyrillic and CJK
-  (CJK with the system's font, see `kiosko doctor`). Arabic, Hebrew (right
-  to left), Thai or Devanagari need font and layout work first: open an
-  issue before translating.
+- **Writing systems**: the panel draws Latin, Greek, Cyrillic, CJK, Thai,
+  Indic, Georgian, Armenian and Ethiopic with the system's fonts (`kiosko
+  doctor` says which); right-to-left languages (Arabic, Hebrew) get `dir` in
+  the editor and the site, but the panel does not lay them out right to
+  left yet: open an issue first.
 
-### The editor (the administration page)
+### Adding a language
 
-1. **Its words** are in `packages/web/src/i18n.ts`: copy the `es`
-   dictionary as a new `const` typed `Record<Key, string>`, translate it,
-   and add a line to `UI_LANGUAGES` with its tag and its name in itself
-   (`{ id: 'fr', name: 'Français', texts: fr }`). The language picker in
-   Settings comes from that list, and `npm run check` names every key you
-   haven't translated yet. `err.*` and `device.*` are what the server and
-   the panels report (failed requests, connection status): the server
-   sends a code and its params, the editor words them.
-2. **Times on the panel and in the editor** ("5 min ago", "1 h 05",
-   AM/PM): the `WORDS` table in `packages/sdk/src/format.ts`, with its own
-   units and whether AM/PM goes before the time. Add a case to
-   `format.test.ts`.
-3. **Option labels and help every plugin shows** (lists, filters, place,
-   refresh…), the settings' schema and the first screen: the `{ en, es, … }`
-   texts in `packages/sdk/src`, `packages/core/src/config` and
-   `packages/server/src/starter.ts`.
-4. **The built-in plugins** (`plugins/core`, `plugins/legacy`): as any
-   plugin, below.
-5. **The browser demo's banner** (`packages/web/src/demo/ui.tsx`, `TEXTS`)
-   and the **3D page** (`packages/web/panel3d/main.ts`, `TEXTS`).
-6. **The site**: see "The site" above (`packages/web/landing/i18n/`, plus a
-   line in `LANGS` in `packages/web/landing/pages.mjs`).
+1. **Add it to `packages/sdk/src/languages.ts`**: its tag, its name in
+   itself, the locale the site's samples are painted in, its Open Graph
+   locale, `hreflang` and direction. Everything that lists languages reads
+   this: the editor's picker, the site's pages and redirect, the gallery.
+2. **Run `npm test`.** `packages/web/landing/languages.test.ts` then lists
+   everything the language still lacks, and the steps below fill it in:
+   - the editor's dictionary: copy `packages/web/src/lang/en.ts` to
+     `lang/<tag>.ts`, translate it, and add it to `lang/index.ts`
+     (`npm run check` names the keys still missing);
+   - the browser demo's banner (`packages/web/src/demo/texts.ts`) and the 3D
+     page's words (`packages/web/panel3d/texts.ts`);
+   - the panel's words for times (`WORDS` in `packages/sdk/src/format.ts`:
+     "5 min ago", "1 h 05", AM/PM and where it goes);
+   - the site: `packages/web/landing/i18n/<tag>.json` with the keys of
+     `en.json` (`pages.test.ts` checks them);
+   - every `{ en, es, … }` text in `packages/sdk/src`, `packages/core/src`,
+     `packages/server/src`, `packages/web` and the built-in plugins
+     (`plugins/core`, `plugins/legacy`, which also declare it in
+     `languages`): the test names each file and line.
+3. **The installer** (`installer/kiosko.iss`): an Inno Setup language file
+   and the `[CustomMessages]` in it; and, if you like, the guides in
+   `docs/<tag>/` (install.md, usb.md: the site links them when they exist).
+4. **The official plugins**, each in its own repository
+   (`kiosko-lcd/kiosko-plugin-<id>`), as below.
 
 ### A plugin
-
-Each official plugin lives in its own repository
-(`kiosko-lcd/kiosko-plugin-<id>`); a pull request there for each plugin.
-Third-party plugins work the same way.
 
 1. **Declare the language** in `definePlugin` (`languages: ['en', 'es',
    'fr']`) and in package.json (`"kiosko": { "languages": [...] }`).
 2. **Find what to translate**: every text is a `{ en: '…', es: '…' }`
    object in `src/` (`grep -rn "es: " src`); add your tag next to the
    others, `fr: '…'`. `kiosko plugins check --src` in the plugin's folder
-   names the ones of its definition (names, descriptions, options) that
-   still lack it; the ones painted on the panel are found by that search.
+   names the ones of its definition (names, descriptions, option labels,
+   help and choices) that still lack it; the ones painted on the panel are
+   found by that search. Errors a user can act on are
+   `throw new PluginError({ en, es, fr })`.
 3. **Tables picked by language**: a few plugins keep longer texts in one
    table per language (the cats' words in `src/words.ts` and
    `src/prop-texts.ts`, mirror's compliments, the news plugin's sample
-   headlines, Home Assistant's sample home). Add a table and pick it with
-   `ctx.t({ en: 'en', es: 'es', fr: 'fr' })` as the others do.
-4. **Check it**: `npm test`, `npm run check`, and `kiosko plugins check
-   --src` again, which also paints every widget in every declared language
-   and says if one throws or paints outside its box. Then `kiosko plugins
-   manifest --src` to update `kiosko-manifest.json`.
+   headlines and default feeds, Home Assistant's sample home). Add a table;
+   they are picked with `ctx.pickLanguage(Object.keys(TABLES))`.
+4. **Check it**: `npm test` (the plugin's own check paints every widget in
+   every language it declares; tests that compare whole `{ en, es }`
+   objects need your key too), `npm run check`, and `kiosko plugins check
+   --src`, which also says if a widget throws or paints outside its box.
+   Then `kiosko plugins manifest --src` to update `kiosko-manifest.json`.
 
 ### Seeing it
 
 `kiosko gallery --locale fr --out tmp/gallery-fr` paints every widget of
-the installed plugins in your language: look at the pictures, since no check
-sees a text that is cut, too small to read or still in English.
-In the editor, pick the language in Settings, or set `"locale": "fr"` in
-the config.
+the installed plugins in your language (a plugin you are translating must
+be built, `npm run build`, and linked, `kiosko plugins link`, or the
+gallery shows its published version). Look at the pictures: no check sees
+a text that is cut, crowded or still in English. In the editor, pick the
+language in Settings, or set `"locale": "fr"` in the config; **Real size**
+on the stage shows the panel as big as it is.
