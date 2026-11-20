@@ -71,7 +71,9 @@ knowledge of the code beyond finding the texts.
   translations: Taiwan and the mainland use different words (設定/设置,
   螢幕/屏幕, 外掛/插件), so converting one script into the other is not
   enough. Use the words people there see in their own software;
-  `docs/i18n-glossary.md` lists the ones Kiosko's Chinese uses.
+  `docs/i18n-glossary.md` lists the ones Kiosko's Chinese uses: add a
+  section for your language (the panel, a tile, a page, an interlude…) so
+  the next translator says them the same way.
 - **Keep what the code fills in**: `${...}` in template literals (their
   order may change), `{name}` placeholders, `\n`, and the quotes of the
   original string.
@@ -148,7 +150,10 @@ knowledge of the code beyond finding the texts.
    table per language (the cats' words in `src/words.ts` and
    `src/prop-texts.ts`, mirror's compliments, the news plugin's sample
    headlines and default feeds, Home Assistant's sample home). Add a table;
-   they are picked with `ctx.pickLanguage(Object.keys(TABLES))`.
+   they are picked with `ctx.pickLanguage(Object.keys(TABLES))`, and some
+   are typed with the list of languages (`PropLang`), which `npm run check`
+   points at. The news plugin's tables also hold stop words, filters and
+   default feeds per language.
 4. **Check it** against the Kiosko that speaks your language (the SDK
    published on npm may not yet). With the plugin's own dependencies
    installed (`npm install` in its folder), run its tests with your Kiosko
@@ -156,18 +161,23 @@ knowledge of the code beyond finding the texts.
    `node --conditions=source --import <kiosko>/scripts/local-sdk.mjs --test "src/**/*.test.ts"`.
    They include the plugin's own check, which paints every widget in every
    language it declares; tests that compare whole `{ en, es }` objects need
-   your key too. Then `npm run check`, and, from your Kiosko checkout,
+   your key too (and a test that uses your language as the example of one
+   without a table now has one: pick another). `scripts/i18n-gaps.ts` also
+   says if a translation lost a `${…}` or a `{name}` the English has. Then
+   `npm run check`, and, from your Kiosko checkout,
    `node --conditions=source packages/server/src/cli.ts plugins check <plugin> --src`
    (it also says if a widget throws or paints outside its box, and in which
-   languages) and `… plugins manifest <plugin> --src` to update
+   languages; `--strict` makes its warnings fail, for CI) and `… plugins manifest <plugin> --src` to update
    `kiosko-manifest.json`.
 
 ### Seeing it
 
 `kiosko gallery --locale fr --out tmp/gallery-fr` paints every widget of
-the installed plugins in your language (a plugin you are translating must
-be built, `npm run build`, and linked, `kiosko plugins link`, or the
-gallery shows its published version). Look at the pictures: no check sees
+the installed plugins in your language. A plugin you are translating must
+be built (`npm run build`) and linked (`kiosko plugins link <folder>`), or
+the gallery shows its previous build without a word; to leave your own
+Kiosko's config alone, run both with `KIOSKO_HOME=/tmp/kiosko-try` (a
+throwaway home; ignore the hint to restart the service). Look at the pictures: no check sees
 a text that is cut, crowded or still in English. In the editor, pick the
 language in Settings, or set `"locale": "fr"` in the config; **Real size**
 on the stage shows the panel as big as it is.
