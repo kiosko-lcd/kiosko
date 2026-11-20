@@ -850,6 +850,30 @@ Lo que cambia en el camino:
     - *Antes de hacerlo*: medir cuánto del tiempo es pintar y cuánto
       codificar en una máquina modesta, y si basta con arreglar los widgets
       lentos (pintar en `fetch`, cachear lo que no cambia).
+26. **Lo que cuesta cada plugin, dicho antes de usarlo.** Medido el
+    2026-11-20: la habitación de los gatos se queda estable en 330–430 MB
+    de proceso durante 25 horas simuladas (~3 800 fotogramas), unos
+    200–250 MB más que Kiosko sin pintar (sus cachés de gatos dibujados,
+    habitaciones y gestos, con tope). En un PC no importa; en una Raspberry
+    de 1–2 GB, sí.
+    - *Declararlo*: el manifiesto de cada plugin dice su consumo
+      aproximado, p. ej. `resources: { memoryMb: 250, cpu: 'high', note:
+      'animaciones con mucho detalle' }` (por widget si difieren mucho).
+      Encaja con la ficha de la tienda (punto 8).
+    - *Mostrarlo*: en la ficha del plugin, siempre; y un aviso al añadir el
+      widget solo cuando la memoria libre del equipo sea escasa (p. ej.
+      menos de 4 veces lo declarado), con la cifra y qué hacer (otra
+      pantalla, menos animaciones). Nunca un aviso por defecto en máquinas
+      sobradas.
+    - *Medirlo, no suponerlo*: un `kiosko plugins check --resources` que
+      pinte cada widget durante un rato simulado (animaciones incluidas) y
+      dé la memoria estable y el tiempo de pintado, para que el autor ponga
+      cifras reales y la tienda pueda comprobarlas. Medir así todos los
+      oficiales (hoy, con todo puesto, el proceso está en ~900 MB).
+    - Cuidado al medir: la librería de canvas libera los lienzos de forma
+      asíncrona; un bucle que no cede al bucle de eventos parece una fuga
+      de gigas que no existe. Medir como pinta Kiosko, cediendo entre
+      fotogramas.
 
 ### Decisiones abiertas para ti
 
