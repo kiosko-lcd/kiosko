@@ -275,6 +275,7 @@ export const es: Dictionary = {
   'screens.diagonalHint': 'Solo para un panel que no está en la lista: da el tamaño de sus píxeles.',
   'stage.trueSize': 'Tamaño real',
   'stage.trueSizeHint': 'El panel a su tamaño real, según mide los milímetros tu monitor: lo que leas aquí desde tu sitio es, más o menos, lo que leerás en él.',
+  'tour.pageName': 'Mi mesa',
   'docs': 'Documentación',
   'settings.configFile': 'Configuración',
   'common.deleteItem': 'Borrar {name}',

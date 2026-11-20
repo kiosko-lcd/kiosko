@@ -101,9 +101,11 @@ knowledge of the code beyond finding the texts.
    this: the editor's picker, the site's pages and redirect, the gallery.
 2. **Run `npm test`.** `packages/web/landing/languages.test.ts` then lists
    everything the language still lacks, and the steps below fill it in:
-   - the editor's dictionary: copy `packages/web/src/lang/en.ts` to
-     `lang/<tag>.ts`, translate it, and add it to `lang/index.ts`
-     (`npm run check` names the keys still missing);
+   - the editor's dictionary: copy `packages/web/src/lang/es.ts` to
+     `lang/<tag>.ts` (`export const fr: Dictionary = { … }`; `en.ts` holds
+     the keys and types), translate it from the English in `en.ts`, and add
+     it to `lang/index.ts` (`npm run check` names the keys still missing;
+     `days.short` is seven comma-separated days, Sunday first);
    - the browser demo's banner (`packages/web/src/demo/texts.ts`) and the 3D
      page's words (`packages/web/panel3d/texts.ts`);
    - the panel's words for times (`WORDS` in `packages/sdk/src/format.ts`:
@@ -113,10 +115,21 @@ knowledge of the code beyond finding the texts.
    - every `{ en, es, … }` text in `packages/sdk/src`, `packages/core/src`,
      `packages/server/src`, `packages/web` and the built-in plugins
      (`plugins/core`, `plugins/legacy`, which also declare it in
-     `languages`): the test names each file and line.
-3. **The installer** (`installer/kiosko.iss`): an Inno Setup language file
-   and the `[CustomMessages]` in it; and, if you like, the guides in
-   `docs/<tag>/` (install.md, usb.md: the site links them when they exist).
+     `languages` and in their package.json's `kiosko.languages`): the test
+     names each file and line, and so does
+     `node --conditions=source scripts/i18n-gaps.ts <folder> <tag>`;
+   - the sample's page names (`SAMPLE_PAGE_NAMES` in
+     `packages/core/src/config/sample.ts`, and a sample place in
+     `SAMPLE_PLACES` if your readers would know another city).
+3. **The installer** (`installer/kiosko.iss`): a `[Languages]` entry (Inno
+   Setup's name for it, e.g. `german` with `compiler:Languages\German.isl`,
+   or an unofficial `.isl` vendored in `installer/languages/`) whose
+   `InfoAfterFile` is `notes.<tag>.txt` (the notes shown after installing,
+   UTF-8 with BOM), and its texts in `[CustomMessages]` with that name as
+   prefix (`german.TaskService=…`). The test checks the notes are there;
+   nothing compiles the installer on Linux, so read it twice (or use an
+   Inno Setup container). And, if you like, the guides in `docs/<tag>/`
+   (install.md, usb.md: the site links them when they exist).
 4. **The official plugins**, each in its own repository
    (`kiosko-lcd/kiosko-plugin-<id>`), as below.
 
@@ -125,22 +138,29 @@ knowledge of the code beyond finding the texts.
 1. **Declare the language** in `definePlugin` (`languages: ['en', 'es',
    'fr']`) and in package.json (`"kiosko": { "languages": [...] }`).
 2. **Find what to translate**: every text is a `{ en: '…', es: '…' }`
-   object in `src/` (`grep -rn "es: " src`); add your tag next to the
-   others, `fr: '…'`. `kiosko plugins check --src` in the plugin's folder
-   names the ones of its definition (names, descriptions, option labels,
-   help and choices) that still lack it; the ones painted on the panel are
-   found by that search. Errors a user can act on are
-   `throw new PluginError({ en, es, fr })`.
+   object in `src/`; `node --conditions=source <kiosko>/scripts/i18n-gaps.ts
+   src fr` lists each one that lacks your tag, with its file, line and
+   English (names, options, what is painted on the panel, plural forms,
+   errors). Add your tag next to the others, `fr: '…'`. `kiosko plugins
+   check --src` names the ones of its definition too. Errors a user can
+   act on are `throw new PluginError({ en, es, fr })`.
 3. **Tables picked by language**: a few plugins keep longer texts in one
    table per language (the cats' words in `src/words.ts` and
    `src/prop-texts.ts`, mirror's compliments, the news plugin's sample
    headlines and default feeds, Home Assistant's sample home). Add a table;
    they are picked with `ctx.pickLanguage(Object.keys(TABLES))`.
-4. **Check it**: `npm test` (the plugin's own check paints every widget in
-   every language it declares; tests that compare whole `{ en, es }`
-   objects need your key too), `npm run check`, and `kiosko plugins check
-   --src`, which also says if a widget throws or paints outside its box.
-   Then `kiosko plugins manifest --src` to update `kiosko-manifest.json`.
+4. **Check it** against the Kiosko that speaks your language (the SDK
+   published on npm may not yet). With the plugin's own dependencies
+   installed (`npm install` in its folder), run its tests with your Kiosko
+   checkout's SDK:
+   `node --conditions=source --import <kiosko>/scripts/local-sdk.mjs --test "src/**/*.test.ts"`.
+   They include the plugin's own check, which paints every widget in every
+   language it declares; tests that compare whole `{ en, es }` objects need
+   your key too. Then `npm run check`, and, from your Kiosko checkout,
+   `node --conditions=source packages/server/src/cli.ts plugins check <plugin> --src`
+   (it also says if a widget throws or paints outside its box, and in which
+   languages) and `… plugins manifest <plugin> --src` to update
+   `kiosko-manifest.json`.
 
 ### Seeing it
 

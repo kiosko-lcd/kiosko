@@ -275,6 +275,7 @@ export const zhHans: Dictionary = {
   'screens.diagonalHint': '仅当副屏不在列表中时需要：用于算出像素大小。',
   'stage.trueSize': '实际大小',
   'stage.trueSizeHint': '按副屏的实际大小显示（依你的显示器换算毫米）：你坐在原位在这里能看清的，大致就是在副屏上能看清的。',
+  'tour.pageName': '我的桌面',
   'docs': '文档',
   'settings.configFile': '配置文件',
   'common.deleteItem': '删除 {name}',

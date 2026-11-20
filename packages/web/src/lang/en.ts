@@ -273,6 +273,7 @@ export const en = {
   'screens.diagonalHint': 'Only for a panel that is not in the list: it gives the size of its pixels.',
   'stage.trueSize': 'Real size',
   'stage.trueSizeHint': 'The panel at its real size, as your monitor measures millimetres: what you can read here from where you sit is roughly what you\'ll read on it.',
+  'tour.pageName': 'My desk',
   'docs': 'Documentation',
   'settings.configFile': 'Configuration',
   'common.deleteItem': 'Delete {name}',

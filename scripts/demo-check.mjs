@@ -478,7 +478,7 @@ const FRONT_LANGS = LANGUAGES.map((l) => {
 /** What the page says: its address, its language and its headline. */
 const frontState = (page) =>
   page.evaluate(() => ({
-    path: location.pathname.replace(/^.*?\/(?=(?:es|zh-Hant|zh-Hans)\/|$)/, '/'),
+    path: location.pathname,
     lang: document.documentElement.lang,
     headline: document.querySelector('h1')?.textContent.trim() ?? '',
     // Each page is in one language: no second one hidden in it.

@@ -6,14 +6,15 @@
  * translated, the pages get their names in the language, and the place is
  * one its readers know.
  */
-import { pickLocale } from '@kiosko/sdk';
+import { LANGUAGE_IDS, pickLocale } from '@kiosko/sdk';
 import type { Config } from './model.ts';
 
-const PAGE_NAMES: Record<string, Record<string, string>> = {
-  Dashboard: { es: 'Panel', 'zh-Hant': '總覽', 'zh-Hans': '总览' },
-  Cats: { es: 'Gatos', 'zh-Hant': '貓咪', 'zh-Hans': '猫咪' },
-  News: { es: 'Noticias', 'zh-Hant': '新聞', 'zh-Hans': '新闻' },
-  Home: { es: 'Casa', 'zh-Hant': '居家', 'zh-Hans': '家居' },
+/** The showcase's page names in each language Kiosko speaks (a test checks every language has them). */
+export const SAMPLE_PAGE_NAMES: Record<string, Record<string, string>> = {
+  Dashboard: { en: 'Dashboard', es: 'Panel', 'zh-Hant': '總覽', 'zh-Hans': '总览' },
+  Cats: { en: 'Cats', es: 'Gatos', 'zh-Hant': '貓咪', 'zh-Hans': '猫咪' },
+  News: { en: 'News', es: 'Noticias', 'zh-Hant': '新聞', 'zh-Hans': '新闻' },
+  Home: { en: 'Home', es: 'Casa', 'zh-Hant': '居家', 'zh-Hans': '家居' },
 };
 
 /** Sample places by language: where the weather, the sun and the earthquakes are for. */
@@ -24,7 +25,7 @@ export const SAMPLE_PLACES: Record<string, { latitude: number; longitude: number
 
 /** `cfg` for a reader of `locale`: unchanged in English. */
 export function localizeSample<C extends Partial<Config>>(cfg: C, locale: string): C {
-  const lang = pickLocale(['en', 'es', 'zh-Hant', 'zh-Hans'], locale) ?? 'en';
+  const lang = pickLocale(LANGUAGE_IDS, locale) ?? 'en';
   if (lang === 'en') return cfg;
   const place = SAMPLE_PLACES[lang];
   return {
@@ -34,7 +35,7 @@ export function localizeSample<C extends Partial<Config>>(cfg: C, locale: string
       ...s,
       pages: s.pages.map((p) => ({
         ...p,
-        name: PAGE_NAMES[p.name]?.[lang] ?? p.name,
+        name: SAMPLE_PAGE_NAMES[p.name]?.[lang] ?? p.name,
         tiles: p.tiles.map((t) => ({ ...t, widgets: t.widgets.map(({ title: _title, ...w }) => w) })),
       })),
     })),

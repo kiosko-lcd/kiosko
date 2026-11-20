@@ -84,6 +84,9 @@ function knownLanguage(tag: string): boolean {
   }
 }
 
+/** A widget, source or interlude without its options, for the languages of its own texts. */
+const bare = <T extends { options?: unknown }>(x: T): T => ({ ...x, options: undefined });
+
 export function lintPlugin(def: PluginDefinition): LintIssue[] {
   const out: LintIssue[] = [];
   const add = (level: LintIssue['level'], where: string, message: string) => out.push({ level, where, message });
@@ -112,7 +115,10 @@ export function lintPlugin(def: PluginDefinition): LintIssue[] {
     }
     if (!declared.includes('en')) add('error', 'plugin', 'languages: English (`en`) is the one every text falls back to: list it, and write every text in it');
     if (new Set(declared).size !== declared.length) add('warn', 'plugin', 'languages: a language is listed twice');
-    const unlisted = used.filter((l) => !declared.includes(l));
+    // Only the plugin's own texts: options built with the SDK's helpers (place, lists) bring
+    // every language Kiosko speaks, which says nothing about the plugin.
+    const own = languagesOf({ ...def, widgets: def.widgets?.map(bare), sources: def.sources?.map(bare), interludes: def.interludes?.map(bare) } as PluginDefinition);
+    const unlisted = own.filter((l) => !declared.includes(l));
     if (unlisted.length) add('warn', 'plugin', `its texts come in ${unlisted.join(', ')} too, which \`languages\` doesn't list`);
   }
   const langs = declared?.length ? declared : used;

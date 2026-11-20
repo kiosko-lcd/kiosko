@@ -6,8 +6,7 @@
  * web. Adding a language to the list makes this test say what is missing.
  */
 import assert from 'node:assert/strict';
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
-import { createRequire } from 'node:module';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -16,6 +15,8 @@ import { lintPlugin } from '@kiosko/core';
 import corePlugin from '../../../plugins/core/src/index.ts';
 import legacyPlugin from '../../../plugins/legacy/src/index.ts';
 import { DICTIONARIES } from '../src/lang/index.ts';
+import { SAMPLE_PAGE_NAMES } from '@kiosko/core';
+import { i18nGaps } from '../../../scripts/i18n-gaps.ts';
 import { TEXTS as DEMO } from '../src/demo/texts.ts';
 import { TEXTS as PANEL3D } from '../panel3d/texts.ts';
 
@@ -52,35 +53,26 @@ test('the built-in plugins declare every language and miss no text in any', () =
 });
 
 test('every { en, es, … } text of the SDK, core, server and web has every language', () => {
-  const ts = createRequire(import.meta.url)('typescript') as typeof import('typescript');
   const dirs = ['packages/sdk/src', 'packages/core/src', 'packages/server/src', 'packages/web/src', 'packages/web/demo', 'packages/web/panel3d', 'packages/web/landing', 'plugins/core/src', 'plugins/legacy/src'];
-  const files: string[] = [];
-  const walk = (d: string) => {
-    for (const f of readdirSync(d)) {
-      const p = join(d, f);
-      if (statSync(p).isDirectory()) {
-        if (f !== 'node_modules' && f !== 'dist' && f !== 'shims') walk(p);
-      } else if (/\.tsx?$/.test(f) && !/\.(test|d)\.tsx?$/.test(f)) files.push(p);
-    }
-  };
-  for (const d of dirs) walk(join(root, d));
-  const name = (p: import('typescript').ObjectLiteralElementLike) => (ts.isPropertyAssignment(p) && (ts.isIdentifier(p.name) || ts.isStringLiteral(p.name)) ? p.name.text : null);
-  const gaps: string[] = [];
-  for (const file of files) {
-    const sf = ts.createSourceFile(file, readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true, file.endsWith('x') ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
-    const visit = (n: import('typescript').Node) => {
-      if (ts.isObjectLiteralExpression(n)) {
-        const keys = n.properties.map(name);
-        // A localized text: en and es, every value a string or template (not a table of tables).
-        const texts = n.properties.every((p) => ts.isPropertyAssignment(p) && (ts.isStringLiteral(p.initializer) || ts.isNoSubstitutionTemplateLiteral(p.initializer) || ts.isTemplateExpression(p.initializer)));
-        if (texts && keys.includes('en') && keys.includes('es')) {
-          const lacks = ids.filter((id) => !keys.includes(id));
-          if (lacks.length) gaps.push(`${file.slice(root.length)}:${sf.getLineAndCharacterOfPosition(n.getStart()).line + 1} lacks ${lacks.join(', ')}`);
-        }
-      }
-      ts.forEachChild(n, visit);
-    };
-    visit(sf);
+  const lines: string[] = [];
+  for (const id of ids) for (const d of dirs) for (const g of i18nGaps(join(root, d), id)) lines.push(`${g.file.slice(root.length)}:${g.line} lacks ${id}: ${g.en}`);
+  // The whole list in the message (an assertion's diff would cut it short).
+  assert.equal(lines.length, 0, `${lines.length} texts lack a language (also: node --conditions=source scripts/i18n-gaps.ts <folder> <language>):\n${lines.join('\n')}`);
+});
+
+test('the sample config, the installer and the editor’s week have every language', () => {
+  const missing: string[] = [];
+  for (const id of ids) {
+    for (const [page, names] of Object.entries(SAMPLE_PAGE_NAMES)) if (!names[id]) missing.push(`packages/core/src/config/sample.ts: PAGE_NAMES['${page}']['${id}']`);
+    const notes = id === 'en' ? 'notes.txt' : `notes.${id}.txt`;
+    if (!existsSync(join(root, 'installer', notes))) missing.push(`installer/${notes} (UTF-8 with BOM)`);
+    if (!new RegExp(`InfoAfterFile:\\s*"${notes.replace(/\./g, '\\.')}"`).test(readFileSync(join(root, 'installer/kiosko.iss'), 'utf8'))) missing.push(`installer/kiosko.iss: a [Languages] entry with InfoAfterFile: "${notes}"`);
+    const days = DICTIONARIES[id]?.['days.short'];
+    if (days !== undefined && days.split(',').length !== 7) missing.push(`packages/web/src/lang/${id}.ts: 'days.short' needs 7 comma-separated days, Sunday first`);
   }
-  assert.deepEqual(gaps, []);
+  for (const [dir, p] of [['plugins/core', corePlugin], ['plugins/legacy', legacyPlugin]] as const) {
+    const pkg = JSON.parse(readFileSync(join(root, dir, 'package.json'), 'utf8')) as { kiosko?: { languages?: string[] } };
+    if ([...(pkg.kiosko?.languages ?? [])].sort().join() !== [...(p.languages ?? [])].sort().join()) missing.push(`${dir}/package.json: kiosko.languages as in its definition`);
+  }
+  assert.deepEqual(missing, []);
 });

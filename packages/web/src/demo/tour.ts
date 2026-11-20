@@ -18,10 +18,12 @@ import { newPage, newWidget, type Tile } from '@kiosko/core/model';
 import { TOUR_CHANNEL, type TourMessage, type TourOrder } from '../../demo/protocol.ts';
 import { addTileAt } from '../editor/Stage.tsx';
 import { languageById } from '@kiosko/sdk/languages';
+import { UI_LANGUAGES, tr } from '../i18n.ts';
 import { config, draftPage, draftScreen, draftTile, edit, go, page, pageId, screen, screenId, selectedTile, selectedWidget, uiTheme, widgets } from '../store.ts';
 
-/** The page it composes; one left from a previous round is removed. */
-const PAGE_NAME = 'My desk';
+/** The page it composes, in the editor's language; one left from a previous round (in any language) is removed. */
+const pageName = () => tr('tour.pageName');
+const PAGE_NAMES = () => new Set(UI_LANGUAGES.map((l) => l.texts['tour.pageName']));
 
 /** The front page's language (en, es, zh-Hant, zh-Hans) as the locale the config gets: the panel paints in it. */
 const language = (l: unknown): string | null => (typeof l === 'string' ? (languageById(l)?.panel ?? null) : null);
@@ -174,11 +176,11 @@ export function startTour(): void {
     if (!s) return void (await wait(1000));
     screenId.value = s.id;
     go('editor');
-    const blank = { ...newPage(PAGE_NAME, s.width, s.height), gravity: 'none' as const };
+    const blank = { ...newPage(pageName(), s.width, s.height), gravity: 'none' as const };
     edit((d) => {
       const ds = draftScreen(d, s.id);
       if (!ds) return;
-      ds.pages = [...ds.pages.filter((p) => p.name !== PAGE_NAME), blank];
+      ds.pages = [...ds.pages.filter((p) => !PAGE_NAMES().has(p.name)), blank];
       // Shown alone: the other pages don't take its turn away while it is being composed.
       ds.pinnedPage = blank.id;
       d.theme = 'midnight';

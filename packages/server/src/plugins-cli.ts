@@ -51,6 +51,14 @@ const flagOf = (argv: string[], name: string) => argv.includes(name);
 const optOf = (argv: string[], name: string) => (argv.includes(name) ? argv[argv.indexOf(name) + 1] : undefined);
 const positional = (argv: string[]) => argv.filter((a, i) => !a.startsWith('--') && !['--out', '--port'].includes(argv[i - 1] ?? ''));
 
+/** "midnight es, paper es, midnight de" → "in es, de (2 themes)": which languages, at a glance. */
+function lookList(looks: string[]): string {
+  const parts = looks.map((l) => l.split(' '));
+  const langs = [...new Set(parts.map((p) => p.at(-1)).filter(Boolean))];
+  const themes = new Set(parts.map((p) => p[0]));
+  return looks.length === 1 ? looks[0]! : `in ${langs.join(', ')}; ${themes.size} theme${themes.size === 1 ? '' : 's'}`;
+}
+
 /** `kiosko plugins check`: lint + paint. Returns the number of errors. */
 async function check(dir: string, argv: string[]): Promise<number> {
   const { def, pkg, entry } = await loadPluginDir(dir, { src: flagOf(argv, '--src') });
@@ -76,7 +84,7 @@ async function check(dir: string, argv: string[]): Promise<number> {
     g.looks.push(look.join(' '));
     painted.set(key, g);
   }
-  for (const g of painted.values()) issues.push({ level: /threw/.test(g.problem) ? 'error' : 'warn', where: `${g.type} ${g.size}`, message: `${g.problem}${g.looks.length > 1 ? ` (${g.looks.length} themes/languages)` : g.looks[0] ? ` (${g.looks[0]})` : ''}` });
+  for (const g of painted.values()) issues.push({ level: /threw/.test(g.problem) ? 'error' : 'warn', where: `${g.type} ${g.size}`, message: `${g.problem}${g.looks.length ? ` (${lookList(g.looks)})` : ''}` });
   const errors = issues.filter((i) => i.level === 'error');
   for (const i of [...errors, ...issues.filter((i) => i.level === 'warn')]) console.log(`${i.level === 'error' ? '✗' : '!'} ${i.where}: ${i.message}`);
   console.log(issues.length ? `\n${errors.length} errors, ${issues.length - errors.length} warnings` : '✓ no problems found');
