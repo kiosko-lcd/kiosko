@@ -62,15 +62,15 @@ export interface Size {
 export type Category = 'agents' | 'system' | 'time' | 'productivity' | 'dev' | 'info' | 'media' | 'scene' | 'fun';
 
 export const CATEGORIES: { id: Category; label: Localized }[] = [
-  { id: 'agents', label: { en: 'AI agents', es: 'Agentes IA', 'zh-Hant': 'AI 代理', 'zh-Hans': 'AI 智能体' } },
-  { id: 'system', label: { en: 'System', es: 'Sistema', 'zh-Hant': '系統', 'zh-Hans': '系统' } },
-  { id: 'time', label: { en: 'Time & calendar', es: 'Tiempo y agenda', 'zh-Hant': '時間與行事曆', 'zh-Hans': '时间与日历' } },
-  { id: 'productivity', label: { en: 'Productivity', es: 'Productividad', 'zh-Hant': '生產力', 'zh-Hans': '效率' } },
-  { id: 'dev', label: { en: 'Development', es: 'Desarrollo', 'zh-Hant': '開發', 'zh-Hans': '开发' } },
-  { id: 'info', label: { en: 'News & world', es: 'Noticias y mundo', 'zh-Hant': '新聞與世界', 'zh-Hans': '新闻与世界' } },
-  { id: 'media', label: { en: 'Media', es: 'Multimedia', 'zh-Hant': '多媒體', 'zh-Hans': '多媒体' } },
-  { id: 'scene', label: { en: 'Scenes', es: 'Escenas', 'zh-Hant': '場景', 'zh-Hans': '场景' } },
-  { id: 'fun', label: { en: 'Fun', es: 'Diversión', 'zh-Hant': '趣味', 'zh-Hans': '趣味' } },
+  { id: 'agents', label: { en: 'AI agents', es: 'Agentes IA', de: 'KI-Agenten', 'zh-Hant': 'AI 代理', 'zh-Hans': 'AI 智能体' } },
+  { id: 'system', label: { en: 'System', es: 'Sistema', de: 'System', 'zh-Hant': '系統', 'zh-Hans': '系统' } },
+  { id: 'time', label: { en: 'Time & calendar', es: 'Tiempo y agenda', de: 'Zeit & Kalender', 'zh-Hant': '時間與行事曆', 'zh-Hans': '时间与日历' } },
+  { id: 'productivity', label: { en: 'Productivity', es: 'Productividad', de: 'Produktivität', 'zh-Hant': '生產力', 'zh-Hans': '效率' } },
+  { id: 'dev', label: { en: 'Development', es: 'Desarrollo', de: 'Entwicklung', 'zh-Hant': '開發', 'zh-Hans': '开发' } },
+  { id: 'info', label: { en: 'News & world', es: 'Noticias y mundo', de: 'Nachrichten & Welt', 'zh-Hant': '新聞與世界', 'zh-Hans': '新闻与世界' } },
+  { id: 'media', label: { en: 'Media', es: 'Multimedia', de: 'Medien', 'zh-Hant': '多媒體', 'zh-Hans': '多媒体' } },
+  { id: 'scene', label: { en: 'Scenes', es: 'Escenas', de: 'Szenen', 'zh-Hant': '場景', 'zh-Hans': '场景' } },
+  { id: 'fun', label: { en: 'Fun', es: 'Diversión', de: 'Spaß', 'zh-Hant': '趣味', 'zh-Hans': '趣味' } },
 ];
 
 export interface Logger {

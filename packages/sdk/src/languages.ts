@@ -23,6 +23,7 @@ export interface Language {
 export const LANGUAGES: readonly Language[] = [
   { id: 'en', name: 'English', panel: 'en', ogLocale: 'en_US', hreflang: ['en', 'x-default'], dir: 'ltr' },
   { id: 'es', name: 'Español', panel: 'es', ogLocale: 'es_ES', hreflang: ['es'], dir: 'ltr' },
+  { id: 'de', name: 'Deutsch', panel: 'de', ogLocale: 'de_DE', hreflang: ['de'], dir: 'ltr' },
   { id: 'zh-Hant', name: '繁體中文', panel: 'zh-TW', ogLocale: 'zh_TW', hreflang: ['zh-Hant', 'zh-TW', 'zh-HK'], dir: 'ltr' },
   { id: 'zh-Hans', name: '简体中文', panel: 'zh-CN', ogLocale: 'zh_CN', hreflang: ['zh-Hans', 'zh-CN'], dir: 'ltr' },
 ];

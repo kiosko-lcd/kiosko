@@ -36,12 +36,12 @@ export interface MqttLike {
   on(event: 'message', fn: (topic: string, payload: string) => void): unknown;
 }
 
-const AUTO = { en: 'Auto', es: 'Automática', 'zh-Hant': '自動', 'zh-Hans': '自动' };
+const AUTO = { en: 'Auto', es: 'Automática', de: 'Automatisch', 'zh-Hant': '自動', 'zh-Hans': '自动' };
 const NAMES = {
-  page: { en: 'Page', es: 'Página', 'zh-Hant': '頁面', 'zh-Hans': '页面' },
-  shown: { en: 'Page shown', es: 'Página en pantalla', 'zh-Hant': '目前頁面', 'zh-Hans': '当前页面' },
-  display: { en: 'Display', es: 'Pantalla', 'zh-Hant': '螢幕', 'zh-Hans': '屏幕' },
-  interlude: { en: 'Play', es: 'Reproducir', 'zh-Hant': '播放', 'zh-Hans': '播放' },
+  page: { en: 'Page', es: 'Página', de: 'Seite', 'zh-Hant': '頁面', 'zh-Hans': '页面' },
+  shown: { en: 'Page shown', es: 'Página en pantalla', de: 'Angezeigte Seite', 'zh-Hant': '目前頁面', 'zh-Hans': '当前页面' },
+  display: { en: 'Display', es: 'Pantalla', de: 'Anzeige', 'zh-Hant': '螢幕', 'zh-Hans': '屏幕' },
+  interlude: { en: 'Play', es: 'Reproducir', de: 'Abspielen', 'zh-Hant': '播放', 'zh-Hans': '播放' },
 };
 
 /** A safe piece of a topic or an id: letters, digits, _ and -. */

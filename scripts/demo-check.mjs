@@ -196,6 +196,13 @@ async function drag(page, selector, dx, dy) {
 
 // ---------- The full check (Chromium) ----------
 
+/** The editor's language picker: buttons for a few languages, a list past five options. */
+async function chooseLanguage(page, name) {
+  const list = page.locator('select[aria-label]').filter({ has: page.locator('option', { hasText: name }) });
+  if (await list.count()) await list.first().selectOption({ label: name });
+  else await page.locator('.segmented button', { hasText: name }).click();
+}
+
 async function fullCheck(browser) {
   const { ctx, page, errors } = await openDemo(browser);
 
@@ -331,7 +338,7 @@ async function fullCheck(browser) {
 
   // Spanish: editor, banner and plugin texts.
   await page.locator('.rail-btn').nth(3).click();
-  await page.locator('.segmented button', { hasText: 'Español' }).click();
+  await chooseLanguage(page, 'Español');
   await page.waitForFunction(() => document.querySelector('.demo-banner')?.textContent?.includes('El editor de Kiosko'), null, { timeout: 15_000 });
   check('banner follows the language', true);
   await page.locator('.rail-btn').nth(0).click();
@@ -343,7 +350,7 @@ async function fullCheck(browser) {
 
   // Traditional Chinese: the editor's own words, the plugins' and the page's language (glyphs, CSS).
   await page.locator('.rail-btn').nth(3).click();
-  await page.locator('.segmented button', { hasText: '繁體中文' }).click();
+  await chooseLanguage(page, '繁體中文');
   await page.waitForFunction(() => document.querySelector('.demo-banner')?.textContent?.includes('Kiosko 編輯器'), null, { timeout: 15_000 }).catch(() => undefined);
   await page.locator('.rail-btn').nth(0).click();
   await page.waitForFunction(() => [...document.querySelectorAll('.lib-name')].some((e) => e.textContent?.includes('時鐘')), null, { timeout: 15_000 }).catch(() => undefined);
@@ -356,7 +363,7 @@ async function fullCheck(browser) {
   await page.waitForTimeout(1500);
   await shot(page, 'demo-editor-zh-Hant.jpg');
   await page.locator('.rail-btn').nth(3).click();
-  await page.locator('.segmented button', { hasText: 'Español' }).click();
+  await chooseLanguage(page, 'Español');
   await page.locator('.rail-btn').nth(0).click();
 
   // Plugins page: every plugin listed.

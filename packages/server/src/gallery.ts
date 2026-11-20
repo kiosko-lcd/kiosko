@@ -33,14 +33,15 @@ const MADRID = { latitude: 40.4168, longitude: -3.7038, name: 'Madrid' };
 
 /** The gallery page's own words. */
 const T = {
-  title: { en: 'Kiosko widget gallery', es: 'Galería de widgets de Kiosko', 'zh-Hant': 'Kiosko 小工具展示', 'zh-Hans': 'Kiosko 小组件展示' },
-  lede: { en: '{n} widgets, painted with their demo data by the same code that drives the panels.', es: '{n} widgets, pintados con sus datos de muestra por el mismo código que mueve los paneles.', 'zh-Hant': '{n} 個小工具，以範例資料繪製，用的正是驅動面板的同一套程式碼。', 'zh-Hans': '{n} 个小组件，用示例数据绘制，用的正是驱动副屏的同一套代码。' },
-  github: { en: 'Kiosko on GitHub', es: 'Kiosko en GitHub', 'zh-Hant': 'GitHub 上的 Kiosko', 'zh-Hans': 'GitHub 上的 Kiosko' },
-  editor: { en: 'Try the editor in your browser →', es: 'Prueba el editor en tu navegador →', 'zh-Hant': '在瀏覽器中試用編輯器 →', 'zh-Hans': '在浏览器中试用编辑器 →' },
-  in3d: { en: 'See a panel in 3D →', es: 'Ver un panel en 3D →', 'zh-Hant': '以 3D 檢視面板 →', 'zh-Hans': '查看 3D 副屏 →' },
+  title: { en: 'Kiosko widget gallery', es: 'Galería de widgets de Kiosko', de: 'Kiosko-Widget-Galerie', 'zh-Hant': 'Kiosko 小工具展示', 'zh-Hans': 'Kiosko 小组件展示' },
+  lede: { en: '{n} widgets, painted with their demo data by the same code that drives the panels.', es: '{n} widgets, pintados con sus datos de muestra por el mismo código que mueve los paneles.', de: '{n} Widgets, mit ihren Demodaten gezeichnet, vom selben Code, der die Panels steuert.', 'zh-Hant': '{n} 個小工具，以範例資料繪製，用的正是驅動面板的同一套程式碼。', 'zh-Hans': '{n} 个小组件，用示例数据绘制，用的正是驱动副屏的同一套代码。' },
+  github: { en: 'Kiosko on GitHub', es: 'Kiosko en GitHub', de: 'Kiosko auf GitHub', 'zh-Hant': 'GitHub 上的 Kiosko', 'zh-Hans': 'GitHub 上的 Kiosko' },
+  editor: { en: 'Try the editor in your browser →', es: 'Prueba el editor en tu navegador →', de: 'Den Editor im Browser ausprobieren →', 'zh-Hant': '在瀏覽器中試用編輯器 →', 'zh-Hans': '在浏览器中试用编辑器 →' },
+  in3d: { en: 'See a panel in 3D →', es: 'Ver un panel en 3D →', de: 'Ein Panel in 3D ansehen →', 'zh-Hant': '以 3D 檢視面板 →', 'zh-Hans': '查看 3D 副屏 →' },
   os: {
     en: '<b>On Linux, macOS and Windows.</b> Windows has an installer, no Node.js needed: <a href="{releases}">download Kiosko for Windows</a>. USB panels talk to Kiosko directly: <a href="{usb}">how to connect one</a>.',
     es: '<b>En Linux, macOS y Windows.</b> Windows tiene instalador, sin necesidad de Node.js: <a href="{releases}">descarga Kiosko para Windows</a>. Los paneles USB hablan directamente con Kiosko: <a href="{usb}">cómo conectar uno</a>.',
+    de: '<b>Unter Linux, macOS und Windows.</b> Für Windows gibt es einen Installer, kein Node.js nötig: <a href="{releases}">Kiosko für Windows herunterladen</a>. USB-Panels sprechen direkt mit Kiosko: <a href="{usb}">so schließt du eins an</a>.',
     'zh-Hant': '<b>支援 Linux、macOS 與 Windows。</b>Windows 有安裝程式，不需要 Node.js：<a href="{releases}">下載 Windows 版 Kiosko</a>。USB 面板直接與 Kiosko 溝通：<a href="{usb}">如何連接面板</a>。',
     'zh-Hans': '<b>支持 Linux、macOS 和 Windows。</b>Windows 有安装程序，无需 Node.js：<a href="{releases}">下载 Windows 版 Kiosko</a>。USB 副屏直接与 Kiosko 通信：<a href="{usb}">如何连接副屏</a>。',
   },

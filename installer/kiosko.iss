@@ -48,6 +48,7 @@ ShowLanguageDialog=auto
 ; Chinese entry, Traditional.
 Name: "english"; MessagesFile: "compiler:Default.isl"; InfoAfterFile: "notes.txt"
 Name: "spanish"; MessagesFile: "compiler:Languages\Spanish.isl"; InfoAfterFile: "notes.es.txt"
+Name: "german"; MessagesFile: "compiler:Languages\German.isl"; InfoAfterFile: "notes.de.txt"
 Name: "chinesetraditional"; MessagesFile: "languages\ChineseTraditional.isl"; InfoAfterFile: "notes.zh-Hant.txt"
 Name: "chinesesimplified"; MessagesFile: "languages\ChineseSimplified.isl"; InfoAfterFile: "notes.zh-Hans.txt"
 
@@ -91,6 +92,12 @@ spanish.TaskPath=Añadir el comando «kiosko» al PATH
 spanish.IconComment=Inicia Kiosko y abre el editor
 spanish.StatusStarting=Iniciando Kiosko...
 spanish.RunEditor=Abrir el editor de Kiosko
+german.TaskGroup=Kiosko:
+german.TaskService=Kiosko bei der Anmeldung an Windows im Hintergrund starten
+german.TaskPath=Den Befehl „kiosko“ zum PATH hinzufügen
+german.IconComment=Startet Kiosko und öffnet den Editor
+german.StatusStarting=Kiosko wird gestartet...
+german.RunEditor=Den Kiosko-Editor öffnen
 chinesetraditional.TaskGroup=Kiosko:
 chinesetraditional.TaskService=登入 Windows 時在背景自動啟動 Kiosko
 chinesetraditional.TaskPath=將「kiosko」指令加入 PATH 環境變數

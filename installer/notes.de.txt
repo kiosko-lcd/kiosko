@@ -1,0 +1,19 @@
+﻿Kiosko ist installiert.
+
+Öffne es über das Startmenü („Kiosko“) oder rufe im Browser
+http://127.0.0.1:7420/ auf. Wenn du gewählt hast, Kiosko bei der Anmeldung an
+Windows zu starten, läuft es bereits im Hintergrund; sonst startet es der
+Eintrag im Startmenü.
+
+  Deine Einstellungen:  %APPDATA%\Kiosko\config.json   (bleibt beim Deinstallieren erhalten)
+  Das Protokoll:        %APPDATA%\Kiosko\kiosko.log
+  Befehlszeile:         kiosko doctor   |   kiosko usb   |   kiosko service uninstall
+
+USB-Panels (Thermalright Trofeo Vision und andere LY-Panels)
+Kiosko spricht direkt mit ihnen, aber Windows braucht auf dem Panel den
+WinUSB-Treiber, einmalig mit Zadig installiert (https://zadig.akeo.ie): Panel
+auswählen, WinUSB wählen, „Replace Driver“. Danach zeigt „kiosko usb“ es an, und
+im Editor bietet Bildschirme > Bildschirm hinzufügen > Panels erkennen es an.
+Solange WinUSB auf dem Panel ist, sieht die offizielle Thermalright-Software es
+nicht; stelle bei Bedarf den ursprünglichen Treiber im Geräte-Manager wieder her.
+Mehr dazu (auf Englisch): https://github.com/kiosko-lcd/kiosko/blob/main/docs/usb.md
