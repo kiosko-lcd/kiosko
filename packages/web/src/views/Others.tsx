@@ -661,12 +661,39 @@ export function Logs() {
  * the same language (en-GB stays en-GB: its clock and first day of the
  * week), and the one in use is marked even if the config says fr-CA.
  */
-function LanguagePicker() {
+function languageChoice() {
   const cfg = config.value!;
   const system = app.value?.locale ?? navigator.language;
   const current = cfg.locale && cfg.locale !== 'auto' ? uiLanguage() : 'auto';
   const choose = (v: string) => edit((d) => (d.locale = v === 'auto' ? 'auto' : pickLocale([v], system) === v ? system : v));
+  // Each language by its own name: whoever doesn't read the one on screen still finds theirs.
   const options: [string, string][] = [['auto', tr('settings.auto')], ...UI_LANGUAGES.map((l): [string, string] => [l.id, l.name])];
+  return { current, choose, options };
+}
+
+/**
+ * The language, in the top bar: there from the first moment, for whoever
+ * arrives to an editor in a language they don't read.
+ */
+export function LanguageMenu() {
+  const { current, choose, options } = languageChoice();
+  // "Automatic" alone would be said in the very language that may not be the reader's: its name first.
+  const here = UI_LANGUAGES.find((l) => l.id === uiLanguage())?.name ?? '';
+  const named = options.map(([v, l]): [string, string] => [v, v === 'auto' && here ? `${here} (${l})` : l]);
+  return (
+    <label class="lang-menu" title={tr('settings.language')}>
+      <Icon name="languages" size={16} />
+      <select value={current} onChange={(e) => choose((e.target as HTMLSelectElement).value)} aria-label={tr('settings.language')}>
+        {named.map(([v, l]) => (
+          <option value={v} lang={v === 'auto' ? undefined : v}>{l}</option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function LanguagePicker() {
+  const { current, choose, options } = languageChoice();
   // A row of buttons holds a few languages; more go in a list.
   if (options.length > 5)
     return (

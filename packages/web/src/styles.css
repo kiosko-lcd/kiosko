@@ -366,6 +366,11 @@ span.day { display: inline-grid; place-items: center; cursor: default; flex: non
 .toast.error .icon { color: var(--bad); }
 .toast.ok .icon { color: var(--ok); }
 .offline { position: fixed; top: 64px; left: 50%; transform: translateX(-50%); background: var(--warn); color: #1a1300; padding: 6px 14px; border-radius: 999px; font-weight: 700; font-size: 12.5px; display: flex; gap: 6px; align-items: center; z-index: 60; }
+/* The language, in the top bar: an icon and the language's own name; the whole of it opens the list. */
+.lang-menu { position: relative; display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 8px; border-radius: 9px; color: var(--text-2); cursor: pointer; transition: background 0.12s, color 0.12s; }
+.lang-menu:hover, .lang-menu:focus-within { background: var(--panel-2); color: var(--text); }
+.lang-menu select { appearance: none; border: 0; background: transparent; color: inherit; font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; outline: none; max-width: 150px; padding: 0; }
+.lang-menu select option { color: var(--text); background: var(--bg-2); }
 .save-state { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-3); font-weight: 600; }
 .save-state.saved .icon { color: var(--ok); }
 .save-state.error { color: var(--bad); }
@@ -393,6 +398,9 @@ span.day { display: inline-grid; place-items: center; cursor: default; flex: non
   .brand span { display: none; }
   .brand { min-width: 0; }
   .hide-sm { display: none; }
+  /* Only the icon (any reader knows it); the list itself, invisible over it, opens on a tap. */
+  .lang-menu { width: 32px; padding: 0; justify-content: center; flex: none; }
+  .lang-menu select { position: absolute; inset: 0; width: 100%; max-width: none; opacity: 0; }
   .log-line { grid-template-columns: 64px 1fr; }
   .log-msg { grid-column: 1 / -1; }
   .toolbar { gap: 6px; }
