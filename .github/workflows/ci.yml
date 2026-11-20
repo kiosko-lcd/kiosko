@@ -18,8 +18,8 @@ jobs:
         node: [22, 24]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ matrix.node }}
           cache: npm
@@ -34,7 +34,7 @@ jobs:
           node scripts/build-dist.mjs
           node dist/kiosko/cli.js doctor --config examples/showcase.json
           node dist/kiosko/cli.js render --config examples/showcase.json --page Cats --out cats.png
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: matrix.os == 'ubuntu-latest' && matrix.node == 24
         with:
           name: frame-${{ matrix.os }}
