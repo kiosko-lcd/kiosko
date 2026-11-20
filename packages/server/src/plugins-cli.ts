@@ -6,7 +6,7 @@
  *   kiosko plugins add <id|pkg>…   install from npm (`agents` → kiosko-plugin-agents)
  *   kiosko plugins link <dir>…     use a local checkout (development, unpublished plugins)
  *   kiosko plugins remove <id|pkg>…
- *   kiosko plugins check [dir]     conventions, and every widget painted at several sizes, themes and languages
+ *   kiosko plugins check [dir]     conventions, and every widget painted at several sizes, themes and languages (--strict: warnings fail too)
  *   kiosko plugins manifest [dir]  write kiosko-manifest.json (what a store reads)
  *   kiosko plugins dev [dir]       link it and reload it in the running Kiosko on every build
  *   kiosko plugins new <id> [dir]  start a plugin: package.json, a widget, a source, tests, build
@@ -60,7 +60,7 @@ function lookList(looks: string[]): string {
 }
 
 /** `kiosko plugins check`: lint + paint. Returns the number of errors. */
-async function check(dir: string, argv: string[]): Promise<number> {
+async function check(dir: string, argv: string[]): Promise<{ errors: number; warnings: number }> {
   const { def, pkg, entry } = await loadPluginDir(dir, { src: flagOf(argv, '--src') });
   console.log(`${def.id} v${def.version}  (${entry})`);
   const issues = lintPlugin(def);
@@ -88,7 +88,7 @@ async function check(dir: string, argv: string[]): Promise<number> {
   const errors = issues.filter((i) => i.level === 'error');
   for (const i of [...errors, ...issues.filter((i) => i.level === 'warn')]) console.log(`${i.level === 'error' ? '✗' : '!'} ${i.where}: ${i.message}`);
   console.log(issues.length ? `\n${errors.length} errors, ${issues.length - errors.length} warnings` : '✓ no problems found');
-  return errors.length;
+  return { errors: errors.length, warnings: issues.length - errors.length };
 }
 
 /** `kiosko plugins manifest`: the store's record, next to package.json. */
@@ -283,8 +283,9 @@ export async function pluginsCommand(argv: string[], registry: () => Promise<Reg
   const [sub = 'list', ...names] = argv;
   switch (sub) {
     case 'check': {
-      const errors = await check(positional(names)[0] ?? '.', names);
-      if (errors) process.exitCode = 1;
+      const { errors, warnings } = await check(positional(names)[0] ?? '.', names);
+      // --strict: warnings fail too (CI, or a translation that must be complete).
+      if (errors || (flagOf(names, '--strict') && warnings)) process.exitCode = 1;
       return;
     }
     case 'manifest':

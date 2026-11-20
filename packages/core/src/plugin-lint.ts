@@ -123,9 +123,17 @@ export function lintPlugin(def: PluginDefinition): LintIssue[] {
   }
   const langs = declared?.length ? declared : used;
   if (langs.includes('zh') || used.includes('zh')) add('warn', 'plugin', 'a bare `zh` is read as Simplified and never shown in Taiwan or Hong Kong: write `zh-Hans` (mainland China) and `zh-Hant` (Taiwan, Hong Kong)');
+  // A tag that is not one (or misspelt) is reported once above, not again on every text.
+  const valid = langs.filter((l) => {
+    try {
+      return Intl.getCanonicalLocales(l)[0] === l && knownLanguage(l);
+    } catch {
+      return false;
+    }
+  });
   const texts = (where: string, ...ts: (Localized | undefined)[]) => {
     for (const tx of ts) {
-      const miss = missingLanguages(tx, langs);
+      const miss = missingLanguages(tx, valid);
       if (miss.length) add('warn', where, `"${typeof tx === 'string' ? tx : tx?.en}" has no ${miss.join(', ')} (the plugin speaks ${langs.join(', ')})`);
     }
   };

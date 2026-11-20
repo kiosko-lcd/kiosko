@@ -55,7 +55,7 @@ test('the built-in plugins declare every language and miss no text in any', () =
 test('every { en, es, … } text of the SDK, core, server and web has every language', () => {
   const dirs = ['packages/sdk/src', 'packages/core/src', 'packages/server/src', 'packages/web/src', 'packages/web/demo', 'packages/web/panel3d', 'packages/web/landing', 'plugins/core/src', 'plugins/legacy/src'];
   const lines: string[] = [];
-  for (const id of ids) for (const d of dirs) for (const g of i18nGaps(join(root, d), id)) lines.push(`${g.file.slice(root.length)}:${g.line} lacks ${id}: ${g.en}`);
+  for (const id of ids) for (const d of dirs) for (const g of i18nGaps(join(root, d), id)) lines.push(`${g.file.slice(root.length)}:${g.line} ${g.kind === 'missing' ? 'lacks' : 'other placeholders in'} ${id}: ${g.en}`);
   // The whole list in the message (an assertion's diff would cut it short).
   assert.equal(lines.length, 0, `${lines.length} texts lack a language (also: node --conditions=source scripts/i18n-gaps.ts <folder> <language>):\n${lines.join('\n')}`);
 });

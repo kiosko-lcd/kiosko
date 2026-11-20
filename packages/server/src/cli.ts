@@ -44,7 +44,8 @@ const USAGE = `Kiosko ${VERSION}: a widget mosaic for USB LCD panels
 const argv = process.argv.slice(2);
 // Flags alone mean `start` (`kiosko --demo --open`), except the ones that are commands of their own.
 const FLAG_COMMANDS = new Set(['--help', '-h', '--version', '-v']);
-const cmd = argv[0] && (!argv[0].startsWith('-') || FLAG_COMMANDS.has(argv[0])) ? argv[0] : 'start';
+// `kiosko <command> --help` shows the help instead of running the command (`gallery --help` wrote a gallery).
+const cmd = argv.includes('--help') || argv.includes('-h') ? 'help' : argv[0] && (!argv[0].startsWith('-') || FLAG_COMMANDS.has(argv[0])) ? argv[0] : 'start';
 const flag = (name: string) => argv.includes(name);
 const opt = (name: string) => {
   const i = argv.indexOf(name);
