@@ -25,7 +25,12 @@ test('a family that does not exist is not available', () => {
 test('without CJK fonts, font strings are left alone', () => {
   setFontLocale('en');
   if (cjk) return;
-  assert.equal(withFallback('12px "KioskoSans"'), '12px "KioskoSans"');
+  // Fonts for other writings (Thai, Arabic…) may still go behind it.
+  const font = withFallback('12px "KioskoSans"');
+  let rest = font.slice('12px "KioskoSans"'.length);
+  for (const f of otherScriptFonts()) rest = rest.replace(`"${f.family}"`, '');
+  assert.ok(font.startsWith('12px "KioskoSans"'), font);
+  assert.equal(rest.replace(/[\s,]/g, ''), '', font);
 });
 
 test('the fallback follows the language: Traditional, Hong Kong, Simplified', { skip: !cjk && 'no CJK font on this machine' }, () => {
