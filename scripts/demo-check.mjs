@@ -203,6 +203,16 @@ async function chooseLanguage(page, name) {
   else await page.locator('.segmented button', { hasText: name }).click();
 }
 
+/** Opened from the Chinese front page (`?lang=`), the sample is in Chinese, whatever the browser speaks. */
+async function pageLanguage(browser) {
+  const { ctx, page, errors } = await openDemo(browser, { query: '?lang=zh-TW' });
+  const names = await page.$$eval('.page-card', (l) => l.map((e) => e.textContent?.trim() ?? ''));
+  const lang = await page.evaluate(() => document.documentElement.lang);
+  check('opened from a page in Chinese, the sample and the editor speak it (browser in English)', names.some((n) => n.includes('總覽')) && lang.startsWith('zh'), `pages ${names.map((n) => n.slice(0, 8)).join(', ')}; html lang ${lang}`);
+  check('no errors with ?lang=', errors.length === 0, errors.join(' | '));
+  await ctx.close();
+}
+
 async function fullCheck(browser) {
   const { ctx, page, errors } = await openDemo(browser);
 
@@ -575,9 +585,9 @@ async function frontPage(browser, name) {
   const refused = await saidNow();
   check(`${name} front page: a file that is not a config is refused, and says why`, /isn't a Kiosko config/.test(refused) && !(await page.locator('[data-yours="loaded"]').isHidden()), `"${refused}"`);
   await page.locator('[data-yours="edit"]').click();
-  await page.waitForURL(/\/demo\/$/, { timeout: 15_000 }).catch(() => undefined);
+  await page.waitForURL(/\/demo\/(\?lang=[^#]*)?$/, { timeout: 15_000 }).catch(() => undefined);
   const handed = await stored(page);
-  check(`${name} front page: "open it in the editor" hands the config to the demo`, page.url().endsWith('/demo/') && handed?.screens?.[0]?.id === 'mine', `${page.url()} with screens ${handed?.screens?.map((x) => x.id)}`);
+  check(`${name} front page: "open it in the editor" hands the config to the demo`, /\/demo\/(\?lang=[^#]*)?$/.test(page.url()) && handed?.screens?.[0]?.id === 'mine', `${page.url()} with screens ${handed?.screens?.map((x) => x.id)}`);
   await page.evaluate(() => localStorage.removeItem('kiosko.demo.config'));
   await page.goto(home);
 
@@ -647,6 +657,7 @@ try {
     try {
       if (name === 'chromium') {
         await fullCheck(browser);
+        await pageLanguage(browser);
         if (measure) {
           for (const [label, q] of [['worker', ''], ['page', '?render=page']]) {
             const m = await longTasks(browser, q);
