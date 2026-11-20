@@ -5,7 +5,7 @@ import { Icon } from './icons.tsx';
 import { UI_LANGUAGES, t, tr, uiLanguage } from './i18n.ts';
 import { app, boot, config, go, online, pageId, saveError, saving, screen, screenId, selectedTile, status, toast, view, type View } from './store.ts';
 import { Screens } from './views/Screens.tsx';
-import { Logs, Plugins, Settings } from './views/Others.tsx';
+import { LanguageMenu, Logs, Plugins, Settings } from './views/Others.tsx';
 import { startTour, touring } from './demo/tour.ts';
 import { DemoBanner, demoBootError } from './demo/ui.tsx';
 
@@ -76,6 +76,7 @@ function TopBar() {
       <div class="tb-spacer" />
       {!KIOSKO_DEMO && app.value?.demo && <span class="demo-pill" title="kiosko start --demo">DEMO</span>}
       <SaveState />
+      <LanguageMenu />
       <a class="icon-btn" href="https://github.com/kiosko-lcd/kiosko#readme" target="_blank" rel="noreferrer" title={tr('docs')}>
         <Icon name="book-open" size={17} />
       </a>

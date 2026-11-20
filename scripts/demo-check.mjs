@@ -353,12 +353,13 @@ async function fullCheck(browser) {
   check('panel theme repaints the preview', painted(themed) && themed.hash !== strip.hash, `theme ${(await stored(page))?.theme}`);
   await shot(page, 'demo-editor-light.jpg');
 
-  // Spanish: editor, banner and plugin texts.
-  await page.locator('.rail-btn').nth(3).click();
-  await chooseLanguage(page, 'Español');
+  // Spanish, from the top bar (in sight from the first moment, on the editor itself): editor,
+  // banner and plugin texts.
+  const menu = page.locator('.topbar .lang-menu select');
+  check('the language is in the top bar, in sight on the editor', await menu.isVisible(), `${await menu.count()} language menus in the top bar`);
+  await menu.selectOption({ label: 'Español' });
   await page.waitForFunction(() => document.querySelector('.demo-banner')?.textContent?.includes('El editor de Kiosko'), null, { timeout: 15_000 });
   check('banner follows the language', true);
-  await page.locator('.rail-btn').nth(0).click();
   await page.waitForFunction(() => [...document.querySelectorAll('.lib-name')].some((e) => e.textContent?.includes('Reloj')), null, { timeout: 15_000 }).catch(() => undefined);
   const names = await page.$$eval('.lib-name', (l) => l.map((e) => e.textContent?.trim()));
   check('plugin texts in Spanish', names.includes('Reloj') && names.includes('Día del calendario'), names.slice(0, 6).join(', '));
