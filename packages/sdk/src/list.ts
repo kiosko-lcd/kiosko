@@ -34,9 +34,9 @@ export type ListLayout = 'one-line' | 'detailed';
 export type ListLayoutChoice = 'auto' | ListLayout;
 
 const LAYOUT_LABELS: Record<ListLayoutChoice, Localized> = {
-  auto: { en: 'Automatic', es: 'Automático' },
-  'one-line': { en: 'One line', es: 'Una línea' },
-  detailed: { en: 'Detailed', es: 'Detallado' },
+  auto: { en: 'Automatic', es: 'Automático', 'zh-Hant': '自動', 'zh-Hans': '自动' },
+  'one-line': { en: 'One line', es: 'Una línea', 'zh-Hant': '單行', 'zh-Hans': '单行' },
+  detailed: { en: 'Detailed', es: 'Detallado', 'zh-Hant': '詳細', 'zh-Hans': '详细' },
 };
 
 const rowsField = (def: number): NumberField =>
@@ -44,10 +44,12 @@ const rowsField = (def: number): NumberField =>
     default: def,
     min: 0,
     max: 30,
-    label: { en: 'Rows', es: 'Filas' },
+    label: { en: 'Rows', es: 'Filas', 'zh-Hant': '列數', 'zh-Hans': '行数' },
     help: {
       en: '0 = as many as fit. A number shows that many, in rows of a readable size (fewer when the tile is too small for them); the rest are counted in "+N more".',
       es: '0 = las que quepan. Con un número se ven esas, en filas de un tamaño legible (menos si la tesela no da para ellas); el resto se cuenta en «+N más».',
+      'zh-Hant': '0 = 盡量放滿。填數字則顯示該數量，並以易讀的大小排列（方格太小時會減少）；其餘的計入「還有 N 個」。',
+      'zh-Hans': '0 = 尽量放满。填数字则显示该数量，并以易读的大小排列（格子太小时会减少）；其余的计入“还有 N 个”。',
     },
   });
 
@@ -67,9 +69,9 @@ export function listOptions(o: { rows?: number; layouts?: readonly ListLayout[];
     rows,
     layout: t.enum(values, {
       default: o.layout ?? 'auto',
-      label: { en: 'Row layout', es: 'Formato de fila' },
+      label: { en: 'Row layout', es: 'Formato de fila', 'zh-Hant': '列版面', 'zh-Hans': '行布局' },
       labels: Object.fromEntries(values.map((v) => [v, LAYOUT_LABELS[v]])),
-      help: { en: 'Automatic: the widget picks by the tile\'s shape.', es: 'Automático: el widget elige según la forma de la tesela.' },
+      help: { en: 'Automatic: the widget picks by the tile\'s shape.', es: 'Automático: el widget elige según la forma de la tesela.', 'zh-Hant': '自動：小工具依方格形狀選擇。', 'zh-Hans': '自动：小组件根据格子形状选择。' },
     }),
   };
 }
@@ -182,7 +184,7 @@ export function listLayout<L extends ListLayout>(box: Box, count: number, option
 
 /** `"+3 more"` / `"+3 más"`. */
 export function moreLabel(n: number, tr: (text: Localized) => string): string {
-  return tr({ en: `+${n} more`, es: `+${n} más` });
+  return tr({ en: `+${n} more`, es: `+${n} más`, 'zh-Hant': `還有 ${n} 個`, 'zh-Hans': `还有 ${n} 个` });
 }
 
 type DrawCtx = Pick<RenderContext<unknown, unknown>, 'kit' | 'theme' | 't'>;

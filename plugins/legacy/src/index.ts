@@ -55,10 +55,10 @@ interface Data {
 }
 
 const optionsSchema = t.object({
-  module: t.string({ risk: 'exec', label: { en: 'Module (name or path)', es: 'Módulo (nombre o ruta)' }, placeholder: 'pizarra', help: { en: 'Looked up in the folder below unless absolute.', es: 'Se busca en la carpeta de abajo salvo que sea absoluta.' } }),
-  dir: t.string({ default: '~/.aimonitor/modules', format: 'path', risk: 'exec', label: { en: 'Modules folder', es: 'Carpeta de módulos' }, advanced: true }),
-  config: t.map({ label: { en: 'Module config (key → value)', es: 'Config del módulo (clave → valor)' }, help: { en: 'Simple values only; numbers and true/false are converted.', es: 'Sólo valores simples; números y true/false se convierten.' } }),
-  json: t.string({ multiline: true, label: { en: 'Module config as JSON', es: 'Config del módulo en JSON' }, help: { en: 'For lists and nested values. Wins over the table above.', es: 'Para listas y valores anidados. Manda sobre la tabla de arriba.' }, advanced: true }),
+  module: t.string({ risk: 'exec', label: { en: 'Module (name or path)', es: 'Módulo (nombre o ruta)', 'zh-Hant': '模組（名稱或路徑）', 'zh-Hans': '模块（名称或路径）' }, placeholder: 'pizarra', help: { en: 'Looked up in the folder below unless absolute.', es: 'Se busca en la carpeta de abajo salvo que sea absoluta.', 'zh-Hant': '若不是絕對路徑，會在下方的資料夾中尋找。', 'zh-Hans': '如果不是绝对路径，会在下方的文件夹中查找。' } }),
+  dir: t.string({ default: '~/.aimonitor/modules', format: 'path', risk: 'exec', label: { en: 'Modules folder', es: 'Carpeta de módulos', 'zh-Hant': '模組資料夾', 'zh-Hans': '模块文件夹' }, advanced: true }),
+  config: t.map({ label: { en: 'Module config (key → value)', es: 'Config del módulo (clave → valor)', 'zh-Hant': '模組設定（鍵 → 值）', 'zh-Hans': '模块配置（键 → 值）' }, help: { en: 'Simple values only; numbers and true/false are converted.', es: 'Sólo valores simples; números y true/false se convierten.', 'zh-Hant': '僅限簡單值；數字和 true/false 會自動轉換。', 'zh-Hans': '仅限简单值；数字和 true/false 会自动转换。' } }),
+  json: t.string({ multiline: true, label: { en: 'Module config as JSON', es: 'Config del módulo en JSON', 'zh-Hant': 'JSON 格式的模組設定', 'zh-Hans': 'JSON 格式的模块配置' }, help: { en: 'For lists and nested values. Wins over the table above.', es: 'Para listas y valores anidados. Manda sobre la tabla de arriba.', 'zh-Hant': '用於清單和巢狀值，優先於上方的表格。', 'zh-Hans': '用于列表和嵌套值，优先于上方的表格。' }, advanced: true }),
 });
 
 /** The module's config: its defaults, then the key/value table, then the JSON. */
@@ -75,8 +75,8 @@ export function moduleConfig(mod: LegacyModule | undefined, o: { config: Record<
 
 export const module = defineWidget({
   id: 'module',
-  name: { en: 'aimonitor module', es: 'Módulo de aimonitor' },
-  description: { en: 'Runs a custom card written for aimonitor (defineModule) unchanged.', es: 'Ejecuta sin cambios una tarjeta propia escrita para aimonitor (defineModule).' },
+  name: { en: 'aimonitor module', es: 'Módulo de aimonitor', 'zh-Hant': 'aimonitor 模組', 'zh-Hans': 'aimonitor 模块' },
+  description: { en: 'Runs a custom card written for aimonitor (defineModule) unchanged.', es: 'Ejecuta sin cambios una tarjeta propia escrita para aimonitor (defineModule).', 'zh-Hant': '原封不動執行為 aimonitor 撰寫的自訂卡片（defineModule）。', 'zh-Hans': '原样运行为 aimonitor 编写的自定义卡片（defineModule）。' },
   icon: 'puzzle',
   category: 'productivity',
   size: { min: { w: 200, h: 120 }, preferred: { w: 600, h: 440 } },
@@ -96,7 +96,7 @@ export const module = defineWidget({
   render(g, ctx) {
     const mod = ctx.data ? loaded.get(ctx.data.path) : undefined;
     if (!mod) {
-      ctx.kit.drawTracked(g, ctx.options.module ? '…' : ctx.t({ en: 'Pick a module in the options', es: 'Elige un módulo en las opciones' }), ctx.box.x, ctx.box.y + 30, { size: 22, family: ctx.theme.fonts.sans, color: ctx.theme.colors.inkDim });
+      ctx.kit.drawTracked(g, ctx.options.module ? '…' : ctx.t({ en: 'Pick a module in the options', es: 'Elige un módulo en las opciones', 'zh-Hant': '請在選項中選擇模組', 'zh-Hans': '请在选项中选择模块' }), ctx.box.x, ctx.box.y + 30, { size: 22, family: ctx.theme.fonts.sans, color: ctx.theme.colors.inkDim });
       return;
     }
     const box: Box = ctx.box;
@@ -115,12 +115,12 @@ export const module = defineWidget({
 
 export default definePlugin({
   id: 'legacy',
-  name: { en: 'aimonitor compatibility', es: 'Compatibilidad aimonitor' },
+  name: { en: 'aimonitor compatibility', es: 'Compatibilidad aimonitor', 'zh-Hant': 'aimonitor 相容性', 'zh-Hans': 'aimonitor 兼容' },
   version: '0.2.5',
   sdk: '^0.2.0',
   // Runs the aimonitor modules you point it at, and reads their folder.
   permissions: { exec: ['user'], files: ['user'] },
-  description: { en: 'Run your aimonitor custom modules as widgets.', es: 'Tus módulos propios de aimonitor, como widgets.' },
+  description: { en: 'Run your aimonitor custom modules as widgets.', es: 'Tus módulos propios de aimonitor, como widgets.', 'zh-Hant': '將你的 aimonitor 自訂模組當作小工具執行。', 'zh-Hans': '把你的 aimonitor 自定义模块作为小组件运行。' },
   author: 'Kiosko',
   license: 'MIT',
   icon: 'puzzle',

@@ -51,31 +51,31 @@ export function wallClock(now: number, timeZone: string): number {
 
 export const clock = defineWidget({
   id: 'clock',
-  name: { en: 'Clock', es: 'Reloj' },
-  description: { en: 'Big digital clock, with optional seconds and date.', es: 'Reloj digital grande, con segundos y fecha opcionales.' },
+  name: { en: 'Clock', es: 'Reloj', 'zh-Hant': '時鐘', 'zh-Hans': '时钟' },
+  description: { en: 'Big digital clock, with optional seconds and date.', es: 'Reloj digital grande, con segundos y fecha opcionales.', 'zh-Hant': '大型數位時鐘，可選擇顯示秒數和日期。', 'zh-Hans': '大号数字时钟，可选显示秒数和日期。' },
   icon: 'clock',
   category: 'time',
   chrome: 'bare',
   size: { min: { w: 120, h: 60 }, preferred: { w: 320, h: 200 } },
   options: t.object({
-    showSeconds: t.boolean({ label: { en: 'Show seconds', es: 'Mostrar segundos' } }),
+    showSeconds: t.boolean({ label: { en: 'Show seconds', es: 'Mostrar segundos', 'zh-Hant': '顯示秒數', 'zh-Hans': '显示秒数' } }),
     timeFormat: t.enum(['inherit', '24h', '12h'] as const, {
-      label: { en: 'Time format', es: 'Formato de hora' },
-      labels: { inherit: { en: 'As in Settings', es: 'Como en Ajustes' }, '24h': { en: '24 hours', es: '24 horas' }, '12h': { en: '12 hours', es: '12 horas' } },
+      label: { en: 'Time format', es: 'Formato de hora', 'zh-Hant': '時間格式', 'zh-Hans': '时间格式' },
+      labels: { inherit: { en: 'As in Settings', es: 'Como en Ajustes', 'zh-Hant': '依照設定', 'zh-Hans': '跟随设置' }, '24h': { en: '24 hours', es: '24 horas', 'zh-Hant': '24 小時制', 'zh-Hans': '24 小时制' }, '12h': { en: '12 hours', es: '12 horas', 'zh-Hant': '12 小時制', 'zh-Hans': '12 小时制' } },
     }),
-    showDate: t.boolean({ default: true, label: { en: 'Show the date below', es: 'Fecha debajo' } }),
+    showDate: t.boolean({ default: true, label: { en: 'Show the date below', es: 'Fecha debajo', 'zh-Hant': '在下方顯示日期', 'zh-Hans': '在下方显示日期' } }),
     dateFormat: t.enum(['long', 'short', 'numeric'] as const, {
-      label: { en: 'Date format', es: 'Formato de la fecha' },
-      labels: { long: { en: 'Long: Monday, 10 November', es: 'Larga: lunes, 10 de noviembre' }, short: { en: 'Short: Mon, 10 Nov', es: 'Corta: lun, 10 nov' }, numeric: { en: 'Numbers: 10/11/2026', es: 'En cifras: 10/11/2026' } },
-      help: { en: 'The long one gets small on a narrow tile.', es: 'La larga se queda pequeña en una tesela estrecha.' },
+      label: { en: 'Date format', es: 'Formato de la fecha', 'zh-Hant': '日期格式', 'zh-Hans': '日期格式' },
+      labels: { long: { en: 'Long: Monday, 10 November', es: 'Larga: lunes, 10 de noviembre', 'zh-Hant': '長：11月10日星期一', 'zh-Hans': '长：11月10日星期一' }, short: { en: 'Short: Mon, 10 Nov', es: 'Corta: lun, 10 nov', 'zh-Hant': '短：11月10日週一', 'zh-Hans': '短：11月10日周一' }, numeric: { en: 'Numbers: 10/11/2026', es: 'En cifras: 10/11/2026', 'zh-Hant': '數字：2026/11/10', 'zh-Hans': '数字：2026/11/10' } },
+      help: { en: 'The long one gets small on a narrow tile.', es: 'La larga se queda pequeña en una tesela estrecha.', 'zh-Hant': '方格較窄時，長格式會變得很小。', 'zh-Hans': '格子较窄时，长格式会变得很小。' },
     }),
     timeZone: t.string({
       placeholder: 'America/New_York',
-      label: { en: 'Time zone', es: 'Zona horaria' },
-      help: { en: 'Empty: this computer\'s. A zone name (Europe/London, Asia/Tokyo) makes it the clock of another office; give the widget a title.', es: 'Vacía: la de este ordenador. Con el nombre de una zona (Europe/London, Asia/Tokyo) es el reloj de otra oficina; ponle un título al widget.' },
+      label: { en: 'Time zone', es: 'Zona horaria', 'zh-Hant': '時區', 'zh-Hans': '时区' },
+      help: { en: 'Empty: this computer\'s. A zone name (Europe/London, Asia/Tokyo) makes it the clock of another office; give the widget a title.', es: 'Vacía: la de este ordenador. Con el nombre de una zona (Europe/London, Asia/Tokyo) es el reloj de otra oficina; ponle un título al widget.', 'zh-Hant': '留空：使用這台電腦的時區。填入時區名稱（Europe/London、Asia/Tokyo）就成了另一間辦公室的時鐘；記得幫小工具加上標題。', 'zh-Hans': '留空：使用这台电脑的时区。填写时区名称（Europe/London、Asia/Tokyo）就成了另一个办公室的时钟；记得给小组件加个标题。' },
     }),
-    color: t.enum(['ink', 'accent', 'dim'] as const, { label: { en: 'Colour', es: 'Color' }, labels: { ink: { en: 'Text', es: 'Texto' }, accent: { en: 'Accent', es: 'Acento' }, dim: { en: 'Dim', es: 'Tenue' } } }),
-    align: t.enum(['center', 'left', 'right'] as const, { label: { en: 'Alignment', es: 'Alineación' } }),
+    color: t.enum(['ink', 'accent', 'dim'] as const, { label: { en: 'Colour', es: 'Color', 'zh-Hant': '顏色', 'zh-Hans': '颜色' }, labels: { ink: { en: 'Text', es: 'Texto', 'zh-Hant': '文字', 'zh-Hans': '文字' }, accent: { en: 'Accent', es: 'Acento', 'zh-Hant': '強調色', 'zh-Hans': '强调色' }, dim: { en: 'Dim', es: 'Tenue', 'zh-Hant': '淡色', 'zh-Hans': '暗淡' } } }),
+    align: t.enum(['center', 'left', 'right'] as const, { label: { en: 'Alignment', es: 'Alineación', 'zh-Hant': '對齊', 'zh-Hans': '对齐' } }),
   }),
   redraw: 'second',
   render(g, { box, now, options, theme, locale, fmt }) {
@@ -105,18 +105,18 @@ export const clock = defineWidget({
 
 export const date = defineWidget({
   id: 'date',
-  name: { en: 'Calendar day', es: 'Día del calendario' },
-  description: { en: 'Day of the month, weekday and week number, like a desk calendar.', es: 'El día del mes, de la semana y el número de semana, como un taco de calendario.' },
+  name: { en: 'Calendar day', es: 'Día del calendario', 'zh-Hant': '日曆', 'zh-Hans': '日历' },
+  description: { en: 'Day of the month, weekday and week number, like a desk calendar.', es: 'El día del mes, de la semana y el número de semana, como un taco de calendario.', 'zh-Hant': '當月日期、星期和週數，就像桌曆一樣。', 'zh-Hans': '当月日期、星期和周数，就像台历一样。' },
   icon: 'calendar',
   category: 'time',
   size: { min: { w: 120, h: 120 }, preferred: { w: 220, h: 300 } },
   options: t.object({
     weekdayColor: t.enum(['accent', 'ink', 'dim', 'alert'] as const, {
-      label: { en: 'Weekday colour', es: 'Color del día de la semana' },
-      labels: { accent: { en: 'Accent', es: 'Acento' }, ink: { en: 'Text', es: 'Texto' }, dim: { en: 'Dim', es: 'Tenue' }, alert: { en: 'Red, like a tear-off calendar', es: 'Rojo, como un taco de calendario' } },
-      help: { en: 'On the panel red means "needs you"; a red weekday spends it every day.', es: 'En el panel el rojo significa «te necesita»; un día de la semana en rojo lo gasta a diario.' },
+      label: { en: 'Weekday colour', es: 'Color del día de la semana', 'zh-Hant': '星期顏色', 'zh-Hans': '星期颜色' },
+      labels: { accent: { en: 'Accent', es: 'Acento', 'zh-Hant': '強調色', 'zh-Hans': '强调色' }, ink: { en: 'Text', es: 'Texto', 'zh-Hant': '文字', 'zh-Hans': '文字' }, dim: { en: 'Dim', es: 'Tenue', 'zh-Hant': '淡色', 'zh-Hans': '暗淡' }, alert: { en: 'Red, like a tear-off calendar', es: 'Rojo, como un taco de calendario', 'zh-Hant': '紅色，像撕頁日曆', 'zh-Hans': '红色，像手撕日历' } },
+      help: { en: 'On the panel red means "needs you"; a red weekday spends it every day.', es: 'En el panel el rojo significa «te necesita»; un día de la semana en rojo lo gasta a diario.', 'zh-Hant': '在面板上，紅色代表「需要你」；星期用紅色等於每天都在消耗它。', 'zh-Hans': '在屏幕上，红色代表“需要你”；星期用红色等于每天都在消耗它。' },
     }),
-    showWeekNumber: t.boolean({ default: true, label: { en: 'Show week number', es: 'Número de semana' } }),
+    showWeekNumber: t.boolean({ default: true, label: { en: 'Show week number', es: 'Número de semana', 'zh-Hant': '顯示週數', 'zh-Hans': '显示周数' } }),
   }),
   redraw: 'minute',
   render(g, { box, now, options, theme, kit, locale, t: tr }) {
@@ -137,7 +137,7 @@ export const date = defineWidget({
     const bottom = box.y + box.h - 4;
     const ms = Math.min(top, box.h * 0.13);
     let line = month;
-    if (options.showWeekNumber) line += ` · ${tr({ en: 'wk', es: 'sem' })} ${isoWeek(d)}`;
+    if (options.showWeekNumber) line += ` · ${tr({ en: 'wk', es: 'sem', 'zh-Hant': '週', 'zh-Hans': '周' })} ${isoWeek(d)}`;
     const ls = Math.min(ms, fit(g, line, theme.fonts.sans, box.w * 0.96, ms));
     g.font = `${ls}px "${theme.fonts.sans}"`;
     g.fillStyle = theme.colors.inkDim;
@@ -157,34 +157,36 @@ const MAX_FILE_CHARS = 20_000;
 
 export const text = defineWidget({
   id: 'text',
-  name: { en: 'Text note', es: 'Nota de texto' },
-  description: { en: 'A note or a motto, auto-sized to fill its tile; or the contents of a file a script writes.', es: 'Una nota o un lema, con la letra ajustada a la tesela; o lo que un script escribe en un fichero.' },
+  name: { en: 'Text note', es: 'Nota de texto', 'zh-Hant': '文字便條', 'zh-Hans': '文字便签' },
+  description: { en: 'A note or a motto, auto-sized to fill its tile; or the contents of a file a script writes.', es: 'Una nota o un lema, con la letra ajustada a la tesela; o lo que un script escribe en un fichero.', 'zh-Hant': '一則便條或座右銘，字體自動縮放填滿方格；或是顯示腳本寫入檔案的內容。', 'zh-Hans': '一条便签或座右铭，字号自动缩放填满格子；或者显示脚本写入文件的内容。' },
   icon: 'type',
   category: 'productivity',
   size: { min: { w: 120, h: 60 }, preferred: { w: 400, h: 160 } },
   options: t.object({
-    text: t.string({ default: 'Hello, panel!', multiline: true, label: { en: 'Text', es: 'Texto' }, help: { en: 'With a file, shown until the file can be read.', es: 'Con un fichero, se ve hasta que se pueda leer.' } }),
+    text: t.string({ default: 'Hello, panel!', multiline: true, label: { en: 'Text', es: 'Texto', 'zh-Hant': '文字', 'zh-Hans': '文字' }, help: { en: 'With a file, shown until the file can be read.', es: 'Con un fichero, se ve hasta que se pueda leer.', 'zh-Hant': '使用檔案時，在檔案可讀取之前顯示這段文字。', 'zh-Hans': '使用文件时，在文件可读取之前显示这段文字。' } }),
     file: t.string({
       format: 'path',
       risk: 'path',
       placeholder: '~/status.txt',
-      label: { en: 'Text file', es: 'Fichero de texto' },
+      label: { en: 'Text file', es: 'Fichero de texto', 'zh-Hant': '文字檔', 'zh-Hans': '文本文件' },
       help: {
         en: 'Paints what a script writes there (on call, a deploy, the last backup), read again on every refresh. Empty: the text above.',
         es: 'Pinta lo que un script escribe ahí (guardia, despliegue, última copia), releído en cada refresco. Vacío: el texto de arriba.',
+        'zh-Hant': '顯示腳本寫入的內容（值班、部署、上次備份），每次重新整理時重新讀取。留空：使用上方的文字。',
+        'zh-Hans': '显示脚本写入的内容（值班、部署、上次备份），每次刷新时重新读取。留空：使用上方的文字。',
       },
     }),
-    maxSize: t.integer({ default: 64, min: 10, max: 300, unit: 'px', slider: true, label: { en: 'Largest letter size', es: 'Tamaño máximo de letra' } }),
+    maxSize: t.integer({ default: 64, min: 10, max: 300, unit: 'px', slider: true, label: { en: 'Largest letter size', es: 'Tamaño máximo de letra', 'zh-Hant': '最大字體大小', 'zh-Hans': '最大字号' } }),
     font: t.enum(['sans', 'bold', 'mono'] as const, {
-      label: { en: 'Font', es: 'Letra' },
-      labels: { sans: { en: 'Regular', es: 'Normal' }, bold: { en: 'Bold', es: 'Negrita' }, mono: { en: 'Monospaced', es: 'Monoespaciada' } },
+      label: { en: 'Font', es: 'Letra', 'zh-Hant': '字型', 'zh-Hans': '字体' },
+      labels: { sans: { en: 'Regular', es: 'Normal', 'zh-Hant': '一般', 'zh-Hans': '常规' }, bold: { en: 'Bold', es: 'Negrita', 'zh-Hant': '粗體', 'zh-Hans': '粗体' }, mono: { en: 'Monospaced', es: 'Monoespaciada', 'zh-Hant': '等寬', 'zh-Hans': '等宽' } },
     }),
-    align: t.enum(['left', 'center', 'right'] as const, { label: { en: 'Alignment', es: 'Alineación' }, labels: { left: { en: 'Left', es: 'Izquierda' }, center: { en: 'Centre', es: 'Centro' }, right: { en: 'Right', es: 'Derecha' } } }),
+    align: t.enum(['left', 'center', 'right'] as const, { label: { en: 'Alignment', es: 'Alineación', 'zh-Hant': '對齊', 'zh-Hans': '对齐' }, labels: { left: { en: 'Left', es: 'Izquierda', 'zh-Hant': '靠左', 'zh-Hans': '左对齐' }, center: { en: 'Centre', es: 'Centro', 'zh-Hant': '置中', 'zh-Hans': '居中' }, right: { en: 'Right', es: 'Derecha', 'zh-Hant': '靠右', 'zh-Hans': '右对齐' } } }),
     valign: t.enum(['middle', 'top', 'bottom'] as const, {
-      label: { en: 'Vertical alignment', es: 'Alineación vertical' },
-      labels: { middle: { en: 'Middle', es: 'En medio' }, top: { en: 'Top', es: 'Arriba' }, bottom: { en: 'Bottom', es: 'Abajo' } },
+      label: { en: 'Vertical alignment', es: 'Alineación vertical', 'zh-Hant': '垂直對齊', 'zh-Hans': '垂直对齐' },
+      labels: { middle: { en: 'Middle', es: 'En medio', 'zh-Hant': '置中', 'zh-Hans': '居中' }, top: { en: 'Top', es: 'Arriba', 'zh-Hant': '靠上', 'zh-Hans': '顶部' }, bottom: { en: 'Bottom', es: 'Abajo', 'zh-Hant': '靠下', 'zh-Hans': '底部' } },
     }),
-    color: t.color({ default: '', label: { en: 'Colour (empty = theme)', es: 'Color (vacío = el del tema)' } }),
+    color: t.color({ default: '', label: { en: 'Colour (empty = theme)', es: 'Color (vacío = el del tema)', 'zh-Hant': '顏色（留空 = 主題色）', 'zh-Hans': '颜色（留空 = 主题色）' } }),
   }),
   intervalMs: 60_000,
   timeoutMs: 10_000,
@@ -229,8 +231,8 @@ export function parseItems(text: string): { text: string; detail: string }[] {
 
 export const list = defineWidget({
   id: 'list',
-  name: { en: 'List', es: 'Lista' },
-  description: { en: 'A list you write: to-dos, reminders, the shopping. Shows what fits and how many more.', es: 'Una lista que escribes tú: pendientes, recordatorios, la compra. Muestra lo que cabe y cuántas más hay.' },
+  name: { en: 'List', es: 'Lista', 'zh-Hant': '清單', 'zh-Hans': '列表' },
+  description: { en: 'A list you write: to-dos, reminders, the shopping. Shows what fits and how many more.', es: 'Una lista que escribes tú: pendientes, recordatorios, la compra. Muestra lo que cabe y cuántas más hay.', 'zh-Hant': '你自己寫的清單：待辦事項、提醒、購物清單。顯示放得下的項目，以及還有多少項。', 'zh-Hans': '你自己写的列表：待办事项、提醒、购物清单。显示放得下的条目，以及还有多少条。' },
   icon: 'list',
   category: 'productivity',
   size: { min: { w: 160, h: 80 }, preferred: { w: 360, h: 240 } },
@@ -238,8 +240,8 @@ export const list = defineWidget({
     items: t.string({
       default: 'Water the plants\nCall the bank | before 14:00\nBook the dentist | Dr. Ruiz, any morning\nBuy coffee',
       multiline: true,
-      label: { en: 'Items', es: 'Elementos' },
-      help: { en: 'One per line. Text after a "|" is a detail, shown under the item in the detailed layout.', es: 'Uno por línea. Lo que va tras una «|» es un detalle, que se ve debajo en el formato detallado.' },
+      label: { en: 'Items', es: 'Elementos', 'zh-Hant': '項目', 'zh-Hans': '条目' },
+      help: { en: 'One per line. Text after a "|" is a detail, shown under the item in the detailed layout.', es: 'Uno por línea. Lo que va tras una «|» es un detalle, que se ve debajo en el formato detallado.', 'zh-Hant': '每行一項。「|」後面的文字是細節，在詳細版面中顯示於項目下方。', 'zh-Hans': '每行一条。“|”后面的文字是详情，在详细布局中显示在条目下方。' },
     }),
     ...listOptions({ layouts: ['one-line', 'detailed'] }),
   }),
@@ -247,7 +249,7 @@ export const list = defineWidget({
   render(g, ctx) {
     const { box, options, theme, kit } = ctx;
     const items = parseItems(options.items);
-    if (!items.length) return drawEmpty(g, ctx, ctx.t({ en: 'Nothing on the list', es: 'Nada en la lista' }));
+    if (!items.length) return drawEmpty(g, ctx, ctx.t({ en: 'Nothing on the list', es: 'Nada en la lista', 'zh-Hant': '清單是空的', 'zh-Hans': '列表为空' }));
     const plan = listLayout(box, items.length, options, {
       sizes: { 'one-line': { min: 18, max: 44 }, detailed: { min: 36, max: 76 } },
       // Two lines only when some item has a detail and every row has room for them.
@@ -330,8 +332,8 @@ const load = (canvas: RenderContext<unknown, unknown>['canvas'], src: string | B
 
 export const image = defineWidget({
   id: 'image',
-  name: { en: 'Picture', es: 'Imagen' },
-  description: { en: 'A local image, a folder of them in turn, or a URL (refreshed every few minutes, good for webcams and charts).', es: 'Una imagen local, una carpeta de ellas por turnos o una URL (se refresca cada pocos minutos: webcams, gráficas).' },
+  name: { en: 'Picture', es: 'Imagen', 'zh-Hant': '圖片', 'zh-Hans': '图片' },
+  description: { en: 'A local image, a folder of them in turn, or a URL (refreshed every few minutes, good for webcams and charts).', es: 'Una imagen local, una carpeta de ellas por turnos o una URL (se refresca cada pocos minutos: webcams, gráficas).', 'zh-Hant': '本機圖片、輪流顯示的圖片資料夾，或 URL（每隔幾分鐘重新整理，適合網路攝影機和圖表）。', 'zh-Hans': '本地图片、轮流显示的图片文件夹，或 URL（每隔几分钟刷新一次，适合网络摄像头和图表）。' },
   icon: 'image',
   category: 'media',
   chrome: 'bare',
@@ -341,26 +343,30 @@ export const image = defineWidget({
       format: 'url',
       risk: ['network', 'path'],
       placeholder: 'https://… or /path/to/image.png',
-      label: { en: 'Image (path, folder or URL)', es: 'Imagen (ruta, carpeta o URL)' },
+      label: { en: 'Image (path, folder or URL)', es: 'Imagen (ruta, carpeta o URL)', 'zh-Hant': '圖片（路徑、資料夾或 URL）', 'zh-Hans': '图片（路径、文件夹或 URL）' },
       help: {
         en: 'A folder shows its pictures by name, the next one on every refresh. In a URL, {now} and {unix} become the current time (milliseconds, seconds).',
         es: 'Una carpeta enseña sus imágenes por orden de nombre, la siguiente en cada refresco. En una URL, {now} y {unix} se cambian por la hora actual (milisegundos, segundos).',
+        'zh-Hant': '資料夾會依檔名顯示圖片，每次重新整理換下一張。在 URL 中，{now} 和 {unix} 會換成目前時間（毫秒、秒）。',
+        'zh-Hans': '文件夹会按文件名显示图片，每次刷新换下一张。在 URL 中，{now} 和 {unix} 会替换为当前时间（毫秒、秒）。',
       },
     }),
     addTimestamp: t.boolean({
-      label: { en: 'Add a timestamp to the URL', es: 'Añadir marca de tiempo a la URL' },
+      label: { en: 'Add a timestamp to the URL', es: 'Añadir marca de tiempo a la URL', 'zh-Hant': '在 URL 加上時間戳記', 'zh-Hans': '在 URL 中添加时间戳' },
       help: {
         en: 'Appends t=<now> on every refresh, for webcams that would otherwise be served from a cache.',
         es: 'Añade t=<ahora> en cada refresco, para webcams que si no se sirven desde una caché.',
+        'zh-Hant': '每次重新整理時附加 t=<now>，以免網路攝影機的畫面來自快取。',
+        'zh-Hans': '每次刷新时附加 t=<now>，避免网络摄像头的画面来自缓存。',
       },
     }),
-    fit: t.enum(['cover', 'contain'] as const, { label: { en: 'Fit', es: 'Ajuste' }, labels: { cover: { en: 'Fill (crop)', es: 'Llenar (recorta)' }, contain: { en: 'Whole image', es: 'Imagen entera' } } }),
+    fit: t.enum(['cover', 'contain'] as const, { label: { en: 'Fit', es: 'Ajuste', 'zh-Hant': '縮放方式', 'zh-Hans': '缩放方式' }, labels: { cover: { en: 'Fill (crop)', es: 'Llenar (recorta)', 'zh-Hant': '填滿（裁切）', 'zh-Hans': '填满（裁剪）' }, contain: { en: 'Whole image', es: 'Imagen entera', 'zh-Hant': '完整圖片', 'zh-Hans': '完整图片' } } }),
     position: t.enum(['center', 'top', 'bottom', 'left', 'right'] as const, {
-      label: { en: 'Keep in view', es: 'Mantener a la vista' },
-      labels: { center: { en: 'The centre', es: 'El centro' }, top: { en: 'The top', es: 'La parte de arriba' }, bottom: { en: 'The bottom', es: 'La parte de abajo' }, left: { en: 'The left', es: 'La izquierda' }, right: { en: 'The right', es: 'La derecha' } },
-      help: { en: 'What filling crops last: the sky of a webcam, the axis of a chart.', es: 'Lo último que recorta al llenar: el cielo de una webcam, el eje de una gráfica.' },
+      label: { en: 'Keep in view', es: 'Mantener a la vista', 'zh-Hant': '保留可見', 'zh-Hans': '保持可见' },
+      labels: { center: { en: 'The centre', es: 'El centro', 'zh-Hant': '中央', 'zh-Hans': '中间' }, top: { en: 'The top', es: 'La parte de arriba', 'zh-Hant': '上方', 'zh-Hans': '顶部' }, bottom: { en: 'The bottom', es: 'La parte de abajo', 'zh-Hant': '下方', 'zh-Hans': '底部' }, left: { en: 'The left', es: 'La izquierda', 'zh-Hant': '左側', 'zh-Hans': '左侧' }, right: { en: 'The right', es: 'La derecha', 'zh-Hant': '右側', 'zh-Hans': '右侧' } },
+      help: { en: 'What filling crops last: the sky of a webcam, the axis of a chart.', es: 'Lo último que recorta al llenar: el cielo de una webcam, el eje de una gráfica.', 'zh-Hant': '填滿時最後才裁切的部分：例如網路攝影機的天空、圖表的座標軸。', 'zh-Hans': '填满时最后才裁剪的部分：例如网络摄像头的天空、图表的坐标轴。' },
     }),
-    dim: t.integer({ default: 0, min: 0, max: 90, step: 5, unit: '%', slider: true, label: { en: 'Darken', es: 'Oscurecer' }, help: { en: 'Keeps a photo from outshining everything else.', es: 'Para que una foto no deslumbre al resto.' } }),
+    dim: t.integer({ default: 0, min: 0, max: 90, step: 5, unit: '%', slider: true, label: { en: 'Darken', es: 'Oscurecer', 'zh-Hant': '調暗', 'zh-Hans': '调暗' }, help: { en: 'Keeps a photo from outshining everything else.', es: 'Para que una foto no deslumbre al resto.', 'zh-Hant': '避免照片搶走其他內容的風采。', 'zh-Hans': '避免照片抢了其他内容的风头。' } }),
   }),
   intervalMs: 5 * 60_000,
   async fetch({ options, canvas, signal }): Promise<ImageData> {
@@ -379,7 +385,7 @@ export const image = defineWidget({
     if (!img) {
       g.fillStyle = theme.colors.surface;
       g.fillRect(box.x, box.y, box.w, box.h);
-      kit.drawTracked(g, options.src ? '…' : tr({ en: 'No image', es: 'Sin imagen' }), box.x + box.w / 2, box.y + box.h / 2, { size: Math.min(28, box.h / 4), family: theme.fonts.sans, color: theme.colors.inkFaint, align: 'center' });
+      kit.drawTracked(g, options.src ? '…' : tr({ en: 'No image', es: 'Sin imagen', 'zh-Hant': '沒有圖片', 'zh-Hans': '没有图片' }), box.x + box.w / 2, box.y + box.h / 2, { size: Math.min(28, box.h / 4), family: theme.fonts.sans, color: theme.colors.inkFaint, align: 'center' });
       return;
     }
     const at = placeImage(box, img.width, img.height, options.fit, options.position);
@@ -398,12 +404,12 @@ export const image = defineWidget({
 
 export default definePlugin({
   id: 'core',
-  name: { en: 'Essentials', es: 'Básicos' },
+  name: { en: 'Essentials', es: 'Básicos', 'zh-Hant': '基本工具', 'zh-Hans': '基础组件' },
   version: '0.2.5',
   sdk: '^0.2.0',
   // The picture widget reads the image (or folder, or URL) you give it.
   permissions: { files: ['user'], network: ['user'] },
-  description: { en: 'Clock, date, notes, lists and pictures.', es: 'Reloj, fecha, notas, listas e imágenes.' },
+  description: { en: 'Clock, date, notes, lists and pictures.', es: 'Reloj, fecha, notas, listas e imágenes.', 'zh-Hant': '時鐘、日期、便條、清單和圖片。', 'zh-Hans': '时钟、日期、便签、列表和图片。' },
   author: 'Kiosko',
   license: 'MIT',
   icon: 'box',
