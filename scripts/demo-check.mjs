@@ -15,6 +15,7 @@ import { createServer } from 'node:http';
 import { createRequire } from 'node:module';
 import { existsSync, mkdirSync, readFileSync, statSync } from 'node:fs';
 import { extname, join, normalize, resolve } from 'node:path';
+import { BUNDLED_PLUGIN_IDS } from '../packages/server/src/official.ts';
 
 const require = createRequire(join(process.cwd(), 'x.js'));
 const playwright = require('playwright');
@@ -386,7 +387,7 @@ async function fullCheck(browser) {
   await page.locator('.rail-btn').nth(2).click();
   await page.waitForSelector('.plugin-card');
   const ids = await page.$$eval('.plugin-title small', (l) => l.map((e) => e.textContent?.split('·')[0]?.trim()));
-  const official = ['agents', 'cats', 'system', 'vitals', 'usage', 'weather', 'calendar', 'news', 'mirror', 'gitlab', 'github', 'calls', 'timesheet', 'llm', 'gpu', 'homeassistant'];
+  const official = [...BUNDLED_PLUGIN_IDS];
   const missing = ['core', 'legacy', ...official].filter((id) => !ids.includes(id));
   check('Plugins page lists every plugin', !missing.length && ids.length === 2 + official.length, `${ids.length} plugins${missing.length ? `, missing ${missing}` : ''}`);
   // Switching a plugin off takes its widgets out of the library; back on, back in.

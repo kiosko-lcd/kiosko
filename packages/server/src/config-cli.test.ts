@@ -79,6 +79,7 @@ const EXPECTED_RISKS: Record<string, Record<string, unknown>> = {
   'llm/servers': { 'endpoints[].url': 'network' },
   'gpu/devices': { ssh: 'exec', url: 'network' },
   'homeassistant/states': { url: 'network' },
+  'doom/attract': { wad: 'path' },
 };
 
 test('the plugins mark every option that runs programs, contacts hosts or reads paths', () => {

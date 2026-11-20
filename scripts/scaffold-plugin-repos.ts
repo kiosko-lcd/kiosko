@@ -203,6 +203,13 @@ const loaded: { dir: string; def: PluginDefinition }[] = [];
 for (const name of readdirSync(pluginsRoot).sort()) {
   const dir = join(pluginsRoot, name);
   if (!name.startsWith('kiosko-plugin-') || !existsSync(join(dir, 'src', 'index.ts'))) continue;
+  // A plugin under another licence (kiosko-plugin-doom: GPL, with its own
+  // engine build) keeps its package.json, build, LICENSE and README.
+  const license = existsSync(join(dir, 'package.json')) ? (JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8')) as { license?: string }).license : undefined;
+  if (license && license !== 'MIT') {
+    console.log(`${name}: ${license}, left as it is`);
+    continue;
+  }
   const def = (await import(pathToFileURL(join(dir, 'src', 'index.ts')).href)).default as PluginDefinition;
   registry.add(def, dir);
   loaded.push({ dir, def });

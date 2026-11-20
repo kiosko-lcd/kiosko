@@ -146,6 +146,8 @@ export const zhHant: Dictionary = {
   'plugins.official': '尚未安裝的官方外掛',
   'plugins.officialHint': '與 Kiosko 一起維護，各有自己的儲存庫，透過 npm 安裝。',
   'plugins.officialShort': '官方',
+  'plugins.optionalShort': '選用',
+  'plugins.optionalHint': '不隨 Kiosko 一起安裝：需要時再加入。',
   'plugins.write': '自己寫一個',
   'plugins.writeHint': '外掛就是一個 ES 模組。把它放進外掛資料夾後重新啟動：',
   'settings.title': '設定',

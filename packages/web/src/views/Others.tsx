@@ -184,7 +184,14 @@ export default definePlugin({
             <div class="official-list">
               {missing.map((o) => (
                 <div class="official-item">
-                  <span class="mono">{o.npm}</span>
+                  <span>
+                    <span class="mono">{o.npm}</span>{' '}
+                    {o.bundled === false && (
+                      <span class="pill" title={tr('plugins.optionalHint')}>
+                        {tr('plugins.optionalShort')}
+                      </span>
+                    )}
+                  </span>
                   <button class="btn small primary" disabled={busy || KIOSKO_DEMO} onClick={() => install(o.npm)}>
                     <Icon name="download" size={13} /> {tr('common.add')}
                   </button>

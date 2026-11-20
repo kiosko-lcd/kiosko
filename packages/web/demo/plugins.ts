@@ -1,7 +1,9 @@
 /**
  * Every plugin the browser demo carries, imported statically (there's no
- * plugins folder to scan in a browser): the built-in ones and the official
- * ones, the same set `kiosko` loads on a machine with everything installed.
+ * plugins folder to scan in a browser): the built-in ones and the bundled
+ * official ones, the same set a plain install of `kiosko` loads. The optional
+ * ones (see server/src/official.ts) are offered on the Plugins page, as in a
+ * real install.
  */
 import type { PluginDefinition } from '@kiosko/sdk';
 import agents from 'kiosko-plugin-agents';
@@ -34,5 +36,5 @@ export function demoPlugins(): { def: PluginDefinition; origin: string }[] {
   ];
 }
 
-/** Official plugins this file doesn't import (should be none: the demo check fails otherwise). */
-export const MISSING_OFFICIAL = OFFICIAL_PLUGINS.filter((o) => !OFFICIAL[o.id]).map((o) => o.id);
+/** Bundled official plugins this file doesn't import (should be none: the demo check fails otherwise). The optional ones are only offered. */
+export const MISSING_OFFICIAL = OFFICIAL_PLUGINS.filter((o) => o.bundled && !OFFICIAL[o.id]).map((o) => o.id);

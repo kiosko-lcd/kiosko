@@ -144,6 +144,8 @@ export const en = {
   'plugins.official': 'Official plugins not installed',
   'plugins.officialHint': 'Maintained with Kiosko, each in its own repository. They install from npm.',
   'plugins.officialShort': 'Official',
+  'plugins.optionalShort': 'Optional',
+  'plugins.optionalHint': 'Not installed with Kiosko: add it if you want it.',
   'plugins.write': 'Write your own',
   'plugins.writeHint': 'A plugin is one ES module. Put it in the plugins folder and restart:',
   'settings.title': 'Settings',

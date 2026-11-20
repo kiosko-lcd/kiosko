@@ -146,6 +146,8 @@ export const es: Dictionary = {
   'plugins.official': 'Plugins oficiales sin instalar',
   'plugins.officialHint': 'Se mantienen junto a Kiosko, cada uno en su repositorio. Se instalan desde npm.',
   'plugins.officialShort': 'Oficial',
+  'plugins.optionalShort': 'Opcional',
+  'plugins.optionalHint': 'No se instala con Kiosko: añádelo si lo quieres.',
   'plugins.write': 'Escribe el tuyo',
   'plugins.writeHint': 'Un plugin es un módulo ES. Ponlo en la carpeta de plugins y reinicia:',
   'settings.title': 'Ajustes',
