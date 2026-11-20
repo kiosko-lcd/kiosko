@@ -37,6 +37,12 @@ export interface ComposeInput {
   log?: LogFn;
   /** Disable pixel shift (editor, gallery). */
   noShift?: boolean;
+  /**
+   * Paint the page already turned for a panel mounted at this angle (90,
+   * 180, 270): the canvas comes out the panel's way round, with no second
+   * copy to turn it. Default 0.
+   */
+  rotate?: number;
   /** Reuse tiles whose inputs didn't change (the panel; not previews). */
   cache?: TileCache;
   /**
@@ -339,8 +345,16 @@ function drawTileContent(g: SKRSContext2D, input: ComposeInput, r: Resolved, rec
 export function composePage(input: ComposeInput): ComposeResult {
   registerFonts();
   const { screen, page, theme, now } = input;
-  const canvas = createCanvas(screen.width, screen.height);
+  const rotate = ((input.rotate ?? 0) % 360 + 360) % 360;
+  const swap = rotate === 90 || rotate === 270;
+  const canvas = createCanvas(swap ? screen.height : screen.width, swap ? screen.width : screen.height);
   const g = canvas.getContext('2d');
+  if (rotate) {
+    // Everything below draws in the page's own coordinates.
+    g.translate(canvas.width / 2, canvas.height / 2);
+    g.rotate((rotate * Math.PI) / 180);
+    g.translate(-screen.width / 2, -screen.height / 2);
+  }
   g.fillStyle = page.background.color || theme.colors.bg;
   g.fillRect(0, 0, screen.width, screen.height);
   if (page.background.image) {

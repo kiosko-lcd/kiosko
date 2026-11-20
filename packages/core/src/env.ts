@@ -8,8 +8,9 @@ import * as kit from '@loksly/lcd-canvas-kit';
 import { createBaseContext, type BaseContext, type CanvasApi } from '@kiosko/sdk';
 import type { Config } from './config/model.ts';
 import { paths } from './paths.ts';
+import { loadImageScaled } from './scaled-images.ts';
 
-export const CANVAS: CanvasApi = { createCanvas, loadImage };
+export const CANVAS: CanvasApi = { createCanvas, loadImage, loadImageScaled };
 export { kit };
 
 export function systemLocale(): string {

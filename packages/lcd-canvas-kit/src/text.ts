@@ -18,7 +18,41 @@ export function setDefaultFamily(family: string): void {
  * ("DejaVu Sans,DejaVu Sans Condensed"). Returns the paths that failed.
  */
 export function registerFontFiles(fonts: Record<string, string>): string[] {
+  // A family may now draw with another file: measure it again.
+  widths.clear();
   return Object.entries(fonts).filter(([family, path]) => !GlobalFonts.registerFromPath(path, family)).map(([, path]) => path);
+}
+
+/**
+ * Widths of single characters, by font. Measuring goes character by
+ * character (for tracking and small caps), and `measureText` with a font
+ * set before every character made wrapping a long paragraph cost hundreds
+ * of milliseconds (a news summary of 7 000 characters: 343 ms for three
+ * lines). A character's width only depends on its font and size.
+ */
+const widths = new Map<string, Map<string, number>>();
+/** Fonts kept (sizes × families); past it the cache starts again. */
+const MAX_FONTS = 400;
+
+function widthOf(ctx: SKRSContext2D, font: string, ch: string): number {
+  let byChar = widths.get(font);
+  if (!byChar) {
+    if (widths.size >= MAX_FONTS) widths.clear();
+    byChar = new Map();
+    widths.set(font, byChar);
+  }
+  let w = byChar.get(ch);
+  if (w === undefined) {
+    if (ctx.font !== font) ctx.font = font;
+    w = ctx.measureText(ch).width;
+    byChar.set(ch, w);
+  }
+  return w;
+}
+
+/** Forgets the measured widths (tests, or fonts replaced under the same name). */
+export function clearTextCache(): void {
+  widths.clear();
 }
 
 export interface TextOpts {
@@ -45,13 +79,14 @@ function glyphs(ctx: SKRSContext2D, text: string, o: TextOpts): Glyph[] {
   const small = o.smallCaps === true;
   const capSize = o.size * (o.capRatio ?? 0.76);
   const out: Glyph[] = [];
+  const font = `${o.size}px "${family}"`;
+  const capFont = `${capSize}px "${family}"`;
   for (const ch of text) {
     // In small caps, a lower-case letter is drawn upper-case at a smaller size.
     const isLower = small && ch !== ch.toUpperCase() && ch === ch.toLowerCase();
     const size = isLower ? capSize : o.size;
     const draw = small ? ch.toUpperCase() : ch;
-    ctx.font = `${size}px "${family}"`;
-    out.push({ ch: draw, size, width: ctx.measureText(draw).width });
+    out.push({ ch: draw, size, width: widthOf(ctx, isLower ? capFont : font, draw) });
   }
   return out;
 }
@@ -79,8 +114,12 @@ export function drawTracked(ctx: SKRSContext2D, text: string, x: number, y: numb
   let cursor = o.align === 'right' ? x - total : o.align === 'center' ? x - total / 2 : x;
   if (o.color) ctx.fillStyle = o.color;
   ctx.textBaseline = 'alphabetic';
+  let size = -1;
   for (const g of gs) {
-    ctx.font = `${g.size}px "${family}"`;
+    if (g.size !== size) {
+      ctx.font = `${g.size}px "${family}"`;
+      size = g.size;
+    }
     ctx.fillText(g.ch, cursor, y);
     cursor += g.width + tracking;
   }

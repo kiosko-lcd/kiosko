@@ -32,6 +32,17 @@ export type { Canvas, Image };
 export interface CanvasApi {
   createCanvas: typeof createCanvas;
   loadImage: typeof loadImage;
+  /**
+   * Loads an image already shrunk to the size it will be shown at: decoded,
+   * scaled and prepared in another thread, so neither this nor the first
+   * paint of it holds the panels up. A press photo of 14 megapixels shown
+   * in a 600×462 tile cost up to 130 ms in that first paint; shrunk, a few.
+   * Never enlarges. `cover`: at least `width` × `height` (it will be
+   * cropped); `contain`: at most that (it will be shown whole).
+   * Kiosko 0.2.5 and later: check that it's there and fall back to
+   * `loadImage` otherwise. Not in the browser demo.
+   */
+  loadImageScaled?: (src: string | Buffer | Uint8Array, size: { width: number; height: number; fit?: 'cover' | 'contain' }) => Promise<Image>;
 }
 
 /** A rectangle in panel pixels. */
@@ -419,7 +430,7 @@ export interface InterludeDefinition<OF extends ObjectField<any> = ObjectField<a
  * package.json, `"kiosko": { "sdk": "^0.2.0" }`, so it can be refused before
  * it runs); the registry compares them with `satisfies`.
  */
-export const SDK_VERSION = '0.2.4';
+export const SDK_VERSION = '0.2.5';
 
 /**
  * What a plugin does on the machine, declared for the person who installs

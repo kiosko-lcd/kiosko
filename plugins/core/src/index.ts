@@ -320,6 +320,14 @@ export function placeImage(box: { x: number; y: number; w: number; h: number }, 
   return { x: box.x + (box.w - dw) * fx, y: box.y + (box.h - dh) * fy, w: dw, h: dh };
 }
 
+/**
+ * A picture shrunk to the widest panel in another thread (a 12-megapixel
+ * photo held every panel up to 130 ms the first time it was painted), or
+ * whole on a canvas API without it (the browser demo).
+ */
+const load = (canvas: RenderContext<unknown, unknown>['canvas'], src: string | Buffer) =>
+  canvas.loadImageScaled ? canvas.loadImageScaled(src, { width: 1920, height: 1080, fit: 'cover' }) : canvas.loadImage(src);
+
 export const image = defineWidget({
   id: 'image',
   name: { en: 'Picture', es: 'Imagen' },
@@ -360,11 +368,11 @@ export const image = defineWidget({
     if (/^https?:/.test(options.src)) {
       const res = await fetch(imageUrl(options.src, Date.now(), options.addTimestamp), { signal });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return { img: await canvas.loadImage(Buffer.from(await res.arrayBuffer())) };
+      return { img: await load(canvas, Buffer.from(await res.arrayBuffer())) };
     }
     const path = (await stat(options.src)).isDirectory() ? await nextInFolder(options.src) : options.src;
     if (!path) throw new Error(`no pictures in ${options.src}`);
-    return { img: await canvas.loadImage(path) };
+    return { img: await load(canvas, path) };
   },
   render(g, { box, data, options, theme, kit, t: tr }) {
     const img = data?.img;
@@ -391,7 +399,7 @@ export const image = defineWidget({
 export default definePlugin({
   id: 'core',
   name: { en: 'Essentials', es: 'Básicos' },
-  version: '0.2.4',
+  version: '0.2.5',
   sdk: '^0.2.0',
   // The picture widget reads the image (or folder, or URL) you give it.
   permissions: { files: ['user'], network: ['user'] },

@@ -46,9 +46,14 @@ export interface FrameInfo {
 
 const TICK_MS = 250;
 
-function lazyJpeg(c: Canvas): () => Buffer {
+/**
+ * The editor's picture of a frame, encoded only if the editor asks for it.
+ * `turned` frames were painted the panel's way round: the editor wants them
+ * the page's way, so they are turned back then (and only then).
+ */
+function lazyJpeg(c: Canvas, turned = 0): () => Buffer {
   let b: Buffer | null = null;
-  return () => (b ??= c.toBuffer('image/jpeg', 88));
+  return () => (b ??= (turned ? rotateCanvas(c, (360 - turned) % 360) : c).toBuffer('image/jpeg', 88));
 }
 
 /**
@@ -214,6 +219,7 @@ class ScreenRunner {
         log: this.rt.log,
         demo: this.rt.demoMode,
         cache: this.tiles,
+        rotate: screen.rotate,
       });
       canvas = result.canvas;
       this.animatable = result.animatable;
@@ -226,22 +232,25 @@ class ScreenRunner {
       }
       // Pages and work hours change by the clock: check at least every minute.
     } else {
-      canvas = CANVAS.createCanvas(screen.width, screen.height);
-      const g = canvas.getContext('2d');
-      g.fillStyle = '#000';
-      g.fillRect(0, 0, screen.width, screen.height);
+      // Black: already the panel's way round (it looks the same either way).
+      const swap = screen.rotate === 90 || screen.rotate === 270;
+      canvas = CANVAS.createCanvas(swap ? screen.height : screen.width, swap ? screen.width : screen.height);
       this.animatable = [];
       this.nextAt = now + 60_000;
     }
     const sleeping = this.off || !!(screen.sleepWhenIdle && result?.idle);
-    if (sleeping) {
+    if (sleeping || !result) {
       const g = canvas.getContext('2d');
+      g.save();
+      g.setTransform(1, 0, 0, 1, 0, 0);
       g.fillStyle = '#000';
-      g.fillRect(0, 0, screen.width, screen.height);
+      g.fillRect(0, 0, canvas.width, canvas.height);
+      g.restore();
     }
     const kind = encodeFor(screen.device, screen.jpegQuality);
-    const out = await this.fit(rotateCanvas(canvas, screen.rotate), kind, screen.jpegQuality, screen);
-    this.lastInfo = { screenId: screen.id, pageId: page?.id ?? null, at: now, image: lazyJpeg(canvas), tiles: result?.tiles ?? [], interlude: null, sleeping };
+    // Painted the panel's way round already (composePage's `rotate`): no turning here.
+    const out = await this.fit(canvas, kind, screen.jpegQuality, screen);
+    this.lastInfo = { screenId: screen.id, pageId: page?.id ?? null, at: now, image: lazyJpeg(canvas, screen.rotate), tiles: result?.tiles ?? [], interlude: null, sleeping };
     this.rt.emit('frame', this.lastInfo);
     if (this.last?.equals(out)) return;
     this.last = out;
@@ -400,9 +409,10 @@ class ScreenRunner {
         demo: this.rt.demoMode,
         cache: this.tiles,
         animate,
+        rotate: screen.rotate,
       });
       // Encoding goes on in the thread pool while the next frame is painted.
-      sent.push({ out: this.fit(rotateCanvas(result.canvas, screen.rotate), kind, screen.jpegQuality || 85, screen), snap: s % 3 === 1 ? result.canvas : null });
+      sent.push({ out: this.fit(result.canvas, kind, screen.jpegQuality || 85, screen), snap: s % 3 === 1 ? result.canvas : null });
       // Let the loop breathe: a long animation must not freeze the timers and the other screens.
       await new Promise((r) => setImmediate(r));
     }
@@ -419,7 +429,7 @@ class ScreenRunner {
       await this.device.send(outs[k]!);
       const snap = sent[k]!.snap;
       if (snap) {
-        this.lastInfo = { screenId: screen.id, pageId: page.id, at: Date.now(), image: lazyJpeg(snap), tiles: [], interlude: null, animation: items.map((x) => x.animatable.type).join(', '), sleeping: false };
+        this.lastInfo = { screenId: screen.id, pageId: page.id, at: Date.now(), image: lazyJpeg(snap, screen.rotate), tiles: [], interlude: null, animation: items.map((x) => x.animatable.type).join(', '), sleeping: false };
         this.rt.emit('frame', this.lastInfo);
       }
       if (hold && k === holdAt) {
