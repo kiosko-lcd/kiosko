@@ -60,6 +60,7 @@ export interface PluginInfo {
   /** Plugin API range it is written for, if it says. */
   sdk: string | null;
   platforms: string[] | null;
+  languages: string[];
   permissions: PluginPermissions;
   /** What it needs from other plugins and whether that is here. */
   requires: { type: string; plugin: string; ok: boolean }[];

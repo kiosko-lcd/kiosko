@@ -235,7 +235,7 @@ for (const { dir, def } of loaded) {
     bugs: { url: `https://github.com/${owner}/${repo}/issues` },
     exports: { '.': { source: './src/index.ts', default: './dist/index.js' } },
     // Read before its code runs: an incompatible Kiosko (or system) refuses it.
-    kiosko: { plugin: './dist/index.js', id, sdk: def.sdk ?? SDK_RANGE, manifest: './kiosko-manifest.json' },
+    kiosko: { plugin: './dist/index.js', id, sdk: def.sdk ?? SDK_RANGE, ...(def.languages ? { languages: def.languages } : {}), manifest: './kiosko-manifest.json' },
     ...(def.platforms ? { os: def.platforms } : {}),
     files: ['dist', 'docs', 'kiosko-manifest.json', 'README.md', 'LICENSE'],
     engines: { node: '>=22.18' },

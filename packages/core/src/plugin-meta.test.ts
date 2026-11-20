@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { definePlugin, defineSource, defineWidget, t } from '@kiosko/sdk';
-import { incompatibility, languagesOf, packageMeta, pluginManifest, riskyOptions } from './plugin-meta.ts';
+import { declaredLanguages, incompatibility, languagesOf, packageMeta, pluginManifest, riskyOptions } from './plugin-meta.ts';
 
 test('packageMeta: id, plugin API range (kiosko.sdk, else the peer dependency) and npm os', () => {
   assert.deepEqual(packageMeta({ name: 'kiosko-plugin-gpu', version: '1.2.0', kiosko: { sdk: '^0.2.0' }, os: ['linux', 'win32'] }), { name: 'kiosko-plugin-gpu', version: '1.2.0', id: 'gpu', sdk: '^0.2.0', platforms: ['linux', 'win32'] });
@@ -103,4 +103,14 @@ test('pluginManifest: what a store needs, without running anything', () => {
   const json = JSON.stringify(m);
   assert.equal(JSON.stringify(JSON.parse(json)), json);
   assert.ok(!/function|=>/.test(json));
+});
+
+test('languages: as the plugin declares them, else package.json, else read from its texts', () => {
+  assert.deepEqual(packageMeta({ kiosko: { languages: ['en', 'zh-Hant', 3] } }).languages, ['en', 'zh-Hant']);
+  const declared = definePlugin({ id: 'x', name: { en: 'X', es: 'X' }, version: '1.0.0', languages: ['en', 'es', 'zh-Hant', 'zh-Hans'] });
+  assert.deepEqual(declaredLanguages(declared), ['en', 'es', 'zh-Hant', 'zh-Hans']);
+  assert.deepEqual(pluginManifest(declared).languages, ['en', 'es', 'zh-Hant', 'zh-Hans']);
+  const silent = definePlugin({ id: 'y', name: { en: 'Y', es: 'Y' }, version: '1.0.0' });
+  assert.deepEqual(declaredLanguages(silent, { languages: ['en', 'es'] }), ['en', 'es']);
+  assert.deepEqual(pluginManifest(silent).languages, ['en', 'es']);
 });

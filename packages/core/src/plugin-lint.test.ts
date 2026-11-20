@@ -87,7 +87,7 @@ test('lintPlugin: contract, languages, requirements, sizes and templates', () =>
 
 test('lintPlugin: a complete plugin is clean', () => {
   const p = definePlugin({
-    id: 'ok', name: { en: 'Ok', es: 'Ok' }, description: { en: 'Fine.', es: 'Bien.' }, version: '1.2.3', sdk: '^0.2.0',
+    id: 'ok', name: { en: 'Ok', es: 'Ok' }, description: { en: 'Fine.', es: 'Bien.' }, version: '1.2.3', sdk: '^0.2.0', languages: ['en', 'es'],
     permissions: { network: ['api.example.com'] },
     widgets: [defineWidget({ id: 'w', name: { en: 'W', es: 'W' }, description: { en: 'A w.', es: 'Una w.' }, icon: 'square', size: { preferred: { w: 300, h: 200 } }, sources: ['ok/s'], render() {}, demo: () => ({}) })],
     sources: [defineSource({ id: 's', name: { en: 'S', es: 'S' }, description: { en: 'A s.', es: 'Una s.' }, read: async () => 1, demo: () => 1 })],
@@ -99,4 +99,20 @@ test('lintPlugin: a bare zh is ambiguous, zh-Hant and zh-Hans are not', () => {
   const plugin = (name: Record<string, string> & { en: string }) => definePlugin({ id: 'z', name, description: name, version: '1.0.0', sdk: '^0.2.0' });
   assert.ok(messages(lintPlugin(plugin({ en: 'Clock', zh: '时钟' }))).some((m) => /bare `zh`/.test(m)));
   assert.ok(!messages(lintPlugin(plugin({ en: 'Clock', 'zh-Hant': '時鐘', 'zh-Hans': '时钟' }))).some((m) => /bare `zh`/.test(m)));
+});
+
+test('lintPlugin: the languages it declares, against the ones its texts use', () => {
+  const plugin = (languages: string[] | undefined, name: Record<string, string> & { en: string } = { en: 'Clock', es: 'Reloj' }) =>
+    messages(lintPlugin(definePlugin({ id: 'l', name, description: name, version: '1.0.0', sdk: '^0.2.0', ...(languages ? { languages } : {}) })));
+  const has = (msgs: string[], re: RegExp) => assert.ok(msgs.some((m) => re.test(m)), `${re}\n${msgs.join('\n')}`);
+  has(plugin(undefined), /declare the languages its texts come in: `languages: \['en', 'es'\]`/);
+  assert.deepEqual(plugin(['en', 'es']), []);
+  // Declared but missing from a text: said for each text.
+  has(plugin(['en', 'es', 'zh-Hant']), /"Clock" has no zh-Hant/);
+  // In the texts but not declared.
+  has(plugin(['en'], { en: 'Clock', es: 'Reloj' }), /its texts come in es too/);
+  has(plugin(['es'], { en: 'Clock', es: 'Reloj' }), /English \(`en`\)/);
+  has(plugin(['en', 'es', 'zh-hant'], { en: 'Clock', es: 'Reloj', 'zh-hant': '時鐘' }), /write "zh-hant" as "zh-Hant"/);
+  has(plugin(['en', 'not a tag!']), /"not a tag!" is not a language tag/);
+  has(plugin(['en', 'zh'], { en: 'Clock', zh: '时钟' }), /bare `zh`/);
 });

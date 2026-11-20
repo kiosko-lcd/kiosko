@@ -519,6 +519,15 @@ export interface PluginDefinition {
   optional?: string[];
   /** The operating systems it works on. Omitted: all. Also npm's `os` in package.json. */
   platforms?: Platform[];
+  /**
+   * The languages its texts come in, as BCP 47 tags, English first:
+   * `['en', 'es', 'zh-Hant', 'zh-Hans']`. Chinese goes by script (`zh-Hant`
+   * for Taiwan and Hong Kong, `zh-Hans` for mainland China), never a bare
+   * `zh`. Every `Localized` text of the plugin has them all (the linter
+   * says which lack one). Also `kiosko.languages` in package.json, so a
+   * catalogue knows without running it. Omitted: the ones its texts use.
+   */
+  languages?: string[];
   widgets?: WidgetDefinition<any, any>[];
   sources?: SourceDefinition<any, any>[];
   interludes?: InterludeDefinition<any>[];

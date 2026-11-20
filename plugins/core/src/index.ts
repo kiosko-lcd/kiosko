@@ -406,6 +406,7 @@ export default definePlugin({
   id: 'core',
   name: { en: 'Essentials', es: 'Básicos', 'zh-Hant': '基本工具', 'zh-Hans': '基础组件' },
   version: '0.2.5',
+  languages: ['en', 'es', 'zh-Hant', 'zh-Hans'],
   sdk: '^0.2.0',
   // The picture widget reads the image (or folder, or URL) you give it.
   permissions: { files: ['user'], network: ['user'] },

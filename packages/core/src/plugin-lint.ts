@@ -84,8 +84,28 @@ export function lintPlugin(def: PluginDefinition): LintIssue[] {
   if (reaches && !def.permissions) add('warn', 'plugin', 'it reads data: declare `permissions` (hosts, programs, files, devices) so people know before installing');
   if (!def.description) add('warn', 'plugin', 'a description, for the Plugins page and the store');
   for (const r of [...(def.requires ?? []), ...(def.optional ?? [])]) if (!/^[a-z0-9][a-z0-9-]*\/[a-zA-Z0-9-]+$/.test(r)) add('error', 'plugin', `requires/optional ${JSON.stringify(r)}: a type, plugin/thing`);
-  const langs = languagesOf(def);
-  if (langs.includes('zh')) add('warn', 'plugin', 'a bare `zh` is read as Simplified and never shown in Taiwan or Hong Kong: write `zh-Hans` (mainland China) and `zh-Hant` (Taiwan, Hong Kong)');
+  // The languages it says it speaks, checked against the ones its texts use.
+  const used = languagesOf(def);
+  const declared = def.languages;
+  if (!declared?.length) add('warn', 'plugin', `declare the languages its texts come in: \`languages: [${used.map((l) => `'${l}'`).join(', ')}]\` (and "kiosko": { "languages": [...] } in package.json)`);
+  else {
+    for (const tag of declared) {
+      let canon: string | undefined;
+      try {
+        canon = Intl.getCanonicalLocales(tag)[0];
+      } catch {
+        add('error', 'plugin', `languages: "${tag}" is not a language tag (en, es, zh-Hant…)`);
+        continue;
+      }
+      if (canon !== tag) add('warn', 'plugin', `languages: write "${tag}" as "${canon}"`);
+    }
+    if (!declared.includes('en')) add('error', 'plugin', 'languages: English (`en`) is the one every text falls back to: list it, and write every text in it');
+    if (new Set(declared).size !== declared.length) add('warn', 'plugin', 'languages: a language is listed twice');
+    const unlisted = used.filter((l) => !declared.includes(l));
+    if (unlisted.length) add('warn', 'plugin', `its texts come in ${unlisted.join(', ')} too, which \`languages\` doesn't list`);
+  }
+  const langs = declared?.length ? declared : used;
+  if (langs.includes('zh') || used.includes('zh')) add('warn', 'plugin', 'a bare `zh` is read as Simplified and never shown in Taiwan or Hong Kong: write `zh-Hans` (mainland China) and `zh-Hant` (Taiwan, Hong Kong)');
   const texts = (where: string, ...ts: (Localized | undefined)[]) => {
     for (const tx of ts) {
       const miss = missingLanguages(tx, langs);

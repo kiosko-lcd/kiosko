@@ -20,6 +20,8 @@ export interface PackageMeta {
   sdk?: string;
   /** From npm's `os` (`["linux"]`, `["!win32"]`), as the list of systems it runs on. */
   platforms?: Platform[];
+  /** `kiosko.languages`: the languages its texts come in. */
+  languages?: string[];
 }
 
 export function packageMeta(pkg: Record<string, any>): PackageMeta {
@@ -36,6 +38,8 @@ export function packageMeta(pkg: Record<string, any>): PackageMeta {
     const deny = os.filter((x: string) => x.startsWith('!')).map((x: string) => x.slice(1));
     out.platforms = PLATFORMS.filter((p) => (!allow.length || allow.includes(p)) && !deny.includes(p));
   }
+  const langs = pkg.kiosko?.languages;
+  if (Array.isArray(langs) && langs.length) out.languages = langs.filter((x: unknown): x is string => typeof x === 'string');
   return out;
 }
 
@@ -105,7 +109,7 @@ export interface PluginManifest {
   /** Plugin API range it is written for. */
   sdk?: string;
   platforms: Platform[];
-  /** Language codes its texts come in (`en`, `es`). */
+  /** Language tags its texts come in (`en`, `es`, `zh-Hant`, `zh-Hans`): as declared, or read from its texts. */
   languages: string[];
   /** Widget categories it covers, for browsing. */
   categories: string[];
@@ -124,7 +128,12 @@ export interface PluginManifest {
   templates: { id: string; name: Localized; icon?: string; widgets: string[] }[];
 }
 
-/** Every language code used in a plugin's texts. */
+/** The languages a plugin speaks: the ones it declares (`languages`), or else the ones its texts use. */
+export function declaredLanguages(def: PluginDefinition, meta: PackageMeta = {}): string[] {
+  return def.languages?.length ? [...def.languages] : meta.languages?.length ? [...meta.languages] : languagesOf(def);
+}
+
+/** Every language tag used in a plugin's texts. */
 export function languagesOf(def: PluginDefinition): string[] {
   const out = new Set<string>();
   const seen = new WeakSet<object>();
@@ -192,7 +201,7 @@ export function pluginManifest(def: PluginDefinition, o: { screenshots?: Record<
     ...(def.icon ? { icon: def.icon } : {}),
     ...(sdk ? { sdk } : {}),
     platforms: def.platforms ?? meta.platforms ?? [...PLATFORMS],
-    languages: languagesOf(def),
+    languages: declaredLanguages(def, meta),
     categories: [...new Set(widgets.map((w) => w.category ?? 'info'))],
     tags: [...new Set(widgets.flatMap((w) => w.tags ?? []))],
     permissions: def.permissions ?? {},

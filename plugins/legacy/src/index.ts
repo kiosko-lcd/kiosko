@@ -117,6 +117,7 @@ export default definePlugin({
   id: 'legacy',
   name: { en: 'aimonitor compatibility', es: 'Compatibilidad aimonitor', 'zh-Hant': 'aimonitor 相容性', 'zh-Hans': 'aimonitor 兼容' },
   version: '0.2.5',
+  languages: ['en', 'es', 'zh-Hant', 'zh-Hans'],
   sdk: '^0.2.0',
   // Runs the aimonitor modules you point it at, and reads their folder.
   permissions: { exec: ['user'], files: ['user'] },
