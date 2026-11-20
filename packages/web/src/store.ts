@@ -118,7 +118,7 @@ function scheduleSave(): void {
         canUndo.value = false;
         canRedo.value = false;
         saving.value = 'idle';
-        notify(localize({ en: 'The configuration changed in another tab: reloaded.', es: 'La configuración cambió en otra pestaña: recargada.', 'zh-Hant': '設定已在其他分頁中變更：已重新載入。', 'zh-Hans': '配置已在其他标签页中更改：已重新加载。' }, locale.value), 'error');
+        notify(localize({ en: 'The configuration changed in another tab: reloaded.', es: 'La configuración cambió en otra pestaña: recargada.', de: 'Die Konfiguration wurde in einem anderen Tab geändert: neu geladen.', 'zh-Hant': '設定已在其他分頁中變更：已重新載入。', 'zh-Hans': '配置已在其他标签页中更改：已重新加载。' }, locale.value), 'error');
         return;
       }
       rev = r.rev;

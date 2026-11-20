@@ -11,14 +11,15 @@ import type { Config } from './model.ts';
 
 /** The showcase's page names in each language Kiosko speaks (a test checks every language has them). */
 export const SAMPLE_PAGE_NAMES: Record<string, Record<string, string>> = {
-  Dashboard: { en: 'Dashboard', es: 'Panel', 'zh-Hant': '總覽', 'zh-Hans': '总览' },
-  Cats: { en: 'Cats', es: 'Gatos', 'zh-Hant': '貓咪', 'zh-Hans': '猫咪' },
-  News: { en: 'News', es: 'Noticias', 'zh-Hant': '新聞', 'zh-Hans': '新闻' },
-  Home: { en: 'Home', es: 'Casa', 'zh-Hant': '居家', 'zh-Hans': '家居' },
+  Dashboard: { en: 'Dashboard', de: 'Übersicht', es: 'Panel', 'zh-Hant': '總覽', 'zh-Hans': '总览' },
+  Cats: { en: 'Cats', de: 'Katzen', es: 'Gatos', 'zh-Hant': '貓咪', 'zh-Hans': '猫咪' },
+  News: { en: 'News', de: 'Nachrichten', es: 'Noticias', 'zh-Hant': '新聞', 'zh-Hans': '新闻' },
+  Home: { en: 'Home', de: 'Zuhause', es: 'Casa', 'zh-Hant': '居家', 'zh-Hans': '家居' },
 };
 
 /** Sample places by language: where the weather, the sun and the earthquakes are for. */
 export const SAMPLE_PLACES: Record<string, { latitude: number; longitude: number; name: string }> = {
+  de: { latitude: 52.52, longitude: 13.405, name: 'Berlin' },
   'zh-Hant': { latitude: 25.033, longitude: 121.5654, name: '台北' },
   'zh-Hans': { latitude: 31.2304, longitude: 121.4737, name: '上海' },
 };

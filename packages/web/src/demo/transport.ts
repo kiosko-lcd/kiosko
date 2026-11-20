@@ -110,8 +110,8 @@ async function state(): Promise<AppState> {
     rev: current!.rev,
     config: current!.config,
     paths: {
-      config: L({ en: `this browser's localStorage ("${STORAGE_KEY}")`, es: `localStorage de este navegador («${STORAGE_KEY}»)`, 'zh-Hant': `這個瀏覽器的 localStorage（「${STORAGE_KEY}」）`, 'zh-Hans': `此浏览器的 localStorage（“${STORAGE_KEY}”）` }),
-      plugins: L({ en: 'bundled with the demo', es: 'incluidos en la demo', 'zh-Hant': '內建於示範中', 'zh-Hans': '内置于演示中' }),
+      config: L({ en: `this browser's localStorage ("${STORAGE_KEY}")`, es: `localStorage de este navegador («${STORAGE_KEY}»)`, de: `localStorage dieses Browsers („${STORAGE_KEY}“)`, 'zh-Hant': `這個瀏覽器的 localStorage（「${STORAGE_KEY}」）`, 'zh-Hans': `此浏览器的 localStorage（“${STORAGE_KEY}”）` }),
+      plugins: L({ en: 'bundled with the demo', es: 'incluidos en la demo', de: 'in der Demo enthalten', 'zh-Hant': '內建於示範中', 'zh-Hans': '内置于演示中' }),
       home: '',
     },
     restartNeeded: false,

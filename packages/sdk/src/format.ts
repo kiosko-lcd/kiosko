@@ -2,7 +2,7 @@
  * Times and lengths of time, written the same way by every widget:
  * `ctx.fmt.time(at)`, `ctx.fmt.ago(at)` and `ctx.fmt.duration(ms)`.
  *
- * They follow the panel's language (English, Spanish, Traditional and
+ * They follow the panel's language (English, Spanish, German, Traditional and
  * Simplified Chinese words; any other language gets the English ones) and the config's `timeFormat`. Hand-written
  * rather than `Intl.RelativeTimeFormat`: its short forms differ between ICU
  * versions (Node, Chromium, WebKit), and a panel must paint the same thing in
@@ -81,6 +81,17 @@ const latin = (wk: string, yr: (n: number) => string) => ({
   hm: (h: number, m: number) => `${h} h ${pad2(m)}`,
   dh: (d: number, h: number) => `${d} d ${h} h`,
 });
+// German: abbreviations with a full stop (5 Min., 3 Std.), which also spare the dative after "vor" (vor 2 Tagen); a running length as 1:05 h.
+const german = {
+  s: (n: number) => `${n} s`,
+  min: (n: number) => `${n} Min.`,
+  h: (n: number) => `${n} Std.`,
+  d: (n: number) => `${n} T.`,
+  wk: (n: number) => `${n} Wo.`,
+  yr: (n: number) => `${n} J.`,
+  hm: (h: number, m: number) => `${h}:${pad2(m)} h`,
+  dh: (d: number, h: number) => `${d} T. ${h} Std.`,
+};
 const chinese = (u: { min: string; h: string; wk: string }) => ({
   s: (n: number) => `${n} 秒`,
   min: (n: number) => `${n} ${u.min}`,
@@ -96,6 +107,7 @@ const chinese = (u: { min: string; h: string; wk: string }) => ({
 const WORDS: Record<string, Words> = {
   en: { now: 'now', justNow: 'just now', ago: (v) => `${v} ago`, am: 'AM', pm: 'PM', ...latin('wk', () => 'yr') },
   es: { now: 'ahora', justNow: 'ahora mismo', ago: (v) => `hace ${v}`, am: 'a. m.', pm: 'p. m.', ...latin('sem', (n) => (n === 1 ? 'año' : 'años')) },
+  de: { now: 'jetzt', justNow: 'gerade eben', ago: (v) => `vor ${v}`, am: 'AM', pm: 'PM', ...german },
   'zh-Hant': { now: '現在', justNow: '剛剛', ago: (v) => `${v}前`, am: '上午', pm: '下午', ampmFirst: true, ...chinese({ min: '分鐘', h: '小時', wk: '週' }) },
   'zh-Hans': { now: '现在', justNow: '刚刚', ago: (v) => `${v}前`, am: '上午', pm: '下午', ampmFirst: true, ...chinese({ min: '分钟', h: '小时', wk: '周' }) },
 };

@@ -70,6 +70,7 @@ export class DemoRenderer implements RendererApi {
     rt.log('demo', localize({
       en: `browser demo: ${n} plugins, sample data; nothing is read from this computer`,
       es: `demo en el navegador: ${n} plugins, datos de muestra; no se lee nada de este ordenador`,
+      de: `Browser-Demo: ${n} Plugins, Beispieldaten; von diesem Computer wird nichts gelesen`,
       'zh-Hant': `瀏覽器示範：${n} 個外掛，範例資料；不會讀取這台電腦上的任何東西`,
       'zh-Hans': `浏览器演示：${n} 个插件，示例数据；不会读取这台电脑上的任何内容`,
     }, resolveLocale(config)));
@@ -176,7 +177,7 @@ export class DemoRenderer implements RendererApi {
   private status(): RuntimeState['status'] {
     const st = this.rt.status();
     const locale = resolveLocale(this.rt.config);
-    const noPanel = localize({ en: 'browser demo: no panel here', es: 'demo en el navegador: aquí no hay panel', 'zh-Hant': '瀏覽器示範：這裡沒有面板', 'zh-Hans': '浏览器演示：这里没有屏幕' }, locale);
+    const noPanel = localize({ en: 'browser demo: no panel here', es: 'demo en el navegador: aquí no hay panel', de: 'Browser-Demo: hier gibt es kein Panel', 'zh-Hant': '瀏覽器示範：這裡沒有面板', 'zh-Hans': '浏览器演示：这里没有屏幕' }, locale);
     return {
       ...st,
       screens: st.screens.map((s) => {
