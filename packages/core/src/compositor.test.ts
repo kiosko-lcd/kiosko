@@ -312,3 +312,22 @@ test('animation: the hook is told where the widget paints, zoom included', () =>
   assert.deepEqual(run(), { x: 0, y: 0, w: 400, h: 200 });
   assert.deepEqual(run(2), { x: 0, y: 0, w: 200, h: 100 });
 });
+
+test('rotate: the page painted already turned is the page turned afterwards (but for edge antialiasing)', () => {
+  const p = page([
+    { id: 'a', x: 0, y: 0, w: 2, h: 2, widgets: [W('w1', 'anim/still')], rotateMs: 0, chrome: 'card' },
+    { id: 'b', x: 2, y: 0, w: 2, h: 1, widgets: [W('w2', 'anim/wag')], rotateMs: 0, chrome: 'bare' },
+  ]);
+  const flat = composeA(p, { noShift: true }).canvas;
+  for (const r of [90, 180, 270]) {
+    const turned = composeA(p, { noShift: true, rotate: r }).canvas;
+    const expected = rotateCanvas(flat, r);
+    assert.deepEqual([turned.width, turned.height], [expected.width, expected.height], `${r}°: size`);
+    const a = turned.getContext('2d').getImageData(0, 0, turned.width, turned.height).data;
+    const b = expected.getContext('2d').getImageData(0, 0, expected.width, expected.height).data;
+    let differ = 0;
+    for (let i = 0; i < a.length; i++) if (Math.abs(a[i]! - b[i]!) > 2) differ++;
+    // A quarter turn moves the rounded corners' antialiasing by a hair: a few edge pixels, nothing more.
+    assert.ok(differ <= a.length / 10_000, `${r}°: ${differ} of ${a.length} channel values differ`);
+  }
+});
