@@ -5,7 +5,8 @@
  * as FontFaces from there. Keep the list in step with core/src/fonts.ts.
  */
 import { GlobalFonts } from '@napi-rs/canvas';
-import { FONT_FAMILIES } from '@kiosko/sdk';
+import { FONT_FAMILIES, hanScript } from '@kiosko/sdk';
+import { CJK_FAMILIES, FontFallback, hookFont } from '../../../core/src/font-fallback.ts';
 
 export const FONT_FILES: [family: string, file: string][] = [
   [FONT_FAMILIES.sans, 'DejaVuSansCondensed.ttf'],
@@ -29,22 +30,48 @@ export function registerFonts(extra: { family: string; path: string }[] = []): v
   done = true;
 }
 
+const fallback = new FontFallback();
+let hooked = false;
+
 /**
- * The browser already looks for missing characters in the system's fonts.
- * Picking the regional CJK family here is still to do (backlog Z3).
+ * The browser looks for a missing character in the system's fonts by
+ * itself, but picks the region by the page's language: Japanese or
+ * Simplified shapes for a Taiwanese reader. So, as on the panel, the
+ * regional families go behind every font. All the candidates for that
+ * writing: the browser skips the ones this machine lacks, and cannot be
+ * asked which it has.
  */
-export function setFontLocale(_locale: string): void {}
+export function setFontLocale(locale: string): void {
+  if (!hooked) {
+    hooked = true;
+    for (const name of ['OffscreenCanvasRenderingContext2D', 'CanvasRenderingContext2D']) {
+      const proto = (globalThis as unknown as Record<string, { prototype?: object } | undefined>)[name]?.prototype;
+      if (proto) hookFont(proto, (f) => fallback.apply(f));
+    }
+  }
+  fallback.setFamilies(browserFamilies(locale));
+}
+
+/**
+ * Only the reader's own writing: the browser's own fallback already covers
+ * the rest, and every family named costs a lookup (WebKit painted the first
+ * thumbnails seconds later with all five lists).
+ */
+function browserFamilies(locale: string): string[] {
+  const script = hanScript(locale);
+  return script ? [...new Set([...CJK_FAMILIES[script]])] : [];
+}
 
 export function withFallback(font: string): string {
-  return font;
+  return fallback.apply(font);
 }
 
 export function hasFontFamily(_family: string): boolean {
   return false;
 }
 
-export function cjkFonts(_locale: string): { script: null; families: string[]; fromUser: string[] } {
-  return { script: null, families: [], fromUser: [] };
+export function cjkFonts(locale: string): { script: ReturnType<typeof hanScript>; families: string[]; fromUser: string[] } {
+  return { script: hanScript(locale), families: browserFamilies(locale), fromUser: [] };
 }
 
 export function userFontsDir(): string {

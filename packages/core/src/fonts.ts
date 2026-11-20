@@ -18,6 +18,7 @@ import { dirname, join } from 'node:path';
 import { createCanvas, GlobalFonts, type Canvas } from '@napi-rs/canvas';
 import * as kit from '@loksly/lcd-canvas-kit';
 import { FONT_FAMILIES, hanScript, type HanScript } from '@kiosko/sdk';
+import { FontFallback, cjkFamiliesFor, hookFont } from './font-fallback.ts';
 import { paths } from './paths.ts';
 
 const require = createRequire(import.meta.url);
@@ -65,28 +66,7 @@ export function registerFonts(extra: { family: string; path: string }[] = []): v
 }
 
 // ---------------------------------------------------------------------------
-// Chinese, Japanese and Korean
-
-/**
- * System families to try, best first, for each way of writing Han. Region
- * specific names on purpose: a generic one (or a `.ttc` registered by path,
- * which only brings its first face) would draw Japanese shapes for Chinese.
- */
-const CJK_FAMILIES: Record<HanScript, string[]> = {
-  Hant: ['Noto Sans CJK TC', 'Noto Sans TC', 'Source Han Sans TC', 'Source Han Sans TW', 'Microsoft JhengHei', 'PingFang TC', 'Heiti TC'],
-  'Hant-HK': ['Noto Sans CJK HK', 'Noto Sans HK', 'Source Han Sans HK', 'Microsoft JhengHei', 'PingFang HK', 'Noto Sans CJK TC', 'Noto Sans TC', 'PingFang TC'],
-  Hans: ['Noto Sans CJK SC', 'Noto Sans SC', 'Source Han Sans SC', 'Source Han Sans CN', 'Microsoft YaHei', 'PingFang SC', 'Heiti SC'],
-  Jpan: ['Noto Sans CJK JP', 'Noto Sans JP', 'Source Han Sans JP', 'Source Han Sans', 'Yu Gothic', 'Meiryo', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN'],
-  Kore: ['Noto Sans CJK KR', 'Noto Sans KR', 'Source Han Sans KR', 'Source Han Sans K', 'Malgun Gothic', 'Apple SD Gothic Neo'],
-};
-
-/** Which writings to cover, in order: the user's own first, then the rest so nothing is left as a box. */
-function scriptOrder(own: HanScript | null): HanScript[] {
-  const rest: HanScript[] = ['Hans', 'Hant', 'Jpan', 'Kore'];
-  if (!own) return rest;
-  const first: HanScript[] = own === 'Hant-HK' ? ['Hant-HK', 'Hant'] : [own];
-  return [...first, ...rest.filter((s) => !first.includes(s))];
-}
+// Chinese, Japanese and Korean (the shared part is in font-fallback.ts)
 
 /** A character every CJK font has and DejaVu does not. */
 const PROBE = '體';
@@ -159,12 +139,8 @@ export function cjkFonts(locale: string): CjkFonts {
   let out = chosen.get(key);
   if (!out) {
     const fromUser = loadUserFonts().filter((f) => hasFontFamily(f));
-    const families = [...fromUser];
-    for (const s of scriptOrder(script)) {
-      const found = CJK_FAMILIES[s].find((f) => !families.includes(f) && hasFontFamily(f));
-      if (found) families.push(found);
-    }
-    out = { script, families: [...new Set(families)], fromUser };
+    const families = cjkFamiliesFor(locale, hasFontFamily, fromUser);
+    out = { script, families, fromUser };
     chosen.set(key, out);
   }
   return out;
@@ -175,77 +151,28 @@ export function userFontsDir(): string {
   return join(paths.home, 'fonts');
 }
 
-let fallbackTail = '';
-const memo = new Map<string, string>();
-const BOLD_FAMILIES = [FONT_FAMILIES.sansBold, FONT_FAMILIES.monoBold];
+const fallback = new FontFallback();
 
 /**
  * Picks the CJK fonts for this language. Called by the compositor on every
  * frame; only does work when the language changes.
  */
 export function setFontLocale(locale: string): void {
-  const tail = cjkFonts(locale).families.map((f) => `, "${f}"`).join('');
-  if (tail !== fallbackTail) {
-    fallbackTail = tail;
-    memo.clear();
-    // A character's width depends on which font draws it.
-    kit.clearTextCache();
-  }
+  // A character's width depends on which font draws it.
+  if (fallback.setFamilies(cjkFonts(locale).families)) kit.clearTextCache();
 }
 
-/**
- * `font` with the CJK families behind it. Kiosko's bold families are DejaVu
- * Bold files under their own name, so the string asks for no weight and the
- * CJK font would come out regular: ask for bold too, which the DejaVu Bold
- * file already is.
- */
+/** `font` with the CJK families behind it (and bold for Kiosko's bold families). */
 export function withFallback(font: string): string {
-  if (!fallbackTail) return font;
-  let out = memo.get(font);
-  if (out === undefined) {
-    out = font;
-    if (!font.endsWith(fallbackTail)) {
-      out = font + fallbackTail;
-      const size = /\d*\.?\d+(px|pt|em|rem)\b/.exec(font);
-      const before = size ? font.slice(0, size.index) : '';
-      const after = size ? font.slice(size.index) : font;
-      if (BOLD_FAMILIES.some((f) => after.includes(f)) && !/\b(bold|bolder|[1-9]00)\b/.test(before)) out = `bold ${out}`;
-    }
-    if (memo.size > 2000) memo.clear();
-    memo.set(font, out);
-  }
-  return out;
+  return fallback.apply(font);
 }
 
-let nativeFont: PropertyDescriptor | undefined;
-const SET = Symbol('kiosko.fontSet');
-const GOT = Symbol('kiosko.fontGot');
+let nativeFont: PropertyDescriptor | null = null;
 
-/**
- * Every 2D context, plugins' included, gets the CJK families behind the font
- * it sets. Reading `font` back gives what was set, so code that compares
- * before setting (the kit does, to save work) keeps working.
- */
+/** Every 2D context, plugins' included, gets the CJK families behind the font it sets. */
 function installFallbackHook(): void {
   if (nativeFont) return;
-  const proto = Object.getPrototypeOf(createCanvas(1, 1).getContext('2d')) as object;
-  const desc = Object.getOwnPropertyDescriptor(proto, 'font');
-  if (!desc?.set || !desc.get || !desc.configurable) return;
-  nativeFont = desc;
-  const { get, set } = desc;
-  Object.defineProperty(proto, 'font', {
-    configurable: true,
-    enumerable: desc.enumerable ?? false,
-    get(this: Record<symbol, string>) {
-      const now = get.call(this) as string;
-      return now === this[GOT] ? this[SET]! : now;
-    },
-    set(this: Record<symbol, string>, value: string) {
-      set.call(this, withFallback(String(value)));
-      this[SET] = String(value);
-      this[GOT] = get.call(this) as string;
-    },
-  });
+  nativeFont = hookFont(Object.getPrototypeOf(createCanvas(1, 1).getContext('2d')) as object, withFallback);
 }
 
 /** What to tell the user when there is no CJK font: how to get one on this system. */
