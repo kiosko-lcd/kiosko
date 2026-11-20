@@ -25,6 +25,7 @@
   "hardware": "硬件",
   "one-cable-no-vendor-app": "一根线，无需厂商软件。",
   "kiosko-drives-1920-462-bar": "Kiosko 支持 1920×462 长条屏（例如利民 Thermalright Trofeo Vision）、水冷头上的方形屏，以及 320×240 的小屏幕，可在 Linux、macOS 和 Windows 上运行。背面的磁铁能吸在机箱上，一根 USB-C 线就装好了。",
+  "in-testing-other-thermalright": "测试中：利民其他屏幕的分辨率，Trofeo Vision 11.3″（1920×400）和 6.86″（1280×480）、Fan Bracket Vision-1（854×480）、GPU Bracket LCD 4.58″（320×960）以及 Fan Frame Vision-1（640×172）。",
   "how-to-connect-one": "如何连接屏幕 →",
   "yours": "你的配置",
   "now-with-your-config": "换上你的配置。",

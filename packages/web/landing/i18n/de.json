@@ -25,6 +25,7 @@
   "hardware": "Hardware",
   "one-cable-no-vendor-app": "Ein Kabel. Keine Hersteller-App.",
   "kiosko-drives-1920-462-bar": "Kiosko steuert 1920×462-Leisten-Panels wie das Thermalright Trofeo Vision, quadratische AIO-Displays und kleine 320×240-Anzeigen, unter Linux, macOS und Windows. Ein Magnet auf der Rückseite hält es am Gehäuse; ein USB-C-Kabel ist die ganze Installation.",
+  "in-testing-other-thermalright": "In Erprobung: die Auflösungen der übrigen Thermalright-Displays, Trofeo Vision 11.3″ (1920×400) und 6.86″ (1280×480), Fan Bracket Vision-1 (854×480), GPU Bracket LCD 4.58″ (320×960) und Fan Frame Vision-1 (640×172).",
   "how-to-connect-one": "So schließt du eins an →",
   "yours": "Deins",
   "now-with-your-config": "Jetzt mit deiner Konfiguration.",
