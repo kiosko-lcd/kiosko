@@ -72,3 +72,22 @@ test('duration: min, h 05, d h; rounding for countdowns', () => {
   assert.equal(f.duration(-5), '0 min');
   assert.equal(f.duration(Number.NaN), '0 min');
 });
+
+test('fmt in Chinese: its own units, AM/PM before the time, Traditional or Simplified by script', () => {
+  const now = new Date(2026, 10, 20, 15, 5).getTime();
+  const tw = createFormatters({ locale: 'zh-TW', now });
+  const cn = createFormatters({ locale: 'zh-CN', now });
+  assert.equal(tw.hour12, true, 'Taiwan writes 12-hour times');
+  assert.equal(tw.time(now), '下午 3:05');
+  assert.equal(tw.time(new Date(2026, 10, 20, 9, 5)), '上午 9:05');
+  assert.equal(cn.time(now), '15:05');
+  assert.equal(tw.ago(now - 5 * 60_000), '5 分鐘前');
+  assert.equal(cn.ago(now - 5 * 60_000), '5 分钟前');
+  assert.equal(tw.ago(now - 3 * 3_600_000), '3 小時前');
+  assert.equal(cn.ago(now - 14 * 86_400_000), '2 周前');
+  assert.equal(tw.ago(now - 30_000), '剛剛');
+  assert.equal(tw.duration(65 * 60_000), '1 小時 05 分');
+  assert.equal(cn.duration(65 * 60_000), '1 小时 05 分');
+  assert.equal(tw.duration(2 * 86_400_000 + 3 * 3_600_000), '2 天 3 小時');
+  assert.equal(createFormatters({ locale: 'zh-HK', now }).ago(now - 60_000), '1 分鐘前');
+});
