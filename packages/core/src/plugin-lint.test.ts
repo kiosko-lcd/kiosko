@@ -94,3 +94,9 @@ test('lintPlugin: a complete plugin is clean', () => {
   });
   assert.deepEqual(lintPlugin(p), []);
 });
+
+test('lintPlugin: a bare zh is ambiguous, zh-Hant and zh-Hans are not', () => {
+  const plugin = (name: Record<string, string> & { en: string }) => definePlugin({ id: 'z', name, description: name, version: '1.0.0', sdk: '^0.2.0' });
+  assert.ok(messages(lintPlugin(plugin({ en: 'Clock', zh: '时钟' }))).some((m) => /bare `zh`/.test(m)));
+  assert.ok(!messages(lintPlugin(plugin({ en: 'Clock', 'zh-Hant': '時鐘', 'zh-Hans': '时钟' }))).some((m) => /bare `zh`/.test(m)));
+});

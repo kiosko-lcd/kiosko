@@ -11,7 +11,7 @@
  * `DemoRenderer` directly. The editor side is src/demo/.
  */
 import { PANEL_PRESETS, Registry, Runtime, composeWidget, withLook, isWorking, normalize, pickPage, registerFonts, resolveLocale, whenMatches, type Config, type ThumbnailLook, type Screen } from '@kiosko/core';
-import { CATEGORIES, THEMES, themeById } from '@kiosko/sdk';
+import { CATEGORIES, THEMES, localize, themeById } from '@kiosko/sdk';
 import serverPackage from '../../server/package.json' with { type: 'json' };
 import showcase from '../../../examples/showcase.json' with { type: 'json' };
 import { MISSING_OFFICIAL, OFFICIAL_PLUGINS, demoPlugins } from './plugins.ts';
@@ -22,7 +22,6 @@ import { Stage } from './stage.ts';
 /** How often the stand-in panel loop says what's on each screen (and the editor repaints). */
 const FRAME_MS = 4000;
 
-const es = (locale: string) => locale.toLowerCase().startsWith('es');
 
 export class DemoRenderer implements RendererApi {
   private readonly registry = new Registry();
@@ -170,7 +169,7 @@ export class DemoRenderer implements RendererApi {
   private status(): RuntimeState['status'] {
     const st = this.rt.status();
     const locale = resolveLocale(this.rt.config);
-    const noPanel = es(locale) ? 'demo en el navegador: aquí no hay panel' : 'browser demo: no panel here';
+    const noPanel = localize({ en: 'browser demo: no panel here', es: 'demo en el navegador: aquí no hay panel' }, locale);
     return {
       ...st,
       screens: st.screens.map((s) => {

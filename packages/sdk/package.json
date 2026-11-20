@@ -15,6 +15,11 @@
       "types": "./dist/workday.d.ts",
       "default": "./dist/workday.js"
     },
+    "./i18n": {
+      "source": "./src/i18n.ts",
+      "types": "./dist/i18n.d.ts",
+      "default": "./dist/i18n.js"
+    },
     "./format": {
       "source": "./src/format.ts",
       "types": "./dist/format.d.ts",

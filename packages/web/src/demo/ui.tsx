@@ -5,6 +5,7 @@
  * the normal build drops this module; keep its top level free of side
  * effects.
  */
+import { pickLocale } from '@kiosko/sdk/i18n';
 import type { Screen } from '@kiosko/core/model';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { api } from '../api.ts';
@@ -52,7 +53,8 @@ export type DemoKey = keyof (typeof TEXTS)['en'];
 
 /** Demo texts in the editor's language. */
 export function dt(key: DemoKey): string {
-  return (locale.value.toLowerCase().startsWith('es') ? TEXTS.es : TEXTS.en)[key];
+  const lang = pickLocale(Object.keys(TEXTS), locale.value) as keyof typeof TEXTS | undefined;
+  return (lang ? TEXTS[lang] : TEXTS.en)[key] ?? TEXTS.en[key];
 }
 
 export function DemoBanner() {

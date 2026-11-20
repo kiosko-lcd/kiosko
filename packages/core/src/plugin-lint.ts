@@ -85,6 +85,7 @@ export function lintPlugin(def: PluginDefinition): LintIssue[] {
   if (!def.description) add('warn', 'plugin', 'a description, for the Plugins page and the store');
   for (const r of [...(def.requires ?? []), ...(def.optional ?? [])]) if (!/^[a-z0-9][a-z0-9-]*\/[a-zA-Z0-9-]+$/.test(r)) add('error', 'plugin', `requires/optional ${JSON.stringify(r)}: a type, plugin/thing`);
   const langs = languagesOf(def);
+  if (langs.includes('zh')) add('warn', 'plugin', 'a bare `zh` is read as Simplified and never shown in Taiwan or Hong Kong: write `zh-Hans` (mainland China) and `zh-Hant` (Taiwan, Hong Kong)');
   const texts = (where: string, ...ts: (Localized | undefined)[]) => {
     for (const tx of ts) {
       const miss = missingLanguages(tx, langs);

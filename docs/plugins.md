@@ -418,7 +418,10 @@ these when you add or rename one.
   `locale.startsWith('es')`); `ctx.location` and `ctx.workday` by default,
   with a place or schedule of your own only as an advanced override where a
   second one makes sense.
-- **Texts** are `{ en, es }`; `align` offers `left`, `center` and `right`.
+- **Texts** are `{ en, es }`, plus any language you can offer. Chinese goes
+  by script: `zh-Hant` (Taiwan, Hong Kong) and `zh-Hans` (mainland China),
+  never a bare `zh`, which is read as Simplified and so never shown in
+  Taiwan. `align` offers `left`, `center` and `right`.
 
 | Today | Convention |
 |---|---|

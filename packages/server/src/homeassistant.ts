@@ -13,6 +13,7 @@
  * removed from Home Assistant (an empty retained config).
  */
 import { hostname } from 'node:os';
+import { localize } from '@kiosko/sdk';
 import { resolveLocale, type Config, type HomeAssistantLink, type Runtime, type Screen } from '@kiosko/core';
 import { MqttClient, type MqttOptions, type MqttState } from './mqtt.ts';
 
@@ -101,7 +102,7 @@ export class HomeAssistantBridge {
   }
 
   private loc(l: { en: string; es: string }) {
-    return resolveLocale(this.runtime.config).startsWith('es') ? l.es : l.en;
+    return localize(l, resolveLocale(this.runtime.config));
   }
 
   /** A new config: connect, reconnect (other broker or login) or just announce again. */

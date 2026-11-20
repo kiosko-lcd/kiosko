@@ -1,4 +1,5 @@
-/** Editor texts. Spanish and English; other languages fall back to English. */
+/** Editor texts. Spanish and English so far; a language without a dictionary falls back to English. */
+import { pickLocale } from '@kiosko/sdk/i18n';
 import { locale } from './store.ts';
 
 const en = {
@@ -539,17 +540,28 @@ const es: Record<Key, string> = {
 
 export type TKey = Key;
 
+/**
+ * The editor's languages. Another one is a `Record<Key, string>` added here
+ * (Chinese as `zh-Hant` and `zh-Hans`, see `pickLocale`).
+ */
+const DICTS: Record<string, Record<Key, string>> = { en, es };
+const LANGS = Object.keys(DICTS);
+
+/** The editor language for the current locale (English when there is none). */
+export function uiLanguage(): string {
+  return pickLocale(LANGS, locale.value) ?? 'en';
+}
+
 export function tr(key: Key): string {
-  const l = locale.value.toLowerCase();
-  return (l.startsWith('es') ? es[key] : en[key]) ?? key;
+  return DICTS[uiLanguage()]?.[key] ?? en[key] ?? key;
 }
 
 /** Plugin-provided localized texts in the JSON schema hints. */
 export function loc(text: string | Record<string, string> | undefined): string {
   if (!text) return '';
   if (typeof text === 'string') return text;
-  const l = locale.value.toLowerCase();
-  return text[l] ?? text[l.split('-')[0]!] ?? text.en ?? Object.values(text)[0] ?? '';
+  const key = pickLocale(Object.keys(text), locale.value);
+  return (key ? text[key] : undefined) ?? text.en ?? Object.values(text)[0] ?? '';
 }
 
 /** "90000" ms → "1.5 min" */

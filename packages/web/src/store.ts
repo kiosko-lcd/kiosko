@@ -4,6 +4,7 @@
  * the server shortly after (debounced), so there's no "Save" button to forget.
  */
 import { batch, computed, signal } from '@preact/signals';
+import { localize } from '@kiosko/sdk/i18n';
 import type { Config, Page, Screen, Tile, WidgetInstance } from '@kiosko/core/model';
 import { CLIENT_ID, api, connectEvents, type AppState, type FrameEvent, type PluginInfo, type Status, type WidgetInfo } from './api.ts';
 
@@ -111,7 +112,7 @@ function scheduleSave(): void {
         canUndo.value = false;
         canRedo.value = false;
         saving.value = 'idle';
-        notify(locale.value.startsWith('es') ? 'La configuración cambió en otra pestaña: recargada.' : 'The configuration changed in another tab: reloaded.', 'error');
+        notify(localize({ en: 'The configuration changed in another tab: reloaded.', es: 'La configuración cambió en otra pestaña: recargada.' }, locale.value), 'error');
         return;
       }
       rev = r.rev;
