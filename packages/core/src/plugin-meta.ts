@@ -128,6 +128,16 @@ export interface PluginManifest {
   templates: { id: string; name: Localized; icon?: string; widgets: string[] }[];
 }
 
+/** A BCP 47 tag (`en`, `fil`, `yue`, `es-419`, `zh-Hant-TW`), not just any short key. */
+function isLanguageTag(k: string): boolean {
+  if (!/^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$/.test(k)) return false;
+  try {
+    return Intl.getCanonicalLocales(k).length === 1;
+  } catch {
+    return false;
+  }
+}
+
 /** The languages a plugin speaks: the ones it declares (`languages`), or else the ones its texts use. */
 export function declaredLanguages(def: PluginDefinition, meta: PackageMeta = {}): string[] {
   return def.languages?.length ? [...def.languages] : meta.languages?.length ? [...meta.languages] : languagesOf(def);
@@ -144,7 +154,7 @@ export function languagesOf(def: PluginDefinition): string[] {
     const o = v as Record<string, unknown>;
     // A Localized: an object with `en` and only short language codes as keys, all strings.
     const keys = Object.keys(o);
-    if (keys.includes('en') && keys.every((k) => /^[a-z]{2}(-[A-Za-z]{2,4})?$/.test(k) && typeof o[k] === 'string')) {
+    if (keys.includes('en') && keys.every((k) => isLanguageTag(k) && typeof o[k] === 'string')) {
       for (const k of keys) out.add(k);
       return;
     }

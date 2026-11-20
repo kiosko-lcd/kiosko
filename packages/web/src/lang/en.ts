@@ -260,6 +260,7 @@ export const en = {
   'screens.importBad': 'That file is not a Kiosko layout.',
   'screens.imported': 'Layout imported as a virtual screen.',
   'screens.importMissing': 'Layout imported as a virtual screen. Missing plugins for: {list}',
+  'plugins.notYourLanguage': 'Not in your language yet: its texts show in English ({languages}).',
   'docs': 'Documentation',
   'settings.configFile': 'Configuration',
   'common.deleteItem': 'Delete {name}',
@@ -313,3 +314,8 @@ export const en = {
 } as const;
 
 export type Key = keyof typeof en;
+
+/** Texts with a count: en.ts has their `.one` and `.other`; a language may add the forms its rules have. */
+export type PluralKey = 'screens.frames' | 'plugins.widgets' | 'plugins.sources' | 'plugins.interludes';
+/** A dictionary: every key, plus any of `.zero` `.two` `.few` `.many` its plural rules use (Polish, Arabic…). */
+export type Dictionary = Record<Key, string> & Partial<Record<`${PluralKey}.${'zero' | 'two' | 'few' | 'many'}`, string>>;

@@ -116,3 +116,16 @@ test('lintPlugin: the languages it declares, against the ones its texts use', ()
   has(plugin(['en', 'not a tag!']), /"not a tag!" is not a language tag/);
   has(plugin(['en', 'zh'], { en: 'Clock', zh: '时钟' }), /bare `zh`/);
 });
+
+test('lintPlugin: option labels, help and choice labels need every language too', () => {
+  const w = defineWidget({
+    id: 'w', name: { en: 'W', fr: 'W' }, description: { en: 'A w.', fr: 'Un w.' }, icon: 'square', size: { preferred: { w: 300, h: 200 } }, render() {}, demo: () => ({}),
+    options: t.object({ mode: t.enum(['a', 'b'] as const, { label: { en: 'Mode', fr: 'Mode' }, help: { en: 'How.' }, labels: { a: { en: 'A', fr: 'A' }, b: { en: 'B' } } }) }),
+  });
+  const msgs = messages(lintPlugin(definePlugin({ id: 'o', name: { en: 'O', fr: 'O' }, description: { en: 'O.', fr: 'O.' }, version: '1.0.0', sdk: '^0.2.0', languages: ['en', 'fr'], widgets: [w] })));
+  assert.ok(msgs.some((m) => /o\/w options\.mode: "How\." has no fr/.test(m)), msgs.join('\n'));
+  assert.ok(msgs.some((m) => /o\/w options\.mode: "B" has no fr/.test(m)), msgs.join('\n'));
+  assert.ok(!msgs.some((m) => /"Mode" has no/.test(m)));
+  const odd = messages(lintPlugin(definePlugin({ id: 'x', name: { en: 'X' }, version: '1.0.0', languages: ['en', 'xx'] })));
+  assert.ok(odd.some((m) => /"xx" is not a language Intl knows/.test(m)), odd.join('\n'));
+});

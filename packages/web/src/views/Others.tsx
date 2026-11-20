@@ -3,7 +3,8 @@ import { useState } from 'preact/hooks';
 import { api, type AppState, type JsonSchema, type PluginInfo } from '../api.ts';
 import { SchemaForm, Toggle } from '../forms/SchemaForm.tsx';
 import { Icon } from '../icons.tsx';
-import { UI_LANGUAGES, clock, count, dateTime, errorText, fmtMs, t, tr, weekOrder } from '../i18n.ts';
+import { pickLocale } from '@kiosko/sdk/i18n';
+import { UI_LANGUAGES, clock, count, dateTime, errorText, fmtMs, t, tr, uiLanguage, weekOrder } from '../i18n.ts';
 import { app, config, edit, logs, notify, setUiTheme, status, uiTheme } from '../store.ts';
 import { DemoNote } from '../demo/ui.tsx';
 
@@ -256,6 +257,12 @@ export default definePlugin({
               {p.sources.length > 0 && <span>{count('plugins.sources', p.sources.length)}</span>}
               {p.interludes.length > 0 && <span>{count('plugins.interludes', p.interludes.length)}</span>}
             </div>
+            {/* Its texts fall back to English for this user: say so before they wonder. */}
+            {p.languages.length > 0 && !pickLocale(p.languages, uiLanguage()) && (
+              <p class="muted small" title={p.languages.join(', ')}>
+                <Icon name="languages" size={13} /> {t('plugins.notYourLanguage', { languages: p.languages.join(', ') })}
+              </p>
+            )}
             <div class="plugin-widgets">
               {p.widgets.map((w) => (
                 <span class="mini-chip" title={w.description}>
@@ -375,13 +382,7 @@ export function Settings() {
           <h3>
             <Icon name="languages" size={16} /> {tr('settings.language')}
           </h3>
-          <div class="segmented">
-            {[['auto', tr('settings.auto')], ...UI_LANGUAGES.map((l) => [l.id, l.name])].map(([v, l]) => (
-              <button class={cfg.locale === v ? 'on' : ''} onClick={() => edit((d) => (d.locale = v!))}>
-                {l}
-              </button>
-            ))}
-          </div>
+          <LanguagePicker />
           <h3>
             <Icon name="clock" size={16} /> {tr('settings.timeFormat')}
           </h3>
@@ -643,6 +644,37 @@ export function Logs() {
           </div>
         ))}
       </section>
+    </div>
+  );
+}
+
+/**
+ * The editor's language. Choosing one keeps the system's region when it is
+ * the same language (en-GB stays en-GB: its clock and first day of the
+ * week), and the one in use is marked even if the config says fr-CA.
+ */
+function LanguagePicker() {
+  const cfg = config.value!;
+  const system = app.value?.locale ?? navigator.language;
+  const current = cfg.locale && cfg.locale !== 'auto' ? uiLanguage() : 'auto';
+  const choose = (v: string) => edit((d) => (d.locale = v === 'auto' ? 'auto' : pickLocale([v], system) === v ? system : v));
+  const options: [string, string][] = [['auto', tr('settings.auto')], ...UI_LANGUAGES.map((l): [string, string] => [l.id, l.name])];
+  // A row of buttons holds a few languages; more go in a list.
+  if (options.length > 5)
+    return (
+      <select class="input" value={current} onChange={(e) => choose((e.target as HTMLSelectElement).value)} aria-label={tr('settings.language')}>
+        {options.map(([v, l]) => (
+          <option value={v} lang={v === 'auto' ? undefined : v}>{l}</option>
+        ))}
+      </select>
+    );
+  return (
+    <div class="segmented">
+      {options.map(([v, l]) => (
+        <button class={current === v ? 'on' : ''} lang={v === 'auto' ? undefined : v} onClick={() => choose(v)}>
+          {l}
+        </button>
+      ))}
     </div>
   );
 }

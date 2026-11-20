@@ -81,9 +81,10 @@ const TEXTS: Record<string, string> = (() => {
 function T(key: string, vars: Record<string, string | number> = {}): string {
   return (TEXTS[key] ?? key).replace(/\{(\w+)\}/g, (whole, k: string) => (k in vars ? String(vars[k]) : whole));
 }
-/** `{n} screens` and friends, by the language's plural rules. */
+/** `{n} screens` and friends, by the language's plural rules (`-few`, `-many` where a language has them). */
 function count(key: string, n: number): string {
-  return T(`${key}-${new Intl.PluralRules(language()).select(n) === 'one' ? 'one' : 'other'}`, { n });
+  const form = new Intl.PluralRules(language()).select(n);
+  return T(TEXTS[`${key}-${form}`] !== undefined ? `${key}-${form}` : form === 'one' ? `${key}-one` : `${key}-other`, { n: new Intl.NumberFormat(language()).format(n) });
 }
 
 // ---------- The editor's window: the real editor, at its own size, scaled to fit ----------

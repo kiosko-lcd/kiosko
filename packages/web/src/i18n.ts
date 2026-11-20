@@ -1,7 +1,7 @@
 /** Editor texts: the dictionaries in lang/, one file per language; a language without one falls back to English. */
 import { pickLocale } from '@kiosko/sdk/i18n';
 import { LANGUAGES } from '@kiosko/sdk/languages';
-import { DICTIONARIES, en, type Key } from './lang/index.ts';
+import { DICTIONARIES, en, type Dictionary, type Key, type PluralKey } from './lang/index.ts';
 import { createFormatters, usesHour12 } from '@kiosko/sdk/format';
 import { ApiError } from './errors.ts';
 import { config, locale } from './store.ts';
@@ -17,8 +17,8 @@ export type TKey = Key;
  * The languages the editor speaks: Kiosko's (packages/sdk/src/languages.ts)
  * that have a dictionary in lang/, with their names for the picker.
  */
-export const UI_LANGUAGES: { id: string; name: string; dir: 'ltr' | 'rtl'; texts: Record<Key, string> }[] = LANGUAGES.filter((l) => DICTIONARIES[l.id]).map((l) => ({ id: l.id, name: l.name, dir: l.dir, texts: DICTIONARIES[l.id]! }));
-const DICTS: Record<string, Record<Key, string>> = Object.fromEntries(UI_LANGUAGES.map((l) => [l.id, l.texts]));
+export const UI_LANGUAGES: { id: string; name: string; dir: 'ltr' | 'rtl'; texts: Dictionary }[] = LANGUAGES.filter((l) => DICTIONARIES[l.id]).map((l) => ({ id: l.id, name: l.name, dir: l.dir, texts: DICTIONARIES[l.id]! }));
+const DICTS: Record<string, Dictionary> = Object.fromEntries(UI_LANGUAGES.map((l) => [l.id, l.texts]));
 const LANGS = Object.keys(DICTS);
 
 /** The editor language for the current locale (English when there is none). */
@@ -38,15 +38,29 @@ export function loc(text: string | Record<string, string> | undefined): string {
   return (key ? text[key] : undefined) ?? text.en ?? Object.values(text)[0] ?? '';
 }
 
-/** A text with its `{name}` holes filled in. */
+/** A text with its `{name}` holes filled in; numbers written the language's way (1,5 in French). */
 export function t(key: Key, vars: Record<string, string | number> = {}): string {
-  return tr(key).replace(/\{(\w+)\}/g, (whole, k: string) => (k in vars ? String(vars[k]) : whole));
+  return fill(tr(key), vars);
 }
 
-/** `{n} widgets` and friends: the `.one` or `.other` text for `n`, by the language's plural rules. */
-export function count(key: 'screens.frames' | 'plugins.widgets' | 'plugins.sources' | 'plugins.interludes', n: number): string {
-  const form = new Intl.PluralRules(uiLanguage()).select(n) === 'one' ? 'one' : 'other';
-  return t(`${key}.${form}` as Key, { n });
+function fill(text: string, vars: Record<string, string | number>): string {
+  let nf: Intl.NumberFormat | null = null;
+  return text.replace(/\{(\w+)\}/g, (whole, k: string) => {
+    const v = vars[k];
+    if (v === undefined) return whole;
+    if (typeof v !== 'number') return v;
+    nf ??= new Intl.NumberFormat(uiLanguage(), { maximumFractionDigits: 3 });
+    return nf.format(v);
+  });
+}
+
+/** `{n} widgets` and friends: the form the language's plural rules ask for, else `.other`. */
+export function count(key: PluralKey, n: number): string {
+  const lang = uiLanguage();
+  const form = new Intl.PluralRules(lang).select(n);
+  const dict = (DICTS[lang] ?? en) as Record<string, string | undefined>;
+  const text = dict[`${key}.${form}`] ?? dict[`${key}.other`] ?? (en as Record<string, string>)[`${key}.other`]!;
+  return fill(text, { n });
 }
 
 /** "90000" ms → "1.5 min" */

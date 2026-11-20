@@ -1,7 +1,7 @@
 /** The editor's words in Traditional Chinese, with Taiwan's words (設定, 螢幕, 外掛). Keys and placeholders as in en.ts; see CONTRIBUTING.md, "Translations". */
-import type { Key } from './en.ts';
+import type { Dictionary } from './en.ts';
 
-export const zhHant: Record<Key, string> = {
+export const zhHant: Dictionary = {
   'nav.editor': '編輯器',
   'nav.screens': '螢幕',
   'nav.plugins': '外掛',
@@ -262,6 +262,7 @@ export const zhHant: Record<Key, string> = {
   'screens.importBad': '這個檔案不是 Kiosko 版面。',
   'screens.imported': '版面已匯入為虛擬螢幕。',
   'screens.importMissing': '版面已匯入為虛擬螢幕。以下項目缺少外掛：{list}',
+  'plugins.notYourLanguage': '尚未支援你的語言：文字會以英文顯示（{languages}）。',
   'docs': '說明文件',
   'settings.configFile': '設定檔',
   'common.deleteItem': '刪除 {name}',

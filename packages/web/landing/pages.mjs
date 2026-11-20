@@ -39,10 +39,11 @@ export function text(texts, lang, key) {
   return s;
 }
 
-/** `{n} widgets` and friends: the `<key>-one` or `<key>-other` text for `n`, by the language's plural rules. */
+/** `{n} widgets` and friends: the `<key>-<form>` text the language's plural rules ask for (`-few` in Polish…), else `<key>-other`. */
 export function plural(texts, lang, key, n) {
-  const form = new Intl.PluralRules(lang).select(n) === 'one' ? 'one' : 'other';
-  return text(texts, lang, `${key}-${form}`).replaceAll('{n}', String(n));
+  const form = new Intl.PluralRules(lang).select(n);
+  const s = texts[lang]?.[`${key}-${form}`] ?? (form === 'one' ? text(texts, lang, `${key}-one`) : text(texts, lang, `${key}-other`));
+  return s.replaceAll('{n}', new Intl.NumberFormat(lang).format(n));
 }
 
 /**

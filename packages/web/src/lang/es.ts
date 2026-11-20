@@ -1,7 +1,7 @@
 /** The editor's words in Spanish. Keys and placeholders as in en.ts; see CONTRIBUTING.md, "Translations". */
-import type { Key } from './en.ts';
+import type { Dictionary } from './en.ts';
 
-export const es: Record<Key, string> = {
+export const es: Dictionary = {
   'nav.editor': 'Editor',
   'nav.screens': 'Pantallas',
   'nav.plugins': 'Plugins',
@@ -262,6 +262,7 @@ export const es: Record<Key, string> = {
   'screens.importBad': 'Ese fichero no es una maqueta de Kiosko.',
   'screens.imported': 'Maqueta importada como pantalla virtual.',
   'screens.importMissing': 'Maqueta importada como pantalla virtual. Faltan plugins para: {list}',
+  'plugins.notYourLanguage': 'Aún no está en tu idioma: sus textos salen en inglés ({languages}).',
   'docs': 'Documentación',
   'settings.configFile': 'Configuración',
   'common.deleteItem': 'Borrar {name}',

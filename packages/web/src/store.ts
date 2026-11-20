@@ -57,9 +57,13 @@ export function go(v: View): void {
   location.hash = `#/${v}`;
 }
 
+/**
+ * The editor's language: the config's, or with "auto" the browser's (the
+ * person in front of it), then the system's. The panel goes by the system.
+ */
 export const locale = computed(() => {
   const l = config.value?.locale;
-  return !l || l === 'auto' ? (app.value?.locale ?? navigator.language) : l;
+  return !l || l === 'auto' ? (navigator.language || app.value?.locale || 'en') : l;
 });
 
 export const widgets = computed(() => {

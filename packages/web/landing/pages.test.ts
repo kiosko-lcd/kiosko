@@ -15,11 +15,14 @@ const langs = LANGS as Lang[];
 const holes = (s: string) => [...s.matchAll(/\{\{\w+\}\}|\{\w+\}/g)].map((m) => m[0]).sort();
 const tags = (s: string) => [...s.matchAll(/<\/?([a-z]+)[^>]*>/g)].map((m) => m[1]!);
 
-test('every language has every text of en.json, and nothing else', () => {
+test('every language has every text of en.json, and nothing else but its plural forms', () => {
   const keys = Object.keys(texts.en!).sort();
   for (const l of langs) {
     const mine = texts[l.id]!;
-    assert.deepEqual(Object.keys(mine).sort(), keys, `i18n/${l.id}.json`);
+    // Besides en.json's keys, the plural forms a language's rules have (`js-pages-few`).
+    const extra = Object.keys(mine).filter((k) => !keys.includes(k));
+    for (const k of extra) assert.ok(/-(zero|two|few|many)$/.test(k) && keys.includes(k.replace(/-(zero|two|few|many)$/, '-other')), `i18n/${l.id}.json: "${k}" is not in en.json`);
+    assert.deepEqual(keys.filter((k) => !(k in mine)), [], `i18n/${l.id}.json lacks`);
     for (const [k, v] of Object.entries(mine)) assert.ok(v.trim(), `i18n/${l.id}.json: "${k}" is empty`);
   }
 });

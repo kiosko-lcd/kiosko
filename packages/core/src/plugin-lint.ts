@@ -74,6 +74,16 @@ function missingLanguages(text: Localized | undefined, langs: string[]): string[
   return langs.filter((l) => !(l in text));
 }
 
+/** Whether Intl has a name for the tag's language (`xx` has none). */
+function knownLanguage(tag: string): boolean {
+  try {
+    const lang = new Intl.Locale(tag).language;
+    return new Intl.DisplayNames(['en'], { type: 'language', fallback: 'none' }).of(lang) !== undefined;
+  } catch {
+    return false;
+  }
+}
+
 export function lintPlugin(def: PluginDefinition): LintIssue[] {
   const out: LintIssue[] = [];
   const add = (level: LintIssue['level'], where: string, message: string) => out.push({ level, where, message });
@@ -98,6 +108,7 @@ export function lintPlugin(def: PluginDefinition): LintIssue[] {
         continue;
       }
       if (canon !== tag) add('warn', 'plugin', `languages: write "${tag}" as "${canon}"`);
+      else if (!knownLanguage(tag)) add('warn', 'plugin', `languages: "${tag}" is not a language Intl knows`);
     }
     if (!declared.includes('en')) add('error', 'plugin', 'languages: English (`en`) is the one every text falls back to: list it, and write every text in it');
     if (new Set(declared).size !== declared.length) add('warn', 'plugin', 'languages: a language is listed twice');
@@ -123,6 +134,17 @@ export function lintPlugin(def: PluginDefinition): LintIssue[] {
     if (!x.description) add('warn', where, 'a description, for the library and the store');
     return where;
   };
+  // Option labels, help and choice labels: what the editor shows next to every option.
+  const optionTexts = (where: string, f: Field | undefined) => {
+    for (const [path, x] of fieldsOf(f)) {
+      const o = x as { label?: Localized; help?: Localized; labels?: Record<string, Localized | undefined> };
+      // A plain string is a name that is the same in every language (Ollama, NVIDIA): fine here.
+      texts(`${where} options.${path}`, ...[o.label, o.help, ...Object.values(o.labels ?? {})].filter((x) => typeof x !== 'string'));
+    }
+  };
+  for (const w of def.widgets ?? []) optionTexts(`${def.id}/${w.id}`, w.options);
+  for (const s of def.sources ?? []) optionTexts(`${def.id}/${s.id}`, s.options);
+  for (const i of def.interludes ?? []) optionTexts(`${def.id}/${i.id}`, i.options);
   for (const w of def.widgets ?? []) {
     const where = part('widget', w as WidgetDefinition<any, any>);
     out.push(...lintOptions(where, w.options, 'widget'));

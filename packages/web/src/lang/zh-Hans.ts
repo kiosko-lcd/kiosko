@@ -1,7 +1,7 @@
 /** The editor's words in Simplified Chinese, with mainland China's words (设置, 屏幕, 插件). Keys and placeholders as in en.ts; see CONTRIBUTING.md, "Translations". */
-import type { Key } from './en.ts';
+import type { Dictionary } from './en.ts';
 
-export const zhHans: Record<Key, string> = {
+export const zhHans: Dictionary = {
   'nav.editor': '编辑器',
   'nav.screens': '屏幕',
   'nav.plugins': '插件',
@@ -262,6 +262,7 @@ export const zhHans: Record<Key, string> = {
   'screens.importBad': '该文件不是 Kiosko 布局。',
   'screens.imported': '布局已作为虚拟屏幕导入。',
   'screens.importMissing': '布局已作为虚拟屏幕导入。以下项目缺少插件：{list}',
+  'plugins.notYourLanguage': '尚未支持你的语言：文字将以英文显示（{languages}）。',
   'docs': '文档',
   'settings.configFile': '配置文件',
   'common.deleteItem': '删除 {name}',

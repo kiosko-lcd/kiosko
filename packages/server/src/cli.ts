@@ -12,7 +12,7 @@
 import { spawn } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { Registry, Runtime, cjkFontStatus, installSdkResolver, scriptFontStatus, listUsb, loadConfig, paths, resolveLocale, saveConfig, type Config } from '@kiosko/core';
+import { Registry, Runtime, cjkFontStatus, installSdkResolver, scriptFontStatus, systemLocale, listUsb, loadConfig, paths, resolveLocale, saveConfig, type Config } from '@kiosko/core';
 import { hanScript } from '@kiosko/sdk';
 import { BUILTIN_PLUGINS, OFFICIAL_PLUGINS } from './builtin.ts';
 import { configCommand } from './config-cli.ts';
@@ -228,6 +228,10 @@ async function main(): Promise<void> {
     case 'service': {
       const pass = ['--port', '--host', '--config'].flatMap((f) => (opt(f) ? [f, opt(f)!] : []));
       const env: Record<string, string> = process.env.KIOSKO_HOME ? { KIOSKO_HOME: process.env.KIOSKO_HOME } : {};
+      // A service starts without the session's language (launchd sets no LANG): Kiosko would speak
+      // English. Pass on the one this shell has, or the system's.
+      const lang = process.env.LC_ALL || process.env.LANG || `${systemLocale().replace(/-/g, '_')}.UTF-8`;
+      if (lang && !/^(C|POSIX)(\.|$)/.test(lang)) env.LANG = lang;
       runService(argv[1] ?? 'print', servicePlan({ args: pass, env }));
       return;
     }
