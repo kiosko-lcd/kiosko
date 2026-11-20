@@ -183,6 +183,7 @@ export async function buildDemo({ out, editorOptions }) {
     format: 'esm',
     platform: 'browser',
     target: ['es2022', 'chrome110', 'firefox115', 'safari16'],
+    conditions: ['source'],
     minify: true,
     legalComments: 'linked',
     logLevel: 'info',

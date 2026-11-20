@@ -86,7 +86,7 @@ export const DEMO_CONFIG_KEY = 'kiosko.demo.config';
 export const TOUR_CHANNEL = 'kiosko.tour';
 
 /** What the page showing the tour tells it: go on, wait (nobody is looking), or speak another language. */
-export type TourOrder = { type: 'play' } | { type: 'pause' } | { type: 'lang'; lang: 'en' | 'es' };
+export type TourOrder = { type: 'play' } | { type: 'pause' } | { type: 'lang'; lang: string };
 
 /** What the tour tells whoever shows its page elsewhere (the front page's panel). */
 export interface TourMessage {

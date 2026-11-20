@@ -22,7 +22,9 @@ import { config, draftPage, draftScreen, draftTile, edit, go, page, pageId, scre
 /** The page it composes; one left from a previous round is removed. */
 const PAGE_NAME = 'My desk';
 
-const language = (l: unknown): 'en' | 'es' | null => (l === 'es' || l === 'en' ? l : null);
+/** The front page's language (en, es, zh-Hant, zh-Hans) as the locale the config gets: the panel paints in it. */
+const LOCALES: Record<string, string> = { en: 'en', es: 'es', 'zh-Hant': 'zh-TW', 'zh-Hans': 'zh-CN' };
+const language = (l: unknown): string | null => (typeof l === 'string' ? (LOCALES[l] ?? null) : null);
 
 /** Asked for in the address: the editor drives itself and keeps nothing. */
 export function touring(): boolean {
@@ -44,7 +46,7 @@ export function startTour(): void {
 
   const channel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel(TOUR_CHANNEL) : null;
   let paused = false;
-  // The language of the page it is shown on (`&lang=es`, and `lang` messages when the visitor changes it).
+  // The language of the page it is shown on (`&lang=es`, `&lang=zh-Hant`…).
   let lang = language(new URLSearchParams(location.search).get('lang'));
   channel?.addEventListener('message', (e: MessageEvent<TourOrder>) => {
     if (e.data?.type === 'pause') paused = true;

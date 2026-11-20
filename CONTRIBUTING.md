@@ -27,9 +27,14 @@ Thanks for wanting to make Kiosko better.
   at it (`python3 -m http.server -d site`). The front page tells its story
   as it is scrolled, over the 3D panel; one of its sections frames the
   demo's editor driving itself (`packages/web/src/demo/tour.ts`,
-  `demo/?tour=1`). Its texts are in the page in English and Spanish: change
-  both. `scripts/demo-check-docker.sh` checks it too, without WebGL (the
-  panel is then a picture); look at the 3D itself on a machine with a GPU.
+  `demo/?tour=1`). It is built once per language (`/`, `/es/`, `/zh-Hant/`,
+  `/zh-Hans/`, see `packages/web/landing/pages.mjs`); its words are in
+  `packages/web/landing/i18n/<language>.json`, one file per language with the
+  keys of `en.json`: change every file, and the test
+  (`packages/web/landing/pages.test.ts`) says which one lacks a text or
+  mixes Traditional and Simplified Chinese. `scripts/demo-check-docker.sh`
+  checks it too, without WebGL (the panel is then a picture); look at the 3D
+  itself on a machine with a GPU.
   Two pictures of the 3D panel are kept in the repository, because taking
   them needs that GPU: the one shown with the site's link when it is shared
   (`packages/web/landing/card.jpg`, retaken with

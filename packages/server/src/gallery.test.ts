@@ -39,7 +39,7 @@ const sample = normalize({
   ],
 });
 
-test('gallery: the page, the pictures and the same catalogue as data, in both languages', () => {
+test('gallery: the page, the pictures and the same catalogue as data, in each language of the site', () => {
   const out = mkdtempSync(join(tmpdir(), 'kiosko-gallery-'));
   try {
     assert.equal(buildGallery(registry, { out, now: 1_700_000_000_000 }), 2);
@@ -48,7 +48,7 @@ test('gallery: the page, the pictures and the same catalogue as data, in both la
     assert.deepEqual(data.pages, [], 'no sample pages unless asked');
     assert.equal(data.plugins.length, 1);
     const [p] = data.plugins;
-    assert.deepEqual({ id: p!.id, version: p!.version, name: p!.name, description: p!.description }, { id: 'demo', version: '1.2.3', name: { en: 'Demo', es: 'Muestra' }, description: { en: 'Two widgets to look at.', es: 'Dos widgets que mirar.' } });
+    assert.deepEqual({ id: p!.id, version: p!.version, name: p!.name, description: p!.description }, { id: 'demo', version: '1.2.3', name: { en: 'Demo', es: 'Muestra', 'zh-Hant': 'Demo', 'zh-Hans': 'Demo' }, description: { en: 'Two widgets to look at.', es: 'Dos widgets que mirar.', 'zh-Hant': 'Two widgets to look at.', 'zh-Hans': 'Two widgets to look at.' } });
     assert.deepEqual(p!.widgets.map((w) => [w.type, w.name.en, w.name.es, w.file, w.width, w.height]), [
       ['demo/one', 'One', 'Uno', 'img/demo-one.png', 200, 80],
       ['demo/two', 'Two', 'Two', 'img/demo-two.png', 480, 300],
@@ -67,7 +67,7 @@ test("gallery: with a sample config, the enabled pages of its most bar-shaped sc
   try {
     buildGallery(registry, { out, pages: sample });
     const data = JSON.parse(readFileSync(join(out, 'gallery.json'), 'utf8')) as GalleryData;
-    assert.deepEqual(data.pages, [{ id: 'a', name: 'First Page', file: { en: 'img/page-first-page.jpg', es: 'img/page-first-page.es.jpg' }, width: 480, height: 116 }]);
+    assert.deepEqual(data.pages, [{ id: 'a', name: 'First Page', file: { en: 'img/page-first-page.jpg', es: 'img/page-first-page.es.jpg', 'zh-Hant': 'img/page-first-page.zh-Hant.jpg', 'zh-Hans': 'img/page-first-page.zh-Hans.jpg' }, width: 480, height: 116 }]);
     for (const file of Object.values(data.pages[0]!.file)) assert.deepEqual([...readFileSync(join(out, file)).subarray(0, 3)], [0xff, 0xd8, 0xff], `${file}: a JPEG`);
     assert.ok(!existsSync(join(out, 'img/page-off.jpg')));
   } finally {

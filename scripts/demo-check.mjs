@@ -449,31 +449,44 @@ async function openFront(browser, { locale = 'en-US', width = 1440, height = 900
   return { ctx, page, errors };
 }
 
-/** What the page says: its language, its headline as seen, and whether any text of the other language shows. */
+/** The front page's languages: where each lives and words of its headline (landing/pages.mjs, i18n/). */
+const FRONT_LANGS = [
+  { id: 'en', dir: '', locale: 'en-US', headline: /finally useful/i },
+  { id: 'es', dir: 'es/', locale: 'es-ES', headline: /por fin útil/i },
+  { id: 'zh-Hant', dir: 'zh-Hant/', locale: 'zh-TW', headline: /終於派上用場/ },
+  { id: 'zh-Hans', dir: 'zh-Hans/', locale: 'zh-CN', headline: /终于派上用场/ },
+];
+
+/** What the page says: its address, its language and its headline. */
 const frontState = (page) =>
-  page.evaluate(() => {
-    const shown = (e) => getComputedStyle(e).display !== 'none';
-    const lang = document.documentElement.lang;
-    const other = lang === 'es' ? 'en' : 'es';
-    return {
-      lang,
-      headline: [...document.querySelectorAll('h1 [lang]')].filter(shown).map((e) => e.textContent.trim()).join(' | '),
-      leaked: [...document.querySelectorAll(`[lang="${other}"]`)].filter(shown).length,
-      both: document.querySelectorAll('body [lang="en"]').length === document.querySelectorAll('body [lang="es"]').length,
-    };
-  });
+  page.evaluate(() => ({
+    path: location.pathname.replace(/^.*?\/(?=(?:es|zh-Hant|zh-Hans)\/|$)/, '/'),
+    lang: document.documentElement.lang,
+    headline: document.querySelector('h1')?.textContent.trim() ?? '',
+    // Each page is in one language: no second one hidden in it.
+    leaked: document.querySelectorAll('main span[lang], main img[lang]').length,
+  }));
 
 async function frontPage(browser, name) {
   const { ctx, page, errors } = await openFront(browser);
   const en = await frontState(page);
-  check(`${name} front page: in English by default`, en.lang === 'en' && /finally useful/i.test(en.headline) && en.leaked === 0, `lang ${en.lang}, "${en.headline}", ${en.leaked} texts of the other language showing`);
-  check(`${name} front page: every text is there in both languages`, en.both);
+  check(`${name} front page: in English by default`, en.lang === 'en' && /finally useful/i.test(en.headline) && en.leaked === 0, `lang ${en.lang}, "${en.headline}", ${en.leaked} texts of another language`);
+  const pages = await page.evaluate(async (langs) => {
+    const out = [];
+    for (const l of langs) {
+      const r = await fetch(l.dir || './');
+      const html = r.ok ? await r.text() : '';
+      out.push({ id: l.id, ok: r.ok && html.includes(`<html lang="${l.id}">`) && langs.every((o) => html.includes(`hreflang="${o.id}"`)) });
+    }
+    return out;
+  }, FRONT_LANGS.map(({ id, dir }) => ({ id, dir })));
+  check(`${name} front page: a page for each language, each pointing at the others`, pages.every((p) => p.ok), pages.filter((p) => !p.ok).map((p) => p.id).join(', '));
 
   // The picture fades in: wait for it to be there.
   await page.waitForFunction(() => getComputedStyle(document.querySelector('.still')).opacity === '1', null, { timeout: 10_000 }).catch(() => undefined);
   const still = await page.evaluate(async () => {
-    // One picture for each language; only the page's own is shown (and fetched).
-    const img = document.querySelector(`.still img[lang="${document.documentElement.lang}"]`);
+    // The page's own language's picture.
+    const img = document.querySelector('.still img');
     await img?.decode?.().catch(() => undefined);
     return { no3d: document.documentElement.classList.contains('no3d'), width: img?.naturalWidth ?? 0, opacity: getComputedStyle(document.querySelector('.still')).opacity };
   });
@@ -522,13 +535,13 @@ async function frontPage(browser, name) {
   const bar = showcase.screens.find((x) => x.width / x.height > 2.5);
   const mine = { screens: [{ ...bar, id: 'mine', pages: bar.pages.slice(0, 1) }] };
   const file = (name, text) => ({ name, mimeType: 'application/json', buffer: Buffer.from(text) });
-  const saidNow = () => page.locator('[data-yours="said"] [lang="en"]').innerText().catch(() => '');
-  const before = await imgStats(page, '.still img[lang="en"]');
+  const saidNow = () => page.locator('[data-yours="said"]').innerText().catch(() => '');
+  const before = await imgStats(page, '.still img');
   await page.setInputFiles('[data-yours="file"]', file('mine.json', JSON.stringify(mine)));
-  await page.waitForFunction(() => document.querySelector('.still img[lang="en"]')?.src.startsWith('blob:'), null, { timeout: 60_000 }).catch(() => undefined);
+  await page.waitForFunction(() => document.querySelector('.still img')?.src.startsWith('blob:'), null, { timeout: 60_000 }).catch(() => undefined);
   await page.waitForTimeout(800);
   const said = await saidNow();
-  const shown = await imgStats(page, '.still img[lang="en"]');
+  const shown = await imgStats(page, '.still img');
   const at = await page.evaluate(() => ({ step: document.documentElement.dataset.step, offered: !document.querySelector('[data-yours="loaded"]').hidden }));
   await shot(page, `front-yours-${name}.jpg`);
   check(`${name} front page: a config of your own is read and shown`, /mine\.json: 1 screen, 1 page/.test(said) && at.step === 'yours' && at.offered && painted(shown) && shown.hash !== before?.hash, `"${said}", section ${at.step}, picture ${shown?.src.slice(0, 5)} ${shown?.colours} colours`);
@@ -543,20 +556,27 @@ async function frontPage(browser, name) {
   await page.evaluate(() => localStorage.removeItem('kiosko.demo.config'));
   await page.goto(home);
 
-  // The switch: Spanish now, and still Spanish on the next visit.
-  await page.locator('.lang').click();
+  // The menu: Spanish now, and still Spanish on the next visit to the English address.
+  await page.locator('.lang summary').click();
+  await page.locator('.lang a[data-lang="es"]').click();
+  await page.waitForURL(/\/es\/$/, { timeout: 10_000 }).catch(() => undefined);
   const switched = await frontState(page);
-  await page.reload();
+  await page.goto(home);
+  await page.waitForURL(/\/es\/$/, { timeout: 10_000 }).catch(() => undefined);
   const again = await frontState(page);
-  check(`${name} front page: the switch changes the language, and it is remembered`, switched.lang === 'es' && /por fin útil/i.test(switched.headline) && switched.leaked === 0 && again.lang === 'es', `"${switched.headline}", then ${again.lang} after a reload`);
+  check(`${name} front page: the menu changes the language, and it is remembered`, switched.lang === 'es' && /por fin útil/i.test(switched.headline) && again.lang === 'es', `"${switched.headline}", then ${again.lang} on the next visit`);
   check(`${name} front page: no errors`, errors().length === 0, errors().slice(0, 5).join(' | '));
   await ctx.close();
 
-  // A browser that asks for Spanish gets it without touching anything.
-  const es = await openFront(browser, { locale: 'es-ES' });
-  const spanish = await frontState(es.page);
-  check(`${name} front page: in Spanish for a browser that asks for it`, spanish.lang === 'es' && spanish.leaked === 0, `lang ${spanish.lang}`);
-  await es.ctx.close();
+  // A browser that asks for another language gets that page without touching anything.
+  for (const l of FRONT_LANGS.slice(1)) {
+    const other = await openFront(browser, { locale: l.locale });
+    await other.page.waitForURL((u) => u.pathname.endsWith(`/${l.dir}`), { timeout: 10_000 }).catch(() => undefined);
+    const got = await frontState(other.page);
+    check(`${name} front page: in ${l.id} for a browser in ${l.locale}`, got.lang === l.id && l.headline.test(got.headline) && other.errors().length === 0, `lang ${got.lang} at ${got.path}, "${got.headline}" ${other.errors().slice(0, 2).join(' | ')}`);
+    if (l.id.startsWith('zh')) await shot(other.page, `front-${l.id}-${name}.jpg`);
+    await other.ctx.close();
+  }
 
   // A phone: nothing wider than the window.
   const phone = await openFront(browser, { width: 390, height: 800 });

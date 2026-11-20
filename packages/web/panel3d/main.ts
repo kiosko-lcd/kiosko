@@ -11,7 +11,7 @@
  *   ?turn=10             seconds each page stays, when several take turns (default 18)
  *   ?animate=4           seconds between the widgets' animations (default: 6 to 12)
  *   ?interlude=30        seconds between interludes (default 55; 0 = none)
- *   ?lang=es             the widgets' language (and this page's)
+ *   ?lang=es             the widgets' language (and this page's: en, es, zh-TW, zh-CN…)
  *   ?clean=1             no captions or buttons (H toggles them)
  *   ?orbit=0             a still camera
  *   ?sway=28,8           how the camera sways: degrees to each side, and seconds there and back
@@ -19,6 +19,7 @@
  *   ?q=high|medium|low   fixed quality instead of adapting
  *   ?mirror=0 ?brand=0   no reflection on the desk; no maker's name
  */
+import { pickLocale } from '@kiosko/sdk/i18n';
 import { onRendererEvent, renderer } from '../src/demo/client.ts';
 import { DEMO_CONFIG_KEY, type StageChannel, type StageFrame } from '../demo/protocol.ts';
 import { Scene3D, type Quality } from './scene.ts';
@@ -35,8 +36,7 @@ interface ScreenLike {
 }
 
 const q = new URLSearchParams(location.search);
-const lang = (q.get('lang') ?? navigator.language ?? 'en').toLowerCase().startsWith('es') ? 'es' : 'en';
-const TEXT = {
+const TEXTS = {
   en: {
     tagline: 'A panel on your desk, in 3D. Its screen is painted live, in your browser, by the same code that drives the real one.',
     starting: 'Starting Kiosko in your browser…',
@@ -67,7 +67,40 @@ const TEXT = {
     quality: { high: 'Calidad alta', medium: 'Calidad media', low: 'Calidad baja' },
     interlude: 'interludio',
   },
-}[lang];
+  'zh-Hant': {
+    tagline: '桌上的一塊面板，以 3D 呈現。它的畫面由驅動真實面板的同一套程式碼，在你的瀏覽器裡即時繪製。',
+    starting: '正在你的瀏覽器中啟動 Kiosko…',
+    failed: '這個瀏覽器無法啟動 3D 檢視',
+    one: '一塊面板',
+    three: '三塊面板',
+    orbit: '鏡頭擺動',
+    record: '錄影',
+    stop: '停止',
+    editor: '開啟編輯器',
+    hint: '拖曳以環顧四周 · 滾輪縮放 · 按 H 隱藏說明',
+    note: '範例資料。Thermalright 為其所有者的商標；Kiosko 是獨立的開放原始碼專案。',
+    quality: { high: '高畫質', medium: '中畫質', low: '低畫質' },
+    interlude: '過場動畫',
+  },
+  'zh-Hans': {
+    tagline: '桌上的一块屏幕，以 3D 呈现。它的画面由驱动真实屏幕的同一套代码，在你的浏览器里实时绘制。',
+    starting: '正在你的浏览器中启动 Kiosko…',
+    failed: '这个浏览器无法启动 3D 视图',
+    one: '一块屏幕',
+    three: '三块屏幕',
+    orbit: '镜头摆动',
+    record: '录制',
+    stop: '停止',
+    editor: '打开编辑器',
+    hint: '拖动以环顾四周 · 滚轮缩放 · 按 H 隐藏说明',
+    note: '示例数据。Thermalright（利民）是其所有者的商标；Kiosko 是独立的开源项目。',
+    quality: { high: '高画质', medium: '中画质', low: '低画质' },
+    interlude: '过场动画',
+  },
+};
+/** This page's language: `?lang=` (the widgets' locale too), or the browser's. */
+const lang = (pickLocale(Object.keys(TEXTS), q.get('lang') ?? navigator.language) ?? 'en') as keyof typeof TEXTS;
+const TEXT = TEXTS[lang];
 document.documentElement.lang = lang;
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Record<string, string> = {}, ...children: (Node | string)[]): HTMLElementTagNameMap[K] {

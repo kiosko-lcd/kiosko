@@ -3,17 +3,24 @@
  * painted with its demo data, plus an index.html. For GitHub Pages and for
  * plugin authors who want to see their widgets next to the others.
  *
- * It also writes gallery.json, the same catalogue as data (in English and
- * Spanish), which the site's front page is built from; with `pages`, the
- * pages of that config's bar-shaped screen too, painted with demo data.
+ * It also writes gallery.json, the same catalogue as data (in each language
+ * the site speaks), which the site's front page is built from; with `pages`,
+ * the pages of that config's bar-shaped screen too, painted with demo data.
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Runtime, composeWidget, normalize, type Config, type Registry } from '@kiosko/core';
 import { localize, themeById } from '@kiosko/sdk';
 
+/**
+ * The languages the site speaks (packages/web/landing/pages.mjs), and the
+ * locale the panel paints each in.
+ */
+export const SITE_LANGS = { en: 'en', es: 'es', 'zh-Hant': 'zh-TW', 'zh-Hans': 'zh-CN' } as const;
+export type SiteLang = keyof typeof SITE_LANGS;
+
 /** A text in the languages the site speaks. */
-type Both = { en: string; es: string };
+type Both = Record<SiteLang, string>;
 
 /** gallery.json: what the front page (packages/web/landing) needs to know. */
 export interface GalleryData {
@@ -40,7 +47,8 @@ export function buildGallery(registry: Registry, o: { out: string; locale?: stri
   const cfg = normalize({ locale, theme: theme.id, location: { latitude: 40.4168, longitude: -3.7038, name: 'Madrid' } });
   mkdirSync(join(o.out, 'img'), { recursive: true });
   const L = (x: Parameters<typeof localize>[0]) => localize(x, locale);
-  const both = (x: Parameters<typeof localize>[0]): Both => ({ en: localize(x, 'en'), es: localize(x, 'es') });
+  const langs = Object.entries(SITE_LANGS) as [SiteLang, string][];
+  const both = (x: Parameters<typeof localize>[0]): Both => Object.fromEntries(langs.map(([id, loc]) => [id, localize(x, loc)])) as Both;
   const data: GalleryData = { count: 0, plugins: [], pages: [] };
   const sections: string[] = [];
   let count = 0;
@@ -86,11 +94,11 @@ a.try{display:inline-block;margin-top:10px;padding:8px 14px;border-radius:10px;b
     const screen = [...sample.screens].sort((a, b) => b.width / b.height - a.width / a.height)[0];
     for (const page of screen?.pages.filter((p) => p.enabled !== false) ?? []) {
       const name = `img/page-${slug(page.name || page.id)}`;
-      data.pages.push({ id: page.id, name: page.name, file: { en: `${name}.jpg`, es: `${name}.es.jpg` }, width: screen!.width, height: screen!.height });
+      data.pages.push({ id: page.id, name: page.name, file: Object.fromEntries(langs.map(([id]) => [id, id === 'en' ? `${name}.jpg` : `${name}.${id}.jpg`])) as Both, width: screen!.width, height: screen!.height });
     }
     // The widgets speak the config's language: each picture is painted once in each.
-    for (const lang of ['en', 'es'] as const) {
-      const rt = new Runtime(registry, { ...sample, locale: lang }, { demo: true });
+    for (const [lang, panelLocale] of langs) {
+      const rt = new Runtime(registry, { ...sample, locale: panelLocale }, { demo: true });
       try {
         for (const listed of data.pages) {
           const page = screen!.pages.find((p) => p.id === listed.id)!;
