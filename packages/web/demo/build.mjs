@@ -32,6 +32,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const web = resolve(here, '..');
 const coreSrc = resolve(web, '../core/src');
 const shims = join(here, 'shims');
+const sdkSrc = resolve(here, '../../sdk/src');
 const require = createRequire(import.meta.url);
 
 /** Must match shims/fonts.ts. */
@@ -86,6 +87,9 @@ function browserAliases() {
     setup(b) {
       b.onResolve({ filter: /^@napi-rs\/canvas$/ }, () => ({ path: join(shims, 'canvas.ts') }));
       b.onResolve({ filter: /^usb$/ }, () => ({ path: join(shims, 'usb.ts') }));
+      // Plugins checked out next to Kiosko resolve the SDK from their own node_modules, which may
+      // be another copy: the demo, like Kiosko at run time (sdk-resolver), gives them this one.
+      b.onResolve({ filter: /^@kiosko\/sdk(\/[a-z]+)?$/ }, (a) => ({ path: join(sdkSrc, `${a.path.slice('@kiosko/sdk/'.length) || 'index'}.ts`) }));
       b.onResolve({ filter: /^\.\/fonts\.ts$/ }, (a) => (resolve(a.resolveDir) === coreSrc ? { path: join(shims, 'fonts.ts') } : undefined));
     },
   };

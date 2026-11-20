@@ -8,11 +8,22 @@
 //
 // The words are in i18n/<language>.json, one file per language with the same keys as en.json;
 // index.html asks for them as {{t:key}} (HTML) or {{a:key}} (plain text, for attributes).
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { LANGUAGES } from '../../sdk/src/languages.ts';
 import { join } from 'node:path';
 
 export const SITE = 'https://kioskolcd.dev/';
+const REPO = 'https://github.com/kiosko-lcd/kiosko';
+const DOCS = new URL('../../../docs/', import.meta.url);
+
+/** The guides in the page's language when they exist (docs/<id>/), else the English ones. */
+function docsFor(id) {
+  const has = (f) => existsSync(new URL(`${id}/${f}`, DOCS));
+  return {
+    DOCS_USB: has('usb.md') ? `${REPO}/blob/main/docs/${id}/usb.md` : `${REPO}/blob/main/docs/usb.md`,
+    DOCS_GUIDE: has('install.md') ? `${REPO}/blob/main/docs/${id}/install.md` : `${REPO}#readme`,
+  };
+}
 
 /**
  * The site's languages: Kiosko's (packages/sdk/src/languages.ts), each with
@@ -97,6 +108,7 @@ export function renderPage(template, texts, langId, fill) {
     CSS: root + fill.CSS,
     JS: root + fill.JS,
     POSTER: root + fill.POSTER[langId],
+    ...docsFor(lang.id),
     LANG: lang.id,
     DIR: lang.dir,
     PATH: lang.path,

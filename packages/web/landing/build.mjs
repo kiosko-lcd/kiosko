@@ -49,10 +49,13 @@ export async function buildSite({ out, editorOptions }) {
   //    machine's own Kiosko is read: it runs with an empty home.
   const home = mkdtempSync(join(tmpdir(), 'kiosko-site-'));
   try {
-    // The Chinese pages show the panel painted in Chinese: without a CJK font it would be empty boxes.
-    const doctor = spawnSync(process.execPath, ['--conditions=source', join(root, 'packages/server/src/cli.ts'), 'doctor'], { encoding: 'utf8', env: { ...process.env, KIOSKO_HOME: home } });
-    const fonts = /^fonts +(.*)$/m.exec(doctor.stdout ?? '')?.[1] ?? '';
-    if (!fonts || fonts.startsWith('✗')) throw new Error(`site build: ${fonts || 'kiosko doctor said nothing about fonts'}`);
+    // The Chinese pages show the panel painted in Chinese: each needs its own region's font (a Japanese
+    // one would draw other shapes), or the posters would be wrong or empty boxes.
+    const probe = `const f = await import(${JSON.stringify(join(root, 'packages/core/src/fonts.ts'))});
+      const tw = f.cjkFonts('zh-TW').families[0] ?? '', cn = f.cjkFonts('zh-CN').families[0] ?? '';
+      if (!/TC|TW|HK|JhengHei|Ming|UMing/.test(tw) || !/SC|CN|YaHei|Hei|GB|Droid|Song/.test(cn)) { console.log(f.cjkFontHint()); process.exit(1); }`;
+    const fonts = spawnSync(process.execPath, ['--conditions=source', '--input-type=module', '-e', probe], { encoding: 'utf8', env: { ...process.env, KIOSKO_HOME: home } });
+    if (fonts.status !== 0) throw new Error(`site build: no Traditional and Simplified Chinese fonts for the panel: ${fonts.stdout.trim() || fonts.stderr.trim()}`);
     const cli = spawnSync(process.execPath, ['--conditions=source', join(root, 'packages/server/src/cli.ts'), 'gallery', '--all-languages', '--out', join(out, 'gallery'), '--pages', join(root, 'examples/showcase.json')], {
       stdio: 'inherit',
       env: { ...process.env, KIOSKO_HOME: home },
