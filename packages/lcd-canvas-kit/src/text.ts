@@ -182,25 +182,53 @@ export function drawClipped(
   return drawTracked(ctx, truncate(ctx, text, maxWidth, o), x, y, o);
 }
 
+/** Characters a line must not start with (Chinese and Japanese line breaking, "kinsoku"). */
+const NO_START = new Set([...'、。，．：；？！）」』】》〉〕｝〗〙〛’”…‥ー々ゝゞヽヾぁぃぅぇぉっゃゅょゎァィゥェォッャュョヮヵヶ,.;:?!)]}%']);
+/** Characters a line must not end with. */
+const NO_END = new Set([...'（「『【《〈〔｛〖〘〚‘“([{$']);
+const isSpace = (c: string) => /\s/.test(c);
+
 /**
- * Longest prefix of `text` that fits in `maxWidth`, backing off to the last
- * space so words are not split. If a single word does not fit, it cuts hard:
- * splitting a long path is better than leaving the line empty.
+ * Longest prefix of `text` that fits in `maxWidth`, as a string length.
+ * It breaks after a space, or between two characters when either is
+ * Chinese, Japanese or Korean (they have no spaces), never before a
+ * closing mark (，。」) nor after an opening one (「（). In Latin text it
+ * backs off to the last space however far; in text with CJK only if that
+ * keeps most of the line ("AI 模型在…" doesn't leave "AI" alone). If no
+ * break fits, it cuts hard: splitting a long path is better than an empty
+ * line.
  *
  * The search is binary because measuring is expensive: `measureTracked` walks
- * character by character to apply tracking.
+ * character by character to apply tracking. It counts characters, not
+ * UTF-16 units, so it never splits one.
  */
 function fitPrefix(ctx: SKRSContext2D, text: string, maxWidth: number, o: TextOpts): number {
   if (measureTracked(ctx, text, o) <= maxWidth) return text.length;
+  const chars = [...text];
   let lo = 1;
-  let hi = text.length;
+  let hi = chars.length;
   while (lo < hi) {
     const mid = Math.ceil((lo + hi) / 2);
-    if (measureTracked(ctx, text.slice(0, mid), o) <= maxWidth) lo = mid;
+    if (measureTracked(ctx, chars.slice(0, mid).join(''), o) <= maxWidth) lo = mid;
     else hi = mid - 1;
   }
-  const space = text.lastIndexOf(' ', lo);
-  return space > 0 ? space : lo;
+  const cjk = hasCjk(text);
+  const fits = (i: number) => !NO_START.has(chars[i]!) && !NO_END.has(chars[i - 1]!);
+  let cut = 0;
+  for (let i = lo; i >= 1; i--) {
+    const before = chars[i - 1]!;
+    const after = chars[i]!;
+    if ((isSpace(before) || isSpace(after) || CJK.test(before) || CJK.test(after)) && fits(i)) {
+      cut = i;
+      break;
+    }
+  }
+  if (!cut || (cjk && cut < lo * 0.6)) {
+    // Hard cut, still not starting the next line with a closing mark.
+    cut = lo;
+    while (cut > 1 && !fits(cut)) cut--;
+  }
+  return chars.slice(0, cut).join('').length;
 }
 
 /**
