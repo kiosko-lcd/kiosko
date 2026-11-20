@@ -28,3 +28,33 @@ export function registerFonts(extra: { family: string; path: string }[] = []): v
   for (const f of extra) GlobalFonts.registerFromPath(f.path, f.family);
   done = true;
 }
+
+/**
+ * The browser already looks for missing characters in the system's fonts.
+ * Picking the regional CJK family here is still to do (backlog Z3).
+ */
+export function setFontLocale(_locale: string): void {}
+
+export function withFallback(font: string): string {
+  return font;
+}
+
+export function hasFontFamily(_family: string): boolean {
+  return false;
+}
+
+export function cjkFonts(_locale: string): { script: null; families: string[]; fromUser: string[] } {
+  return { script: null, families: [], fromUser: [] };
+}
+
+export function userFontsDir(): string {
+  return '';
+}
+
+export function cjkFontHint(): string {
+  return '';
+}
+
+export function cjkFontStatus(_locale: string): { ok: boolean; line: string } {
+  return { ok: true, line: 'the browser picks the CJK font' };
+}

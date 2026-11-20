@@ -11,7 +11,7 @@ import { toPx, type PxRect } from './layout/grid.ts';
 import { nextTurnAt, pickInStack } from './layout/stack.ts';
 import { whenMatches, zoomOf, type Config, type Page, type Screen, type Tile, type WidgetInstance } from './config/model.ts';
 import { CANVAS, baseContext, kit, resolveLocale, type LogFn } from './env.ts';
-import { registerFonts } from './fonts.ts';
+import { registerFonts, setFontLocale } from './fonts.ts';
 import type { Registry } from './registry.ts';
 
 export interface ComposeInput {
@@ -344,6 +344,7 @@ function drawTileContent(g: SKRSContext2D, input: ComposeInput, r: Resolved, rec
 /** Paints `page` on a new canvas of the screen size. */
 export function composePage(input: ComposeInput): ComposeResult {
   registerFonts();
+  setFontLocale(resolveLocale(input.cfg));
   const { screen, page, theme, now } = input;
   const rotate = ((input.rotate ?? 0) % 360 + 360) % 360;
   const swap = rotate === 90 || rotate === 270;
