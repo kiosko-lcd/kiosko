@@ -6,7 +6,7 @@
  *   kiosko plugins add <id|pkg>…   install from npm (`agents` → kiosko-plugin-agents)
  *   kiosko plugins link <dir>…     use a local checkout (development, unpublished plugins)
  *   kiosko plugins remove <id|pkg>…
- *   kiosko plugins check [dir]     conventions, and every widget painted at several sizes, themes and languages
+ *   kiosko plugins check [dir]     conventions, and every widget painted at several sizes, themes and languages (--strict: warnings fail too)
  *   kiosko plugins manifest [dir]  write kiosko-manifest.json (what a store reads)
  *   kiosko plugins dev [dir]       link it and reload it in the running Kiosko on every build
  *   kiosko plugins new <id> [dir]  start a plugin: package.json, a widget, a source, tests, build
@@ -15,7 +15,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, rmSync, symlinkSync, watch, writeFileSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { incompatibility, installSdkResolver, languagesOf, lintPlugin, loadConfig, packageMeta, paths, pluginManifest, type Registry } from '@kiosko/core';
+import { declaredLanguages, incompatibility, installSdkResolver, lintPlugin, loadConfig, packageMeta, paths, pluginManifest, type Registry } from '@kiosko/core';
 import { SDK_VERSION, localize, type PluginDefinition } from '@kiosko/sdk';
 
 const npmName = (s: string) => (/^[a-z0-9][\w.-]*$/.test(s) && !s.startsWith('kiosko-plugin-') && !s.includes('/') ? `kiosko-plugin-${s}` : s);
@@ -51,14 +51,24 @@ const flagOf = (argv: string[], name: string) => argv.includes(name);
 const optOf = (argv: string[], name: string) => (argv.includes(name) ? argv[argv.indexOf(name) + 1] : undefined);
 const positional = (argv: string[]) => argv.filter((a, i) => !a.startsWith('--') && !['--out', '--port'].includes(argv[i - 1] ?? ''));
 
+/** "midnight es, paper es, midnight de" → "in es, de (2 themes)": which languages, at a glance. */
+function lookList(looks: string[]): string {
+  const parts = looks.map((l) => l.split(' '));
+  const langs = [...new Set(parts.map((p) => p.at(-1)).filter(Boolean))];
+  const themes = new Set(parts.map((p) => p[0]));
+  return looks.length === 1 ? looks[0]! : `in ${langs.join(', ')}; ${themes.size} theme${themes.size === 1 ? '' : 's'}`;
+}
+
 /** `kiosko plugins check`: lint + paint. Returns the number of errors. */
-async function check(dir: string, argv: string[]): Promise<number> {
+async function check(dir: string, argv: string[]): Promise<{ errors: number; warnings: number }> {
   const { def, pkg, entry } = await loadPluginDir(dir, { src: flagOf(argv, '--src') });
   console.log(`${def.id} v${def.version}  (${entry})`);
   const issues = lintPlugin(def);
   const meta = packageMeta(pkg);
   if (!meta.sdk) issues.push({ level: 'warn', where: 'package.json', message: 'add "kiosko": { "sdk": "^x.y.z" } so an incompatible Kiosko refuses it before running it' });
   else if (def.sdk && meta.sdk !== def.sdk) issues.push({ level: 'warn', where: 'package.json', message: `kiosko.sdk ${meta.sdk} differs from the definition's sdk ${def.sdk}` });
+  if (def.languages?.length && !meta.languages) issues.push({ level: 'warn', where: 'package.json', message: `add "kiosko": { "languages": ${JSON.stringify(def.languages)} } so a catalogue knows them without running it` });
+  else if (def.languages && meta.languages && def.languages.join() !== meta.languages.join()) issues.push({ level: 'warn', where: 'package.json', message: `kiosko.languages ${JSON.stringify(meta.languages)} differs from the definition's ${JSON.stringify(def.languages)}` });
   const why = incompatibility({ sdk: def.sdk ?? meta.sdk, platforms: def.platforms ?? meta.platforms });
   if (why) issues.push({ level: 'warn', where: 'plugin', message: `this Kiosko can't run it: ${why}` });
   if (pkg.version && pkg.version !== def.version) issues.push({ level: 'warn', where: 'package.json', message: `version ${pkg.version} differs from the definition's ${def.version}` });
@@ -66,7 +76,7 @@ async function check(dir: string, argv: string[]): Promise<number> {
   const { checkPlugin } = await import('@kiosko/sdk/testing');
   // The same problem at the same size in every theme and language is one line.
   const painted = new Map<string, { type: string; size: string; problem: string; looks: string[] }>();
-  for (const p of checkPlugin(def, { locales: languagesOf(def) })) {
+  for (const p of checkPlugin(def, { locales: declaredLanguages(def, meta) })) {
     const [size = '', ...look] = p.where.split(' ');
     const problem = p.problem.replace(/\d+ px/, 'N px').replace(/\d+ ms/, 'N ms');
     const key = `${p.type}|${size}|${problem}`;
@@ -74,11 +84,11 @@ async function check(dir: string, argv: string[]): Promise<number> {
     g.looks.push(look.join(' '));
     painted.set(key, g);
   }
-  for (const g of painted.values()) issues.push({ level: /threw/.test(g.problem) ? 'error' : 'warn', where: `${g.type} ${g.size}`, message: `${g.problem}${g.looks.length > 1 ? ` (${g.looks.length} themes/languages)` : g.looks[0] ? ` (${g.looks[0]})` : ''}` });
+  for (const g of painted.values()) issues.push({ level: /threw/.test(g.problem) ? 'error' : 'warn', where: `${g.type} ${g.size}`, message: `${g.problem}${g.looks.length ? ` (${lookList(g.looks)})` : ''}` });
   const errors = issues.filter((i) => i.level === 'error');
   for (const i of [...errors, ...issues.filter((i) => i.level === 'warn')]) console.log(`${i.level === 'error' ? '✗' : '!'} ${i.where}: ${i.message}`);
   console.log(issues.length ? `\n${errors.length} errors, ${issues.length - errors.length} warnings` : '✓ no problems found');
-  return errors.length;
+  return { errors: errors.length, warnings: issues.length - errors.length };
 }
 
 /** `kiosko plugins manifest`: the store's record, next to package.json. */
@@ -127,7 +137,7 @@ export function newPluginFiles(id: string): Record<string, string> {
     license: 'MIT',
     keywords: ['kiosko', 'kiosko-plugin', 'lcd', 'widgets'],
     exports: { '.': { source: './src/index.ts', default: './dist/index.js' } },
-    kiosko: { plugin: './dist/index.js', id, sdk, manifest: './kiosko-manifest.json' },
+    kiosko: { plugin: './dist/index.js', id, sdk, languages: ['en', 'es'], manifest: './kiosko-manifest.json' },
     files: ['dist', 'docs', 'kiosko-manifest.json', 'README.md', 'LICENSE'],
     engines: { node: '>=22.18' },
     scripts: {
@@ -205,6 +215,8 @@ export default definePlugin({
   version: '0.1.0',
   description: { en: '${name} for Kiosko.', es: '${name} para Kiosko.' },
   sdk: '${sdk}',
+  // The languages its texts come in (Chinese by script: 'zh-Hant', 'zh-Hans').
+  languages: ['en', 'es'],
   // What it does on the machine, shown before anyone installs it.
   permissions: { network: ['user'] },
   widgets: [card],
@@ -271,8 +283,9 @@ export async function pluginsCommand(argv: string[], registry: () => Promise<Reg
   const [sub = 'list', ...names] = argv;
   switch (sub) {
     case 'check': {
-      const errors = await check(positional(names)[0] ?? '.', names);
-      if (errors) process.exitCode = 1;
+      const { errors, warnings } = await check(positional(names)[0] ?? '.', names);
+      // --strict: warnings fail too (CI, or a translation that must be complete).
+      if (errors || (flagOf(names, '--strict') && warnings)) process.exitCode = 1;
       return;
     }
     case 'manifest':

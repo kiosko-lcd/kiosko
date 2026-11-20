@@ -1,10 +1,11 @@
 /** Screens (physical panels): connection, resolution, rotation, burn-in care and interludes. */
+import { typed } from '../forms/ime.ts';
 import { useState } from 'preact/hooks';
-import { detectedPicture, isPortrait, newId, newScreen, panelSize, resizePages, setPanelSize, turnScreen, type DeviceConfig, type Screen } from '@kiosko/core/model';
+import { TEXT_SCALE, detectedPicture, isPortrait, newId, newScreen, panelSize, resizePages, setPanelSize, turnScreen, type DeviceConfig, type Screen } from '@kiosko/core/model';
 import { api } from '../api.ts';
 import { DurationInput, SchemaForm, Toggle } from '../forms/SchemaForm.tsx';
 import { Icon } from '../icons.tsx';
-import { tr } from '../i18n.ts';
+import { clock, count, deviceText, errorText, t, tr } from '../i18n.ts';
 import { app, config, draftScreen, edit, go, lastFrame, notify, pageId, screenId, status } from '../store.ts';
 import { DemoFrame, dt, exportScreen } from '../demo/ui.tsx';
 
@@ -135,9 +136,9 @@ function ScreenCard({ s }: { s: Screen }) {
     <section class="card screen-card">
       <div class="card-head">
         <PanelGlyph w={s.width} h={s.height} />
-        <input class="title-input" value={s.name} onInput={(e) => set((x) => (x.name = (e.target as HTMLInputElement).value), `sname-${s.id}`)} aria-label={tr('screens.name')} />
+        <input class="title-input" value={s.name} {...typed((text) => set((x) => (x.name = text), `sname-${s.id}`))} aria-label={tr('screens.name')} />
         <span class={`status-pill ${st?.device.ok ? 'ok' : 'bad'}`}>
-          <span class="dot" /> {st?.device.message ?? '—'}
+          <span class="dot" /> {st ? deviceText(st.device) : '—'}
         </span>
         <div class="tb-spacer" />
         <button class="btn ghost small" onClick={() => {
@@ -170,9 +171,9 @@ function ScreenCard({ s }: { s: Screen }) {
                 <option value={p.id}>{p.name}</option>
               ))}
             </select>
-            <input class="input num" type="number" value={native.width} onChange={(e) => resize(Number((e.target as HTMLInputElement).value) || native.width, native.height)} aria-label="width" />
+            <input class="input num" type="number" value={native.width} onChange={(e) => resize(Number((e.target as HTMLInputElement).value) || native.width, native.height)} aria-label={tr('screens.width')} />
             <span class="muted">×</span>
-            <input class="input num" type="number" value={native.height} onChange={(e) => resize(native.width, Number((e.target as HTMLInputElement).value) || native.height)} aria-label="height" />
+            <input class="input num" type="number" value={native.height} onChange={(e) => resize(native.width, Number((e.target as HTMLInputElement).value) || native.height)} aria-label={tr('screens.height')} />
           </div>
           {wanted && (wanted.width !== s.width || wanted.height !== s.height) && (
             <button class="btn ghost small warn" onClick={() => set((x) => {
@@ -255,10 +256,40 @@ function ScreenCard({ s }: { s: Screen }) {
             <input type="range" min={1} max={30} value={s.maxFps} onInput={(e) => set((x) => (x.maxFps = Number((e.target as HTMLInputElement).value)), 'fps')} />
             <span class="slider-value">{s.maxFps}</span>
           </div>
+          <label class="field-label">{tr('screens.reading')}</label>
+          <div class="segmented">
+            {(['near', 'normal', 'far'] as const).map((d) => (
+              <button class={(s.readingDistance ?? 'normal') === d ? 'on' : ''} onClick={() => set((x) => (d === 'normal' ? delete x.readingDistance : (x.readingDistance = d)), 'reading')}>
+                {tr(`reading.${d}`)}
+              </button>
+            ))}
+          </div>
+          <span class="muted small">{tr('screens.readingHint')}</span>
+          <label class="field-label">{tr('screens.textScale')}</label>
+          <div class="slider-row">
+            <input type="range" min={TEXT_SCALE.min} max={TEXT_SCALE.max} step={TEXT_SCALE.step} value={s.textScale ?? 1} onInput={(e) => set((x) => {
+              const v = Number((e.target as HTMLInputElement).value);
+              if (Math.abs(v - 1) < 0.001) delete x.textScale;
+              else x.textScale = v;
+            }, 'text-scale')} />
+            <span class="slider-value">{(s.textScale ?? 1).toFixed(2)}×</span>
+          </div>
+          <span class="muted small">{tr('screens.textScaleHint')}</span>
+          {!(app.value?.presets ?? []).some((p) => (p.width === s.width && p.height === s.height) || (p.width === s.height && p.height === s.width)) && (
+            <>
+              <label class="field-label">{tr('screens.diagonal')}</label>
+              <input class="input num" type="number" min={0.5} max={60} step={0.01} value={s.diagonalIn ?? ''} onInput={(e) => set((x) => {
+                const v = Number((e.target as HTMLInputElement).value);
+                if (v > 0) x.diagonalIn = v;
+                else delete x.diagonalIn;
+              }, 'diagonal')} aria-label={tr('screens.diagonal')} />
+              <span class="muted small">{tr('screens.diagonalHint')}</span>
+            </>
+          )}
           {st && (
             <div class="muted small">
-              {st.device.framesSent} {tr('screens.frames')}
-              {st.lastFrameAt ? ` · ${new Date(st.lastFrameAt).toLocaleTimeString()}` : ''}
+              {count('screens.frames', st.device.framesSent)}
+              {st.lastFrameAt ? ` · ${clock(st.lastFrameAt, { seconds: true })}` : ''}
             </div>
           )}
         </div>
@@ -375,9 +406,9 @@ function ImportLayout() {
           screenId.value = s.id;
           pageId.value = s.pages[0]?.id ?? null;
           const missing = [...new Set(s.pages.flatMap((p) => p.tiles.flatMap((t) => t.widgets.map((w) => w.type))))].filter((t) => !app.value?.catalog.some((c) => c.widgets.some((w) => w.type === t)));
-          notify(missing.length ? `${tr('screens.imported')} ${tr('screens.importMissing')} ${missing.join(', ')}` : tr('screens.imported'), missing.length ? 'error' : 'ok');
+          notify(missing.length ? t('screens.importMissing', { list: missing.join(', ') }) : tr('screens.imported'), missing.length ? 'error' : 'ok');
         } catch (err) {
-          notify(err instanceof Error ? err.message : String(err), 'error');
+          notify(errorText(err), 'error');
         }
       }} />
     </label>

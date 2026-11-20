@@ -19,7 +19,7 @@ export type RuntimeState = Pick<AppState, 'version' | 'locale' | 'catalog' | 're
 
 export interface PreviewResult {
   blob: Blob;
-  tiles: { id: string; shown: string | null; error?: string }[];
+  tiles: { id: string; shown: string | null; error?: string; cjkEnlarged?: number }[];
 }
 
 /** What one panel of the 3D page (panel3d/) shows: see stage.ts. */
@@ -65,7 +65,7 @@ export interface ChoicesResult {
 
 export interface RendererApi {
   /** Loads fonts and plugins and starts from `stored` (or the showcase, if null or broken). */
-  init(stored: unknown): Promise<{ config: Config; fromShowcase: boolean }>;
+  init(stored: unknown, locale?: string): Promise<{ config: Config; fromShowcase: boolean }>;
   /** Normalizes and applies a config, as the server does on save. */
   apply(config: unknown): Promise<Config>;
   state(): Promise<RuntimeState>;
@@ -86,7 +86,7 @@ export const DEMO_CONFIG_KEY = 'kiosko.demo.config';
 export const TOUR_CHANNEL = 'kiosko.tour';
 
 /** What the page showing the tour tells it: go on, wait (nobody is looking), or speak another language. */
-export type TourOrder = { type: 'play' } | { type: 'pause' } | { type: 'lang'; lang: 'en' | 'es' };
+export type TourOrder = { type: 'play' } | { type: 'pause' } | { type: 'lang'; lang: string };
 
 /** What the tour tells whoever shows its page elsewhere (the front page's panel). */
 export interface TourMessage {

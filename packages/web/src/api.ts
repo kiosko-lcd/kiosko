@@ -1,5 +1,6 @@
 /** Thin client of the Kiosko server API. */
 import type { Config, Screen } from '@kiosko/core/model';
+import { ApiError } from './errors.ts';
 
 export interface WidgetInfo {
   type: string;
@@ -8,6 +9,8 @@ export interface WidgetInfo {
   icon?: string;
   category: string;
   tags: string[];
+  /** Name and description in every language the plugin has (search). */
+  searchText?: string;
   size: { min?: { w: number; h: number }; preferred?: { w: number; h: number }; max?: { w: number; h: number } };
   chrome: 'card' | 'bare';
   options: JsonSchema | null;
@@ -60,6 +63,7 @@ export interface PluginInfo {
   /** Plugin API range it is written for, if it says. */
   sdk: string | null;
   platforms: string[] | null;
+  languages: string[];
   permissions: PluginPermissions;
   /** What it needs from other plugins and whether that is here. */
   requires: { type: string; plugin: string; ok: boolean }[];
@@ -115,7 +119,7 @@ export interface ThemeInfo {
 }
 
 export interface Status {
-  screens: { id: string; name: string; page: string | null; pinned: string | null; interlude: string | null; device: { driver: string; ok: boolean; message: string; framesSent: number; lastSentAt: number | null; detected?: { width: number; height: number; rotate?: number } }; lastFrameAt: number | null; sleeping: boolean }[];
+  screens: { id: string; name: string; page: string | null; pinned: string | null; interlude: string | null; device: { driver: string; ok: boolean; message: string; code?: string; params?: Record<string, string | number>; framesSent: number; lastSentAt: number | null; detected?: { width: number; height: number; rotate?: number } }; lastFrameAt: number | null; sleeping: boolean }[];
   sources: { type: string; ok: boolean; error: string | null; updatedAt: number | null; intervalMs?: number }[];
   fetches: { id: string; type: string; ok: boolean; error: string | null; updatedAt: number | null }[];
   /** How long each widget instance takes to paint on the panels, slowest first. */
@@ -152,13 +156,13 @@ export const CLIENT_ID = Math.random().toString(36).slice(2, 10);
 
 async function ok<T>(r: Response): Promise<T> {
   if (!r.ok) {
-    let msg = `${r.status}`;
+    let body: { error?: string; code?: string; params?: Record<string, string | number> } = {};
     try {
-      msg = ((await r.json()) as { error?: string }).error ?? msg;
+      body = (await r.json()) as typeof body;
     } catch {
       /* not json */
     }
-    throw new Error(msg);
+    throw new ApiError(body.error ?? `${r.status}`, body.code, body.params);
   }
   return (await r.json()) as T;
 }
@@ -173,7 +177,7 @@ export const api = {
     }
     return ok<{ ok: true; rev: number }>(r);
   },
-  async preview(screen: Screen, pageId: string, forceShown?: Record<string, string>, demo = true): Promise<{ url: string; tiles: { id: string; shown: string | null; error?: string }[] }> {
+  async preview(screen: Screen, pageId: string, forceShown?: Record<string, string>, demo = true): Promise<{ url: string; tiles: { id: string; shown: string | null; error?: string; cjkEnlarged?: number }[] }> {
     const r = await fetch('/api/preview', { method: 'POST', headers: H, body: JSON.stringify({ screen, pageId, forceShown, demo }) });
     if (!r.ok) throw new Error(`preview ${r.status}`);
     const tiles = JSON.parse(decodeURIComponent(r.headers.get('x-kiosko-tiles') ?? '%5B%5D'));

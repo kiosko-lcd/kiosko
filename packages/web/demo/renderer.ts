@@ -10,8 +10,8 @@
  * paint (no OffscreenCanvas or fonts there), the page imports it and uses
  * `DemoRenderer` directly. The editor side is src/demo/.
  */
-import { PANEL_PRESETS, Registry, Runtime, composeWidget, withLook, isWorking, normalize, pickPage, registerFonts, resolveLocale, whenMatches, type Config, type ThumbnailLook, type Screen } from '@kiosko/core';
-import { CATEGORIES, THEMES, themeById } from '@kiosko/sdk';
+import { PANEL_PRESETS, Registry, Runtime, composeWidget, localizeSample, systemLocale, withLook, isWorking, normalize, pickPage, registerFonts, resolveLocale, whenMatches, type Config, type ThumbnailLook, type Screen } from '@kiosko/core';
+import { CATEGORIES, THEMES, localize, themeById } from '@kiosko/sdk';
 import serverPackage from '../../server/package.json' with { type: 'json' };
 import showcase from '../../../examples/showcase.json' with { type: 'json' };
 import { MISSING_OFFICIAL, OFFICIAL_PLUGINS, demoPlugins } from './plugins.ts';
@@ -22,7 +22,6 @@ import { Stage } from './stage.ts';
 /** How often the stand-in panel loop says what's on each screen (and the editor repaints). */
 const FRAME_MS = 4000;
 
-const es = (locale: string) => locale.toLowerCase().startsWith('es');
 
 export class DemoRenderer implements RendererApi {
   private readonly registry = new Registry();
@@ -56,17 +55,24 @@ export class DemoRenderer implements RendererApi {
     return this.runtime;
   }
 
-  async init(stored: unknown): Promise<{ config: Config; fromShowcase: boolean }> {
+  async init(stored: unknown, locale?: string): Promise<{ config: Config; fromShowcase: boolean }> {
     registerFonts();
     await fontsReady();
     const fromShowcase = !stored || typeof stored !== 'object' || !Array.isArray((stored as Config).screens);
-    const config = normalize(fromShowcase ? showcase : stored);
+    // The sample speaks the visitor's language (the showcase is in English for the README's pictures).
+    // `locale`: the page's (the front page in Chinese), else the visitor's.
+    const config = normalize(fromShowcase ? localizeSample({ ...(showcase as unknown as Config), locale: locale ?? 'auto' }, locale ?? systemLocale()) : stored);
     const rt = new Runtime(this.registry, config, { demo: true });
     rt.on('log', (e: LogEntry) => this.emit({ name: 'log', data: e }));
     this.runtime = rt;
     rt.apply(config);
     const n = this.registry.list().length;
-    rt.log('demo', `browser demo: ${n} plugins, sample data; nothing is read from this computer`);
+    rt.log('demo', localize({
+      en: `browser demo: ${n} plugins, sample data; nothing is read from this computer`,
+      es: `demo en el navegador: ${n} plugins, datos de muestra; no se lee nada de este ordenador`,
+      'zh-Hant': `瀏覽器示範：${n} 個外掛，範例資料；不會讀取這台電腦上的任何東西`,
+      'zh-Hans': `浏览器演示：${n} 个插件，示例数据；不会读取这台电脑上的任何内容`,
+    }, resolveLocale(config)));
     if (MISSING_OFFICIAL.length) rt.log('demo', `official plugins not bundled: ${MISSING_OFFICIAL.join(', ')}`);
     for (const p of this.registry.problems) rt.log('demo', `plugin ${p.origin}: ${p.message}`);
     this.tick();
@@ -104,7 +110,7 @@ export class DemoRenderer implements RendererApi {
     if (!page) throw new Error('no page');
     const r = this.rt.preview(sc, page, { ...(forceShown ? { forceShown } : {}), demo });
     const blob = await toBlob(r.canvas as unknown as OffscreenCanvas);
-    return { blob, tiles: r.tiles.map((t) => ({ id: t.id, shown: t.shown, ...(t.error ? { error: t.error } : {}) })) };
+    return { blob, tiles: r.tiles.map((t) => ({ id: t.id, shown: t.shown, ...(t.error ? { error: t.error } : {}), ...(t.cjkEnlarged !== undefined ? { cjkEnlarged: t.cjkEnlarged } : {}) })) };
   }
 
   /** A widget alone with its demo data, for the library (as GET /api/thumbnail). */
@@ -170,7 +176,7 @@ export class DemoRenderer implements RendererApi {
   private status(): RuntimeState['status'] {
     const st = this.rt.status();
     const locale = resolveLocale(this.rt.config);
-    const noPanel = es(locale) ? 'demo en el navegador: aquí no hay panel' : 'browser demo: no panel here';
+    const noPanel = localize({ en: 'browser demo: no panel here', es: 'demo en el navegador: aquí no hay panel', 'zh-Hant': '瀏覽器示範：這裡沒有面板', 'zh-Hans': '浏览器演示：这里没有屏幕' }, locale);
     return {
       ...st,
       screens: st.screens.map((s) => {

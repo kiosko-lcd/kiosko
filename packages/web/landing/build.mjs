@@ -5,6 +5,8 @@
 //   demo/                  the editor in the browser and the panel in 3D (demo/build.mjs)
 //   card.jpg               the picture shown with the site's link when it is shared
 //   index.html             the front page (this folder): a story told over the 3D panel,
+//   es/ zh-Hant/ zh-Hans/  the same page in each language (pages.mjs, words in i18n/)
+//   sitemap.xml robots.txt the pages in every language, for search engines
 //   demo/assets/landing.*  then the plugins (from gallery.json) and how to start
 //
 // The front page's script lives with the demo's assets because it starts the
@@ -12,21 +14,19 @@
 import { build } from 'esbuild';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { copyFileSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildDemo } from '../demo/build.mjs';
+import { LANGS, esc, loadTexts, plural, renderPage, sitemap } from './pages.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, '../../..');
 
-const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
-/** A text in the page's two languages; one element when they are the same. */
-const both = (t) => (t.en === t.es ? esc(t.en) : `<span lang="en">${esc(t.en)}</span><span lang="es">${esc(t.es)}</span>`);
-
-/** The plugins as cards: what each is, and a couple of its widgets as painted for the gallery. */
-function pluginCards(data) {
+/** The plugins as cards, in `lang`: what each is, and a couple of its widgets as painted for the gallery. */
+function pluginCards(data, texts, lang, prefix) {
+  const say = (t) => esc(t[lang] ?? t.en);
   // What ships inside Kiosko itself goes last: the others are what there is to discover.
   const builtin = (p) => (p.id === 'legacy' ? 2 : p.id === 'core' ? 1 : 0);
   return [...data.plugins]
@@ -34,10 +34,9 @@ function pluginCards(data) {
     .map((p) => {
       const shots = p.widgets
         .slice(0, 2)
-        .map((w) => `<img src="gallery/${esc(w.file)}" width="${w.width}" height="${w.height}" loading="lazy" alt="${esc(w.name.en)}" />`)
+        .map((w) => `<img src="${prefix}gallery/${esc(w.file[lang] ?? w.file.en)}" width="${w.width}" height="${w.height}" loading="lazy" alt="${say(w.name)}" />`)
         .join('');
-      const n = p.widgets.length;
-      return `<article class="plugin"><div class="shots">${shots}</div><div class="about"><h3>${both(p.name)} <code>${esc(p.id)}</code></h3><p>${both(p.description)}</p><p class="count">${n} <span lang="en">widget${n === 1 ? '' : 's'}</span><span lang="es">widget${n === 1 ? '' : 's'}</span></p></div></article>`;
+      return `<article class="plugin"><div class="shots">${shots}</div><div class="about"><h3>${say(p.name)} <code>${esc(p.id)}</code></h3><p>${say(p.description)}</p><p class="count">${esc(plural(texts, lang, 'card-widgets', p.widgets.length))}</p></div></article>`;
     })
     .join('\n          ');
 }
@@ -50,7 +49,14 @@ export async function buildSite({ out, editorOptions }) {
   //    machine's own Kiosko is read: it runs with an empty home.
   const home = mkdtempSync(join(tmpdir(), 'kiosko-site-'));
   try {
-    const cli = spawnSync(process.execPath, ['--conditions=source', join(root, 'packages/server/src/cli.ts'), 'gallery', '--out', join(out, 'gallery'), '--pages', join(root, 'examples/showcase.json')], {
+    // The Chinese pages show the panel painted in Chinese: each needs its own region's font (a Japanese
+    // one would draw other shapes), or the posters would be wrong or empty boxes.
+    const probe = `const f = await import(${JSON.stringify(join(root, 'packages/core/src/fonts.ts'))});
+      const tw = f.cjkFonts('zh-TW').families[0] ?? '', cn = f.cjkFonts('zh-CN').families[0] ?? '';
+      if (!/TC|TW|HK|JhengHei|Ming|UMing/.test(tw) || !/SC|CN|YaHei|Hei|GB|Droid|Song/.test(cn)) { console.log(f.cjkFontHint()); process.exit(1); }`;
+    const fonts = spawnSync(process.execPath, ['--conditions=source', '--input-type=module', '-e', probe], { encoding: 'utf8', env: { ...process.env, KIOSKO_HOME: home } });
+    if (fonts.status !== 0) throw new Error(`site build: no Traditional and Simplified Chinese fonts for the panel: ${fonts.stdout.trim() || fonts.stderr.trim()}`);
+    const cli = spawnSync(process.execPath, ['--conditions=source', join(root, 'packages/server/src/cli.ts'), 'gallery', '--all-languages', '--out', join(out, 'gallery'), '--pages', join(root, 'examples/showcase.json')], {
       stdio: 'inherit',
       env: { ...process.env, KIOSKO_HOME: home },
     });
@@ -72,7 +78,7 @@ export async function buildSite({ out, editorOptions }) {
   const assets = join(out, 'demo/assets');
 
   // 3. The front page.
-  const common = { outdir: assets, bundle: true, minify: true, legalComments: 'linked', logLevel: 'info' };
+  const common = { outdir: assets, bundle: true, minify: true, legalComments: 'linked', logLevel: 'info', conditions: ['source'] };
   await build({ ...common, entryPoints: { landing: join(here, 'main.ts') }, format: 'esm', platform: 'browser', target: ['es2022', 'chrome110', 'firefox115', 'safari16'], define: { KIOSKO_DEMO: 'true' } });
   await build({ ...common, entryPoints: { landing: join(here, 'styles.css') } });
 
@@ -84,25 +90,27 @@ export async function buildSite({ out, editorOptions }) {
 
   // The first page of the sample screen that has something moving: the picture the panel starts with.
   const poster = gallery.pages.find((p) => p.name === 'Cats') ?? gallery.pages[0];
-  if (!poster || !existsSync(join(out, 'gallery', poster.file.en)) || !existsSync(join(out, 'gallery', poster.file.es))) throw new Error('site build: the gallery painted no sample page for the front page');
+  for (const l of LANGS) if (!poster || !existsSync(join(out, 'gallery', poster.file[l.id] ?? ''))) throw new Error(`site build: the gallery painted no sample page in ${l.id} for the front page`);
   const version = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version;
+  const texts = loadTexts(join(here, 'i18n'));
   const fill = {
     CSS: `demo/assets/landing.css?v=${hash('landing.css')}`,
     JS: `demo/assets/landing.js?v=${hash('landing.js')}`,
-    POSTER: `gallery/${poster.file.en}`,
-    POSTER_ES: `gallery/${poster.file.es}`,
-    PLUGINS: pluginCards(gallery),
+    POSTER: Object.fromEntries(LANGS.map((l) => [l.id, `gallery/${poster.file[l.id]}`])),
+    PLUGINS: (lang, prefix) => pluginCards(gallery, texts, lang, prefix),
     PLUGIN_COUNT: String(gallery.plugins.length),
     WIDGET_COUNT: String(gallery.count),
     VERSION: esc(version),
   };
-  const page = readFileSync(join(here, 'index.html'), 'utf8').replace(/\{\{(\w+)\}\}/g, (whole, key) => {
-    if (!(key in fill)) throw new Error(`site build: index.html asks for ${whole}, which nothing fills`);
-    return fill[key];
-  });
-  writeFileSync(join(out, 'index.html'), page);
+  const template = readFileSync(join(here, 'index.html'), 'utf8');
+  for (const l of LANGS) {
+    mkdirSync(join(out, l.path), { recursive: true });
+    writeFileSync(join(out, l.path, 'index.html'), renderPage(template, texts, l.id, fill));
+  }
+  writeFileSync(join(out, 'sitemap.xml'), sitemap());
+  writeFileSync(join(out, 'robots.txt'), 'User-agent: *\nAllow: /\nSitemap: https://kioskolcd.dev/sitemap.xml\n');
   // The picture that goes with the link when it is shared (og:image). It is the front page itself
   // in 3D, so it is taken on a machine with a GPU and kept here: scripts/panel3d-film.mjs --card.
   copyFileSync(join(here, 'card.jpg'), join(out, 'card.jpg'));
-  console.log(`site → ${out}: front page with ${gallery.plugins.length} plugins and ${gallery.count} widgets, gallery/, demo/, demo/3d/, schema/`);
+  console.log(`site → ${out}: front page in ${LANGS.map((l) => l.id).join(', ')} with ${gallery.plugins.length} plugins and ${gallery.count} widgets, gallery/, demo/, demo/3d/, schema/`);
 }

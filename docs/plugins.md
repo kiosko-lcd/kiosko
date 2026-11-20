@@ -44,6 +44,7 @@ export default definePlugin({
   requires: [],                       // other plugins' sources/widgets it needs: ['agents/sessions']
   optional: ['weather/current'],      // …and the ones it uses when they are there
   platforms: ['linux', 'darwin', 'win32'],
+  languages: ['en', 'es'],            // the languages its texts come in
   widgets: [price],
   sources: [],
   templates: [],                      // page layouts, see Page templates
@@ -56,6 +57,7 @@ export default definePlugin({
 | `permissions` | What it does on the machine, shown on the Plugins page and in the store before anyone installs it: `network` (hosts it contacts; `user` for the ones the user types, `lan` for the local network), `exec` (programs it runs), `files` (files or folders it reads besides its own `dataDir`/`cacheDir`), `devices` (`usb`, `audio`, `mpris`…). A promise, not yet a fence: plugins run with the user's rights. Keep it honest. |
 | `requires`, `optional` | Types of other plugins (`plugin/source`). The editor says what `requires` is missing and offers to install it. |
 | `platforms` | Operating systems it works on (`linux`, `darwin`, `win32`); omitted, all. npm's `os` in package.json says the same before running. |
+| `languages` | The languages its texts come in, as BCP 47 tags, English first: `['en', 'es', 'zh-Hant', 'zh-Hans']`. Chinese by script: `zh-Hant` (Taiwan, Hong Kong) and `zh-Hans` (mainland China), never a bare `zh`. Every text then comes in all of them: the linter names the ones that don't, and the ones in a language it doesn't list. `kiosko plugins check` paints every widget in each. Put the same in package.json (`"kiosko": { "languages": [...] }`), so a catalogue knows without running it. Omitted, the ones its texts use. |
 | `templates` | Starting page layouts the editor offers under **New page** (see below). |
 | `repository`, `homepage`, `author`, `license` | Shown on the Plugins page and in the store. |
 
@@ -83,7 +85,7 @@ that aren't installed are left out, and so is a tile left empty.
 `kiosko plugins manifest` writes `kiosko-manifest.json` next to package.json
 (`"kiosko": { "manifest": "./kiosko-manifest.json" }`): the record a plugin
 store reads without running anything. Identity and authorship, versions and
-the plugin API, platforms, the languages its texts come in, categories and
+the plugin API, platforms, the languages it declares (`languages`), categories and
 tags, permissions, the options that run, connect or read (`risk`) and the
 secret ones, what it needs, and every widget with its sizes, options (as JSON
 Schema) and screenshot (`docs/<widget>.png`, painted with its demo data).
@@ -204,6 +206,12 @@ Rules of thumb that come from running these panels 24/7:
 - **Fit text, don't overflow it**: `kit.fitSize`, `kit.truncate`,
   `kit.wrapLines`. Test the smallest size you declare.
 - **Fonts have no emoji.** Draw icons with `kit` or canvas paths.
+- **Chinese, Japanese and Korean just work.** Kiosko puts a CJK font behind
+  every font you set (`ctx.font`, `kit`, any canvas), picked for the user's
+  language: Traditional for Taiwan and Hong Kong, Simplified for mainland
+  China, since the same character is drawn differently. Use
+  `ctx.theme.fonts`; don't register CJK fonts of your own. Bold CJK comes
+  out bold with `sansBold`/`monoBold`.
 
 ## Options schema (`t`)
 
@@ -412,7 +420,10 @@ these when you add or rename one.
   `locale.startsWith('es')`); `ctx.location` and `ctx.workday` by default,
   with a place or schedule of your own only as an advanced override where a
   second one makes sense.
-- **Texts** are `{ en, es }`; `align` offers `left`, `center` and `right`.
+- **Texts** are `{ en, es }`, plus any language you can offer, and the
+  plugin lists them all in `languages`. Chinese goes by script: `zh-Hant`
+  (Taiwan, Hong Kong) and `zh-Hans` (mainland China), never a bare `zh`,
+  which is read as Simplified and so never shown in Taiwan. `align` offers `left`, `center` and `right`.
 
 | Today | Convention |
 |---|---|

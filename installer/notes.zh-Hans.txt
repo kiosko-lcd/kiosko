@@ -1,0 +1,17 @@
+﻿Kiosko 已安装完成。
+
+请从“开始”菜单打开（“Kiosko”），或在浏览器中访问 http://127.0.0.1:7420/。
+如果您选择了登录 Windows 时启动 Kiosko，它已经在后台运行；否则，点击“开始”
+菜单中的快捷方式即可启动。
+
+  您的设置：     %APPDATA%\Kiosko\config.json   （卸载时会保留）
+  日志：         %APPDATA%\Kiosko\kiosko.log
+  命令行：       kiosko doctor   |   kiosko usb   |   kiosko service uninstall
+
+USB 屏幕（Thermalright Trofeo Vision 及其他 LY 屏幕）
+Kiosko 会直接与屏幕通信，但 Windows 需要为屏幕安装 WinUSB 驱动程序，只需用
+Zadig（https://zadig.akeo.ie）安装一次：选择屏幕，选中 WinUSB，然后点击
+“Replace Driver”。之后运行“kiosko usb”就会列出该屏幕，在编辑器的
+“屏幕 > 添加屏幕 > 检测屏幕”中也会出现。屏幕使用 WinUSB 期间，Thermalright
+官方软件将无法识别它；如需恢复，请在“设备管理器”中还原原来的驱动程序。
+详细说明（英文）：https://github.com/kiosko-lcd/kiosko/blob/main/docs/usb.md

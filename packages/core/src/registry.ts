@@ -7,7 +7,7 @@ import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from '
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { sourceOptionsField, sourceTiming } from './config/sources.ts';
-import { fullType, incompatibility, packageMeta, pluginOf } from './plugin-meta.ts';
+import { declaredLanguages, fullType, incompatibility, packageMeta, pluginOf } from './plugin-meta.ts';
 import { installSdkResolver } from './sdk-resolver.ts';
 import { localize, toJsonSchema, type Choice, type InterludeDefinition, type PluginDefinition, type SourceDefinition, type TemplateTile, type WidgetDefinition } from '@kiosko/sdk';
 
@@ -269,6 +269,8 @@ export class Registry {
       icon: def.icon,
       sdk: def.sdk ?? null,
       platforms: def.platforms ?? null,
+      /** The languages its texts come in (declared, or read from its texts). */
+      languages: declaredLanguages(def),
       permissions: def.permissions ?? {},
       /** What it needs from other plugins, and whether that is here (installed and on). */
       requires: (def.requires ?? []).map((type) => ({ type, plugin: pluginOf(type), ok: has(type) })),
@@ -290,6 +292,8 @@ export class Registry {
         icon: w.icon,
         category: w.category ?? 'info',
         tags: w.tags ?? [],
+        /** Its name and description in every language it has, so a search in any of them finds it. */
+        searchText: [w.name, w.description].flatMap((x) => (x === undefined ? [] : typeof x === 'string' ? [x] : Object.values(x))).join(' '),
         size: w.size ?? {},
         chrome: w.chrome ?? 'card',
         options: w.options ? toJsonSchema(w.options) : null,

@@ -3,10 +3,10 @@
  * pace, never blocking a frame. A change in any of them marks the screens
  * that show it as dirty (see Runtime).
  */
-import { validate, type SourceDefinition, type WidgetDefinition } from '@kiosko/sdk';
+import { errorMessage, validate, type SourceDefinition, type WidgetDefinition } from '@kiosko/sdk';
 import type { Config, WidgetInstance } from './config/model.ts';
 import { DEFAULT_TIMEOUT_MS, sourceOptionsField, sourceTimes } from './config/sources.ts';
-import { CANVAS, baseContext, type LogFn } from './env.ts';
+import { CANVAS, baseContext, resolveLocale, type LogFn } from './env.ts';
 import type { Registry } from './registry.ts';
 
 const DEFAULT_FETCH_MS = 10 * 60_000;
@@ -116,7 +116,7 @@ export class SourceHub {
         try {
           st.stop = def.watch(this.ctx(cfg, st), (data) => this.set(st, data));
         } catch (err) {
-          st.error = msg(err);
+          st.error = msg(err, cfg);
           this.log(type, `watch failed: ${st.error}`);
         }
       }
@@ -152,7 +152,7 @@ export class SourceHub {
       st.inflight = true;
       const d = deadline(st.abort.signal, st.timeoutMs);
       const fail = (err: unknown) => {
-        st.error = d.timedOut() ? timedOutMsg(st.timeoutMs) : msg(err);
+        st.error = d.timedOut() ? timedOutMsg(st.timeoutMs) : msg(err, cfg);
         this.log(st.type, `read failed: ${st.error}`);
         st.nextAt = Date.now() + Math.min(RETRY_MS, st.intervalMs);
       };
@@ -304,7 +304,7 @@ export class FetchHost {
         })
         .catch((err: unknown) => {
           if (st.abort.signal.aborted) return;
-          st.error = d.timedOut() ? timedOutMsg(st.timeoutMs) : msg(err);
+          st.error = d.timedOut() ? timedOutMsg(st.timeoutMs) : msg(err, cfg);
           this.log(st.type, `fetch failed: ${st.error}`);
           st.nextAt = Date.now() + Math.min(RETRY_MS, st.intervalMs);
         })
@@ -344,6 +344,7 @@ export class FetchHost {
   }
 }
 
-function msg(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
+/** The error to show, in the user's language when the plugin threw a PluginError. */
+function msg(err: unknown, cfg: Config): string {
+  return errorMessage(err, resolveLocale(cfg));
 }

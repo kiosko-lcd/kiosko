@@ -11,7 +11,7 @@
  *   ?turn=10             seconds each page stays, when several take turns (default 18)
  *   ?animate=4           seconds between the widgets' animations (default: 6 to 12)
  *   ?interlude=30        seconds between interludes (default 55; 0 = none)
- *   ?lang=es             the widgets' language (and this page's)
+ *   ?lang=es             the widgets' language (and this page's: en, es, zh-TW, zh-CN…)
  *   ?clean=1             no captions or buttons (H toggles them)
  *   ?orbit=0             a still camera
  *   ?sway=28,8           how the camera sways: degrees to each side, and seconds there and back
@@ -19,6 +19,8 @@
  *   ?q=high|medium|low   fixed quality instead of adapting
  *   ?mirror=0 ?brand=0   no reflection on the desk; no maker's name
  */
+import { pickLocale } from '@kiosko/sdk/i18n';
+import { TEXTS } from './texts.ts';
 import { onRendererEvent, renderer } from '../src/demo/client.ts';
 import { DEMO_CONFIG_KEY, type StageChannel, type StageFrame } from '../demo/protocol.ts';
 import { Scene3D, type Quality } from './scene.ts';
@@ -35,39 +37,9 @@ interface ScreenLike {
 }
 
 const q = new URLSearchParams(location.search);
-const lang = (q.get('lang') ?? navigator.language ?? 'en').toLowerCase().startsWith('es') ? 'es' : 'en';
-const TEXT = {
-  en: {
-    tagline: 'A panel on your desk, in 3D. Its screen is painted live, in your browser, by the same code that drives the real one.',
-    starting: 'Starting Kiosko in your browser…',
-    failed: 'This browser could not start the 3D view',
-    one: 'One panel',
-    three: 'Three panels',
-    orbit: 'Camera sway',
-    record: 'Record',
-    stop: 'Stop',
-    editor: 'Open the editor',
-    hint: 'Drag to look around · scroll to zoom · H hides this',
-    note: 'Sample data. Thermalright is a trademark of its owner; Kiosko is an independent open-source project.',
-    quality: { high: 'High quality', medium: 'Medium quality', low: 'Low quality' },
-    interlude: 'interlude',
-  },
-  es: {
-    tagline: 'Un panel en tu mesa, en 3D. Su pantalla la pinta en directo, en tu navegador, el mismo código que mueve el de verdad.',
-    starting: 'Arrancando Kiosko en tu navegador…',
-    failed: 'Este navegador no ha podido arrancar la vista 3D',
-    one: 'Un panel',
-    three: 'Tres paneles',
-    orbit: 'Vaivén de cámara',
-    record: 'Grabar',
-    stop: 'Parar',
-    editor: 'Abrir el editor',
-    hint: 'Arrastra para mirar alrededor · rueda para acercar · H oculta esto',
-    note: 'Datos de muestra. Thermalright es una marca de su propietario; Kiosko es un proyecto independiente de código abierto.',
-    quality: { high: 'Calidad alta', medium: 'Calidad media', low: 'Calidad baja' },
-    interlude: 'interludio',
-  },
-}[lang];
+/** This page's language: `?lang=` (the widgets' locale too), or the browser's. */
+const lang = (pickLocale(Object.keys(TEXTS), q.get('lang') ?? navigator.language) ?? 'en');
+const TEXT = (TEXTS[lang] ?? TEXTS.en)!;
 document.documentElement.lang = lang;
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Record<string, string> = {}, ...children: (Node | string)[]): HTMLElementTagNameMap[K] {
@@ -203,7 +175,7 @@ async function feed(): Promise<void> {
 
 (async () => {
   api = await renderer();
-  const { config } = await api.init(stored());
+  const { config } = await api.init(stored(), q.get('lang') ?? undefined);
   const locale = q.get('lang');
   const applied = (locale ? await api.apply({ ...config, locale }) : config) as unknown as { screens: ScreenLike[] };
   // The most bar-shaped screen: that is what the panel on the desk is.

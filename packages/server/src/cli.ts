@@ -12,7 +12,8 @@
 import { spawn } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { Registry, Runtime, installSdkResolver, listUsb, loadConfig, paths, saveConfig, type Config } from '@kiosko/core';
+import { Registry, Runtime, cjkFontStatus, installSdkResolver, scriptFontStatus, systemLocale, listUsb, loadConfig, paths, resolveLocale, saveConfig, type Config } from '@kiosko/core';
+import { hanScript } from '@kiosko/sdk';
 import { BUILTIN_PLUGINS, OFFICIAL_PLUGINS } from './builtin.ts';
 import { configCommand } from './config-cli.ts';
 import { pluginsCommand } from './plugins-cli.ts';
@@ -36,14 +37,15 @@ const USAGE = `Kiosko ${VERSION}: a widget mosaic for USB LCD panels
   kiosko usb [list]                          the LY panels libusb sees, with their serial numbers
   kiosko usb test [--serial S] [--seconds 10] [--size 1920x462] [--rotate 180]
                                              drive a panel with the sample screen (experimental)
-  kiosko gallery [--out gallery] [--locale en] [--theme midnight] [--pages config.json]
+  kiosko gallery [--out gallery] [--locale en | --all-languages] [--theme midnight] [--pages config.json]
   kiosko plugins [list|add <id>…|link <folder>…|remove <id>…]
   kiosko service install|uninstall|print   (start with your session)
   kiosko version`;
 const argv = process.argv.slice(2);
 // Flags alone mean `start` (`kiosko --demo --open`), except the ones that are commands of their own.
 const FLAG_COMMANDS = new Set(['--help', '-h', '--version', '-v']);
-const cmd = argv[0] && (!argv[0].startsWith('-') || FLAG_COMMANDS.has(argv[0])) ? argv[0] : 'start';
+// `kiosko <command> --help` shows the help instead of running the command (`gallery --help` wrote a gallery).
+const cmd = argv.includes('--help') || argv.includes('-h') ? 'help' : argv[0] && (!argv[0].startsWith('-') || FLAG_COMMANDS.has(argv[0])) ? argv[0] : 'start';
 const flag = (name: string) => argv.includes(name);
 const opt = (name: string) => {
   const i = argv.indexOf(name);
@@ -109,6 +111,13 @@ async function main(): Promise<void> {
       const url = `http://${host === '0.0.0.0' ? '127.0.0.1' : host}:${port}/`;
       console.log(`Kiosko ${VERSION} — editor at ${url}`);
       console.log(`config: ${path}`);
+      const locale = resolveLocale(cfg);
+      if (hanScript(locale)) {
+        const fonts = cjkFontStatus(locale);
+        if (!fonts.ok) console.warn(`fonts: ${fonts.line}`);
+      }
+      const other = scriptFontStatus(locale);
+      if (other && !other.ok) console.warn(`fonts: ${other.line}`);
       if (flag('--open')) openBrowser(url);
       const stop = () => {
         rt.stop();
@@ -202,6 +211,10 @@ async function main(): Promise<void> {
       console.log(`Kiosko ${VERSION} on ${process.platform}/${process.arch}, Node ${process.version}`);
       console.log(`config  ${path} ${exists ? (error ? `INVALID: ${error}` : 'ok') : '(not created yet)'}`);
       console.log(`plugins ${reg.list().map((p) => p.def.id).join(', ')}`);
+      const fonts = cjkFontStatus(resolveLocale(cfg));
+      console.log(`fonts   ${fonts.ok ? '' : '✗ '}${fonts.line}`);
+      const other = scriptFontStatus(resolveLocale(cfg));
+      if (other) console.log(`fonts   ${other.ok ? '' : '✗ '}${other.line}`);
       for (const p of reg.problems) console.log(`  ✗ ${p.origin}: ${p.message}`);
       const usb = await listUsb();
       if (!usb.ok) console.log(`usb     not available: ${usb.error}`);
@@ -216,6 +229,10 @@ async function main(): Promise<void> {
     case 'service': {
       const pass = ['--port', '--host', '--config'].flatMap((f) => (opt(f) ? [f, opt(f)!] : []));
       const env: Record<string, string> = process.env.KIOSKO_HOME ? { KIOSKO_HOME: process.env.KIOSKO_HOME } : {};
+      // A service starts without the session's language (launchd sets no LANG): Kiosko would speak
+      // English. Pass on the one this shell has, or the system's.
+      const lang = process.env.LC_ALL || process.env.LANG || `${systemLocale().replace(/-/g, '_')}.UTF-8`;
+      if (lang && !/^(C|POSIX)(\.|$)/.test(lang)) env.LANG = lang;
       runService(argv[1] ?? 'print', servicePlan({ args: pass, env }));
       return;
     }
@@ -224,7 +241,7 @@ async function main(): Promise<void> {
       const reg = await registry();
       const out = opt('--out') ?? 'gallery';
       const sample = opt('--pages');
-      const n = buildGallery(reg, { out, locale: opt('--locale') ?? 'en', theme: opt('--theme') ?? 'midnight', ...(sample ? { pages: JSON.parse(readFileSync(sample, 'utf8')) as Config } : {}) });
+      const n = buildGallery(reg, { out, locale: opt('--locale') ?? 'en', languages: flag('--all-languages'), theme: opt('--theme') ?? 'midnight', ...(sample ? { pages: JSON.parse(readFileSync(sample, 'utf8')) as Config } : {}) });
       console.log(`${n} widgets → ${out}/index.html`);
       return;
     }

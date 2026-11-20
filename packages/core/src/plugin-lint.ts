@@ -74,6 +74,19 @@ function missingLanguages(text: Localized | undefined, langs: string[]): string[
   return langs.filter((l) => !(l in text));
 }
 
+/** Whether Intl has a name for the tag's language (`xx` has none). */
+function knownLanguage(tag: string): boolean {
+  try {
+    const lang = new Intl.Locale(tag).language;
+    return new Intl.DisplayNames(['en'], { type: 'language', fallback: 'none' }).of(lang) !== undefined;
+  } catch {
+    return false;
+  }
+}
+
+/** A widget, source or interlude without its options, for the languages of its own texts. */
+const bare = <T extends { options?: unknown }>(x: T): T => ({ ...x, options: undefined });
+
 export function lintPlugin(def: PluginDefinition): LintIssue[] {
   const out: LintIssue[] = [];
   const add = (level: LintIssue['level'], where: string, message: string) => out.push({ level, where, message });
@@ -84,10 +97,43 @@ export function lintPlugin(def: PluginDefinition): LintIssue[] {
   if (reaches && !def.permissions) add('warn', 'plugin', 'it reads data: declare `permissions` (hosts, programs, files, devices) so people know before installing');
   if (!def.description) add('warn', 'plugin', 'a description, for the Plugins page and the store');
   for (const r of [...(def.requires ?? []), ...(def.optional ?? [])]) if (!/^[a-z0-9][a-z0-9-]*\/[a-zA-Z0-9-]+$/.test(r)) add('error', 'plugin', `requires/optional ${JSON.stringify(r)}: a type, plugin/thing`);
-  const langs = languagesOf(def);
+  // The languages it says it speaks, checked against the ones its texts use.
+  const used = languagesOf(def);
+  const declared = def.languages;
+  if (!declared?.length) add('warn', 'plugin', `declare the languages its texts come in: \`languages: [${used.map((l) => `'${l}'`).join(', ')}]\` (and "kiosko": { "languages": [...] } in package.json)`);
+  else {
+    for (const tag of declared) {
+      let canon: string | undefined;
+      try {
+        canon = Intl.getCanonicalLocales(tag)[0];
+      } catch {
+        add('error', 'plugin', `languages: "${tag}" is not a language tag (en, es, zh-Hant…)`);
+        continue;
+      }
+      if (canon !== tag) add('warn', 'plugin', `languages: write "${tag}" as "${canon}"`);
+      else if (!knownLanguage(tag)) add('warn', 'plugin', `languages: "${tag}" is not a language Intl knows`);
+    }
+    if (!declared.includes('en')) add('error', 'plugin', 'languages: English (`en`) is the one every text falls back to: list it, and write every text in it');
+    if (new Set(declared).size !== declared.length) add('warn', 'plugin', 'languages: a language is listed twice');
+    // Only the plugin's own texts: options built with the SDK's helpers (place, lists) bring
+    // every language Kiosko speaks, which says nothing about the plugin.
+    const own = languagesOf({ ...def, widgets: def.widgets?.map(bare), sources: def.sources?.map(bare), interludes: def.interludes?.map(bare) } as PluginDefinition);
+    const unlisted = own.filter((l) => !declared.includes(l));
+    if (unlisted.length) add('warn', 'plugin', `its texts come in ${unlisted.join(', ')} too, which \`languages\` doesn't list`);
+  }
+  const langs = declared?.length ? declared : used;
+  if (langs.includes('zh') || used.includes('zh')) add('warn', 'plugin', 'a bare `zh` is read as Simplified and never shown in Taiwan or Hong Kong: write `zh-Hans` (mainland China) and `zh-Hant` (Taiwan, Hong Kong)');
+  // A tag that is not one (or misspelt) is reported once above, not again on every text.
+  const valid = langs.filter((l) => {
+    try {
+      return Intl.getCanonicalLocales(l)[0] === l && knownLanguage(l);
+    } catch {
+      return false;
+    }
+  });
   const texts = (where: string, ...ts: (Localized | undefined)[]) => {
     for (const tx of ts) {
-      const miss = missingLanguages(tx, langs);
+      const miss = missingLanguages(tx, valid);
       if (miss.length) add('warn', where, `"${typeof tx === 'string' ? tx : tx?.en}" has no ${miss.join(', ')} (the plugin speaks ${langs.join(', ')})`);
     }
   };
@@ -102,6 +148,17 @@ export function lintPlugin(def: PluginDefinition): LintIssue[] {
     if (!x.description) add('warn', where, 'a description, for the library and the store');
     return where;
   };
+  // Option labels, help and choice labels: what the editor shows next to every option.
+  const optionTexts = (where: string, f: Field | undefined) => {
+    for (const [path, x] of fieldsOf(f)) {
+      const o = x as { label?: Localized; help?: Localized; labels?: Record<string, Localized | undefined> };
+      // A plain string is a name that is the same in every language (Ollama, NVIDIA): fine here.
+      texts(`${where} options.${path}`, ...[o.label, o.help, ...Object.values(o.labels ?? {})].filter((x) => typeof x !== 'string'));
+    }
+  };
+  for (const w of def.widgets ?? []) optionTexts(`${def.id}/${w.id}`, w.options);
+  for (const s of def.sources ?? []) optionTexts(`${def.id}/${s.id}`, s.options);
+  for (const i of def.interludes ?? []) optionTexts(`${def.id}/${i.id}`, i.options);
   for (const w of def.widgets ?? []) {
     const where = part('widget', w as WidgetDefinition<any, any>);
     out.push(...lintOptions(where, w.options, 'widget'));

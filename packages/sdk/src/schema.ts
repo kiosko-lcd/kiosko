@@ -152,6 +152,8 @@ export const t = {
 export const FILTER_HELP: Localized = {
   en: 'Empty: all. Names or patterns, comma-separated: * matches anything, a leading ! leaves out (web, acme/*, !*-old).',
   es: 'Vacío: todos. Nombres o patrones separados por comas: * vale por cualquier cosa y un ! delante excluye (web, acme/*, !*-old).',
+  'zh-Hant': '留空：全部。填入名稱或模式，以逗號分隔：* 代表任意字元，開頭加 ! 則排除（web, acme/*, !*-old）。',
+  'zh-Hans': '留空：全部。填写名称或模式，用逗号分隔：* 匹配任意内容，开头加 ! 表示排除（web, acme/*, !*-old）。',
 };
 
 function clone<T>(v: T): T {

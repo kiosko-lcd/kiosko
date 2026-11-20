@@ -5,6 +5,10 @@
  * the normal build drops this module; keep its top level free of side
  * effects.
  */
+import { pickLocale } from '@kiosko/sdk/i18n';
+import { TEXTS, type DemoKey } from './texts.ts';
+
+export type { DemoKey };
 import type { Screen } from '@kiosko/core/model';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { api } from '../api.ts';
@@ -15,44 +19,12 @@ import { exportScreen, resetDemo, thumbnail } from './transport.ts';
 const README = 'https://github.com/kiosko-lcd/kiosko#readme';
 const REPO = 'https://github.com/kiosko-lcd/kiosko';
 
-const TEXTS = {
-  en: {
-    kicker: 'Demo',
-    banner: 'The Kiosko editor, running in your browser with sample data. Your changes stay in this browser.',
-    install: 'Install Kiosko',
-    in3d: 'See it in 3D',
-    reset: 'Reset demo',
-    resetConfirm: 'Forget your changes and start again from the sample screens?',
-    live: 'The live panel shows what a real panel is showing: it needs Kiosko running on the computer the panel is plugged into.',
-    discover: 'Detecting panels needs Kiosko running on the computer the panel is plugged into.',
-    installHint: 'Installing plugins needs Kiosko running on your computer. Every official plugin is already in this demo.',
-    sources: 'In this demo, data sources read nothing: every widget shows sample data. These settings are kept but not used.',
-    interlude: 'Interludes play on a real panel.',
-    refresh: 'Widgets show sample data in this demo.',
-    bootError: 'The demo could not start in this browser',
-  },
-  es: {
-    kicker: 'Demo',
-    banner: 'El editor de Kiosko, funcionando en tu navegador con datos de muestra. Tus cambios se quedan en este navegador.',
-    install: 'Instalar Kiosko',
-    in3d: 'Verlo en 3D',
-    reset: 'Restablecer la demo',
-    resetConfirm: '¿Olvidar tus cambios y volver a empezar con las pantallas de muestra?',
-    live: 'El panel en vivo enseña lo que muestra un panel de verdad: necesita Kiosko en el ordenador donde está enchufado el panel.',
-    discover: 'Detectar paneles necesita Kiosko en el ordenador donde está enchufado el panel.',
-    installHint: 'Instalar plugins necesita Kiosko en tu ordenador. Todos los plugins oficiales ya están en esta demo.',
-    sources: 'En esta demo las fuentes de datos no leen nada: cada widget muestra datos de muestra. Estos ajustes se guardan pero no se usan.',
-    interlude: 'Los interludios se reproducen en un panel de verdad.',
-    refresh: 'En esta demo los widgets muestran datos de muestra.',
-    bootError: 'La demo no ha podido arrancar en este navegador',
-  },
-};
 
-export type DemoKey = keyof (typeof TEXTS)['en'];
 
 /** Demo texts in the editor's language. */
 export function dt(key: DemoKey): string {
-  return (locale.value.toLowerCase().startsWith('es') ? TEXTS.es : TEXTS.en)[key];
+  const lang = pickLocale(Object.keys(TEXTS), locale.value) as keyof typeof TEXTS | undefined;
+  return (lang ? TEXTS[lang] : TEXTS.en)[key] ?? TEXTS.en[key];
 }
 
 export function DemoBanner() {

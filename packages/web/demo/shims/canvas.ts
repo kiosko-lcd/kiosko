@@ -106,7 +106,9 @@ async function fetchFont(url: string): Promise<ArrayBuffer> {
 
 function add(family: string, data: Promise<ArrayBuffer>): void {
   const job = data.then(async (buf) => {
-    const face = new FontFace(family, buf);
+    // Kiosko's bold families are bold files: say so, so that asking for
+    // bold (which the CJK fallback needs) does not embolden them twice.
+    const face = new FontFace(family, buf, /Bold$/.test(family) ? { weight: '700' } : {});
     await face.load();
     fontSet().add(face);
   });

@@ -68,20 +68,75 @@ export interface TextOpts {
   capRatio?: number;
 }
 
+const CJK = /[\u1100-\u11ff\u2e80-\u9fff\uac00-\ud7af\uf900-\ufaff\uff00-\uffef]/;
+/** Whether the text has Chinese, Japanese or Korean in it. */
+export function hasCjk(text: string): boolean {
+  return CJK.test(text);
+}
+/** No letter-spacing in a text with CJK: it would split it into single characters. */
+function trackingOf(text: string, o: TextOpts): number {
+  return o.tracking && hasCjk(text) ? 0 : (o.tracking ?? 0);
+}
+
 interface Glyph {
   ch: string;
   size: number;
   width: number;
 }
 
+/**
+ * The smallest Chinese, Japanese or Korean text that can be read on the
+ * panel being painted, in its own pixels (0: no minimum). Kiosko sets it per
+ * screen from the panel's pixel size and how far its readers sit; the kit
+ * paints a CJK character asked smaller at this size instead (Latin is left
+ * alone: a dense hanzi turns into a blot first).
+ */
+let minCjkPx = 0;
+/** The smallest CJK size asked for since `takeCjkEnlarged`, in panel pixels, when it was raised. */
+let enlarged = Infinity;
+
+export function setMinCjkPx(px: number): void {
+  if (px !== minCjkPx) widths.clear();
+  minCjkPx = Math.max(0, px);
+}
+
+/** The smallest CJK size a widget asked for and got raised since the last call (null: none), and starts again. */
+export function takeCjkEnlarged(): number | null {
+  const v = enlarged;
+  enlarged = Infinity;
+  return Number.isFinite(v) ? Math.round(v) : null;
+}
+
+/** How much the context scales what it draws (a widget's zoom, the panel's turn). */
+function scaleOf(ctx: SKRSContext2D): number {
+  const t = (ctx as { getTransform?: () => { a: number; b: number } }).getTransform?.();
+  return t ? Math.hypot(t.a, t.b) || 1 : 1;
+}
+
 function glyphs(ctx: SKRSContext2D, text: string, o: TextOpts): Glyph[] {
   const family = o.family ?? defaultFamily;
-  const small = o.smallCaps === true;
+  // Han, kana and hangul have no capitals, and spaced out they read as separate words.
+  const cjk = hasCjk(text);
+  const small = o.smallCaps === true && !cjk;
   const capSize = o.size * (o.capRatio ?? 0.76);
   const out: Glyph[] = [];
   const font = `${o.size}px "${family}"`;
   const capFont = `${capSize}px "${family}"`;
+  // CJK characters asked smaller than can be read on this panel are drawn at the minimum.
+  let cjkSize = o.size;
+  if (cjk && minCjkPx > 0) {
+    const scale = scaleOf(ctx);
+    if (o.size * scale < minCjkPx - 0.5) {
+      cjkSize = minCjkPx / scale;
+      enlarged = Math.min(enlarged, o.size * scale);
+    }
+  }
+  const cjkFont = `${cjkSize}px "${family}"`;
   for (const ch of text) {
+    if (cjkSize !== o.size && CJK.test(ch)) {
+      out.push({ ch, size: cjkSize, width: widthOf(ctx, cjkFont, ch) });
+      continue;
+    }
     // In small caps, a lower-case letter is drawn upper-case at a smaller size.
     const isLower = small && ch !== ch.toUpperCase() && ch === ch.toLowerCase();
     const size = isLower ? capSize : o.size;
@@ -99,7 +154,7 @@ function advance(gs: Glyph[], tracking: number): number {
 
 /** Width the text would take with this tracking, without drawing it. */
 export function measureTracked(ctx: SKRSContext2D, text: string, o: TextOpts): number {
-  return advance(glyphs(ctx, text, o), o.tracking ?? 0);
+  return advance(glyphs(ctx, text, o), trackingOf(text, o));
 }
 
 /**
@@ -108,7 +163,7 @@ export function measureTracked(ctx: SKRSContext2D, text: string, o: TextOpts): n
  */
 export function drawTracked(ctx: SKRSContext2D, text: string, x: number, y: number, o: TextOpts): number {
   const family = o.family ?? defaultFamily;
-  const tracking = o.tracking ?? 0;
+  const tracking = trackingOf(text, o);
   const gs = glyphs(ctx, text, o);
   const total = advance(gs, tracking);
   let cursor = o.align === 'right' ? x - total : o.align === 'center' ? x - total / 2 : x;
@@ -171,25 +226,53 @@ export function drawClipped(
   return drawTracked(ctx, truncate(ctx, text, maxWidth, o), x, y, o);
 }
 
+/** Characters a line must not start with (Chinese and Japanese line breaking, "kinsoku"). */
+const NO_START = new Set([...'、。，．：；？！）」』】》〉〕｝〗〙〛’”…‥ー々ゝゞヽヾぁぃぅぇぉっゃゅょゎァィゥェォッャュョヮヵヶ,.;:?!)]}%']);
+/** Characters a line must not end with. */
+const NO_END = new Set([...'（「『【《〈〔｛〖〘〚‘“([{$']);
+const isSpace = (c: string) => /\s/.test(c);
+
 /**
- * Longest prefix of `text` that fits in `maxWidth`, backing off to the last
- * space so words are not split. If a single word does not fit, it cuts hard:
- * splitting a long path is better than leaving the line empty.
+ * Longest prefix of `text` that fits in `maxWidth`, as a string length.
+ * It breaks after a space, or between two characters when either is
+ * Chinese, Japanese or Korean (they have no spaces), never before a
+ * closing mark (，。」) nor after an opening one (「（). In Latin text it
+ * backs off to the last space however far; in text with CJK only if that
+ * keeps most of the line ("AI 模型在…" doesn't leave "AI" alone). If no
+ * break fits, it cuts hard: splitting a long path is better than an empty
+ * line.
  *
  * The search is binary because measuring is expensive: `measureTracked` walks
- * character by character to apply tracking.
+ * character by character to apply tracking. It counts characters, not
+ * UTF-16 units, so it never splits one.
  */
 function fitPrefix(ctx: SKRSContext2D, text: string, maxWidth: number, o: TextOpts): number {
   if (measureTracked(ctx, text, o) <= maxWidth) return text.length;
+  const chars = [...text];
   let lo = 1;
-  let hi = text.length;
+  let hi = chars.length;
   while (lo < hi) {
     const mid = Math.ceil((lo + hi) / 2);
-    if (measureTracked(ctx, text.slice(0, mid), o) <= maxWidth) lo = mid;
+    if (measureTracked(ctx, chars.slice(0, mid).join(''), o) <= maxWidth) lo = mid;
     else hi = mid - 1;
   }
-  const space = text.lastIndexOf(' ', lo);
-  return space > 0 ? space : lo;
+  const cjk = hasCjk(text);
+  const fits = (i: number) => !NO_START.has(chars[i]!) && !NO_END.has(chars[i - 1]!);
+  let cut = 0;
+  for (let i = lo; i >= 1; i--) {
+    const before = chars[i - 1]!;
+    const after = chars[i]!;
+    if ((isSpace(before) || isSpace(after) || CJK.test(before) || CJK.test(after)) && fits(i)) {
+      cut = i;
+      break;
+    }
+  }
+  if (!cut || (cjk && cut < lo * 0.6)) {
+    // Hard cut, still not starting the next line with a closing mark.
+    cut = lo;
+    while (cut > 1 && !fits(cut)) cut--;
+  }
+  return chars.slice(0, cut).join('').length;
 }
 
 /**

@@ -149,13 +149,13 @@ export interface PluginIssue {
 /**
  * Paints every widget of a plugin with its demo data at its minimum and
  * preferred sizes and a wide and a tall one, in every theme and in each
- * language given, and lists what went wrong: a `render` that throws, one
+ * language given (by default the ones the plugin declares), and lists what went wrong: a `render` that throws, one
  * that paints nothing, paints outside its box, or takes longer than
  * `slowMs` (Kiosko warns at 50 ms). An empty list is a pass.
  */
 export function checkPlugin(p: PluginDefinition, o: { locales?: string[]; themes?: string[]; slowMs?: number; extraSizes?: { w: number; h: number }[] } = {}): PluginIssue[] {
   const issues: PluginIssue[] = [];
-  const locales = o.locales ?? ['en', 'es'];
+  const locales = o.locales ?? (p.languages?.length ? p.languages : ['en', 'es']);
   const themes = o.themes ?? THEMES.map((t) => t.id);
   const slow = o.slowMs ?? 50;
   for (const w of p.widgets ?? []) {

@@ -18,11 +18,11 @@ export function locationOptions(): { latitude: NumberField; longitude: NumberFie
       step: 0.0001,
       unit: '°',
       advanced: true,
-      label: { en: 'Latitude', es: 'Latitud' },
-      help: { en: 'Leave latitude and longitude at 0 to use the place in Settings.', es: 'Con latitud y longitud a 0 se usa el lugar de los ajustes.' },
+      label: { en: 'Latitude', es: 'Latitud', 'zh-Hant': '緯度', 'zh-Hans': '纬度' },
+      help: { en: 'Leave latitude and longitude at 0 to use the place in Settings.', es: 'Con latitud y longitud a 0 se usa el lugar de los ajustes.', 'zh-Hant': '緯度和經度保持 0 即使用設定中的地點。', 'zh-Hans': '纬度和经度保持为 0 时使用设置中的地点。' },
     }),
-    longitude: t.number({ default: 0, min: -180, max: 180, step: 0.0001, unit: '°', advanced: true, label: { en: 'Longitude', es: 'Longitud' } }),
-    placeName: t.string({ advanced: true, placeholder: 'Madrid', label: { en: 'Place name', es: 'Nombre del lugar' }, help: { en: 'Empty: the one in Settings.', es: 'Vacío: el de los ajustes.' } }),
+    longitude: t.number({ default: 0, min: -180, max: 180, step: 0.0001, unit: '°', advanced: true, label: { en: 'Longitude', es: 'Longitud', 'zh-Hant': '經度', 'zh-Hans': '经度' } }),
+    placeName: t.string({ advanced: true, placeholder: 'Madrid', label: { en: 'Place name', es: 'Nombre del lugar', 'zh-Hant': '地點名稱', 'zh-Hans': '地点名称' }, help: { en: 'Empty: the one in Settings.', es: 'Vacío: el de los ajustes.', 'zh-Hant': '留空：使用設定中的地點。', 'zh-Hans': '留空：使用设置中的地点。' } }),
   };
 }
 

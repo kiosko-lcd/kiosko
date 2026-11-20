@@ -11,7 +11,13 @@
     }
   },
   "kiosko": {
-    "plugin": "./dist/index.js"
+    "plugin": "./dist/index.js",
+    "languages": [
+      "en",
+      "es",
+      "zh-Hant",
+      "zh-Hans"
+    ]
   },
   "peerDependencies": {
     "@kiosko/sdk": "*"

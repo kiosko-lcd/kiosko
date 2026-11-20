@@ -479,3 +479,25 @@ kbd { font-family: var(--mono); font-size: 11.5px; padding: 2px 7px; border-radi
 .tag-x { display: inline-grid; place-items: center; width: 18px; height: 18px; border: 0; border-radius: 999px; background: none; color: var(--text-3, var(--text-2)); cursor: pointer; }
 .tag-x:hover { background: var(--line); color: var(--bad); }
 .tag-new { flex: 1; min-width: 120px; border: 0; outline: 0; background: none; color: var(--text); font: inherit; font-size: 13px; padding: 3px 4px; }
+
+/* ---------- Chinese ----------
+ * The regional fonts first: the same character is drawn differently in Taiwan and mainland China,
+ * and the browser would otherwise pick by its own guess. Han has no capitals and wants no
+ * letter-spacing; dense characters need 12 px or more to be read, and taller lines.
+ */
+html:lang(zh-Hant) {
+  --font: 'Inter', 'PingFang TC', 'Microsoft JhengHei', 'Noto Sans TC', 'Noto Sans CJK TC', 'Source Han Sans TC', ui-sans-serif, system-ui, sans-serif;
+  --mono: ui-monospace, 'JetBrains Mono', 'SF Mono', 'Cascadia Code', Menlo, Consolas, 'PingFang TC', 'Microsoft JhengHei', 'Noto Sans Mono CJK TC', 'Noto Sans CJK TC', monospace;
+}
+html:lang(zh-Hans) {
+  --font: 'Inter', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', 'Noto Sans CJK SC', 'Source Han Sans SC', ui-sans-serif, system-ui, sans-serif;
+  --mono: ui-monospace, 'JetBrains Mono', 'SF Mono', 'Cascadia Code', Menlo, Consolas, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans Mono CJK SC', 'Noto Sans CJK SC', monospace;
+}
+html:lang(zh) body { line-break: strict; }
+html:lang(zh) body * { letter-spacing: normal !important; text-transform: none !important; }
+html:lang(zh) :is(h1, h2, h3) { line-height: 1.35; }
+html:lang(zh) :is(.rail-btn, .rail-btn span, .count, .lib-plugin, .tb-label, .page-count, .tile-chip, .stack-count, .insp-kicker, .pill, .xywh label, .popover-title, .demo-pill, .perm-chip, .mini-chip, .choice-chip, .data-row code, kbd, .stage-caption) { font-size: 12px; }
+html:lang(zh) :is(.lib-hint, .field-help) { font-size: 12.5px; line-height: 1.5; }
+
+/* A tile whose Chinese/Japanese/Korean text was enlarged to be readable on the panel. */
+.tile-note { position: absolute; right: 6px; top: 6px; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 999px; background: color-mix(in srgb, var(--warn) 85%, black); color: #111; pointer-events: auto; }

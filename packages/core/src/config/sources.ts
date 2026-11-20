@@ -54,16 +54,16 @@ export function sourceCommonFields(def: SourceDefinition<any, any>): Record<stri
       default: intervalMs,
       min: minIntervalMs,
       max: Math.max(MAX_INTERVAL_MS, intervalMs),
-      label: { en: 'Read every', es: 'Leer cada' },
-      help: { en: `How often Kiosko reads it while a widget uses it. At least ${human(minIntervalMs)}.`, es: `Cada cuánto lo lee Kiosko mientras algún widget lo usa. Como mínimo, ${human(minIntervalMs)}.` },
+      label: { en: 'Read every', es: 'Leer cada', 'zh-Hant': '讀取間隔', 'zh-Hans': '读取间隔' },
+      help: { en: `How often Kiosko reads it while a widget uses it. At least ${human(minIntervalMs)}.`, es: `Cada cuánto lo lee Kiosko mientras algún widget lo usa. Como mínimo, ${human(minIntervalMs)}.`, 'zh-Hant': `小工具使用時，Kiosko 讀取它的頻率。最少 ${human(minIntervalMs)}。`, 'zh-Hans': `有小组件使用时 Kiosko 读取它的频率。最少 ${human(minIntervalMs)}。` },
     }),
     timeoutMs: t.duration({
       default: timeoutMs,
       min: MIN_TIMEOUT_MS,
       max: Math.max(MAX_TIMEOUT_MS, timeoutMs),
       advanced: true,
-      label: { en: 'Give up a reading after', es: 'Abandonar una lectura tras' },
-      help: { en: 'A reading that takes longer is cancelled and counts as failed; the next try comes sooner.', es: 'Una lectura que tarde más se cancela y cuenta como fallida; el siguiente intento llega antes.' },
+      label: { en: 'Give up a reading after', es: 'Abandonar una lectura tras', 'zh-Hant': '讀取逾時', 'zh-Hans': '读取超时' },
+      help: { en: 'A reading that takes longer is cancelled and counts as failed; the next try comes sooner.', es: 'Una lectura que tarde más se cancela y cuenta como fallida; el siguiente intento llega antes.', 'zh-Hant': '超過此時間的讀取會被取消並視為失敗；下次會提早重試。', 'zh-Hans': '超过此时间的读取会被取消并视为失败；下次会提前重试。' },
     }),
   };
   const own = def.options?.props ?? {};

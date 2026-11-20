@@ -4,6 +4,7 @@
  * the server shortly after (debounced), so there's no "Save" button to forget.
  */
 import { batch, computed, signal } from '@preact/signals';
+import { localize } from '@kiosko/sdk/i18n';
 import type { Config, Page, Screen, Tile, WidgetInstance } from '@kiosko/core/model';
 import { CLIENT_ID, api, connectEvents, type AppState, type FrameEvent, type PluginInfo, type Status, type WidgetInfo } from './api.ts';
 
@@ -27,6 +28,8 @@ export const toast = signal<{ text: string; kind: 'info' | 'error' | 'ok'; at: n
 /** UI theme of the editor itself (not the panel's). */
 export const uiTheme = signal<'dark' | 'light'>(readUiTheme());
 export const showGrid = signal(true);
+/** The panel drawn at its real size on the stage (in the monitor's CSS millimetres). */
+export const trueSize = signal(false);
 export const liveMode = signal(false);
 
 function readView(): View {
@@ -56,9 +59,13 @@ export function go(v: View): void {
   location.hash = `#/${v}`;
 }
 
+/**
+ * The editor's language: the config's, or with "auto" the browser's (the
+ * person in front of it), then the system's. The panel goes by the system.
+ */
 export const locale = computed(() => {
   const l = config.value?.locale;
-  return !l || l === 'auto' ? (app.value?.locale ?? navigator.language) : l;
+  return !l || l === 'auto' ? (navigator.language || app.value?.locale || 'en') : l;
 });
 
 export const widgets = computed(() => {
@@ -111,7 +118,7 @@ function scheduleSave(): void {
         canUndo.value = false;
         canRedo.value = false;
         saving.value = 'idle';
-        notify(locale.value.startsWith('es') ? 'La configuración cambió en otra pestaña: recargada.' : 'The configuration changed in another tab: reloaded.', 'error');
+        notify(localize({ en: 'The configuration changed in another tab: reloaded.', es: 'La configuración cambió en otra pestaña: recargada.', 'zh-Hant': '設定已在其他分頁中變更：已重新載入。', 'zh-Hans': '配置已在其他标签页中更改：已重新加载。' }, locale.value), 'error');
         return;
       }
       rev = r.rev;

@@ -75,3 +75,27 @@ test('measuring is cached by font and character: the same widths, without asking
   measureTracked(c, 'banana', { size: 19 });
   assert.equal(asked, first + 3, 'another size is another font');
 });
+
+test('wrapLines: Chinese breaks between characters, never before 「，。」 nor after 「（」', { skip }, () => {
+  const text = '一二三四五六七八九十甲乙丙丁，戊己庚辛壬癸。子丑寅卯（辰巳午未）申酉戌亥，天地玄黃宇宙洪荒。';
+  for (const w of [120, 150, 180, 210, 250]) {
+    const lines = wrapLines(ctx, text, w, 20, opts);
+    assert.equal(lines.join(''), text, `${w}: nothing lost`);
+    for (const [i, l] of lines.entries()) {
+      assert.ok(!/^[，。、）」]/.test(l), `${w}: line ${i} starts with a closing mark: ${l}`);
+      assert.ok(!/[（「]$/.test(l), `${w}: line ${i} ends with an opening mark: ${l}`);
+      assert.ok(measureTracked(ctx, l, opts) <= w, `${w}: line ${i} overflows`);
+    }
+  }
+});
+
+test('wrapLines: mixed Latin and Chinese keeps the line full instead of backing off to a far space', { skip }, () => {
+  const lines = wrapLines(ctx, 'AI 模型在程式設計任務上追平大型模型，團隊公開了權重與評測資料', 260, 5, opts);
+  assert.notEqual(lines[0], 'AI', lines.join(' | '));
+  assert.ok(lines[0]!.length > 4, lines.join(' | '));
+});
+
+test('wrapLines: never splits a character made of two UTF-16 units', { skip }, () => {
+  const lines = wrapLines(ctx, '😀'.repeat(40), 120, 10, opts);
+  for (const l of lines) assert.doesNotMatch(l, /[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/u);
+});

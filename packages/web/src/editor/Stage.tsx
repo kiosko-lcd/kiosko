@@ -6,11 +6,11 @@
 import { useComputed, useSignal, useSignalEffect } from '@preact/signals';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { cellsFor, collisions, fit, inBounds, place, toPx, type GridItem, type Rect } from '@kiosko/core/layout';
-import { newTile, newWidget, zoomOf, type Page, type Tile } from '@kiosko/core/model';
+import { READING_CM, legibleCjkPx, mmPerPx, newTile, newWidget, zoomOf, type Page, type Tile } from '@kiosko/core/model';
 import { api } from '../api.ts';
 import { Icon } from '../icons.tsx';
-import { tr } from '../i18n.ts';
-import { config, draftPage, edit, lastFrame, liveMode, notify, page, redo, screen, selectedTile, selectedWidget, showGrid, undo, widgets } from '../store.ts';
+import { t as fill, tr } from '../i18n.ts';
+import { config, draftPage, edit, lastFrame, liveMode, notify, page, redo, screen, selectedTile, selectedWidget, showGrid, trueSize, undo, widgets } from '../store.ts';
 
 /** Type of the widget being dragged from the library (DnD can't read data during dragover). */
 export const dragging = { type: null as string | null };
@@ -53,7 +53,7 @@ export function Stage() {
   const wrap = useRef<HTMLDivElement>(null);
   const [box, setBox] = useState({ w: 900, h: 400 });
   const img = useSignal<string | null>(null);
-  const tileInfo = useSignal<Record<string, { shown: string | null; error?: string }>>({});
+  const tileInfo = useSignal<Record<string, { shown: string | null; error?: string; cjkEnlarged?: number }>>({});
   const [drag, setDrag] = useState<Drag | null>(null);
   const [preview, setPreview] = useState<Tile[] | null>(null);
   const [invalid, setInvalid] = useState(false);
@@ -153,7 +153,8 @@ export function Stage() {
   const W = scr.width;
   const H = scr.height;
   const pad = 28;
-  const scale = Math.max(0.05, Math.min((box.w - pad * 2) / W, (box.h - pad * 2) / H, 2));
+  // Real size: one panel pixel as many CSS millimetres as it measures (96 CSS px to the inch).
+  const scale = trueSize.value ? mmPerPx(scr) * (96 / 25.4) : Math.max(0.05, Math.min((box.w - pad * 2) / W, (box.h - pad * 2) / H, 2));
   const sw = Math.round(W * scale);
   const sh = Math.round(H * scale);
   const tiles = preview ?? pg.tiles;
@@ -326,6 +327,11 @@ export function Stage() {
                   {info?.error && (
                     <div class="tile-error" title={info.error}>
                       <Icon name="triangle-alert" size={14} />
+                    </div>
+                  )}
+                  {!info?.error && info?.cjkEnlarged !== undefined && (
+                    <div class="tile-note" title={fill('stage.cjkEnlarged', { asked: info.cjkEnlarged, min: legibleCjkPx(screen.value!), cm: READING_CM[screen.value?.readingDistance ?? 'normal'] })}>
+                      <Icon name="type" size={13} />
                     </div>
                   )}
                   {!wi && shown && <div class="tile-missing">{tr('inspector.missingPlugin')}</div>}

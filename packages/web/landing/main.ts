@@ -12,11 +12,13 @@
  *
  * Without WebGL the page still reads: the panel is a picture and stays one.
  */
+import { languageById } from '@kiosko/sdk/languages';
 import { onRendererEvent, renderer } from '../src/demo/client.ts';
 import { DEMO_CONFIG_KEY, TOUR_CHANNEL, type StageChannel, type TourMessage, type TourOrder } from '../demo/protocol.ts';
 import { Scene3D, type Direction } from '../panel3d/scene.ts';
 import { readConfig, screensToShow, stackFor, type Problem, type ShownScreen } from './config.ts';
 
+/** Where the visitor's choice of language is kept (pages.mjs: the English page reads it). */
 const LANG_KEY = 'kiosko.lang';
 
 type StepId = 'hero' | 'editor' | 'plugins' | 'always' | 'many' | 'cable' | 'yours';
@@ -52,20 +54,38 @@ if (card) {
 const story = document.querySelector<HTMLElement>('#story')!;
 const steps = [...story.querySelectorAll<HTMLElement>('.step')].map((el) => ({ el, id: el.dataset.step as StepId }));
 
-// ---------- Language: English unless the visitor (or their browser) says Spanish ----------
+// ---------- Language: each page is in one (pages.mjs), and the menu goes to the others ----------
 
-const language = () => (html.lang === 'es' ? 'es' : 'en');
-document.querySelector<HTMLButtonElement>('.lang')?.addEventListener('click', () => {
-  html.lang = language() === 'es' ? 'en' : 'es';
+/** The page's language, as the site names it (en, es, zh-Hant, zh-Hans). */
+const language = () => html.lang || 'en';
+/** The locale the panel paints in for this page: dates and widget texts. */
+const panelLocale = () => languageById(language())?.panel ?? 'en';
+for (const a of document.querySelectorAll<HTMLAnchorElement>('.lang a[data-lang]')) {
+  a.addEventListener('click', () => {
+    try {
+      localStorage.setItem(LANG_KEY, a.dataset.lang!);
+    } catch {
+      /* private mode: the English page goes by the browser's language again */
+    }
+  });
+}
+
+/** The page's words for its script (pages.mjs puts them in #kiosko-texts), with `{name}` filled in. */
+const TEXTS: Record<string, string> = (() => {
   try {
-    localStorage.setItem(LANG_KEY, html.lang);
+    return JSON.parse(document.getElementById('kiosko-texts')?.textContent ?? '{}') as Record<string, string>;
   } catch {
-    /* private mode: it lasts for this visit */
+    return {};
   }
-  // The editor on tour changes with the page; what it then announces brings the panel along.
-  order({ type: 'lang', lang: language() });
-  if (!(active === 'editor' && tour)) void show();
-});
+})();
+function T(key: string, vars: Record<string, string | number> = {}): string {
+  return (TEXTS[key] ?? key).replace(/\{(\w+)\}/g, (whole, k: string) => (k in vars ? String(vars[k]) : whole));
+}
+/** `{n} screens` and friends, by the language's plural rules (`-few`, `-many` where a language has them). */
+function count(key: string, n: number): string {
+  const form = new Intl.PluralRules(language()).select(n);
+  return T(TEXTS[`${key}-${form}`] !== undefined ? `${key}-${form}` : form === 'one' ? `${key}-one` : `${key}-other`, { n: new Intl.NumberFormat(language()).format(n) });
+}
 
 // ---------- The editor's window: the real editor, at its own size, scaled to fit ----------
 
@@ -187,7 +207,7 @@ const feed = () => then(async () => api?.stage(channels()));
 const show = () =>
   then(async () => {
     if (!api || !base) return;
-    await api.apply(active === 'yours' && yours ? yours.config : { ...base, locale: language() });
+    await api.apply(active === 'yours' && yours ? yours.config : { ...base, locale: panelLocale() });
     await api.stage(channels());
     slides();
   });
@@ -253,7 +273,7 @@ let booting: Promise<void> | null = null;
 function boot(): Promise<void> {
   return (booting ??= (async () => {
     api = await renderer();
-    const { config } = await api.init(null);
+    const { config } = await api.init(null, panelLocale());
     base = config as unknown as { screens: ShownScreen[] };
     bar = [...base.screens].sort((a, b) => b.width / b.height - a.width / a.height)[0] ?? null;
   })());
@@ -269,20 +289,14 @@ const picker = part<HTMLInputElement>('file');
 /** Far more than a config weighs: anything bigger is some other file. */
 const TOO_BIG = 2_000_000;
 
-/** A line under the buttons, in the page's two languages. */
-function say(en: string, es: string, bad = false): void {
+/** A line under the buttons. */
+function say(text: string, bad = false): void {
   if (!said) return;
-  const line = (lang: string, text: string) => Object.assign(document.createElement('span'), { lang, textContent: text });
-  said.replaceChildren(line('en', en), line('es', es));
+  said.textContent = text;
   said.classList.toggle('bad', bad);
 }
 
-const PROBLEMS: Record<Problem | 'big', [string, string]> = {
-  json: ["That file isn't JSON.", 'Ese fichero no es JSON.'],
-  shape: ["That JSON isn't a Kiosko config: it has no screens.", 'Ese JSON no es una configuración de Kiosko: no tiene pantallas.'],
-  empty: ['That config has no page to show.', 'Esa configuración no tiene ninguna página que enseñar.'],
-  big: ['That file is too big to be a config.', 'Ese fichero es demasiado grande para ser una configuración.'],
-};
+const PROBLEMS: Record<Problem | 'big', string> = { json: 'js-json', shape: 'js-shape', empty: 'js-empty', big: 'js-big' };
 
 /** What the editor demo keeps in this browser, if anything. */
 function kept(): string | null {
@@ -301,16 +315,13 @@ function tell(): void {
   const n = yours.screens.length;
   const pages = yours.screens.reduce((sum, s) => sum + s.pages.filter((p) => p.enabled !== false).length, 0);
   const more = yours.config.screens.length > n;
-  say(
-    `${yours.name}: ${n} screen${n === 1 ? '' : 's'}${more ? ` (of ${yours.config.screens.length})` : ''}, ${pages} page${pages === 1 ? '' : 's'}, with sample data.`,
-    `${yours.name}: ${n} pantalla${n === 1 ? '' : 's'}${more ? ` (de ${yours.config.screens.length})` : ''}, ${pages} página${pages === 1 ? '' : 's'}, con datos de muestra.`,
-  );
+  say(T('js-loaded', { name: yours.name, screens: count('js-screens', n), of: more ? T('js-of', { total: yours.config.screens.length }) : '', pages: count('js-pages', pages) }));
 }
 
 /** A file's text becomes what the panel shows, if it is a config; the page goes to its section. */
 async function take(text: string, name: string, demo = false): Promise<void> {
   const read = text.length > TOO_BIG ? { problem: 'big' as const } : readConfig(text);
-  if ('problem' in read) return say(...PROBLEMS[read.problem], true);
+  if ('problem' in read) return say(T(PROBLEMS[read.problem]), true);
   let found: typeof yours = null;
   let why = '';
   const failed = (err: unknown) => (why = err instanceof Error ? err.message : String(err));
@@ -331,8 +342,8 @@ async function take(text: string, name: string, demo = false): Promise<void> {
   if (found) {
     yours = found;
     tell();
-  } else if (why) say(`Kiosko couldn't read that config: ${why}`, `Kiosko no ha podido leer esa configuración: ${why}`, true);
-  else say(...PROBLEMS.empty, true);
+  } else if (why) say(T('js-cant-read', { why }), true);
+  else say(T(PROBLEMS.empty), true);
   // The stack takes the size of the config, and the runtime goes back to what this section shows.
   follow();
   void show();
@@ -347,7 +358,7 @@ picker?.addEventListener('change', () => {
 });
 fromDemo?.addEventListener('click', () => {
   const text = kept();
-  if (text) void take(text, language() === 'es' ? 'La de la demo' : "The demo's", true);
+  if (text) void take(text, T('js-demo-name'), true);
 });
 part('reset')?.addEventListener('click', () => {
   yours = null;
@@ -361,7 +372,7 @@ part('edit')?.addEventListener('click', (e) => {
   try {
     const before = JSON.parse(kept() ?? 'null') as { rev?: number; config?: unknown } | null;
     const replaces = !!before?.config && JSON.stringify(before.config) !== JSON.stringify(yours.config);
-    const sure = language() === 'es' ? 'Esto sustituye lo que hiciste en la demo del editor. ¿Seguir?' : 'This replaces what you made in the editor demo. Go on?';
+    const sure = T('js-replace-confirm');
     if (replaces && !confirm(sure)) return void e.preventDefault();
     localStorage.setItem(DEMO_CONFIG_KEY, JSON.stringify({ rev: (before?.rev ?? 0) + 1, config: yours.config }));
   } catch {
@@ -392,7 +403,7 @@ addEventListener('drop', (e) => {
   over = 0;
   html.classList.remove('dropping');
   const file = e.dataTransfer!.files[0];
-  if (file) void (file.size > TOO_BIG ? Promise.resolve(say(...PROBLEMS.big, true)) : file.text().then((text) => take(text, file.name)));
+  if (file) void (file.size > TOO_BIG ? Promise.resolve(say(T(PROBLEMS.big), true)) : file.text().then((text) => take(text, file.name)));
 });
 
 // Without 3D the visitor's pages are pictures on the picture of the panel, taking turns.
@@ -450,7 +461,7 @@ follow();
 if (scene) {
   const live = scene;
   // The picture the page came with goes on the panel at once; the canvas shows from its first frame.
-  const poster = document.querySelector<HTMLImageElement>(`.still img[lang="${language()}"]`);
+  const poster = document.querySelector<HTMLImageElement>('.still img');
   if (poster) {
     const put = () => void live.panels[0]!.poster(poster, 'Cats').catch(() => undefined);
     if (poster.complete && poster.naturalWidth) put();

@@ -15,6 +15,16 @@
       "types": "./dist/workday.d.ts",
       "default": "./dist/workday.js"
     },
+    "./languages": {
+      "source": "./src/languages.ts",
+      "types": "./dist/languages.d.ts",
+      "default": "./dist/languages.js"
+    },
+    "./i18n": {
+      "source": "./src/i18n.ts",
+      "types": "./dist/i18n.d.ts",
+      "default": "./dist/i18n.js"
+    },
     "./format": {
       "source": "./src/format.ts",
       "types": "./dist/format.d.ts",

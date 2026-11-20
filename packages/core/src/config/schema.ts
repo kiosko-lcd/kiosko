@@ -45,12 +45,12 @@ const ID_PATTERN = '^[A-Za-z0-9_.-]{1,80}$';
 const TAKE_OVER = {
   type: 'boolean',
   description: 'Keep the tile while the widget is urgent (a meeting about to start, a permission waiting), even if others share it. Off: it takes its turn like the rest.',
-  'x-ui': { label: { en: 'Keep the tile while urgent', es: 'Quedarse la tesela mientras sea urgente' } },
+  'x-ui': { label: { en: 'Keep the tile while urgent', es: 'Quedarse la tesela mientras sea urgente', 'zh-Hant': '緊急時保留方格', 'zh-Hans': '紧急时独占格子' } },
 };
 const HIDE_WHEN_EMPTY = {
   type: 'boolean',
   description: 'Skip the widget in its tile\'s rotation while it has nothing to list, instead of showing its empty message.',
-  'x-ui': { label: { en: 'Hide when empty', es: 'Ocultar si está vacío' } },
+  'x-ui': { label: { en: 'Hide when empty', es: 'Ocultar si está vacío', 'zh-Hant': '沒有內容時隱藏', 'zh-Hans': '没有内容时隐藏' } },
 };
 const TIME_PATTERN = '^([01][0-9]|2[0-3]):[0-5][0-9]$';
 
@@ -165,7 +165,7 @@ export function configSchema(plugins: readonly PluginDefinition[]): S {
         enum: [...TIME_FORMATS],
         default: DEFAULT_CONFIG.timeFormat,
         description: 'How widgets write clock times: "24h" (14:05), "12h" (2:05 PM), or "auto", the habit of the language (24 h in Spanish and British English, 12 h in US English).',
-        'x-ui': { label: { en: 'Time format', es: 'Formato de hora' }, labels: { auto: { en: 'As the language', es: 'Según el idioma' }, '24h': { en: '24 hours', es: '24 horas' }, '12h': { en: '12 hours', es: '12 horas' } } },
+        'x-ui': { label: { en: 'Time format', es: 'Formato de hora', 'zh-Hant': '時間格式', 'zh-Hans': '时间格式' }, labels: { auto: { en: 'As the language', es: 'Según el idioma', 'zh-Hant': '依照語言', 'zh-Hans': '跟随语言' }, '24h': { en: '24 hours', es: '24 horas', 'zh-Hant': '24 小時制', 'zh-Hans': '24 小时制' }, '12h': { en: '12 hours', es: '12 horas', 'zh-Hant': '12 小時制', 'zh-Hans': '12 小时制' } } },
       },
       theme: { enum: THEMES.map((t) => t.id), default: DEFAULT_CONFIG.theme, description: `Colour theme: ${THEMES.map((t) => `${t.id} (${t.name})`).join(', ')}.` },
       location: { $ref: '#/$defs/location' },
@@ -243,7 +243,7 @@ export function configSchema(plugins: readonly PluginDefinition[]): S {
         maximum: ZOOM.max,
         default: 1,
         description: `Text density: the widget is painted this many times bigger, in the same tile: 1.25 gives bigger letters and fewer rows, 0.8 a denser widget. From ${ZOOM.min} to ${ZOOM.max} (the editor moves in steps of ${ZOOM.step}). The tile must be at least the widget's minimum size times the zoom.`,
-        'x-ui': { label: { en: 'Zoom', es: 'Zoom' }, unit: '×', step: ZOOM.step, slider: true },
+        'x-ui': { label: { en: 'Zoom', es: 'Zoom', 'zh-Hant': '縮放', 'zh-Hans': '缩放' }, unit: '×', step: ZOOM.step, slider: true },
       },
       location: {
         type: 'object',
@@ -388,6 +388,9 @@ export function configSchema(plugins: readonly PluginDefinition[]): S {
           jpegQuality: { type: 'integer', minimum: 0, maximum: 100, default: 90, description: 'JPEG quality of the frames; 0 = PNG.' },
           maxBytes: { type: 'integer', minimum: 0, maximum: 20_000_000, default: 480_000, description: 'Largest frame to send, in bytes: a bigger one is re-encoded at a lower JPEG quality until it fits. LY panels (Trofeo Vision…) drop frames over ~500 KB. 0 = no limit.' },
           maxFps: { type: 'integer', minimum: 1, maximum: 30, default: 12, description: 'Frames per second ceiling for animations.' },
+          readingDistance: { enum: ['near', 'normal', 'far'], default: 'normal', description: 'How far the readers sit (40, 60, 90 cm): with the pixel size it sets the smallest Chinese, Japanese or Korean text painted.' },
+          textScale: { type: 'number', minimum: 0.75, maximum: 2, default: 1, description: "Every widget's text size times this." },
+          diagonalIn: { type: 'number', minimum: 0.5, maximum: 60, description: "The panel's diagonal in inches, when it isn't a known model." },
         },
       },
     },

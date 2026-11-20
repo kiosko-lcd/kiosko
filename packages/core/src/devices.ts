@@ -17,12 +17,36 @@ import { expandPath } from './paths.ts';
 export interface DeviceStatus {
   driver: DeviceConfig['driver'];
   ok: boolean;
+  /** In English, for the log and the CLI. */
   message: string;
+  /**
+   * The same, for the editor to say in the user's language (`device.<code>`
+   * in packages/web/src/i18n.ts, with `params` filled in). Without a code
+   * the editor shows `message`.
+   */
+  code?: string;
+  params?: Record<string, string | number>;
   /** Resolution the hardware reports, if it does. */
   /** What the panel reports: its size as seen at its firmware's own angle (`rotate`, when known). */
   detected?: { width: number; height: number; rotate?: number };
   framesSent: number;
   lastSentAt: number | null;
+}
+
+/** An error that also says what it is, for the editor (see `DeviceStatus.code`). */
+function coded(message: string, code: string, params?: Record<string, string | number>): Error {
+  return Object.assign(new Error(message), { code, params });
+}
+
+/** The status a failure leaves: its message, and a code the editor can say in the user's language when it is a known one. */
+function statusOfError(err: unknown): Pick<DeviceStatus, 'message' | 'code' | 'params'> {
+  const message = err instanceof Error ? err.message : String(err);
+  const e = err as { code?: unknown; params?: Record<string, string | number>; name?: string } | null;
+  if (e && typeof e.code === 'string' && /^[a-z][A-Za-z]+$/.test(e.code)) return { message, code: e.code, params: e.params };
+  if (e?.name === 'PanelNotFound' || /no LY panel found|no panel with serial/.test(message)) return { message, code: 'usbNotFound' };
+  if (/LIBUSB_ERROR_ACCESS|EACCES|access denied/i.test(message)) return { message, code: 'usbAccess' };
+  if (e?.name === 'UsbUnavailable' || /cannot load the "usb" package/.test(message)) return { message, code: 'usbUnavailable' };
+  return { message, code: 'error', params: { error: message } };
 }
 
 export interface Device {
@@ -40,7 +64,7 @@ export function encodeFor(device: DeviceConfig, jpegQuality: number): 'png' | 'j
 }
 
 class VirtualDevice implements Device {
-  status: DeviceStatus = { driver: 'virtual', ok: true, message: 'virtual: shown only in the editor', framesSent: 0, lastSentAt: null };
+  status: DeviceStatus = { driver: 'virtual', ok: true, message: 'virtual: shown only in the editor', code: 'virtual', framesSent: 0, lastSentAt: null };
   async send(): Promise<void> {
     this.status.framesSent++;
     this.status.lastSentAt = Date.now();
@@ -71,7 +95,7 @@ class FileDevice implements Device {
   private readonly dir: string;
   constructor(cfg: Extract<DeviceConfig, { driver: 'file' }>) {
     this.dir = expandPath(cfg.dir);
-    this.status = { driver: 'file', ok: true, message: `writing ${join(this.dir, 'frame.jpg')}`, framesSent: 0, lastSentAt: null };
+    this.status = { driver: 'file', ok: true, message: `writing ${join(this.dir, 'frame.jpg')}`, code: 'fileWriting', params: { path: join(this.dir, 'frame.jpg') }, framesSent: 0, lastSentAt: null };
   }
   async send(frame: Buffer): Promise<void> {
     try {
@@ -85,14 +109,15 @@ class FileDevice implements Device {
       this.status.lastSentAt = Date.now();
     } catch (err) {
       this.status.ok = false;
-      this.status.message = `cannot write in ${this.dir}: ${err instanceof Error ? err.message : String(err)}`;
+      const error = err instanceof Error ? err.message : String(err);
+      Object.assign(this.status, { message: `cannot write in ${this.dir}: ${error}`, code: 'fileError', params: { dir: this.dir, error } });
     }
   }
   close(): void {}
 }
 
 class TrccDevice implements Device {
-  status: DeviceStatus = { driver: 'trcc', ok: false, message: 'connecting…', framesSent: 0, lastSentAt: null };
+  status: DeviceStatus = { driver: 'trcc', ok: false, message: 'connecting…', code: 'connecting', framesSent: 0, lastSentAt: null };
   private key: string | null = null;
   private connecting: Promise<void> | null = null;
   private stopPin: (() => void) | null = null;
@@ -105,13 +130,13 @@ class TrccDevice implements Device {
     this.o = { url: cfg.url, ...(cfg.tokenFile ? { tokenFile: expandPath(cfg.tokenFile) } : {}), timeoutMs: 20_000, deviceKey: cfg.deviceKey ?? '', ...(cfg.serial ? { serial: cfg.serial } : {}) };
   }
   private async connect(): Promise<void> {
-    if (!(await serverAlive(this.o))) throw new Error(`trcc serve is not answering at ${this.cfg.url}`);
+    if (!(await serverAlive(this.o))) throw coded(`trcc serve is not answering at ${this.cfg.url}`, 'trccDown', { url: this.cfg.url });
     const panel = await detectPanel(this.o);
-    if (!panel) throw new Error('trcc serve sees no panel');
+    if (!panel) throw coded('trcc serve sees no panel', 'trccNoPanel');
     await connectPanel(this.o, panel.key);
     this.key = panel.key;
     this.status.detected = { width: panel.width, height: panel.height };
-    this.status.message = `panel ${panel.key} ${panel.width}×${panel.height}`;
+    Object.assign(this.status, { message: `panel ${panel.key} ${panel.width}×${panel.height}`, code: 'trccPanel', params: { key: panel.key, width: panel.width, height: panel.height } });
     if (this.cfg.keepalive !== false) this.stopPin = pinFrame(this.o, panel.key, 30, (m) => this.log(m));
   }
   async send(frame: Buffer): Promise<void> {
@@ -129,7 +154,7 @@ class TrccDevice implements Device {
       this.stopPin?.();
       this.stopPin = null;
       this.status.ok = false;
-      this.status.message = err instanceof Error ? err.message : String(err);
+      Object.assign(this.status, statusOfError(err));
     }
   }
   close(): void {
@@ -146,7 +171,7 @@ class TrccDevice implements Device {
  * waited for, never replaced by another one.
  */
 export class UsbDevice implements Device {
-  status: DeviceStatus = { driver: 'usb', ok: false, message: 'connecting…', framesSent: 0, lastSentAt: null };
+  status: DeviceStatus = { driver: 'usb', ok: false, message: 'connecting…', code: 'connecting', framesSent: 0, lastSentAt: null };
   private readonly cfg: Extract<DeviceConfig, { driver: 'usb' }>;
   private readonly log: (m: string) => void;
   private readonly rotate: number | undefined;
@@ -174,9 +199,11 @@ export class UsbDevice implements Device {
     this.timer.unref();
   }
 
-  private say(message: string, ok: boolean): void {
+  private say(message: string, ok: boolean, code?: string, params?: Record<string, string | number>): void {
     this.status.ok = ok;
     this.status.message = message;
+    this.status.code = code;
+    this.status.params = params;
     if (message !== this.lastMessage) {
       this.lastMessage = message;
       this.log(message);
@@ -201,8 +228,9 @@ export class UsbDevice implements Device {
           this.failures = 0;
           this.status.framesSent++;
           this.status.lastSentAt = this.lastWrite;
-          if (!kept) this.say(`the panel dropped a ${Math.round(frame.length / 1024)} KB frame (limit ${Math.round(MAX_FRAME_BYTES / 1024)} KB): lower the JPEG quality`, false);
-          else if (!this.status.ok) this.say(this.describe(), true);
+          const kb = Math.round(frame.length / 1024), limit = Math.round(MAX_FRAME_BYTES / 1024);
+          if (!kept) this.say(`the panel dropped a ${kb} KB frame (limit ${limit} KB): lower the JPEG quality`, false, 'usbDropped', { kb, limit });
+          else if (!this.status.ok) this.say(this.describe(), true, 'usbConnected', { panel: this.describe() });
         } catch (err) {
           this.fresh = true; // a reconnected panel has nothing on it
           const p = this.panel;
@@ -211,7 +239,10 @@ export class UsbDevice implements Device {
           this.failures++;
           this.retryAt = Date.now() + Math.min(30 * this.retryMs, this.retryMs * 2 ** Math.min(this.failures, 5));
           const why = err instanceof Error ? err.message : String(err);
-          this.say(`${why}${this.cfg.serial && !why.includes(this.cfg.serial) ? ` (serial ${this.cfg.serial})` : ''}; retrying`, false);
+          const serial = this.cfg.serial && !why.includes(this.cfg.serial) ? ` (serial ${this.cfg.serial})` : '';
+          const known = statusOfError(err);
+          // `reason`: the code of a known failure, which the editor says in its own words.
+          this.say(`${why}${serial}; retrying`, false, 'usbRetrying', { why, reason: known.code && known.code !== 'error' ? known.code : '', serial: this.cfg.serial ?? '' });
         }
       }
     };
@@ -236,7 +267,7 @@ export class UsbDevice implements Device {
       // stands. Only half a turn away is surely wrong: the picture comes out upside down.
       if (this.rotate !== undefined && (((this.rotate - m.rotate) % 360) + 360) % 360 === 180) this.log(`the panel's firmware expects rotation ${m.rotate}° but this screen has ${this.rotate}°: the picture may come out upside down`);
     }
-    this.say(this.describe(), true);
+    this.say(this.describe(), true, 'usbConnected', { panel: this.describe() });
   }
 
   async send(frame: Buffer): Promise<void> {

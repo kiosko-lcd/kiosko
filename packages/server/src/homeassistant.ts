@@ -13,6 +13,7 @@
  * removed from Home Assistant (an empty retained config).
  */
 import { hostname } from 'node:os';
+import { localize, type Localized } from '@kiosko/sdk';
 import { resolveLocale, type Config, type HomeAssistantLink, type Runtime, type Screen } from '@kiosko/core';
 import { MqttClient, type MqttOptions, type MqttState } from './mqtt.ts';
 
@@ -35,12 +36,12 @@ export interface MqttLike {
   on(event: 'message', fn: (topic: string, payload: string) => void): unknown;
 }
 
-const AUTO = { en: 'Auto', es: 'Automática' };
+const AUTO = { en: 'Auto', es: 'Automática', 'zh-Hant': '自動', 'zh-Hans': '自动' };
 const NAMES = {
-  page: { en: 'Page', es: 'Página' },
-  shown: { en: 'Page shown', es: 'Página en pantalla' },
-  display: { en: 'Display', es: 'Pantalla' },
-  interlude: { en: 'Play', es: 'Reproducir' },
+  page: { en: 'Page', es: 'Página', 'zh-Hant': '頁面', 'zh-Hans': '页面' },
+  shown: { en: 'Page shown', es: 'Página en pantalla', 'zh-Hant': '目前頁面', 'zh-Hans': '当前页面' },
+  display: { en: 'Display', es: 'Pantalla', 'zh-Hant': '螢幕', 'zh-Hans': '屏幕' },
+  interlude: { en: 'Play', es: 'Reproducir', 'zh-Hant': '播放', 'zh-Hans': '播放' },
 };
 
 /** A safe piece of a topic or an id: letters, digits, _ and -. */
@@ -100,8 +101,8 @@ export class HomeAssistantBridge {
     return `kiosko/${this.link!.nodeId}`;
   }
 
-  private loc(l: { en: string; es: string }) {
-    return resolveLocale(this.runtime.config).startsWith('es') ? l.es : l.en;
+  private loc(l: Localized) {
+    return localize(l, resolveLocale(this.runtime.config));
   }
 
   /** A new config: connect, reconnect (other broker or login) or just announce again. */
@@ -188,7 +189,7 @@ export class HomeAssistantBridge {
       });
       for (const slot of screen.interludes) {
         const def = this.runtime.registry.interlude(slot.type);
-        const name = def ? (typeof def.name === 'string' ? def.name : this.loc({ en: def.name.en ?? slot.type, es: def.name.es ?? def.name.en ?? slot.type })) : slot.type;
+        const name = def ? this.loc(def.name) || slot.type : slot.type;
         put('button', `${sid}_${slug(slot.id)}`, {
           name: `${this.loc(NAMES.interlude)}: ${name}`, unique_id: id(slug(slot.id)), icon: 'mdi:play-circle-outline',
           command_topic: `${this.base}/${sid}/interlude/${slot.id}/press`, payload_press: 'PRESS', device, ...availability,

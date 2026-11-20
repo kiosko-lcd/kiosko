@@ -20,7 +20,7 @@
 import type { Canvas, Image, SKRSContext2D, createCanvas, loadImage } from '@napi-rs/canvas';
 import type * as Kit from '@loksly/lcd-canvas-kit';
 import type { Formatters } from './format.ts';
-import type { Localized } from './i18n.ts';
+import type { Localized, PluralForms } from './i18n.ts';
 import type { Field, Infer, ObjectField } from './schema.ts';
 import type { Theme } from './theme.ts';
 import type { Workday } from './workday.ts';
@@ -62,15 +62,15 @@ export interface Size {
 export type Category = 'agents' | 'system' | 'time' | 'productivity' | 'dev' | 'info' | 'media' | 'scene' | 'fun';
 
 export const CATEGORIES: { id: Category; label: Localized }[] = [
-  { id: 'agents', label: { en: 'AI agents', es: 'Agentes IA' } },
-  { id: 'system', label: { en: 'System', es: 'Sistema' } },
-  { id: 'time', label: { en: 'Time & calendar', es: 'Tiempo y agenda' } },
-  { id: 'productivity', label: { en: 'Productivity', es: 'Productividad' } },
-  { id: 'dev', label: { en: 'Development', es: 'Desarrollo' } },
-  { id: 'info', label: { en: 'News & world', es: 'Noticias y mundo' } },
-  { id: 'media', label: { en: 'Media', es: 'Multimedia' } },
-  { id: 'scene', label: { en: 'Scenes', es: 'Escenas' } },
-  { id: 'fun', label: { en: 'Fun', es: 'Diversión' } },
+  { id: 'agents', label: { en: 'AI agents', es: 'Agentes IA', 'zh-Hant': 'AI 代理', 'zh-Hans': 'AI 智能体' } },
+  { id: 'system', label: { en: 'System', es: 'Sistema', 'zh-Hant': '系統', 'zh-Hans': '系统' } },
+  { id: 'time', label: { en: 'Time & calendar', es: 'Tiempo y agenda', 'zh-Hant': '時間與行事曆', 'zh-Hans': '时间与日历' } },
+  { id: 'productivity', label: { en: 'Productivity', es: 'Productividad', 'zh-Hant': '生產力', 'zh-Hans': '效率' } },
+  { id: 'dev', label: { en: 'Development', es: 'Desarrollo', 'zh-Hant': '開發', 'zh-Hans': '开发' } },
+  { id: 'info', label: { en: 'News & world', es: 'Noticias y mundo', 'zh-Hant': '新聞與世界', 'zh-Hans': '新闻与世界' } },
+  { id: 'media', label: { en: 'Media', es: 'Multimedia', 'zh-Hant': '多媒體', 'zh-Hans': '多媒体' } },
+  { id: 'scene', label: { en: 'Scenes', es: 'Escenas', 'zh-Hant': '場景', 'zh-Hans': '场景' } },
+  { id: 'fun', label: { en: 'Fun', es: 'Diversión', 'zh-Hant': '趣味', 'zh-Hans': '趣味' } },
 ];
 
 export interface Logger {
@@ -92,6 +92,18 @@ export interface BaseContext {
   locale: string;
   /** Picks the user's language from a `Localized` text. */
   t: (text: Localized) => string;
+  /**
+   * `{n} files` with the plural form the user's language asks for:
+   * `ctx.plural(n, { en: { one: '{n} file', other: '{n} files' }, 'zh-Hant': { other: '{n} 個檔案' } })`.
+   * Use it for any text with a count in it, rather than `n === 1 ? … : …`.
+   */
+  plural: (n: number, forms: Record<string, PluralForms>) => string;
+  /**
+   * Which of `available` (language tags) to use for this user: for tables
+   * kept one per language (`TABLES[ctx.pickLanguage(Object.keys(TABLES))]`).
+   * English when none fits, else the first.
+   */
+  pickLanguage: (available: readonly string[]) => string;
   /**
    * Times and lengths of time in the user's language and clock (Settings →
    * time format): `fmt.time(at)` "14:05" / "2:05 PM", `fmt.ago(at)`
@@ -519,6 +531,15 @@ export interface PluginDefinition {
   optional?: string[];
   /** The operating systems it works on. Omitted: all. Also npm's `os` in package.json. */
   platforms?: Platform[];
+  /**
+   * The languages its texts come in, as BCP 47 tags, English first:
+   * `['en', 'es', 'zh-Hant', 'zh-Hans']`. Chinese goes by script (`zh-Hant`
+   * for Taiwan and Hong Kong, `zh-Hans` for mainland China), never a bare
+   * `zh`. Every `Localized` text of the plugin has them all (the linter
+   * says which lack one). Also `kiosko.languages` in package.json, so a
+   * catalogue knows without running it. Omitted: the ones its texts use.
+   */
+  languages?: string[];
   widgets?: WidgetDefinition<any, any>[];
   sources?: SourceDefinition<any, any>[];
   interludes?: InterludeDefinition<any>[];

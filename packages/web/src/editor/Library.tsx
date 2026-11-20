@@ -26,7 +26,7 @@ export function Library() {
   const cats = (app.value?.categories ?? []).filter((c) => all.some((w) => w.category === c.id));
   const list = useMemo(() => {
     const needle = q.trim().toLowerCase();
-    return all.filter((w) => (cat === 'all' || w.category === cat) && (!needle || `${w.name} ${w.description} ${w.tags.join(' ')} ${w.type} ${w.plugin.name}`.toLowerCase().includes(needle)));
+    return all.filter((w) => (cat === 'all' || w.category === cat) && (!needle || `${w.name} ${w.description} ${w.searchText ?? ''} ${w.tags.join(' ')} ${w.type} ${w.plugin.name}`.toLowerCase().includes(needle)));
   }, [q, cat, widgets.value]);
   const look = { theme: config.value?.theme, locale: config.value?.locale };
   return (
@@ -37,9 +37,9 @@ export function Library() {
       </div>
       <div class="search">
         <Icon name="search" size={15} />
-        <input placeholder={tr('library.search')} value={q} onInput={(e) => setQ((e.target as HTMLInputElement).value)} aria-label={tr('library.search')} />
+        <input placeholder={tr('library.search')} value={q} onInput={(e) => !(e as InputEvent).isComposing && setQ((e.target as HTMLInputElement).value)} onCompositionEnd={(e) => setQ((e.target as HTMLInputElement).value)} aria-label={tr('library.search')} />
         {q && (
-          <button class="icon-btn" onClick={() => setQ('')} aria-label="clear">
+          <button class="icon-btn" onClick={() => setQ('')} aria-label={tr('library.clear')}>
             <Icon name="x" size={14} />
           </button>
         )}
