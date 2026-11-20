@@ -598,6 +598,17 @@ async function frontPage(browser, name) {
   await page.evaluate(() => localStorage.removeItem('kiosko.demo.config'));
   await page.goto(home);
 
+  // The Doom section: the recording of kiosko-plugin-doom loads when its section comes, and plays.
+  await page.locator('section[data-step="doom"]').evaluate((el) => window.scrollTo({ top: el.getBoundingClientRect().top + scrollY + el.offsetHeight / 2 - innerHeight / 2, behavior: 'instant' }));
+  await page.waitForFunction(() => (document.querySelector('video.doom')?.currentTime ?? 0) > 0.5, null, { timeout: 20_000 }).catch(() => undefined);
+  const doom = await page.evaluate(() => {
+    const v = document.querySelector('video.doom');
+    return { step: document.documentElement.dataset.step, src: v?.currentSrc.split('/').pop() ?? '', t: v?.currentTime ?? 0, paused: v?.paused ?? true };
+  });
+  await shot(page, `front-doom-${name}.jpg`);
+  check(`${name} front page: the Doom section plays its recording`, doom.step === 'doom' && /^doom\.(webm|mp4)/.test(doom.src) && doom.t > 0.5 && !doom.paused, `section ${doom.step}, ${doom.src || 'no video'} at ${doom.t.toFixed(1)} s${doom.paused ? ', paused' : ''}`);
+  await page.evaluate(() => scrollTo(0, 0));
+
   // The menu: Spanish now, and still Spanish on the next visit to the English address.
   await page.locator('.lang summary').click();
   await page.locator('.lang a[data-lang="es"]').click();

@@ -4,6 +4,7 @@
 //   schema/v1/config.json  the config's JSON Schema (`kiosko config schema`)
 //   demo/                  the editor in the browser and the panel in 3D (demo/build.mjs)
 //   card.jpg               the picture shown with the site's link when it is shared
+//   demo/assets/doom.*     the recording the front page's Doom section plays
 //   index.html             the front page (this folder): a story told over the 3D panel,
 //   es/ zh-Hant/ zh-Hans/  the same page in each language (pages.mjs, words in i18n/)
 //   sitemap.xml robots.txt the pages in every language, for search engines
@@ -95,6 +96,10 @@ export async function buildSite({ out, editorOptions }) {
   if (!script.includes('"./renderer.js"')) throw new Error('site build: no "./renderer.js" reference in landing.js to version');
   writeFileSync(join(assets, 'landing.js'), script.replaceAll('"./renderer.js"', `"./renderer.js?v=${hash('renderer.js')}"`));
 
+  // The Doom section's recording (kiosko-plugin-doom's interlude, 16 s of Freedoom's demo, 320×240,
+  // VP9 and H.264: some browsers have only one of them) and its first picture: made once with the plugin's engine and kept here, like card.jpg.
+  for (const f of ['doom.webm', 'doom.mp4', 'doom.jpg']) copyFileSync(join(here, f), join(assets, f));
+
   // The first page of the sample screen that has something moving: the picture the panel starts with.
   const poster = gallery.pages.find((p) => p.name === 'Cats') ?? gallery.pages[0];
   for (const l of LANGS) if (!poster || !existsSync(join(out, 'gallery', poster.file[l.id] ?? ''))) throw new Error(`site build: the gallery painted no sample page in ${l.id} for the front page`);
@@ -104,6 +109,9 @@ export async function buildSite({ out, editorOptions }) {
     CSS: `demo/assets/landing.css?v=${hash('landing.css')}`,
     JS: `demo/assets/landing.js?v=${hash('landing.js')}`,
     POSTER: Object.fromEntries(LANGS.map((l) => [l.id, `gallery/${poster.file[l.id]}`])),
+    DOOM_VIDEO: `demo/assets/doom.mp4?v=${hash('doom.mp4')}`,
+    DOOM_WEBM: `demo/assets/doom.webm?v=${hash('doom.webm')}`,
+    DOOM_POSTER: `demo/assets/doom.jpg?v=${hash('doom.jpg')}`,
     PLUGINS: (lang, prefix) => pluginCards(gallery, texts, lang, prefix),
     PLUGIN_COUNT: (lang) => String(offered(gallery, lang).length),
     WIDGET_COUNT: (lang) => String(offered(gallery, lang).reduce((n, p) => n + p.widgets.length, 0)),

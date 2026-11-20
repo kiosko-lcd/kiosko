@@ -65,7 +65,13 @@
         </noscript>
         <div class="still">
           <div class="slab">
-            <img src="{{POSTER}}" width="1920" height="462" alt="" loading="lazy" />
+            <div class="screen">
+              <img src="{{POSTER}}" width="1920" height="462" alt="" loading="lazy" />
+              <!-- What kiosko-plugin-doom paints, recorded (the game's 320×200 at 4:3): the 3D panel shows
+                   its frames in the Doom section, and without 3D it plays here, on the picture. Loaded
+                   only when that section comes. -->
+              <video class="doom" data-webm="{{ROOT}}{{DOOM_WEBM}}" data-mp4="{{ROOT}}{{DOOM_VIDEO}}" poster="{{ROOT}}{{DOOM_POSTER}}" width="320" height="240" muted loop playsinline preload="none"></video>
+            </div>
             <span>THERMALRIGHT</span>
           </div>
         </div>
@@ -174,6 +180,22 @@
             <button class="button" type="button" data-yours="reset">{{t:back-to-the-sample}}</button>
           </p>
           <input type="file" accept="application/json,.json" data-yours="file" hidden />
+        </div>
+      </section>
+
+      <!-- An optional plugin, kiosko-plugin-doom: the panel plays a recording of what it paints. -->
+      <section class="step right" data-step="doom">
+        <div class="copy">
+          <p class="kicker">{{t:interludes}}</p>
+          <h2>{{t:and-yes-it-runs-doom}}</h2>
+          <p>
+            {{t:now-and-then-a-screen}}
+          </p>
+          <p class="fine">
+            {{t:not-installed-with-kiosko}}
+            <a href="https://github.com/kiosko-lcd/kiosko-plugin-doom">kiosko-plugin-doom</a>
+            · {{t:doom-trademark}}
+          </p>
         </div>
       </section>
     </div>
