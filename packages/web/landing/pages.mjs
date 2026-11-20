@@ -40,7 +40,11 @@ const plain = (html) => esc(html.replace(/<[^>]+>/g, ''));
 
 /** Every language's words, by language id. */
 export function loadTexts(dir) {
-  return Object.fromEntries(LANGS.map((l) => [l.id, JSON.parse(readFileSync(join(dir, `${l.id}.json`), 'utf8'))]));
+  return Object.fromEntries(LANGS.map((l) => {
+    const file = join(dir, `${l.id}.json`);
+    if (!existsSync(file)) throw new Error(`no site texts for ${l.id}: copy i18n/en.json to i18n/${l.id}.json and translate it (CONTRIBUTING.md, "Translations")`);
+    return [l.id, JSON.parse(readFileSync(file, 'utf8'))];
+  }));
 }
 
 /** A word in `lang`, or English if that language lacks it (the test says which ones do). */

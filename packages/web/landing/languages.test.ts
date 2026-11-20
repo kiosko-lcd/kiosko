@@ -30,12 +30,16 @@ test('the list itself: canonical tags, English first, each once', () => {
 
 for (const l of LANGUAGES) {
   test(`${l.id}: editor, demo, 3D page, site and the panel's time words`, () => {
-    assert.ok(DICTIONARIES[l.id], `packages/web/src/lang/${l.id}.ts and its line in lang/index.ts`);
-    assert.ok(DEMO[l.id], `packages/web/src/demo/texts.ts: ${l.id}`);
-    assert.ok(PANEL3D[l.id], `packages/web/panel3d/texts.ts: ${l.id}`);
-    assert.ok(existsSync(join(root, 'packages/web/landing/i18n', `${l.id}.json`)), `packages/web/landing/i18n/${l.id}.json`);
-    assert.equal(pickLocale(FORMAT_LANGUAGES, l.id), l.id, `packages/sdk/src/format.ts: WORDS['${l.id}']`);
-    assert.equal(pickLocale([l.id], l.panel), l.id, `${l.id}: its panel locale ${l.panel} must read it (same language and script)`);
+    // Everything that is missing at once, so a new language is one list of things to do.
+    const missing = [
+      !DICTIONARIES[l.id] && `packages/web/src/lang/${l.id}.ts (a copy of en.ts, translated) and its line in lang/index.ts`,
+      !DEMO[l.id] && `packages/web/src/demo/texts.ts: '${l.id}'`,
+      !PANEL3D[l.id] && `packages/web/panel3d/texts.ts: '${l.id}'`,
+      !existsSync(join(root, 'packages/web/landing/i18n', `${l.id}.json`)) && `packages/web/landing/i18n/${l.id}.json (a copy of en.json, translated)`,
+      pickLocale(FORMAT_LANGUAGES, l.id) !== l.id && `packages/sdk/src/format.ts: WORDS['${l.id}']`,
+      pickLocale([l.id], l.panel) !== l.id && `packages/sdk/src/languages.ts: '${l.id}' panel locale ${l.panel} must be the same language and script`,
+    ].filter(Boolean);
+    assert.deepEqual(missing, []);
   });
 }
 
