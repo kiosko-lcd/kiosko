@@ -1,0 +1,12 @@
+# Keeps the GitHub Actions the workflows use up to date (security fixes for
+# npm dependencies come from Dependabot's alerts, which are on). One pull
+# request a week at most, all actions together.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ['*']
