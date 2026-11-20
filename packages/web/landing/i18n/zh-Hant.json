@@ -16,7 +16,7 @@
   "plugins-all-the-way-down": "一切都是外掛。",
   "every-widget-data-source-and": "每個小工具、資料來源和動畫都是外掛，遵循同一份精簡的介面約定。內建 {{PLUGIN_COUNT}} 個（AI 代理、GitHub 與 GitLab、行事曆、天氣、新聞、顯示卡、本機 LLM），你自己的外掛一個檔案就寫得完。",
   "see-them-all": "查看全部 ↓",
-  "always-on": "永不關機",
+  "always-on": "全天候常亮",
   "made-for-screens-that-never": "為永不關閉的螢幕而設計。",
   "it-repaints-only-when-something": "只在內容變動時重繪，會微移像素避免烙印，沒有需要你注意的事時就全黑。平常保持暗色：它一亮起來，就值得看一眼。",
   "screens": "螢幕",
@@ -24,7 +24,7 @@
   "one-config-drives-every-screen": "一份設定就能驅動你接上的每一塊螢幕，各自擁有輪流顯示的頁面、上班時間和過場動畫。",
   "hardware": "硬體",
   "one-cable-no-vendor-app": "一條線，不需原廠軟體。",
-  "kiosko-drives-1920-462-bar": "Kiosko 支援 1920×462 長條面板（例如 Thermalright Trofeo Vision）、AIO 水冷的方形螢幕，以及 320×240 的小螢幕，可在 Linux、macOS 和 Windows 上使用。背面的磁鐵能吸在機殼上，一條 USB-C 線就裝好了。",
+  "kiosko-drives-1920-462-bar": "Kiosko 支援 1920×462 長條面板（例如利民 Thermalright Trofeo Vision）、AIO 水冷的方形螢幕，以及 320×240 的小螢幕，可在 Linux、macOS 和 Windows 上使用。背面的磁鐵能吸在機殼上，一條 USB-C 線就裝好了。",
   "how-to-connect-one": "如何連接面板 →",
   "yours": "你的設定",
   "now-with-your-config": "換上你的設定。",
@@ -52,7 +52,7 @@
   "everything-is-one-config-json": "所有設定都在一個 <code>config.json</code> 裡，並附有公開的結構描述（schema）。交給你的 AI 助理，並在使用前檢查它寫的內容。",
   "the-schema": "結構描述",
   "mit-licence-sample-data-throughout": "MIT 授權 · 全站皆為範例資料。",
-  "thermalright-and-trofeo-vision-are": "Thermalright 與 Trofeo Vision 為其所有者的商標；Kiosko 是獨立的開放原始碼專案。",
+  "thermalright-and-trofeo-vision-are": "利民（Thermalright）與 Trofeo Vision 為其所有者的商標；Kiosko 是獨立的開放原始碼專案。",
   "meta-title": "Kiosko · 桌上那塊小螢幕，終於派上用場",
   "meta-description": "Kiosko 把常亮的 USB 小型 LCD 面板變成即時小工具拼貼：AI 代理、建置、行事曆、天氣、新聞。視覺化編輯器、外掛和輕巧的背景服務。免費、開放原始碼。",
   "og-title": "Kiosko：桌上那塊小螢幕，終於派上用場",
@@ -76,4 +76,3 @@
   "card-widgets-one": "{n} 個小工具",
   "card-widgets-other": "{n} 個小工具"
 }
-

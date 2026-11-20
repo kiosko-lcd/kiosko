@@ -6,7 +6,7 @@
  */
 import { readdir, readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
-import { createFormatters, definePlugin, expandPath, defineWidget, drawEmpty, drawMore, listLayout, listOptions, t, type Graphics, type RenderContext } from '@kiosko/sdk';
+import { createFormatters, definePlugin, hanScript, expandPath, defineWidget, drawEmpty, drawMore, listLayout, listOptions, t, type Graphics, type RenderContext } from '@kiosko/sdk';
 
 /** The largest size at which `text` fits `w×h` (one line). */
 function fit(g: Graphics, text: string, family: string, w: number, h: number, max = 400): number {
@@ -122,7 +122,8 @@ export const date = defineWidget({
   render(g, { box, now, options, theme, kit, locale, t: tr }) {
     const d = new Date(now);
     const weekday = d.toLocaleDateString(locale, { weekday: 'long' });
-    const month = d.toLocaleDateString(locale, { month: 'long' });
+    // Chinese writes the month as a number in both scripts (11月), not 十一月.
+    const month = d.toLocaleDateString(locale, { month: hanScript(locale) ? 'short' : 'long' });
     const top = Math.min(box.h * 0.16, 36);
     const c = theme.colors;
     const weekdayColor = { accent: c.accent, ink: c.ink, dim: c.inkDim, alert: c.alert }[options.weekdayColor];
@@ -137,7 +138,7 @@ export const date = defineWidget({
     const bottom = box.y + box.h - 4;
     const ms = Math.min(top, box.h * 0.13);
     let line = month;
-    if (options.showWeekNumber) line += ` · ${tr({ en: 'wk', es: 'sem', 'zh-Hant': '週', 'zh-Hans': '周' })} ${isoWeek(d)}`;
+    if (options.showWeekNumber) line += ` · ${tr({ en: 'wk {n}', es: 'sem {n}', 'zh-Hant': '第 {n} 週', 'zh-Hans': '第 {n} 周' }).replace('{n}', String(isoWeek(d)))}`;
     const ls = Math.min(ms, fit(g, line, theme.fonts.sans, box.w * 0.96, ms));
     g.font = `${ls}px "${theme.fonts.sans}"`;
     g.fillStyle = theme.colors.inkDim;
