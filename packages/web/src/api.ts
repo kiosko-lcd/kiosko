@@ -141,7 +141,7 @@ export interface AppState {
   updates?: { checkedAt: number; plugins: PluginUpdate[]; kiosko: { current: string; latest: string } | null } | null;
   categories: { id: string; label: string | Record<string, string> }[];
   themes: ThemeInfo[];
-  presets: { id: string; name: string; width: number; height: number }[];
+  presets: { id: string; name: string; width: number; height: number; maker?: string; tested?: boolean }[];
   status: Status;
   paths: { config: string; plugins: string; home: string };
   restartNeeded: boolean;

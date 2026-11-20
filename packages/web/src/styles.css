@@ -292,6 +292,7 @@ select.input { cursor: pointer; }
 .popover-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-3); padding: 6px 10px; font-weight: 700; }
 .popover-sep { height: 1px; background: var(--line); margin: 6px 4px; }
 .menu-item { display: flex; align-items: center; gap: 10px; width: 100%; border: 0; background: none; padding: 7px 10px; border-radius: 9px; cursor: pointer; text-align: left; }
+.menu-item .pill { white-space: nowrap; font-style: normal; }
 .menu-item:hover { background: var(--panel-2); }
 .menu-item small { margin-left: auto; color: var(--text-3); font-family: var(--mono); }
 .interlude-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px; border: 1px solid var(--line); border-radius: 12px; margin-bottom: 8px; background: var(--panel-2); }

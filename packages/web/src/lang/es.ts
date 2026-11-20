@@ -89,6 +89,8 @@ export const es: Dictionary = {
   'screens.add': 'Añadir pantalla',
   'screens.name': 'Nombre',
   'screens.model': 'Modelo de panel',
+  'screens.untested': 'sin probar',
+  'screens.untestedHint': 'Sacado de la web del fabricante (tamaño y resolución): aún nadie ha usado Kiosko en uno.',
   'screens.resolution': 'Resolución',
   'screens.orientation': 'Orientación',
   'screens.landscape': 'Horizontal',

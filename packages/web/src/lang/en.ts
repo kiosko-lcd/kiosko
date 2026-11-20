@@ -87,6 +87,8 @@ export const en = {
   'screens.add': 'Add screen',
   'screens.name': 'Name',
   'screens.model': 'Panel model',
+  'screens.untested': 'untested',
+  'screens.untestedHint': 'From its maker’s page (size and resolution): nobody has run Kiosko on one yet.',
   'screens.resolution': 'Resolution',
   'screens.orientation': 'Orientation',
   'screens.landscape': 'Landscape',

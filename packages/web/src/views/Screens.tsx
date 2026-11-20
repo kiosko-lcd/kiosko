@@ -58,7 +58,14 @@ function AddScreen({ onAdd }: { onAdd: (p?: { width: number; height: number; nam
               setOpen(false);
             }}>
               <PanelGlyph w={p.width} h={p.height} />
-              <span>{p.name}</span>
+              <span>
+                {p.name}
+                {p.maker && !p.tested && (
+                  <em class="pill" title={tr('screens.untestedHint')}>
+                    {tr('screens.untested')}
+                  </em>
+                )}
+              </span>
               <small>
                 {p.width}×{p.height}
               </small>
