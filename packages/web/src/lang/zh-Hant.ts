@@ -89,6 +89,8 @@ export const zhHant: Dictionary = {
   'screens.add': '新增螢幕',
   'screens.name': '名稱',
   'screens.model': '面板型號',
+  'screens.untested': '未測試',
+  'screens.untestedHint': '來自廠商網頁（尺寸與解析度）：還沒有人在這款上執行過 Kiosko。',
   'screens.resolution': '解析度',
   'screens.orientation': '方向',
   'screens.landscape': '橫向',

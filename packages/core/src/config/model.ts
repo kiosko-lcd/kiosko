@@ -249,11 +249,36 @@ export const DEFAULT_CONFIG: Config = {
   server: { host: '127.0.0.1', port: 7420 },
 };
 
-/** Known panel resolutions, for the "add screen" dialog. Width × height as the panel reports them. */
-export const PANEL_PRESETS: { id: string; name: string; width: number; height: number; diagonalIn: number }[] = [
-  { id: 'trofeo-916', name: 'Trofeo Vision 9.16″', width: 1920, height: 462, diagonalIn: 9.16 },
+export interface PanelPreset {
+  id: string;
+  name: string;
+  /** Width × height as the panel reports them. */
+  width: number;
+  height: number;
+  /** For the smallest readable text (mmPerPx). */
+  diagonalIn: number;
+  /** A maker's model (not just a size): its name is what is on the box. */
+  maker?: string;
+  /** Kiosko has run on one. A model without it comes from its maker's page: its size and resolution, untested. */
+  tested?: boolean;
+}
+
+/**
+ * Known panels, for the "add screen" dialog: the makers' models first, then
+ * plain sizes. Thermalright's from its accessories page (resolution and
+ * diagonal; the Fan Bracket's from its 125 × 71 mm screen). A model is only
+ * a size here: how Kiosko talks to it is the screen's connection (trcc,
+ * file, or usb for the LY ones).
+ */
+export const PANEL_PRESETS: PanelPreset[] = [
+  { id: 'trofeo-916', name: 'Trofeo Vision 9.16″', width: 1920, height: 462, diagonalIn: 9.16, maker: 'Thermalright', tested: true },
+  { id: 'trofeo-113', name: 'Trofeo Vision 11.3″', width: 1920, height: 400, diagonalIn: 11.3, maker: 'Thermalright' },
+  // The id of the size it was before it had its model's name: kept.
+  { id: 'wide-1280x480', name: 'Trofeo Vision 6.86″', width: 1280, height: 480, diagonalIn: 6.86, maker: 'Thermalright' },
+  { id: 'fan-bracket-vision-1', name: 'Fan Bracket Vision-1', width: 854, height: 480, diagonalIn: 5.66, maker: 'Thermalright' },
+  { id: 'gpu-bracket-458', name: 'GPU Bracket LCD 4.58″', width: 320, height: 960, diagonalIn: 4.58, maker: 'Thermalright' },
+  { id: 'fan-frame-vision-1', name: 'Fan Frame Vision-1 3.69″', width: 640, height: 172, diagonalIn: 3.69, maker: 'Thermalright' },
   { id: 'wide-1920x480', name: 'Wide bar 1920×480', width: 1920, height: 480, diagonalIn: 9.16 },
-  { id: 'wide-1280x480', name: 'Wide 1280×480', width: 1280, height: 480, diagonalIn: 6.86 },
   { id: 'wide-1600x720', name: '1600×720', width: 1600, height: 720, diagonalIn: 8.8 },
   { id: 'square-480', name: 'Square 480×480', width: 480, height: 480, diagonalIn: 3.4 },
   { id: 'square-320', name: 'Square 320×320', width: 320, height: 320, diagonalIn: 2.1 },

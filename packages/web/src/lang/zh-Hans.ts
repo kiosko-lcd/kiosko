@@ -89,6 +89,8 @@ export const zhHans: Dictionary = {
   'screens.add': '添加屏幕',
   'screens.name': '名称',
   'screens.model': '副屏型号',
+  'screens.untested': '未测试',
+  'screens.untestedHint': '来自厂商网页（尺寸和分辨率）：还没有人在这款上运行过 Kiosko。',
   'screens.resolution': '分辨率',
   'screens.orientation': '方向',
   'screens.landscape': '横屏',
