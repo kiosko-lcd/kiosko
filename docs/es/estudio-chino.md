@@ -442,7 +442,7 @@ de TRCC y de AIDA64.
 |---|---|---|---|---|
 | 1 | **Calendario lunar y 節氣/节气** en el widget de fecha del núcleo (農曆十月初一, 小雪), y 宜忌 como opción | TW + CN | Librería local `lunar-typescript` (6tail, MIT, sin red); o `Intl` con `calendar: 'chinese'` para lo básico | S |
 | 2 | **Festivos y días laborables con 调休** (sábados laborables compensatorios en el continente), cuenta atrás al próximo festivo | TW + CN | TW: CSV oficial de 人事總處 en data.gov.tw. CN: `holiday-cn` (JSON, MIT). Necesita lista de «días laborables extra» por fecha en `workday` | M |
-| 3 | **CWA (中央氣象署):** previsión, **alerta de terremoto y tifón como interludio a pantalla completa** | TW | Datos abiertos con clave gratuita; atribución obligatoria | M |
+| 3 | **CWA (中央氣象署):** previsión, **avisos de terremoto y tifón a toda pantalla** (punto 27 del plan; los de terremoto son informes, no alerta temprana) | TW | Datos abiertos con clave gratuita; atribución obligatoria | M |
 | 4 | **Bolsa con rojo sube**, 萬/億: TWSE (al cierre, oficial) y A股 (extraoficial) | TW + CN | Punto 13 del plan, con un proveedor por mercado; avisar de retraso | M |
 | 5 | **Noticias en chino:** feeds por defecto según el idioma (中央社, 公視, 聯合; 澎湃, 新华) y agrupar titulares con bigramas CJK | TW + CN | RSS. Hoy el agrupado quita todo lo que no sea `[a-z0-9]`, así que con titulares chinos no agrupa nada | M |
 | 6 | **Lo más visto:** Weibo, Zhihu, Bilibili, PTT | CN (+TW con PTT) | DailyHotApi, autoalojado (Docker/npm); extraoficial, desactivado por defecto | S |
@@ -658,7 +658,9 @@ En el orden de §6:
 
 - **Z18.** Calendario lunar y 節氣 (si no entra en Z13).
 - **Z19.** Festivos TW/CN con 调休.
-- **Z20.** CWA con alertas a pantalla completa.
+- **Z20.** CWA con alertas a pantalla completa. Usa el mecanismo general
+  de alertas del núcleo (punto 27 del [plan](plan.md#pendiente)), que va
+  antes.
 - **Z21.** Noticias en chino.
 - **Z22.** Finanzas con TWSE y A股 (dentro del punto 13 del plan).
 - **Z23.** Lo más visto (DailyHotApi).

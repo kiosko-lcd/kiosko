@@ -877,6 +877,50 @@ Lo que cambia en el camino:
       asíncrona; un bucle que no cede al bucle de eventos parece una fuga
       de gigas que no existe. Medir como pinta Kiosko, cediendo entre
       fotogramas.
+27. **Alertas a pantalla completa.** El panel no tiene sonido, así que
+    lo que de verdad importa tiene que verse desde el otro lado de la
+    habitación: a toda pantalla y parpadeando. Hoy no hay forma: lo urgente
+    (`urgent`) solo se queda su tesela, y los interludios son decorativos y
+    con horario. Sirve para terremotos y tifones (CWA, ver
+    [estudio-chino.md](estudio-chino.md), Z20), pero también para Home
+    Assistant (humo, agua, timbre, alarma), una llamada entrante, la CI
+    rota en `main` o cualquier cosa que entre por el webhook del punto 18.
+    - *En el SDK*: un plugin (o una fuente) devuelve alertas con `id`,
+      nivel (`info`, `warn`, `critical`), título, texto corto, icono,
+      caducidad y si se puede descartar. Como `urgent`, lo decide el plugin
+      con sus datos; el núcleo decide cómo se enseña.
+    - *En el núcleo*: una alerta activa se pinta **por encima de todo**:
+      páginas, interludios, animaciones y el reposo en negro (despierta el
+      panel). Por defecto en todas las pantallas; por pantalla se elige
+      desde qué nivel sale a toda pantalla (el resto, como hoy, en su
+      tesela) y unas horas de silencio que respeten solo `critical`. Varias
+      a la vez: la de más nivel, y las demás como contador.
+    - *El parpadeo, con cuidado*: nunca más de 3 destellos por segundo
+      (WCAG 2.3.1, epilepsia fotosensible; en la práctica 1–2 Hz), y no
+      un rojo saturado que destella en toda la superficie (la misma norma
+      lo trata aparte). Lo que parpadea es el marco o una franja; el texto
+      se queda quieto y legible, enorme, con los mínimos del estudio de
+      chino (§4). Parpadea los primeros segundos y luego pulsa despacio,
+      para que no sea insoportable si dura horas. A 1–2 Hz bastan 2–4 fps,
+      dentro de lo que aguantan los paneles por USB. Rojo aquí es peligro
+      en todas las culturas, también en China.
+    - *Descartarla*: el panel no es táctil. Desde el editor (una banda
+      arriba con «Visto»), desde la API (`POST /api/alerts/<id>/ack`),
+      desde Home Assistant (un botón por MQTT) o sola al caducar. Con
+      «posponer» para las que vuelven.
+    - *Más allá del panel, opcional*: Kiosko corre en el PC, que sí suena.
+      Si el editor está abierto, una notificación del navegador; y un
+      ajuste para una notificación del sistema. Sin esto por defecto.
+    - *Probar*: un botón «Probar alerta» por pantalla, para ver cómo se ve
+      y comprobar que se lee desde donde uno se sienta.
+    - *Ser honestos con los terremotos*: los datos abiertos de la CWA son
+      **informes** que llegan minutos después del temblor
+      (顯著有感地震報告), no la alerta temprana (強震即時警報), que llega en
+      segundos al móvil por difusión celular y para terceros exige acuerdo
+      con la CWA. Sirve para «qué ha pasado y dónde»; los avisos de tifón y
+      lluvias fuertes (颱風警報, 豪雨特報), que van con horas, son donde más
+      luce. Ni en la web ni en el plugin se promete «alerta temprana», y la
+      tesela dice que no es un sistema de avisos oficial.
 
 ### Decisiones abiertas para ti
 
