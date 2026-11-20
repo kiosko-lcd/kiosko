@@ -2,6 +2,7 @@
  * A form generated from a plugin's options schema (JSON Schema + `x-ui`
  * hints from @kiosko/sdk's `t` builder). Plugins get a good editor for free.
  */
+import { typed } from './ime.ts';
 import { useEffect, useState } from 'preact/hooks';
 import { api, type JsonSchema } from '../api.ts';
 import { Icon } from '../icons.tsx';
@@ -141,10 +142,10 @@ function Control({ id, name, schema, value, onChange }: { id: string; name: stri
   switch (schema.type) {
     case 'string':
       if (ui.widget === 'color') return <ColorInput id={id} value={String(value ?? '')} onChange={onChange} />;
-      if (ui.multiline) return <textarea id={id} class="input" rows={4} placeholder={ui.placeholder} value={String(value ?? '')} onInput={(e) => onChange((e.target as HTMLTextAreaElement).value)} />;
+      if (ui.multiline) return <textarea id={id} class="input" rows={4} placeholder={ui.placeholder} value={String(value ?? '')} {...typed((text) => onChange(text))} />;
       if (ui.secret) return <SecretInput id={id} value={String(value ?? '')} placeholder={ui.placeholder} onChange={onChange} />;
       if (ui.choices) return <ChoiceInput id={id} value={String(value ?? '')} placeholder={ui.placeholder} choices={ui.choices} onChange={onChange} />;
-      return <input id={id} class="input" type={ui.format === 'time' ? 'time' : ui.format === 'date' ? 'date' : 'text'} placeholder={ui.placeholder} value={String(value ?? '')} onInput={(e) => onChange((e.target as HTMLInputElement).value)} spellcheck={false} />;
+      return <input id={id} class="input" type={ui.format === 'time' ? 'time' : ui.format === 'date' ? 'date' : 'text'} placeholder={ui.placeholder} value={String(value ?? '')} {...typed((text) => onChange(text))} spellcheck={false} />;
     case 'integer':
     case 'number': {
       if (ui.unit === 'ms') return <DurationInput id={id} value={Number(value ?? 0)} min={schema.minimum} onChange={onChange} />;
@@ -451,7 +452,7 @@ function MapInput({ id, value, onChange }: { id: string; value: Record<string, s
         <div class="map-row">
           <input class="input mono" value={k} onInput={(e) => setRow(i, (e.target as HTMLInputElement).value, v)} />
           <Icon name="arrow-right" size={14} />
-          <input class="input" value={v} onInput={(e) => setRow(i, k, (e.target as HTMLInputElement).value)} />
+          <input class="input" value={v} {...typed((text) => setRow(i, k, text))} />
           <button type="button" class="icon-btn danger" onClick={() => onChange(Object.fromEntries(rows.filter((_, j) => j !== i)))}>
             <Icon name="x" size={14} />
           </button>

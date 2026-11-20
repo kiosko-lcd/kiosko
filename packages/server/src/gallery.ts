@@ -9,7 +9,7 @@
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { Runtime, composeWidget, normalize, type Config, type Registry } from '@kiosko/core';
+import { Runtime, SAMPLE_PLACES, composeWidget, localizeSample, normalize, type Config, type Registry } from '@kiosko/core';
 import { LANGUAGES, localize, themeById } from '@kiosko/sdk';
 
 /** A text in each language the gallery is painted in, by language id. */
@@ -29,11 +29,6 @@ export interface GalleryData {
 const HOME_URL = 'https://kioskolcd.dev/';
 const RELEASES_URL = 'https://github.com/kiosko-lcd/kiosko/releases/latest';
 
-/** Where the sample data says the user is, by language: a place its readers know. */
-const PLACES: Record<string, { latitude: number; longitude: number; name: string }> = {
-  'zh-Hant': { latitude: 25.033, longitude: 121.5654, name: '台北' },
-  'zh-Hans': { latitude: 31.2304, longitude: 121.4737, name: '上海' },
-};
 const MADRID = { latitude: 40.4168, longitude: -3.7038, name: 'Madrid' };
 
 /** The gallery page's own words. */
@@ -72,7 +67,7 @@ export function buildGallery(registry: Registry, o: { out: string; locale?: stri
   const pluginsOf = registry.list().filter(({ def, enabled }) => enabled && def.widgets?.length);
   for (const lang of langs) {
     mkdirSync(join(o.out, 'img', folder(lang.id)), { recursive: true });
-    const cfg = normalize({ locale: lang.locale, theme: theme.id, location: PLACES[lang.id] ?? MADRID });
+    const cfg = normalize({ locale: lang.locale, theme: theme.id, location: SAMPLE_PLACES[lang.id] ?? MADRID });
     const L = (x: Parameters<typeof localize>[0]) => localize(x, lang.locale);
     const up = folder(lang.id) ? '../' : '';
     const sections: string[] = [];
@@ -132,7 +127,7 @@ a.try{display:inline-block;margin-top:10px;padding:8px 14px;border-radius:10px;b
     }
     // The widgets speak the config's language: each picture is painted once in each.
     for (const l of langs) {
-      const rt = new Runtime(registry, { ...sample, locale: l.locale, location: PLACES[l.id] ?? sample.location ?? MADRID }, { demo: true });
+      const rt = new Runtime(registry, normalize({ ...localizeSample(sample, l.locale), locale: l.locale }), { demo: true });
       try {
         for (const listed of data.pages) {
           const page = screen!.pages.find((p) => p.id === listed.id)!;

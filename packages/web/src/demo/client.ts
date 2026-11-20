@@ -61,7 +61,7 @@ function viaWorker(url: string): Promise<RendererApi> {
       if ('ready' in data) {
         started = true;
         ready({
-          init: (stored) => call('init', [stored]),
+          init: (stored, locale) => call('init', [stored, locale]),
           apply: (config) => call('apply', [config]),
           state: () => call('state', []),
           preview: (screen, pageId, forceShown, demo) => call('preview', [screen, pageId, forceShown, demo]),

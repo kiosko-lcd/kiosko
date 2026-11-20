@@ -10,7 +10,7 @@
  * paint (no OffscreenCanvas or fonts there), the page imports it and uses
  * `DemoRenderer` directly. The editor side is src/demo/.
  */
-import { PANEL_PRESETS, Registry, Runtime, composeWidget, withLook, isWorking, normalize, pickPage, registerFonts, resolveLocale, whenMatches, type Config, type ThumbnailLook, type Screen } from '@kiosko/core';
+import { PANEL_PRESETS, Registry, Runtime, composeWidget, localizeSample, systemLocale, withLook, isWorking, normalize, pickPage, registerFonts, resolveLocale, whenMatches, type Config, type ThumbnailLook, type Screen } from '@kiosko/core';
 import { CATEGORIES, THEMES, localize, themeById } from '@kiosko/sdk';
 import serverPackage from '../../server/package.json' with { type: 'json' };
 import showcase from '../../../examples/showcase.json' with { type: 'json' };
@@ -55,12 +55,13 @@ export class DemoRenderer implements RendererApi {
     return this.runtime;
   }
 
-  async init(stored: unknown): Promise<{ config: Config; fromShowcase: boolean }> {
+  async init(stored: unknown, locale?: string): Promise<{ config: Config; fromShowcase: boolean }> {
     registerFonts();
     await fontsReady();
     const fromShowcase = !stored || typeof stored !== 'object' || !Array.isArray((stored as Config).screens);
     // The sample speaks the visitor's language (the showcase is in English for the README's pictures).
-    const config = normalize(fromShowcase ? { ...showcase, locale: 'auto' } : stored);
+    // `locale`: the page's (the front page in Chinese), else the visitor's.
+    const config = normalize(fromShowcase ? localizeSample({ ...(showcase as unknown as Config), locale: locale ?? 'auto' }, locale ?? systemLocale()) : stored);
     const rt = new Runtime(this.registry, config, { demo: true });
     rt.on('log', (e: LogEntry) => this.emit({ name: 'log', data: e }));
     this.runtime = rt;

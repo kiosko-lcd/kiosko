@@ -1,4 +1,5 @@
 /** Screens (physical panels): connection, resolution, rotation, burn-in care and interludes. */
+import { typed } from '../forms/ime.ts';
 import { useState } from 'preact/hooks';
 import { detectedPicture, isPortrait, newId, newScreen, panelSize, resizePages, setPanelSize, turnScreen, type DeviceConfig, type Screen } from '@kiosko/core/model';
 import { api } from '../api.ts';
@@ -135,7 +136,7 @@ function ScreenCard({ s }: { s: Screen }) {
     <section class="card screen-card">
       <div class="card-head">
         <PanelGlyph w={s.width} h={s.height} />
-        <input class="title-input" value={s.name} onInput={(e) => set((x) => (x.name = (e.target as HTMLInputElement).value), `sname-${s.id}`)} aria-label={tr('screens.name')} />
+        <input class="title-input" value={s.name} {...typed((text) => set((x) => (x.name = text), `sname-${s.id}`))} aria-label={tr('screens.name')} />
         <span class={`status-pill ${st?.device.ok ? 'ok' : 'bad'}`}>
           <span class="dot" /> {st ? deviceText(st.device) : '—'}
         </span>

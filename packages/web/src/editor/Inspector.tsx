@@ -1,4 +1,5 @@
 /** Right-hand panel: the selected tile, its widget stack and the widget's options; or the page settings. */
+import { typed } from '../forms/ime.ts';
 import { useState } from 'preact/hooks';
 import { ZOOM, type Tile, type When } from '@kiosko/core/model';
 import { api } from '../api.ts';
@@ -45,7 +46,7 @@ function PageInspector() {
         <div class="insp-kicker">
           <Icon name="file" size={13} /> {tr('inspector.page')}
         </div>
-        <input class="title-input" value={p.name} onInput={(e) => set((pg) => (pg.name = (e.target as HTMLInputElement).value), `page-name-${p.id}`)} aria-label={tr('inspector.name')} />
+        <input class="title-input" value={p.name} {...typed((text) => set((pg) => (pg.name = text), `page-name-${p.id}`))} aria-label={tr('inspector.name')} />
       </div>
       <p class="muted small">{tr('inspector.pageHint')}</p>
       <section>
@@ -180,7 +181,7 @@ function TileInspector({ t }: { t: Tile }) {
           <label class="field-label" for="w-title">
             {tr('inspector.title')}
           </label>
-          <input id="w-title" class="input" placeholder={tr('inspector.titlePh')} value={w.title ?? ''} onInput={(e) => setWidget((x) => (x.title = (e.target as HTMLInputElement).value || undefined), `title-${w.id}`)} />
+          <input id="w-title" class="input" placeholder={tr('inspector.titlePh')} value={w.title ?? ''} {...typed((text) => setWidget((x) => (x.title = text || undefined), `title-${w.id}`))} />
           {info?.options && Object.keys(info.options.properties ?? {}).length > 0 && (
             <>
               <h3>{tr('inspector.options')}</h3>

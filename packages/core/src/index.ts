@@ -6,6 +6,7 @@ export * from './config/jsonschema.ts';
 export * from './config/check.ts';
 export * from './config/diff.ts';
 export * from './config/review.ts';
+export * from './config/sample.ts';
 export * from './layout/index.ts';
 export * from './compositor.ts';
 export * from './animation.ts';

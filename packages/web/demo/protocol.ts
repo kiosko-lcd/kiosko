@@ -65,7 +65,7 @@ export interface ChoicesResult {
 
 export interface RendererApi {
   /** Loads fonts and plugins and starts from `stored` (or the showcase, if null or broken). */
-  init(stored: unknown): Promise<{ config: Config; fromShowcase: boolean }>;
+  init(stored: unknown, locale?: string): Promise<{ config: Config; fromShowcase: boolean }>;
   /** Normalizes and applies a config, as the server does on save. */
   apply(config: unknown): Promise<Config>;
   state(): Promise<RuntimeState>;

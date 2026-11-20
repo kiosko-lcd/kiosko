@@ -1,4 +1,5 @@
 /** Plugins, Settings and Activity views. */
+import { typed } from '../forms/ime.ts';
 import { useState } from 'preact/hooks';
 import { api, type AppState, type JsonSchema, type PluginInfo } from '../api.ts';
 import { SchemaForm, Toggle } from '../forms/SchemaForm.tsx';
@@ -407,7 +408,7 @@ export function Settings() {
           </h3>
           <p class="muted small">{tr('settings.locationHint')}</p>
           <div class="row">
-            <input class="input" placeholder={tr('settings.cityPh')} value={cfg.location?.name ?? ''} onInput={(e) => edit((d) => (d.location = { latitude: d.location?.latitude ?? 0, longitude: d.location?.longitude ?? 0, name: (e.target as HTMLInputElement).value }), 'loc-name')} />
+            <input class="input" placeholder={tr('settings.cityPh')} value={cfg.location?.name ?? ''} {...typed((text) => edit((d) => (d.location = { latitude: d.location?.latitude ?? 0, longitude: d.location?.longitude ?? 0, name: text }), 'loc-name'))} />
           </div>
           <div class="row">
             <input class="input num" type="number" step="0.0001" placeholder={tr('settings.lat')} aria-label={tr('settings.lat')} value={cfg.location?.latitude ?? ''} onInput={(e) => edit((d) => (d.location = { ...(d.location ?? { longitude: 0 }), latitude: Number((e.target as HTMLInputElement).value) }), 'loc-lat')} />

@@ -273,7 +273,7 @@ let booting: Promise<void> | null = null;
 function boot(): Promise<void> {
   return (booting ??= (async () => {
     api = await renderer();
-    const { config } = await api.init(null);
+    const { config } = await api.init(null, panelLocale());
     base = config as unknown as { screens: ShownScreen[] };
     bar = [...base.screens].sort((a, b) => b.width / b.height - a.width / a.height)[0] ?? null;
   })());

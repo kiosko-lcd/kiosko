@@ -175,7 +175,7 @@ async function feed(): Promise<void> {
 
 (async () => {
   api = await renderer();
-  const { config } = await api.init(stored());
+  const { config } = await api.init(stored(), q.get('lang') ?? undefined);
   const locale = q.get('lang');
   const applied = (locale ? await api.apply({ ...config, locale }) : config) as unknown as { screens: ScreenLike[] };
   // The most bar-shaped screen: that is what the panel on the desk is.
