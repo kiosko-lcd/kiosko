@@ -273,6 +273,8 @@ export const es: Dictionary = {
   'screens.textScaleHint': 'Todos los widgets de esta pantalla, más grandes o más pequeños (cada uno conserva su zoom).',
   'screens.diagonal': 'Diagonal (pulgadas)',
   'screens.diagonalHint': 'Solo para un panel que no está en la lista: da el tamaño de sus píxeles.',
+  'stage.trueSize': 'Tamaño real',
+  'stage.trueSizeHint': 'El panel a su tamaño real, según mide los milímetros tu monitor: lo que leas aquí desde tu sitio es, más o menos, lo que leerás en él.',
   'docs': 'Documentación',
   'settings.configFile': 'Configuración',
   'common.deleteItem': 'Borrar {name}',

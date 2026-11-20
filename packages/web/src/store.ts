@@ -28,6 +28,8 @@ export const toast = signal<{ text: string; kind: 'info' | 'error' | 'ok'; at: n
 /** UI theme of the editor itself (not the panel's). */
 export const uiTheme = signal<'dark' | 'light'>(readUiTheme());
 export const showGrid = signal(true);
+/** The panel drawn at its real size on the stage (in the monitor's CSS millimetres). */
+export const trueSize = signal(false);
 export const liveMode = signal(false);
 
 function readView(): View {

@@ -271,6 +271,8 @@ export const en = {
   'screens.textScaleHint': 'Every widget on this screen, bigger or smaller (each keeps its own zoom too).',
   'screens.diagonal': 'Diagonal (inches)',
   'screens.diagonalHint': 'Only for a panel that is not in the list: it gives the size of its pixels.',
+  'stage.trueSize': 'Real size',
+  'stage.trueSizeHint': 'The panel at its real size, as your monitor measures millimetres: what you can read here from where you sit is roughly what you\'ll read on it.',
   'docs': 'Documentation',
   'settings.configFile': 'Configuration',
   'common.deleteItem': 'Delete {name}',

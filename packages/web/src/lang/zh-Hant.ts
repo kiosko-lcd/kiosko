@@ -273,6 +273,8 @@ export const zhHant: Dictionary = {
   'screens.textScaleHint': '這個螢幕上的所有小工具一起放大或縮小（各自的縮放仍然保留）。',
   'screens.diagonal': '對角線（吋）',
   'screens.diagonalHint': '只有清單中沒有的面板才需要：用來算出像素的大小。',
+  'stage.trueSize': '實際大小',
+  'stage.trueSizeHint': '以面板的實際大小顯示（依你的螢幕換算公釐）：你坐在原位在這裡看得清楚的，大致就是在面板上看得清楚的。',
   'docs': '說明文件',
   'settings.configFile': '設定檔',
   'common.deleteItem': '刪除 {name}',

@@ -5,7 +5,7 @@ import { useEffect, useState } from 'preact/hooks';
 import { api } from '../api.ts';
 import { Icon } from '../icons.tsx';
 import { tr } from '../i18n.ts';
-import { app, canRedo, canUndo, widgets, draftPage, draftScreen, edit, go, lastFrame, liveMode, page, pageId, redo, screen, selectedTile, showGrid, status, undo } from '../store.ts';
+import { app, canRedo, canUndo, widgets, draftPage, draftScreen, edit, go, lastFrame, liveMode, page, pageId, redo, screen, selectedTile, showGrid, status, trueSize, undo } from '../store.ts';
 import { Inspector } from './Inspector.tsx';
 import { Library } from './Library.tsx';
 import { Stage } from './Stage.tsx';
@@ -101,6 +101,9 @@ function Toolbar() {
       <Shortcuts />
       <button class={`btn ghost small ${showGrid.value ? 'active' : ''}`} onClick={() => (showGrid.value = !showGrid.value)} aria-pressed={showGrid.value}>
         <Icon name="grid-3x3" size={14} /> <span class="hide-sm hide-md">{tr('stage.grid')}</span>
+      </button>
+      <button class={`btn ghost small ${trueSize.value ? 'active' : ''}`} onClick={() => (trueSize.value = !trueSize.value)} aria-pressed={trueSize.value} title={tr('stage.trueSizeHint')}>
+        <Icon name="ruler" size={14} /> <span class="hide-sm hide-md">{tr('stage.trueSize')}</span>
       </button>
       {KIOSKO_DEMO ? <DemoLiveOff label={tr('stage.live')} /> : <button class={`btn small ${liveMode.value ? 'live-on' : 'ghost'}`} onClick={() => {
         liveMode.value = !liveMode.value;
