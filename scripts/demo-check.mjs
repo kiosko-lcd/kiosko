@@ -494,7 +494,7 @@ async function frontPage(browser, name) {
     for (const l of langs) {
       const r = await fetch(l.dir || './');
       const html = r.ok ? await r.text() : '';
-      out.push({ id: l.id, ok: r.ok && html.includes(`<html lang="${l.id}">`) && langs.every((o) => html.includes(`hreflang="${o.id}"`)) });
+      out.push({ id: l.id, ok: r.ok && html.includes(`<html lang="${l.id}" `) && langs.every((o) => html.includes(`hreflang="${o.id}"`)) });
     }
     return out;
   }, FRONT_LANGS.map(({ id, dir }) => ({ id, dir })));
