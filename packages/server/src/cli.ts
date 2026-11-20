@@ -12,7 +12,8 @@
 import { spawn } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { Registry, Runtime, installSdkResolver, listUsb, loadConfig, paths, saveConfig, type Config } from '@kiosko/core';
+import { Registry, Runtime, cjkFontStatus, installSdkResolver, listUsb, loadConfig, paths, resolveLocale, saveConfig, type Config } from '@kiosko/core';
+import { hanScript } from '@kiosko/sdk';
 import { BUILTIN_PLUGINS, OFFICIAL_PLUGINS } from './builtin.ts';
 import { configCommand } from './config-cli.ts';
 import { pluginsCommand } from './plugins-cli.ts';
@@ -109,6 +110,11 @@ async function main(): Promise<void> {
       const url = `http://${host === '0.0.0.0' ? '127.0.0.1' : host}:${port}/`;
       console.log(`Kiosko ${VERSION} — editor at ${url}`);
       console.log(`config: ${path}`);
+      const locale = resolveLocale(cfg);
+      if (hanScript(locale)) {
+        const fonts = cjkFontStatus(locale);
+        if (!fonts.ok) console.warn(`fonts: ${fonts.line}`);
+      }
       if (flag('--open')) openBrowser(url);
       const stop = () => {
         rt.stop();
@@ -202,6 +208,8 @@ async function main(): Promise<void> {
       console.log(`Kiosko ${VERSION} on ${process.platform}/${process.arch}, Node ${process.version}`);
       console.log(`config  ${path} ${exists ? (error ? `INVALID: ${error}` : 'ok') : '(not created yet)'}`);
       console.log(`plugins ${reg.list().map((p) => p.def.id).join(', ')}`);
+      const fonts = cjkFontStatus(resolveLocale(cfg));
+      console.log(`fonts   ${fonts.ok ? '' : '✗ '}${fonts.line}`);
       for (const p of reg.problems) console.log(`  ✗ ${p.origin}: ${p.message}`);
       const usb = await listUsb();
       if (!usb.ok) console.log(`usb     not available: ${usb.error}`);

@@ -507,3 +507,9 @@ cd ../kiosko && npm install && npm run dev:link
 
 MIT. Icons: [Lucide](https://lucide.dev) (ISC). Fonts: DejaVu (Bitstream Vera
 licence).
+
+Chinese, Japanese and Korean characters on the panel use the system's font
+(Microsoft JhengHei/YaHei on Windows, PingFang on macOS, Noto Sans CJK on
+Linux; `sudo apt install fonts-noto-cjk` if it is missing). An `.otf` dropped
+into the `fonts/` folder of Kiosko's home (`~/.config/kiosko/fonts` on Linux)
+is used first. `kiosko doctor` says which one draws them.

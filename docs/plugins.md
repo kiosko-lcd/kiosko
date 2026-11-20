@@ -204,6 +204,12 @@ Rules of thumb that come from running these panels 24/7:
 - **Fit text, don't overflow it**: `kit.fitSize`, `kit.truncate`,
   `kit.wrapLines`. Test the smallest size you declare.
 - **Fonts have no emoji.** Draw icons with `kit` or canvas paths.
+- **Chinese, Japanese and Korean just work.** Kiosko puts a CJK font behind
+  every font you set (`ctx.font`, `kit`, any canvas), picked for the user's
+  language: Traditional for Taiwan and Hong Kong, Simplified for mainland
+  China, since the same character is drawn differently. Use
+  `ctx.theme.fonts`; don't register CJK fonts of your own. Bold CJK comes
+  out bold with `sansBold`/`monoBold`.
 
 ## Options schema (`t`)
 
