@@ -28,7 +28,7 @@ docker run --rm \
   -v "$out:/out" \
   "$image" bash -euo pipefail -c '
     # The editor asks for Inter; without it each machine falls back to its own font.
-    apt-get update -qq >/dev/null && apt-get install -y -qq fonts-inter >/dev/null
+    apt-get update -qq >/dev/null && apt-get install -y -qq fonts-inter fonts-noto-cjk >/dev/null
     git config --global --add safe.directory "*"
     # A committed repo, then its working tree on top (tracked and untracked, not ignored).
     take() {
