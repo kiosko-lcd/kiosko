@@ -2,7 +2,7 @@ import { render } from 'preact';
 import { effect } from '@preact/signals';
 import { Editor } from './editor/Editor.tsx';
 import { Icon } from './icons.tsx';
-import { tr, uiLanguage } from './i18n.ts';
+import { t, tr, uiLanguage } from './i18n.ts';
 import { app, boot, config, go, online, pageId, saveError, saving, screen, screenId, selectedTile, status, toast, view, type View } from './store.ts';
 import { Screens } from './views/Screens.tsx';
 import { Logs, Plugins, Settings } from './views/Others.tsx';
@@ -76,7 +76,7 @@ function TopBar() {
       <div class="tb-spacer" />
       {!KIOSKO_DEMO && app.value?.demo && <span class="demo-pill" title="kiosko start --demo">DEMO</span>}
       <SaveState />
-      <a class="icon-btn" href="https://github.com/kiosko-lcd/kiosko#readme" target="_blank" rel="noreferrer" title="Docs">
+      <a class="icon-btn" href="https://github.com/kiosko-lcd/kiosko#readme" target="_blank" rel="noreferrer" title={tr('docs')}>
         <Icon name="book-open" size={17} />
       </a>
     </header>
@@ -85,7 +85,7 @@ function TopBar() {
 
 function Rail() {
   return (
-    <nav class="rail" aria-label="main">
+    <nav class="rail" aria-label={tr('nav.main')}>
       {NAV.map((n) => (
         <button class={`rail-btn ${view.value === n.id ? 'on' : ''}`} data-view={n.id} onClick={() => go(n.id)} title={tr(`nav.${n.id}`)} aria-current={view.value === n.id}>
           <Icon name={n.icon} size={20} />
@@ -151,5 +151,5 @@ boot()
     if (KIOSKO_DEMO && touring()) startTour();
   })
   .catch((err) => {
-    document.getElementById('app')!.innerHTML = KIOSKO_DEMO ? demoBootError(err) : `<div class="boot-error"><h1>Kiosko</h1><p>Cannot reach the Kiosko service: ${String(err)}</p></div>`;
+    document.getElementById('app')!.innerHTML = KIOSKO_DEMO ? demoBootError(err) : `<div class="boot-error"><h1>Kiosko</h1><p>${t('bootError', { error: String(err) })}</p></div>`;
   });

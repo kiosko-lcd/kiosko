@@ -341,6 +341,24 @@ async function fullCheck(browser) {
   await page.waitForTimeout(1500);
   await shot(page, 'demo-editor-es.jpg');
 
+  // Traditional Chinese: the editor's own words, the plugins' and the page's language (glyphs, CSS).
+  await page.locator('.rail-btn').nth(3).click();
+  await page.locator('.segmented button', { hasText: '繁體中文' }).click();
+  await page.waitForFunction(() => document.querySelector('.demo-banner')?.textContent?.includes('Kiosko 編輯器'), null, { timeout: 15_000 }).catch(() => undefined);
+  await page.locator('.rail-btn').nth(0).click();
+  await page.waitForFunction(() => [...document.querySelectorAll('.lib-name')].some((e) => e.textContent?.includes('時鐘')), null, { timeout: 15_000 }).catch(() => undefined);
+  const zh = await page.evaluate(() => ({
+    lang: document.documentElement.lang,
+    rail: [...document.querySelectorAll('.rail-btn')].map((e) => e.textContent?.trim()),
+    names: [...document.querySelectorAll('.lib-name')].map((e) => e.textContent?.trim()),
+  }));
+  check('editor in Traditional Chinese', zh.lang === 'zh-Hant' && zh.rail.includes('編輯器') && zh.names.includes('時鐘'), `lang ${zh.lang}, ${zh.rail.join(' ')}, ${zh.names.slice(0, 4).join(', ')}`);
+  await page.waitForTimeout(1500);
+  await shot(page, 'demo-editor-zh-Hant.jpg');
+  await page.locator('.rail-btn').nth(3).click();
+  await page.locator('.segmented button', { hasText: 'Español' }).click();
+  await page.locator('.rail-btn').nth(0).click();
+
   // Plugins page: every plugin listed.
   await page.locator('.rail-btn').nth(2).click();
   await page.waitForSelector('.plugin-card');
@@ -394,7 +412,7 @@ async function fullCheck(browser) {
   cfg = await stored(page);
   const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   const layout = (c) => c?.screens.map((s) => s.pages.map((p) => p.tiles.map((t) => [t.id, t.x, t.y, t.w, t.h])));
-  const restored = cfg === null || (same(layout(cfg), layout(showcase)) && cfg.locale === 'en' && cfg.theme === 'midnight');
+  const restored = cfg === null || (same(layout(cfg), layout(showcase)) && cfg.locale === 'auto' && cfg.theme === 'midnight');
   const bannerEn = await page.locator('.demo-banner').innerText();
   check('Reset demo restores the showcase', restored && /sample data/.test(bannerEn), cfg === null ? 'nothing stored' : 'stored config equals the showcase');
 

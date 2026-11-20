@@ -6,7 +6,7 @@
  * behave like two tabs of the real editor (the second save gets a
  * conflict and reloads).
  */
-import { localize } from '@kiosko/sdk/i18n';
+import { localize, type Localized } from '@kiosko/sdk/i18n';
 import type { Config, Screen } from '@kiosko/core/model';
 import type { AppState, Status, api as httpApi, connectEvents as httpConnectEvents } from '../api.ts';
 import { DEMO_CONFIG_KEY, type RendererApi, type RendererEvent } from '../../demo/protocol.ts';
@@ -104,14 +104,14 @@ function start(): Promise<RendererApi> {
 async function state(): Promise<AppState> {
   const r = await start();
   const s = await r.state();
-  const L = (t: { en: string; es: string }) => localize(t, s.locale);
+  const L = (t: Localized) => localize(t, s.locale);
   return {
     ...s,
     rev: current!.rev,
     config: current!.config,
     paths: {
-      config: L({ en: `this browser's localStorage ("${STORAGE_KEY}")`, es: `localStorage de este navegador («${STORAGE_KEY}»)` }),
-      plugins: L({ en: 'bundled with the demo', es: 'incluidos en la demo' }),
+      config: L({ en: `this browser's localStorage ("${STORAGE_KEY}")`, es: `localStorage de este navegador («${STORAGE_KEY}»)`, 'zh-Hant': `這個瀏覽器的 localStorage（「${STORAGE_KEY}」）`, 'zh-Hans': `此浏览器的 localStorage（“${STORAGE_KEY}”）` }),
+      plugins: L({ en: 'bundled with the demo', es: 'incluidos en la demo', 'zh-Hant': '內建於示範中', 'zh-Hans': '内置于演示中' }),
       home: '',
     },
     restartNeeded: false,

@@ -3,7 +3,7 @@ import { useState } from 'preact/hooks';
 import { api, type AppState, type JsonSchema, type PluginInfo } from '../api.ts';
 import { SchemaForm, Toggle } from '../forms/SchemaForm.tsx';
 import { Icon } from '../icons.tsx';
-import { UI_LANGUAGES, fmtMs, tr } from '../i18n.ts';
+import { UI_LANGUAGES, clock, count, dateTime, errorText, fmtMs, t, tr, weekOrder } from '../i18n.ts';
 import { app, config, edit, logs, notify, setUiTheme, status, uiTheme } from '../store.ts';
 import { DemoNote } from '../demo/ui.tsx';
 
@@ -18,7 +18,7 @@ async function pluginAction(run: () => Promise<AppState | { state: AppState; pro
     const problem = 'problem' in r ? r.problem : null;
     notify(problem ?? done, problem ? 'error' : 'ok');
   } catch (err) {
-    notify(String(err instanceof Error ? err.message : err), 'error');
+    notify(errorText(err), 'error');
   }
 }
 
@@ -67,7 +67,7 @@ function Updates() {
       else if (r.addedPermissions && Object.keys(r.addedPermissions).length) notify(tr('updates.morePermissions').replace('{name}', nameOf(id)).replace('{v}', r.version).replace('{what}', permissionsLine(r.addedPermissions)), 'ok');
       else notify(tr('updates.done').replace('{name}', nameOf(id)).replace('{v}', r.version), 'ok');
     } catch (err) {
-      notify(String(err instanceof Error ? err.message : err), 'error');
+      notify(errorText(err), 'error');
     } finally {
       setBusy(null);
     }
@@ -112,7 +112,7 @@ function Updates() {
               <span class="small">{p.blocked}</span>
             </div>
           ))}
-          <p class="muted small">{tr('updates.checked').replace('{at}', new Date(u.checkedAt).toLocaleString(a.locale))}</p>
+          <p class="muted small">{t('updates.checked', { at: dateTime(u.checkedAt) })}</p>
         </section>
       )}
     </>
@@ -252,9 +252,9 @@ export default definePlugin({
               </div>
             ))}
             <div class="plugin-stats">
-              {p.widgets.length > 0 && <span>{p.widgets.length} {tr('plugins.widgets')}</span>}
-              {p.sources.length > 0 && <span>{p.sources.length} {tr('plugins.sources')}</span>}
-              {p.interludes.length > 0 && <span>{p.interludes.length} {tr('plugins.interludes')}</span>}
+              {p.widgets.length > 0 && <span>{count('plugins.widgets', p.widgets.length)}</span>}
+              {p.sources.length > 0 && <span>{count('plugins.sources', p.sources.length)}</span>}
+              {p.interludes.length > 0 && <span>{count('plugins.interludes', p.interludes.length)}</span>}
             </div>
             <div class="plugin-widgets">
               {p.widgets.map((w) => (
@@ -406,11 +406,11 @@ export function Settings() {
           </h3>
           <p class="muted small">{tr('settings.locationHint')}</p>
           <div class="row">
-            <input class="input" placeholder="Madrid" value={cfg.location?.name ?? ''} onInput={(e) => edit((d) => (d.location = { latitude: d.location?.latitude ?? 0, longitude: d.location?.longitude ?? 0, name: (e.target as HTMLInputElement).value }), 'loc-name')} />
+            <input class="input" placeholder={tr('settings.cityPh')} value={cfg.location?.name ?? ''} onInput={(e) => edit((d) => (d.location = { latitude: d.location?.latitude ?? 0, longitude: d.location?.longitude ?? 0, name: (e.target as HTMLInputElement).value }), 'loc-name')} />
           </div>
           <div class="row">
-            <input class="input num" type="number" step="0.0001" placeholder="lat" value={cfg.location?.latitude ?? ''} onInput={(e) => edit((d) => (d.location = { ...(d.location ?? { longitude: 0 }), latitude: Number((e.target as HTMLInputElement).value) }), 'loc-lat')} />
-            <input class="input num" type="number" step="0.0001" placeholder="lon" value={cfg.location?.longitude ?? ''} onInput={(e) => edit((d) => (d.location = { ...(d.location ?? { latitude: 0 }), longitude: Number((e.target as HTMLInputElement).value) }), 'loc-lon')} />
+            <input class="input num" type="number" step="0.0001" placeholder={tr('settings.lat')} aria-label={tr('settings.lat')} value={cfg.location?.latitude ?? ''} onInput={(e) => edit((d) => (d.location = { ...(d.location ?? { longitude: 0 }), latitude: Number((e.target as HTMLInputElement).value) }), 'loc-lat')} />
+            <input class="input num" type="number" step="0.0001" placeholder={tr('settings.lon')} aria-label={tr('settings.lon')} value={cfg.location?.longitude ?? ''} onInput={(e) => edit((d) => (d.location = { ...(d.location ?? { latitude: 0 }), longitude: Number((e.target as HTMLInputElement).value) }), 'loc-lon')} />
             <button class="btn ghost small" onClick={() => navigator.geolocation?.getCurrentPosition((p) => edit((d) => (d.location = { ...(d.location ?? {}), latitude: +p.coords.latitude.toFixed(4), longitude: +p.coords.longitude.toFixed(4) })), (err) => notify(err.message, 'error'))}>
               <Icon name="locate-fixed" size={14} /> {tr('settings.useMine')}
             </button>
@@ -420,7 +420,7 @@ export function Settings() {
           </h3>
           <p class="muted small">{tr('settings.workdayHint')}</p>
           <div class="days">
-            {[1, 2, 3, 4, 5, 6, 0].map((d) => (
+            {weekOrder().map((d) => (
               <button class={`day ${cfg.workday.days.includes(d) ? 'on' : ''}`} onClick={() => edit((c) => (c.workday.days = c.workday.days.includes(d) ? c.workday.days.filter((x) => x !== d) : [...c.workday.days, d].sort()))}>
                 {days[d]}
               </button>
@@ -460,9 +460,9 @@ export function Settings() {
             <Icon name="folder" size={16} /> {tr('settings.files')}
           </h3>
           <dl class="paths">
-            <dt>config</dt>
+            <dt>{tr('settings.configFile')}</dt>
             <dd class="mono">{a.paths.config}</dd>
-            <dt>plugins</dt>
+            <dt>{tr('nav.plugins')}</dt>
             <dd class="mono">{a.paths.plugins}</dd>
           </dl>
           <p class="muted small">
@@ -498,7 +498,7 @@ function SourceRow({ s }: { s: PluginInfo['sources'][number] }) {
         <code class="muted">{s.type}</code>
         {every && <span class="muted small">· {every}</span>}
         {!open && <span class="source-desc muted small">{s.description}</span>}
-        {st && <span class={`status-pill ${st.ok ? 'ok' : 'bad'}`} title={st.error ?? ''}><span class="dot" /> {st.ok ? (st.updatedAt ? new Date(st.updatedAt).toLocaleTimeString() : '…') : st.error}</span>}
+        {st && <span class={`status-pill ${st.ok ? 'ok' : 'bad'}`} title={st.error ?? ''}><span class="dot" /> {st.ok ? (st.updatedAt ? clock(st.updatedAt, { seconds: true }) : '…') : st.error}</span>}
       </button>
       {open && (
         <div class="source-body">
@@ -514,12 +514,12 @@ function SourceRow({ s }: { s: PluginInfo['sources'][number] }) {
 const HA_SCHEMA: JsonSchema = {
   type: 'object',
   properties: {
-    enabled: { type: 'boolean', default: false, 'x-ui': { label: { en: 'Show Kiosko in Home Assistant', es: 'Mostrar Kiosko en Home Assistant' } } },
-    broker: { type: 'string', default: '', 'x-ui': { label: { en: 'MQTT broker', es: 'Bróker MQTT' }, placeholder: 'mqtt://homeassistant.local:1883', help: { en: "The one Home Assistant uses (its Mosquitto add-on, usually): mqtt://host:1883, or mqtts:// for TLS.", es: 'El que usa Home Assistant (normalmente su complemento Mosquitto): mqtt://host:1883, o mqtts:// con TLS.' } } },
-    username: { type: 'string', default: '', 'x-ui': { label: { en: 'User', es: 'Usuario' }, help: { en: 'A Home Assistant user works with the Mosquitto add-on; a dedicated one is better.', es: 'Con el complemento Mosquitto vale un usuario de Home Assistant; mejor uno solo para esto.' } } },
-    password: { type: 'string', default: '', 'x-ui': { label: { en: 'Password', es: 'Contraseña' }, secret: true } },
-    nodeId: { type: 'string', default: 'kiosko', 'x-ui': { advanced: true, label: { en: 'Id in the topics', es: 'Id en los temas' }, help: { en: 'kiosko/<id>/…: change it if two machines run Kiosko.', es: 'kiosko/<id>/…: cámbialo si dos máquinas tienen Kiosko.' } } },
-    discoveryPrefix: { type: 'string', default: 'homeassistant', 'x-ui': { advanced: true, label: { en: 'Discovery prefix', es: 'Prefijo de descubrimiento' }, help: { en: "Home Assistant's, unless you changed it.", es: 'El de Home Assistant, salvo que lo cambiaras.' } } },
+    enabled: { type: 'boolean', default: false, 'x-ui': { label: { en: 'Show Kiosko in Home Assistant', es: 'Mostrar Kiosko en Home Assistant', 'zh-Hant': '在 Home Assistant 中顯示 Kiosko', 'zh-Hans': '在 Home Assistant 中显示 Kiosko' } } },
+    broker: { type: 'string', default: '', 'x-ui': { label: { en: 'MQTT broker', es: 'Bróker MQTT', 'zh-Hant': 'MQTT 代理伺服器', 'zh-Hans': 'MQTT 代理服务器' }, placeholder: 'mqtt://homeassistant.local:1883', help: { en: "The one Home Assistant uses (its Mosquitto add-on, usually): mqtt://host:1883, or mqtts:// for TLS.", es: 'El que usa Home Assistant (normalmente su complemento Mosquitto): mqtt://host:1883, o mqtts:// con TLS.', 'zh-Hant': "Home Assistant 使用的那一個（通常是它的 Mosquitto 附加元件）：mqtt://host:1883，TLS 則用 mqtts://。", 'zh-Hans': "即 Home Assistant 所用的那个（通常是其 Mosquitto 加载项）：mqtt://host:1883，使用 TLS 时为 mqtts://。" } } },
+    username: { type: 'string', default: '', 'x-ui': { label: { en: 'User', es: 'Usuario', 'zh-Hant': '使用者名稱', 'zh-Hans': '用户名' }, help: { en: 'A Home Assistant user works with the Mosquitto add-on; a dedicated one is better.', es: 'Con el complemento Mosquitto vale un usuario de Home Assistant; mejor uno solo para esto.', 'zh-Hant': '搭配 Mosquitto 附加元件時，可以使用 Home Assistant 的使用者；最好另建一個專用的。', 'zh-Hans': '配合 Mosquitto 加载项时可以使用 Home Assistant 用户；最好单独建一个专用用户。' } } },
+    password: { type: 'string', default: '', 'x-ui': { label: { en: 'Password', es: 'Contraseña', 'zh-Hant': '密碼', 'zh-Hans': '密码' }, secret: true } },
+    nodeId: { type: 'string', default: 'kiosko', 'x-ui': { advanced: true, label: { en: 'Id in the topics', es: 'Id en los temas', 'zh-Hant': '主題中的 ID', 'zh-Hans': '主题中的 ID' }, help: { en: 'kiosko/<id>/…: change it if two machines run Kiosko.', es: 'kiosko/<id>/…: cámbialo si dos máquinas tienen Kiosko.', 'zh-Hant': 'kiosko/<id>/…：如果有兩台電腦都在執行 Kiosko，請更改此值。', 'zh-Hans': 'kiosko/<id>/…：如果有两台机器都在运行 Kiosko，请修改此值。' } } },
+    discoveryPrefix: { type: 'string', default: 'homeassistant', 'x-ui': { advanced: true, label: { en: 'Discovery prefix', es: 'Prefijo de descubrimiento', 'zh-Hant': '探索前綴', 'zh-Hans': '发现前缀' }, help: { en: "Home Assistant's, unless you changed it.", es: 'El de Home Assistant, salvo que lo cambiaras.', 'zh-Hant': "沿用 Home Assistant 的設定，除非你改過。", 'zh-Hans': "沿用 Home Assistant 的设置，除非你改过。" } } },
   },
 };
 
@@ -566,13 +566,13 @@ function WorkdayMore({ days }: { days: string[] }) {
           const n = num((e.target as HTMLInputElement).value);
           if (n !== undefined) edit((d) => (d.workday.hours = n), 'wd-h');
         }} />
-        <span class="muted small">h</span>
+        <span class="muted small">{tr('unit.hoursShort')}</span>
       </div>
       <p class="muted small">{tr('settings.hoursHint')}</p>
       <label class="field-label">{tr('settings.byDay')}</label>
       <p class="muted small">{tr('settings.byDayHint')}</p>
       {Object.keys(byDay)
-        .sort((a, b) => ((Number(a) + 6) % 7) - ((Number(b) + 6) % 7))
+        .sort((a, b) => weekOrder().indexOf(Number(a)) - weekOrder().indexOf(Number(b)))
         .map((day) => (
           <div class="row">
             <span class="day on">{days[Number(day)]}</span>
@@ -580,7 +580,7 @@ function WorkdayMore({ days }: { days: string[] }) {
             <span class="muted small">–</span>
             <input class="input" type="time" value={byDay[day]?.end ?? ''} onInput={(e) => setDay(day, 'end', (e.target as HTMLInputElement).value)} aria-label={tr('settings.to')} />
             <input class="input num" type="number" min={0} max={24} step={0.25} placeholder={String(w.hours ?? 8)} value={byDay[day]?.hours ?? ''} onInput={(e) => setDay(day, 'hours', (e.target as HTMLInputElement).value)} aria-label={tr('settings.hours')} />
-            <span class="muted small">h</span>
+            <span class="muted small">{tr('unit.hoursShort')}</span>
             <button class="icon-btn danger" title={tr('common.delete')} onClick={() => edit((d) => {
               const next = { ...(d.workday.byDay ?? {}) };
               delete next[day];
@@ -596,7 +596,7 @@ function WorkdayMore({ days }: { days: string[] }) {
         if (day) edit((d) => (d.workday.byDay = { ...(d.workday.byDay ?? {}), [day]: {} }));
       }}>
         <option value="">{tr('settings.addDay')}</option>
-        {[1, 2, 3, 4, 5, 6, 0].filter((d) => !(String(d) in byDay)).map((d) => (
+        {weekOrder().filter((d) => !(String(d) in byDay)).map((d) => (
           <option value={String(d)}>{days[d]}</option>
         ))}
       </select>
@@ -637,7 +637,7 @@ export function Logs() {
         {!list.length && <div class="muted">{tr('logs.empty')}</div>}
         {list.map((l) => (
           <div class={`log-line ${/fail|error|cannot|not answering/i.test(l.message) ? 'bad' : ''}`}>
-            <span class="log-time mono">{new Date(l.at).toLocaleTimeString()}</span>
+            <span class="log-time mono">{clock(l.at, { seconds: true })}</span>
             <span class="log-scope mono">{l.scope}</span>
             <span class="log-msg">{l.message}</span>
           </div>

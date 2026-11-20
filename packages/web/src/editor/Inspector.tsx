@@ -4,7 +4,7 @@ import { ZOOM, type Tile, type When } from '@kiosko/core/model';
 import { api } from '../api.ts';
 import { DurationInput, SchemaForm, Toggle } from '../forms/SchemaForm.tsx';
 import { Icon } from '../icons.tsx';
-import { tr } from '../i18n.ts';
+import { clock, t, tr } from '../i18n.ts';
 import { app, draftPage, draftTile, edit, page, screen, selectedTile, selectedWidget, status, tile, widget, widgets } from '../store.ts';
 import { deleteTile, duplicateTile } from './Stage.tsx';
 
@@ -52,7 +52,7 @@ function PageInspector() {
         <h3>{tr('inspector.background')}</h3>
         <div class="color-row">
           <input type="color" value={p.background.color || '#05080d'} onInput={(e) => set((pg) => (pg.background.color = (e.target as HTMLInputElement).value), 'bg')} aria-label={tr('inspector.background')} />
-          <input class="input mono" placeholder="theme" value={p.background.color ?? ''} onInput={(e) => set((pg) => (pg.background.color = (e.target as HTMLInputElement).value || undefined), 'bg')} />
+          <input class="input mono" placeholder={tr('inspector.bgPh')} value={p.background.color ?? ''} onInput={(e) => set((pg) => (pg.background.color = (e.target as HTMLInputElement).value || undefined), 'bg')} />
         </div>
         <label class="field-label">{tr('inspector.bgImage')}</label>
         <input class="input" value={p.background.image ?? ''} placeholder="/home/me/wallpaper.jpg" onInput={(e) => set((pg) => (pg.background.image = (e.target as HTMLInputElement).value || undefined), 'bgimg')} />
@@ -305,7 +305,7 @@ function DataStatus({ id, sources, hasFetch }: { id: string; sources: string[]; 
         <div class={`data-row ${r.ok ? (r.updatedAt ? 'ok' : 'wait') : 'bad'}`} title={r.error ?? ''}>
           <span class="dot" />
           <code>{'type' in r ? r.type : ''}</code>
-          <span>{!r.ok ? r.error : r.updatedAt ? `${tr('data.updated')} ${new Date(r.updatedAt).toLocaleTimeString()}` : tr('data.waiting')}</span>
+          <span>{!r.ok ? r.error : r.updatedAt ? t('data.updated', { time: clock(r.updatedAt) }) : tr('data.waiting')}</span>
         </div>
       ))}
       {paint && (

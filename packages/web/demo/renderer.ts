@@ -59,13 +59,19 @@ export class DemoRenderer implements RendererApi {
     registerFonts();
     await fontsReady();
     const fromShowcase = !stored || typeof stored !== 'object' || !Array.isArray((stored as Config).screens);
-    const config = normalize(fromShowcase ? showcase : stored);
+    // The sample speaks the visitor's language (the showcase is in English for the README's pictures).
+    const config = normalize(fromShowcase ? { ...showcase, locale: 'auto' } : stored);
     const rt = new Runtime(this.registry, config, { demo: true });
     rt.on('log', (e: LogEntry) => this.emit({ name: 'log', data: e }));
     this.runtime = rt;
     rt.apply(config);
     const n = this.registry.list().length;
-    rt.log('demo', `browser demo: ${n} plugins, sample data; nothing is read from this computer`);
+    rt.log('demo', localize({
+      en: `browser demo: ${n} plugins, sample data; nothing is read from this computer`,
+      es: `demo en el navegador: ${n} plugins, datos de muestra; no se lee nada de este ordenador`,
+      'zh-Hant': `瀏覽器示範：${n} 個外掛，範例資料；不會讀取這台電腦上的任何東西`,
+      'zh-Hans': `浏览器演示：${n} 个插件，示例数据；不会读取这台电脑上的任何内容`,
+    }, resolveLocale(config)));
     if (MISSING_OFFICIAL.length) rt.log('demo', `official plugins not bundled: ${MISSING_OFFICIAL.join(', ')}`);
     for (const p of this.registry.problems) rt.log('demo', `plugin ${p.origin}: ${p.message}`);
     this.tick();
@@ -169,7 +175,7 @@ export class DemoRenderer implements RendererApi {
   private status(): RuntimeState['status'] {
     const st = this.rt.status();
     const locale = resolveLocale(this.rt.config);
-    const noPanel = localize({ en: 'browser demo: no panel here', es: 'demo en el navegador: aquí no hay panel' }, locale);
+    const noPanel = localize({ en: 'browser demo: no panel here', es: 'demo en el navegador: aquí no hay panel', 'zh-Hant': '瀏覽器示範：這裡沒有面板', 'zh-Hans': '浏览器演示：这里没有屏幕' }, locale);
     return {
       ...st,
       screens: st.screens.map((s) => {

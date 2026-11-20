@@ -292,6 +292,8 @@ export class Registry {
         icon: w.icon,
         category: w.category ?? 'info',
         tags: w.tags ?? [],
+        /** Its name and description in every language it has, so a search in any of them finds it. */
+        searchText: [w.name, w.description].flatMap((x) => (x === undefined ? [] : typeof x === 'string' ? [x] : Object.values(x))).join(' '),
         size: w.size ?? {},
         chrome: w.chrome ?? 'card',
         options: w.options ? toJsonSchema(w.options) : null,

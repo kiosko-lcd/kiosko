@@ -5,7 +5,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import { api, type JsonSchema } from '../api.ts';
 import { Icon } from '../icons.tsx';
-import { loc, tr } from '../i18n.ts';
+import { loc, t, tr } from '../i18n.ts';
 
 type Value = unknown;
 
@@ -208,10 +208,10 @@ export function Toggle({ id, checked, onChange }: { id?: string; checked: boolea
 function ColorInput({ id, value, onChange }: { id: string; value: string; onChange: (v: string) => void }) {
   return (
     <div class="color-row">
-      <input type="color" value={/^#[0-9a-f]{6}$/i.test(value) ? value : '#000000'} onInput={(e) => onChange((e.target as HTMLInputElement).value)} aria-label="colour" />
+      <input type="color" value={/^#[0-9a-f]{6}$/i.test(value) ? value : '#000000'} onInput={(e) => onChange((e.target as HTMLInputElement).value)} aria-label={tr('form.colour')} />
       <input id={id} class="input mono" value={value} placeholder="#rrggbb" onInput={(e) => onChange((e.target as HTMLInputElement).value)} spellcheck={false} />
       {value && (
-        <button type="button" class="icon-btn" title="Reset" onClick={() => onChange('')}>
+        <button type="button" class="icon-btn" title={tr('form.reset')} onClick={() => onChange('')}>
           <Icon name="x" size={14} />
         </button>
       )}
@@ -232,14 +232,14 @@ function SecretInput({ id, value, placeholder, onChange }: { id: string; value: 
 }
 
 const UNITS = [
-  { u: 's', ms: 1000 },
-  { u: 'min', ms: 60_000 },
-  { u: 'h', ms: 3_600_000 },
-];
+  { u: 's', ms: 1000, label: 'common.seconds' },
+  { u: 'min', ms: 60_000, label: 'common.minutes' },
+  { u: 'h', ms: 3_600_000, label: 'common.hours' },
+] as const;
 
 export function DurationInput({ id, value, min, onChange }: { id?: string; value: number; min?: number; onChange: (v: number) => void }) {
   const best = [...UNITS].reverse().find((x) => value >= x.ms && value % x.ms === 0) ?? (value >= 60_000 ? UNITS[1]! : UNITS[0]!);
-  const [unit, setUnit] = useState(best.u);
+  const [unit, setUnit] = useState<string>(best.u);
   const u = UNITS.find((x) => x.u === unit)!;
   return (
     <div class="duration">
@@ -249,7 +249,7 @@ export function DurationInput({ id, value, min, onChange }: { id?: string; value
       }} />
       <select class="input" value={unit} onChange={(e) => setUnit((e.target as HTMLSelectElement).value)}>
         {UNITS.map((x) => (
-          <option value={x.u}>{x.u}</option>
+          <option value={x.u}>{tr(x.label)}</option>
         ))}
       </select>
     </div>
@@ -310,10 +310,13 @@ const isTagList = (schema: JsonSchema) => {
   return !!it && it.type === 'string' && !it.enum && !it['x-ui']?.secret && !it['x-ui']?.choices && !schema['x-ui']?.choices && schema['x-ui']?.widget !== 'list';
 };
 
+/** What ends a word: a comma (also the Chinese ，、 and ；) or a new line. */
+const SEPARATORS = /[,\n，、；;]/;
+
 function TagInput({ id, value, placeholder, onChange }: { id: string; value: string[]; placeholder?: string | undefined; onChange: (v: string[]) => void }) {
   const [text, setText] = useState('');
   const add = (raw: string) => {
-    const words = raw.split(/[,\n]/).map((w) => w.trim()).filter((w) => w && !value.includes(w));
+    const words = raw.split(SEPARATORS).map((w) => w.trim()).filter((w) => w && !value.includes(w));
     if (words.length) onChange([...value, ...words]);
     setText('');
   };
@@ -322,7 +325,7 @@ function TagInput({ id, value, placeholder, onChange }: { id: string; value: str
       {value.map((w, i) => (
         <span class="tag">
           {w}
-          <button type="button" class="tag-x" title={tr('common.delete')} aria-label={`${tr('common.delete')} ${w}`} onClick={() => onChange(value.filter((_, j) => j !== i))}>
+          <button type="button" class="tag-x" title={tr('common.delete')} aria-label={t('common.deleteItem', { name: w })} onClick={() => onChange(value.filter((_, j) => j !== i))}>
             <Icon name="x" size={12} />
           </button>
         </span>
@@ -330,10 +333,17 @@ function TagInput({ id, value, placeholder, onChange }: { id: string; value: str
       <input class="tag-new" value={text} placeholder={value.length ? tr('common.addMore') : placeholder ?? tr('common.addMore')} spellcheck={false}
         onInput={(e) => {
           const v = (e.target as HTMLInputElement).value;
-          if (/[,\n]/.test(v)) add(v);
+          // While an input method composes (pinyin, zhuyin, kana), the text isn't final yet.
+          if (!(e as InputEvent).isComposing && SEPARATORS.test(v)) add(v);
           else setText(v);
         }}
+        onCompositionEnd={(e) => {
+          const v = (e.target as HTMLInputElement).value;
+          if (SEPARATORS.test(v)) add(v);
+        }}
         onKeyDown={(e) => {
+          // Enter or Backspace inside an input method's composition belongs to it, not to the list.
+          if (e.isComposing || e.keyCode === 229) return;
           if (e.key === 'Enter') {
             e.preventDefault();
             add(text);

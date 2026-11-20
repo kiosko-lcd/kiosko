@@ -88,7 +88,9 @@ first:
    and add a line to `UI_LANGUAGES` with its tag and its name in itself
    (`{ id: 'fr', name: 'Français', texts: fr }`). The language picker in
    Settings comes from that list, and `npm run check` names every key you
-   haven't translated yet.
+   haven't translated yet. `err.*` and `device.*` are what the server and
+   the panels report (failed requests, connection status): the server
+   sends a code and its params, the editor words them.
 2. **Times on the panel and in the editor** ("5 min ago", "1 h 05",
    AM/PM): the `WORDS` table in `packages/sdk/src/format.ts`, with its own
    units and whether AM/PM goes before the time. Add a case to
