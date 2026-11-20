@@ -6,7 +6,7 @@
  */
 import { createCanvas, loadImage, type Canvas, type Image, type SKRSContext2D } from '@napi-rs/canvas';
 import { pixelShift } from '@loksly/lcd-canvas-kit';
-import { localize, validate, type AnimationFrame, type AnimationPlan, type Box, type Redraw, type RenderContext, type Theme, type WidgetDefinition } from '@kiosko/sdk';
+import { errorMessage, localize, validate, type AnimationFrame, type AnimationPlan, type Box, type Redraw, type RenderContext, type Theme, type WidgetDefinition } from '@kiosko/sdk';
 import { toPx, type PxRect } from './layout/grid.ts';
 import { nextTurnAt, pickInStack } from './layout/stack.ts';
 import { whenMatches, zoomOf, type Config, type Page, type Screen, type Tile, type WidgetInstance } from './config/model.ts';
@@ -333,7 +333,7 @@ function drawTileContent(g: SKRSContext2D, input: ComposeInput, r: Resolved, rec
     r.def.render(g, ctx);
     out.renderMs = performance.now() - t0;
   } catch (err) {
-    out.error = err instanceof Error ? err.message : String(err);
+    out.error = errorMessage(err, ctx.locale);
     input.log?.(r.inst.type, `render failed: ${out.error}`);
     const size = Math.max(12, Math.min(20, box.h / 4));
     kit.drawTracked(g, kit.truncate(g, `⚠ ${localize(r.def.name, ctx.locale)}: ${out.error}`, box.w, { size, family: theme.fonts.mono }), box.x, box.y + size * 1.2, { size, family: theme.fonts.mono, color: theme.colors.alert });

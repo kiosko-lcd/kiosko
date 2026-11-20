@@ -143,3 +143,24 @@ export function hanScript(locale: string | undefined): HanScript | null {
       return null;
   }
 }
+
+/**
+ * An error to show the user, in their language: `throw new PluginError({
+ * en: 'Set your place in Settings', 'zh-Hant': '請在設定中設定位置', … })`.
+ * Its `message` is the English one (logs); Kiosko shows `text` in the
+ * user's language in the editor and on the tile.
+ */
+export class PluginError extends Error {
+  readonly text: Localized;
+  constructor(text: Localized, options?: { cause?: unknown }) {
+    super(localize(text, 'en'), options);
+    this.name = 'PluginError';
+    this.text = text;
+  }
+}
+
+/** What to show for an error: a PluginError's text in `locale`, else the message. */
+export function errorMessage(err: unknown, locale = 'en'): string {
+  if (err instanceof Error && 'text' in err && (err as PluginError).text !== undefined) return localize((err as PluginError).text, locale);
+  return err instanceof Error ? err.message : String(err);
+}
