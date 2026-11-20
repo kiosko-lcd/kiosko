@@ -1,7 +1,7 @@
 /** Screens (physical panels): connection, resolution, rotation, burn-in care and interludes. */
 import { typed } from '../forms/ime.ts';
 import { useState } from 'preact/hooks';
-import { detectedPicture, isPortrait, newId, newScreen, panelSize, resizePages, setPanelSize, turnScreen, type DeviceConfig, type Screen } from '@kiosko/core/model';
+import { TEXT_SCALE, detectedPicture, isPortrait, newId, newScreen, panelSize, resizePages, setPanelSize, turnScreen, type DeviceConfig, type Screen } from '@kiosko/core/model';
 import { api } from '../api.ts';
 import { DurationInput, SchemaForm, Toggle } from '../forms/SchemaForm.tsx';
 import { Icon } from '../icons.tsx';
@@ -256,6 +256,36 @@ function ScreenCard({ s }: { s: Screen }) {
             <input type="range" min={1} max={30} value={s.maxFps} onInput={(e) => set((x) => (x.maxFps = Number((e.target as HTMLInputElement).value)), 'fps')} />
             <span class="slider-value">{s.maxFps}</span>
           </div>
+          <label class="field-label">{tr('screens.reading')}</label>
+          <div class="segmented">
+            {(['near', 'normal', 'far'] as const).map((d) => (
+              <button class={(s.readingDistance ?? 'normal') === d ? 'on' : ''} onClick={() => set((x) => (d === 'normal' ? delete x.readingDistance : (x.readingDistance = d)), 'reading')}>
+                {tr(`reading.${d}`)}
+              </button>
+            ))}
+          </div>
+          <span class="muted small">{tr('screens.readingHint')}</span>
+          <label class="field-label">{tr('screens.textScale')}</label>
+          <div class="slider-row">
+            <input type="range" min={TEXT_SCALE.min} max={TEXT_SCALE.max} step={TEXT_SCALE.step} value={s.textScale ?? 1} onInput={(e) => set((x) => {
+              const v = Number((e.target as HTMLInputElement).value);
+              if (Math.abs(v - 1) < 0.001) delete x.textScale;
+              else x.textScale = v;
+            }, 'text-scale')} />
+            <span class="slider-value">{(s.textScale ?? 1).toFixed(2)}×</span>
+          </div>
+          <span class="muted small">{tr('screens.textScaleHint')}</span>
+          {!(app.value?.presets ?? []).some((p) => (p.width === s.width && p.height === s.height) || (p.width === s.height && p.height === s.width)) && (
+            <>
+              <label class="field-label">{tr('screens.diagonal')}</label>
+              <input class="input num" type="number" min={0.5} max={60} step={0.01} value={s.diagonalIn ?? ''} onInput={(e) => set((x) => {
+                const v = Number((e.target as HTMLInputElement).value);
+                if (v > 0) x.diagonalIn = v;
+                else delete x.diagonalIn;
+              }, 'diagonal')} aria-label={tr('screens.diagonal')} />
+              <span class="muted small">{tr('screens.diagonalHint')}</span>
+            </>
+          )}
           {st && (
             <div class="muted small">
               {count('screens.frames', st.device.framesSent)}

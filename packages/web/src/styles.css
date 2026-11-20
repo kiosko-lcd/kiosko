@@ -498,3 +498,6 @@ html:lang(zh) body * { letter-spacing: normal !important; text-transform: none !
 html:lang(zh) :is(h1, h2, h3) { line-height: 1.35; }
 html:lang(zh) :is(.rail-btn, .rail-btn span, .count, .lib-plugin, .tb-label, .page-count, .tile-chip, .stack-count, .insp-kicker, .pill, .xywh label, .popover-title, .demo-pill, .perm-chip, .mini-chip, .choice-chip, .data-row code, kbd, .stage-caption) { font-size: 12px; }
 html:lang(zh) :is(.lib-hint, .field-help) { font-size: 12.5px; line-height: 1.5; }
+
+/* A tile whose Chinese/Japanese/Korean text was enlarged to be readable on the panel. */
+.tile-note { position: absolute; right: 6px; top: 6px; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 999px; background: color-mix(in srgb, var(--warn) 85%, black); color: #111; pointer-events: auto; }

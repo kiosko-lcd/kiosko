@@ -84,15 +84,59 @@ interface Glyph {
   width: number;
 }
 
+/**
+ * The smallest Chinese, Japanese or Korean text that can be read on the
+ * panel being painted, in its own pixels (0: no minimum). Kiosko sets it per
+ * screen from the panel's pixel size and how far its readers sit; the kit
+ * paints a CJK character asked smaller at this size instead (Latin is left
+ * alone: a dense hanzi turns into a blot first).
+ */
+let minCjkPx = 0;
+/** The smallest CJK size asked for since `takeCjkEnlarged`, in panel pixels, when it was raised. */
+let enlarged = Infinity;
+
+export function setMinCjkPx(px: number): void {
+  if (px !== minCjkPx) widths.clear();
+  minCjkPx = Math.max(0, px);
+}
+
+/** The smallest CJK size a widget asked for and got raised since the last call (null: none), and starts again. */
+export function takeCjkEnlarged(): number | null {
+  const v = enlarged;
+  enlarged = Infinity;
+  return Number.isFinite(v) ? Math.round(v) : null;
+}
+
+/** How much the context scales what it draws (a widget's zoom, the panel's turn). */
+function scaleOf(ctx: SKRSContext2D): number {
+  const t = (ctx as { getTransform?: () => { a: number; b: number } }).getTransform?.();
+  return t ? Math.hypot(t.a, t.b) || 1 : 1;
+}
+
 function glyphs(ctx: SKRSContext2D, text: string, o: TextOpts): Glyph[] {
   const family = o.family ?? defaultFamily;
   // Han, kana and hangul have no capitals, and spaced out they read as separate words.
-  const small = o.smallCaps === true && !hasCjk(text);
+  const cjk = hasCjk(text);
+  const small = o.smallCaps === true && !cjk;
   const capSize = o.size * (o.capRatio ?? 0.76);
   const out: Glyph[] = [];
   const font = `${o.size}px "${family}"`;
   const capFont = `${capSize}px "${family}"`;
+  // CJK characters asked smaller than can be read on this panel are drawn at the minimum.
+  let cjkSize = o.size;
+  if (cjk && minCjkPx > 0) {
+    const scale = scaleOf(ctx);
+    if (o.size * scale < minCjkPx - 0.5) {
+      cjkSize = minCjkPx / scale;
+      enlarged = Math.min(enlarged, o.size * scale);
+    }
+  }
+  const cjkFont = `${cjkSize}px "${family}"`;
   for (const ch of text) {
+    if (cjkSize !== o.size && CJK.test(ch)) {
+      out.push({ ch, size: cjkSize, width: widthOf(ctx, cjkFont, ch) });
+      continue;
+    }
     // In small caps, a lower-case letter is drawn upper-case at a smaller size.
     const isLower = small && ch !== ch.toUpperCase() && ch === ch.toLowerCase();
     const size = isLower ? capSize : o.size;

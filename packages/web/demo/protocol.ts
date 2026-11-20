@@ -19,7 +19,7 @@ export type RuntimeState = Pick<AppState, 'version' | 'locale' | 'catalog' | 're
 
 export interface PreviewResult {
   blob: Blob;
-  tiles: { id: string; shown: string | null; error?: string }[];
+  tiles: { id: string; shown: string | null; error?: string; cjkEnlarged?: number }[];
 }
 
 /** What one panel of the 3D page (panel3d/) shows: see stage.ts. */

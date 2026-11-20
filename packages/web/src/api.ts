@@ -177,7 +177,7 @@ export const api = {
     }
     return ok<{ ok: true; rev: number }>(r);
   },
-  async preview(screen: Screen, pageId: string, forceShown?: Record<string, string>, demo = true): Promise<{ url: string; tiles: { id: string; shown: string | null; error?: string }[] }> {
+  async preview(screen: Screen, pageId: string, forceShown?: Record<string, string>, demo = true): Promise<{ url: string; tiles: { id: string; shown: string | null; error?: string; cjkEnlarged?: number }[] }> {
     const r = await fetch('/api/preview', { method: 'POST', headers: H, body: JSON.stringify({ screen, pageId, forceShown, demo }) });
     if (!r.ok) throw new Error(`preview ${r.status}`);
     const tiles = JSON.parse(decodeURIComponent(r.headers.get('x-kiosko-tiles') ?? '%5B%5D'));

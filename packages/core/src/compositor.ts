@@ -9,14 +9,14 @@ import { pixelShift } from '@loksly/lcd-canvas-kit';
 import { errorMessage, localize, validate, type AnimationFrame, type AnimationPlan, type Box, type Redraw, type RenderContext, type Theme, type WidgetDefinition } from '@kiosko/sdk';
 import { toPx, type PxRect } from './layout/grid.ts';
 import { nextTurnAt, pickInStack } from './layout/stack.ts';
-import { whenMatches, zoomOf, type Config, type Page, type Screen, type Tile, type WidgetInstance } from './config/model.ts';
+import { legibleCjkPx, whenMatches, zoomOf, type Config, type Page, type Screen, type Tile, type WidgetInstance } from './config/model.ts';
 import { CANVAS, baseContext, kit, resolveLocale, type LogFn } from './env.ts';
 import { registerFonts, setFontLocale } from './fonts.ts';
 import type { Registry } from './registry.ts';
 
 export interface ComposeInput {
   cfg: Config;
-  screen: Pick<Screen, 'width' | 'height' | 'pixelShift'>;
+  screen: Pick<Screen, 'width' | 'height' | 'pixelShift'> & Partial<Pick<Screen, 'readingDistance' | 'textScale' | 'diagonalIn'>>;
   page: Page;
   theme: Theme;
   registry: Registry;
@@ -78,6 +78,11 @@ export interface TileResult {
   error?: string;
   /** How long the shown widget's `render` took, in ms, when it painted (not when the tile came from the cache). */
   renderMs?: number;
+  /**
+   * The widget asked for Chinese, Japanese or Korean text this small (panel
+   * px) and got it raised to `legibleCjkPx`: its tile may want more room.
+   */
+  cjkEnlarged?: number;
 }
 
 export interface ComposeResult {
@@ -248,7 +253,7 @@ function paintTile(g: SKRSContext2D, input: ComposeInput, tile: Tile, rect: PxRe
         const [plugin] = r.inst.type.split('/');
         safe(() => r.def.animationEnded?.({ ...baseContext(input.cfg, plugin!, input.log ?? (() => undefined), input.now), options: r.options, plan, completed, data: r.data }), undefined);
       },
-      ask: (trigger, rnd, prev) => safe(() => animation({ ...state, box: tileBoxes(theme, input.screen.height, r.inst, rect, chrome).box, trigger, rnd, ...(prev !== undefined ? { prev } : {}) }), null),
+      ask: (trigger, rnd, prev) => safe(() => animation({ ...state, box: tileBoxes(theme, input.screen.height, r.inst, rect, chrome, input.screen.textScale).box, trigger, rnd, ...(prev !== undefined ? { prev } : {}) }), null),
     });
   }
 
@@ -262,7 +267,7 @@ function paintTile(g: SKRSContext2D, input: ComposeInput, tile: Tile, rect: PxRe
   // Same widget, options, size, data and sources (by reference: they're
   // replaced, never mutated, when they change) and same redraw slot: reuse.
   const cfg = input.cfg;
-  const key = JSON.stringify([r.inst.id, r.inst.type, r.inst.options, r.inst.title ?? '', zoomOf(r.inst), chrome, rect, theme.id, step ? Math.floor(now / step) : 0, cfg.locale, cfg.timeFormat, cfg.workday, cfg.location ?? null, working]);
+  const key = JSON.stringify([r.inst.id, r.inst.type, r.inst.options, r.inst.title ?? '', zoomOf(r.inst), input.screen.textScale ?? 1, legibleCjkPx(input.screen), chrome, rect, theme.id, step ? Math.floor(now / step) : 0, cfg.locale, cfg.timeFormat, cfg.workday, cfg.location ?? null, working]);
   const refs = [r.data, ...(r.def.sources ?? []).map((s) => r.sources[s])];
   const hit = input.cache.get(tile.id);
   if (hit && hit.key === key && hit.refs.length === refs.length && hit.refs.every((x, i) => x === refs[i])) {
@@ -283,7 +288,7 @@ function paintTile(g: SKRSContext2D, input: ComposeInput, tile: Tile, rect: PxRe
  * card's padding and title, and `box` is what the widget sees: the same area
  * `zoom` times smaller when zoomed (it keeps its top-left corner).
  */
-export function tileBoxes(theme: Theme, screenH: number, inst: WidgetInstance, rect: PxRect, chrome: 'card' | 'bare'): { outer: Box; box: Box; zoom: number } {
+export function tileBoxes(theme: Theme, screenH: number, inst: WidgetInstance, rect: PxRect, chrome: 'card' | 'bare', textScale = 1): { outer: Box; box: Box; zoom: number } {
   const m = chromeMetrics(theme, screenH, rect);
   const pad = chrome === 'card' ? m.pad : 0;
   const top = rect.y + pad + (inst.title?.trim() && chrome === 'card' ? m.titleBar : 0);
@@ -291,7 +296,8 @@ export function tileBoxes(theme: Theme, screenH: number, inst: WidgetInstance, r
   // Zoom: the widget gets a box `zoom` times smaller and is painted `zoom`
   // times bigger, so it fills the same space with bigger (or smaller) type.
   // Its box keeps its top-left corner, so widgets see nothing unusual.
-  const zoom = zoomOf(inst);
+  // The screen's text size multiplies every widget's own zoom.
+  const zoom = Math.round(zoomOf(inst) * textScale * 100) / 100;
   const box: Box = zoom === 1 ? outer : { x: outer.x, y: outer.y, w: Math.max(1, outer.w / zoom), h: Math.max(1, outer.h / zoom) };
   return { outer, box, zoom };
 }
@@ -308,7 +314,7 @@ function drawTileContent(g: SKRSContext2D, input: ComposeInput, r: Resolved, rec
     g.textBaseline = 'alphabetic';
     g.fillText(fitText(g, title, rect.w - 2 * pad), rect.x + pad, rect.y + pad + m.title * 0.8);
   }
-  const { outer, box, zoom } = tileBoxes(theme, input.screen.height, r.inst, rect, chrome);
+  const { outer, box, zoom } = tileBoxes(theme, input.screen.height, r.inst, rect, chrome, input.screen.textScale);
   const [plugin] = r.inst.type.split('/');
   const ctx: RenderContext<any, any> = {
     ...baseContext(input.cfg, plugin!, input.log ?? (() => undefined), now),
@@ -330,8 +336,11 @@ function drawTileContent(g: SKRSContext2D, input: ComposeInput, r: Resolved, rec
   }
   const t0 = performance.now();
   try {
+    kit.takeCjkEnlarged();
     r.def.render(g, ctx);
     out.renderMs = performance.now() - t0;
+    const small = kit.takeCjkEnlarged();
+    if (small !== null) out.cjkEnlarged = small;
   } catch (err) {
     out.error = errorMessage(err, ctx.locale);
     input.log?.(r.inst.type, `render failed: ${out.error}`);
@@ -345,6 +354,8 @@ function drawTileContent(g: SKRSContext2D, input: ComposeInput, r: Resolved, rec
 export function composePage(input: ComposeInput): ComposeResult {
   registerFonts();
   setFontLocale(resolveLocale(input.cfg));
+  // CJK text is never painted smaller than this panel lets it be read from where its readers sit.
+  kit.setMinCjkPx(legibleCjkPx(input.screen));
   const { screen, page, theme, now } = input;
   const rotate = ((input.rotate ?? 0) % 360 + 360) % 360;
   const swap = rotate === 90 || rotate === 270;

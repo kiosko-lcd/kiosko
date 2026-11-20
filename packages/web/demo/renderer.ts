@@ -110,7 +110,7 @@ export class DemoRenderer implements RendererApi {
     if (!page) throw new Error('no page');
     const r = this.rt.preview(sc, page, { ...(forceShown ? { forceShown } : {}), demo });
     const blob = await toBlob(r.canvas as unknown as OffscreenCanvas);
-    return { blob, tiles: r.tiles.map((t) => ({ id: t.id, shown: t.shown, ...(t.error ? { error: t.error } : {}) })) };
+    return { blob, tiles: r.tiles.map((t) => ({ id: t.id, shown: t.shown, ...(t.error ? { error: t.error } : {}), ...(t.cjkEnlarged !== undefined ? { cjkEnlarged: t.cjkEnlarged } : {}) })) };
   }
 
   /** A widget alone with its demo data, for the library (as GET /api/thumbnail). */

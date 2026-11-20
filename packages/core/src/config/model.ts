@@ -139,7 +139,22 @@ export interface Screen {
   maxBytes: number;
   /** Frames per second ceiling for animations. */
   maxFps: number;
+  /**
+   * How far the people reading it sit: with the panel's pixel size it sets
+   * the smallest Chinese, Japanese or Korean text that can be read, which
+   * Kiosko never paints smaller (see `legibleCjkPx`).
+   */
+  readingDistance?: ReadingDistance;
+  /** Every widget's text size times this (each widget keeps its own zoom too). */
+  textScale?: number;
+  /** The panel's diagonal in inches, when it isn't a known model (for its pixel size). */
+  diagonalIn?: number;
 }
+
+export type ReadingDistance = 'near' | 'normal' | 'far';
+/** Centimetres for each reading distance. */
+export const READING_CM: Record<ReadingDistance, number> = { near: 40, normal: 60, far: 90 };
+export const TEXT_SCALE = { min: 0.75, max: 2, step: 0.05 } as const;
 
 /** Default `maxBytes`: under the ~500 KB LY panels accept, with some margin. */
 export const DEFAULT_MAX_BYTES = 480_000;
@@ -235,16 +250,35 @@ export const DEFAULT_CONFIG: Config = {
 };
 
 /** Known panel resolutions, for the "add screen" dialog. Width × height as the panel reports them. */
-export const PANEL_PRESETS: { id: string; name: string; width: number; height: number }[] = [
-  { id: 'trofeo-916', name: 'Trofeo Vision 9.16″', width: 1920, height: 462 },
-  { id: 'wide-1920x480', name: 'Wide bar 1920×480', width: 1920, height: 480 },
-  { id: 'wide-1280x480', name: 'Wide 1280×480', width: 1280, height: 480 },
-  { id: 'wide-1600x720', name: '1600×720', width: 1600, height: 720 },
-  { id: 'square-480', name: 'Square 480×480', width: 480, height: 480 },
-  { id: 'square-320', name: 'Square 320×320', width: 320, height: 320 },
-  { id: 'small-320x240', name: 'Small 320×240', width: 320, height: 240 },
-  { id: 'round-480', name: 'Round 480×480 (AIO)', width: 480, height: 480 },
+export const PANEL_PRESETS: { id: string; name: string; width: number; height: number; diagonalIn: number }[] = [
+  { id: 'trofeo-916', name: 'Trofeo Vision 9.16″', width: 1920, height: 462, diagonalIn: 9.16 },
+  { id: 'wide-1920x480', name: 'Wide bar 1920×480', width: 1920, height: 480, diagonalIn: 9.16 },
+  { id: 'wide-1280x480', name: 'Wide 1280×480', width: 1280, height: 480, diagonalIn: 6.86 },
+  { id: 'wide-1600x720', name: '1600×720', width: 1600, height: 720, diagonalIn: 8.8 },
+  { id: 'square-480', name: 'Square 480×480', width: 480, height: 480, diagonalIn: 3.4 },
+  { id: 'square-320', name: 'Square 320×320', width: 320, height: 320, diagonalIn: 2.1 },
+  { id: 'small-320x240', name: 'Small 320×240', width: 320, height: 240, diagonalIn: 2.4 },
+  { id: 'round-480', name: 'Round 480×480 (AIO)', width: 480, height: 480, diagonalIn: 2.8 },
 ];
+
+/** Millimetres per pixel of a screen: its diagonal, or a known model's, or ~200 ppi (most of these panels). */
+export function mmPerPx(s: Pick<Screen, 'width' | 'height'> & { diagonalIn?: number | undefined }): number {
+  const known = PANEL_PRESETS.find((p) => (p.width === s.width && p.height === s.height) || (p.width === s.height && p.height === s.width));
+  const diag = s.diagonalIn ?? known?.diagonalIn;
+  if (!diag) return 25.4 / 200;
+  return (diag * 25.4) / Math.hypot(s.width, s.height);
+}
+
+/**
+ * The smallest Chinese, Japanese or Korean text, in px, that can be read on
+ * this screen from its reading distance: a character about 10 minutes of arc
+ * tall (ergonomics asks 16′ for reading; a panel is glanced at), ~0.88 of
+ * the font size. ~17 px on a Trofeo Vision at 60 cm, ~13 px on a 2.4″ one.
+ */
+export function legibleCjkPx(s: Pick<Screen, 'width' | 'height'> & { diagonalIn?: number | undefined; readingDistance?: ReadingDistance | undefined }): number {
+  const mm = READING_CM[s.readingDistance ?? 'normal'] * 10 * Math.tan(((10 / 60) * Math.PI) / 180);
+  return Math.round(mm / 0.88 / mmPerPx(s));
+}
 
 /** Is `now` inside the work schedule (its days, their own hours, not a holiday)? */
 export function isWorking(workday: Config['workday'], now: number): boolean {
