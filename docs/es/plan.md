@@ -468,7 +468,10 @@ Lo que cambia en el camino:
      fabricantes, de la misma familia que las insignias del punto 8.
    - Pendiente: alta como afiliado, facturación e impuestos de las
      comisiones, y qué tiendas cubren los países de los usuarios.
-10. **Más idiomas, empezando por el chino.** Prioridad: el **chino
+10. **Más idiomas, empezando por el chino.** Estudio completo (mercado,
+    fuentes, legibilidad, colores, plugins locales) y backlog por fases en
+    [estudio-chino.md](estudio-chino.md); lo que sigue es el resumen
+    original. Prioridad: el **chino
     tradicional de Taiwán (`zh-TW`)**, el del fabricante de los paneles
     (Thermalright), y el **chino simplificado (`zh-CN`)**, el de la China
     continental. Son dos traducciones distintas (caracteres y a veces
