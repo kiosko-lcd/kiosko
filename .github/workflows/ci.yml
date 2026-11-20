@@ -5,6 +5,10 @@ on:
     branches: [main]
   pull_request:
 
+# Tests only read the code: the token they get can't write anything.
+permissions:
+  contents: read
+
 jobs:
   test:
     strategy:
