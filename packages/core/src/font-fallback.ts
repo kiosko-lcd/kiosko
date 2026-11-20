@@ -14,12 +14,29 @@ import { FONT_FAMILIES, hanScript, type HanScript } from '@kiosko/sdk';
  * shapes to Chinese text.
  */
 export const CJK_FAMILIES: Record<HanScript, string[]> = {
-  Hant: ['Noto Sans CJK TC', 'Noto Sans TC', 'Source Han Sans TC', 'Source Han Sans TW', 'Microsoft JhengHei', 'PingFang TC', 'Heiti TC'],
-  'Hant-HK': ['Noto Sans CJK HK', 'Noto Sans HK', 'Source Han Sans HK', 'Microsoft JhengHei', 'PingFang HK', 'Noto Sans CJK TC', 'Noto Sans TC', 'PingFang TC'],
-  Hans: ['Noto Sans CJK SC', 'Noto Sans SC', 'Source Han Sans SC', 'Source Han Sans CN', 'Microsoft YaHei', 'PingFang SC', 'Heiti SC'],
-  Jpan: ['Noto Sans CJK JP', 'Noto Sans JP', 'Source Han Sans JP', 'Source Han Sans', 'Yu Gothic', 'Meiryo', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN'],
-  Kore: ['Noto Sans CJK KR', 'Noto Sans KR', 'Source Han Sans KR', 'Source Han Sans K', 'Malgun Gothic', 'Apple SD Gothic Neo'],
+  Hant: ['Noto Sans CJK TC', 'Noto Sans TC', 'Source Han Sans TC', 'Source Han Sans TW', 'Microsoft JhengHei', 'Microsoft JhengHei UI', 'PingFang TC', 'Heiti TC', 'Sarasa Gothic TC', 'AR PL UMing TW', 'AR PL UKai TW', 'PMingLiU', 'MingLiU'],
+  'Hant-HK': ['Noto Sans CJK HK', 'Noto Sans HK', 'Source Han Sans HK', 'Microsoft JhengHei', 'PingFang HK', 'Sarasa Gothic HC', 'AR PL UMing HK', 'Noto Sans CJK TC', 'Noto Sans TC', 'PingFang TC', 'MingLiU_HKSCS'],
+  Hans: ['Noto Sans CJK SC', 'Noto Sans SC', 'Source Han Sans SC', 'Source Han Sans CN', 'Microsoft YaHei', 'Microsoft YaHei UI', 'PingFang SC', 'Heiti SC', 'Hiragino Sans GB', 'STHeiti', 'HarmonyOS Sans SC', 'Sarasa Gothic SC', 'WenQuanYi Zen Hei', 'WenQuanYi Micro Hei', 'AR PL UMing CN', 'SimHei', 'SimSun', 'Droid Sans Fallback'],
+  Jpan: ['Noto Sans CJK JP', 'Noto Sans JP', 'Source Han Sans JP', 'Source Han Sans', 'Yu Gothic', 'Meiryo', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'IPAexGothic', 'IPAGothic', 'TakaoGothic', 'VL Gothic'],
+  Kore: ['Noto Sans CJK KR', 'Noto Sans KR', 'Source Han Sans KR', 'Source Han Sans K', 'Malgun Gothic', 'Apple SD Gothic Neo', 'NanumGothic', 'UnDotum'],
 };
+
+/**
+ * Other writings DejaVu lacks, with a character to probe each and the
+ * families to try (Linux, Windows, macOS). Appended behind every font too,
+ * so a Thai, Hindi or Arabic name never comes out as boxes.
+ */
+export const OTHER_SCRIPTS: { script: string; probe: string; families: string[] }[] = [
+  { script: 'Thai', probe: 'ก', families: ['Noto Sans Thai', 'Noto Sans Thai UI', 'Leelawadee UI', 'Leelawadee', 'Thonburi', 'Tlwg Typo', 'Garuda'] },
+  { script: 'Deva', probe: 'क', families: ['Noto Sans Devanagari', 'Nirmala UI', 'Kohinoor Devanagari', 'Lohit Devanagari', 'Mangal'] },
+  { script: 'Beng', probe: 'ক', families: ['Noto Sans Bengali', 'Nirmala UI', 'Kohinoor Bangla', 'Lohit Bengali'] },
+  { script: 'Taml', probe: 'க', families: ['Noto Sans Tamil', 'Nirmala UI', 'Tamil Sangam MN', 'Lohit Tamil'] },
+  { script: 'Arab', probe: 'ع', families: ['Noto Sans Arabic', 'Noto Naskh Arabic', 'Segoe UI', 'Geeza Pro', 'DejaVu Sans'] },
+  { script: 'Hebr', probe: 'א', families: ['Noto Sans Hebrew', 'Segoe UI', 'Arial Hebrew', 'DejaVu Sans'] },
+  { script: 'Geor', probe: 'ა', families: ['Noto Sans Georgian', 'Sylfaen', 'DejaVu Sans'] },
+  { script: 'Armn', probe: 'Ա', families: ['Noto Sans Armenian', 'Sylfaen', 'DejaVu Sans'] },
+  { script: 'Ethi', probe: 'አ', families: ['Noto Sans Ethiopic', 'Ebrima', 'Kefa'] },
+];
 
 /** Which writings to cover, in order: the user's own first, then the rest so nothing is left as a box. */
 export function scriptOrder(own: HanScript | null): HanScript[] {
@@ -104,9 +121,14 @@ export function hookFont(proto: object, apply: (font: string) => string): Proper
       return now === this[GOT] ? this[SET]! : now;
     },
     set(this: Record<symbol, string>, value: string) {
+      const before = get.call(this) as string;
       set.call(this, apply(String(value)));
-      this[SET] = String(value);
-      this[GOT] = get.call(this) as string;
+      const after = get.call(this) as string;
+      // An invalid font leaves the context as it was: then reading must not claim it was taken.
+      if (after !== before || this[GOT] === undefined || this[SET] === String(value)) {
+        this[SET] = String(value);
+        this[GOT] = after;
+      }
     },
   });
   return desc;

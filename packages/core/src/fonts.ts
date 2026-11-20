@@ -18,7 +18,7 @@ import { dirname, join } from 'node:path';
 import { createCanvas, GlobalFonts, type Canvas } from '@napi-rs/canvas';
 import * as kit from '@loksly/lcd-canvas-kit';
 import { FONT_FAMILIES, hanScript, type HanScript } from '@kiosko/sdk';
-import { FontFallback, cjkFamiliesFor, hookFont } from './font-fallback.ts';
+import { FontFallback, OTHER_SCRIPTS, cjkFamiliesFor, hookFont } from './font-fallback.ts';
 import { paths } from './paths.ts';
 
 const require = createRequire(import.meta.url);
@@ -57,8 +57,6 @@ export function registerFonts(extra: { family: string; path: string }[] = []): v
       const p = dir && existsSync(join(dir, file)) ? join(dir, file) : fallback;
       if (existsSync(p)) GlobalFonts.registerFromPath(p, family);
     }
-    // The kit's own default ('sans-serif') does not draw everywhere.
-    kit.setDefaultFamily(FONT_FAMILIES.sans);
     installFallbackHook();
   }
   for (const f of extra) if (existsSync(f.path)) GlobalFonts.registerFromPath(f.path, f.family);
@@ -70,11 +68,11 @@ export function registerFonts(extra: { family: string; path: string }[] = []): v
 
 /** A character every CJK font has and DejaVu does not. */
 const PROBE = '體';
+const missingPixels = new Map<string, string>();
 const available = new Map<string, boolean>();
 let probeCanvas: Canvas | null = null;
-let missingPixels: string | null = null;
 
-function pixelsOf(font: string): string {
+function pixelsOf(font: string, probe = PROBE): string {
   probeCanvas ??= createCanvas(40, 40);
   const g = probeCanvas.getContext('2d');
   g.clearRect(0, 0, 40, 40);
@@ -83,7 +81,7 @@ function pixelsOf(font: string): string {
   else g.font = font;
   g.fillStyle = '#000';
   g.textBaseline = 'top';
-  g.fillText(PROBE, 4, 4);
+  g.fillText(probe, 4, 4);
   return Buffer.from(g.getImageData(0, 0, 40, 40).data.buffer).toString('base64');
 }
 
@@ -92,12 +90,14 @@ function pixelsOf(font: string): string {
  * only knows registered fonts, so draw a character with it and compare with
  * a family that cannot exist: a missing family draws the same empty box.
  */
-export function hasFontFamily(family: string): boolean {
-  let yes = available.get(family);
+export function hasFontFamily(family: string, probe = PROBE): boolean {
+  const key = `${family}\u0000${probe}`;
+  let yes = available.get(key);
   if (yes === undefined) {
-    missingPixels ??= pixelsOf('28px "Kiosko Missing Font"');
-    yes = pixelsOf(`28px "${family.replace(/"/g, '')}"`) !== missingPixels;
-    available.set(family, yes);
+    let missing = missingPixels.get(probe);
+    if (missing === undefined) missingPixels.set(probe, (missing = pixelsOf('28px "Kiosko Missing Font"', probe)));
+    yes = pixelsOf(`28px "${family.replace(/"/g, '')}"`, probe) !== missing;
+    available.set(key, yes);
   }
   return yes;
 }
@@ -159,7 +159,40 @@ const fallback = new FontFallback();
  */
 export function setFontLocale(locale: string): void {
   // A character's width depends on which font draws it.
-  if (fallback.setFamilies(cjkFonts(locale).families)) kit.clearTextCache();
+  if (fallback.setFamilies([...new Set([...cjkFonts(locale).families, ...otherScriptFonts().map((f) => f.family)])])) kit.clearTextCache();
+}
+
+let others: { script: string; family: string }[] | null = null;
+/** For each writing besides Latin, Greek, Cyrillic and CJK, the first family this machine has for it. */
+export function otherScriptFonts(): { script: string; family: string }[] {
+  if (!others) {
+    registerFonts();
+    others = [];
+    for (const o of OTHER_SCRIPTS) {
+      const family = o.families.find((f) => hasFontFamily(f, o.probe));
+      if (family) others.push({ script: o.script, family });
+    }
+  }
+  return others;
+}
+
+/**
+ * Whether the panel can draw the writing of `locale` (Thai, Hindi,
+ * Arabic…), or what to install. Null for Latin, Greek, Cyrillic and CJK
+ * (CJK has cjkFontStatus).
+ */
+export function scriptFontStatus(locale: string): { ok: boolean; line: string } | null {
+  let script: string | undefined;
+  try {
+    script = new Intl.Locale(locale.replace(/_/g, '-').replace(/[.@].*$/, '')).maximize().script;
+  } catch {
+    return null;
+  }
+  const wanted = OTHER_SCRIPTS.find((o) => o.script === script);
+  if (!wanted) return null;
+  const found = otherScriptFonts().find((f) => f.script === script);
+  if (found) return { ok: true, line: `${script} text drawn with ${found.family}` };
+  return { ok: false, line: `no font for ${script} text: it would show as empty boxes; install ${wanted.families[0]} (Debian/Ubuntu: fonts-noto-core), or put an .otf in ${userFontsDir()}` };
 }
 
 /** `font` with the CJK families behind it (and bold for Kiosko's bold families). */
@@ -179,7 +212,7 @@ function installFallbackHook(): void {
 export function cjkFontHint(): string {
   const install =
     process.platform === 'win32'
-      ? 'add the Chinese supplemental fonts in Settings › Apps › Optional features'
+      ? 'Microsoft JhengHei and YaHei come with Windows: if they are missing, add the Chinese supplemental fonts in Settings › Apps › Optional features'
       : process.platform === 'darwin'
         ? 'macOS ships PingFang; reinstall it from Font Book'
         : 'install Noto Sans CJK (Debian/Ubuntu: fonts-noto-cjk, Fedora: google-noto-sans-cjk-fonts, Arch: noto-fonts-cjk)';

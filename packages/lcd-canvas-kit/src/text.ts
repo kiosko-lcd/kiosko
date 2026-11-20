@@ -68,6 +68,16 @@ export interface TextOpts {
   capRatio?: number;
 }
 
+const CJK = /[\u1100-\u11ff\u2e80-\u9fff\uac00-\ud7af\uf900-\ufaff\uff00-\uffef]/;
+/** Whether the text has Chinese, Japanese or Korean in it. */
+export function hasCjk(text: string): boolean {
+  return CJK.test(text);
+}
+/** No letter-spacing in a text with CJK: it would split it into single characters. */
+function trackingOf(text: string, o: TextOpts): number {
+  return o.tracking && hasCjk(text) ? 0 : (o.tracking ?? 0);
+}
+
 interface Glyph {
   ch: string;
   size: number;
@@ -76,7 +86,8 @@ interface Glyph {
 
 function glyphs(ctx: SKRSContext2D, text: string, o: TextOpts): Glyph[] {
   const family = o.family ?? defaultFamily;
-  const small = o.smallCaps === true;
+  // Han, kana and hangul have no capitals, and spaced out they read as separate words.
+  const small = o.smallCaps === true && !hasCjk(text);
   const capSize = o.size * (o.capRatio ?? 0.76);
   const out: Glyph[] = [];
   const font = `${o.size}px "${family}"`;
@@ -99,7 +110,7 @@ function advance(gs: Glyph[], tracking: number): number {
 
 /** Width the text would take with this tracking, without drawing it. */
 export function measureTracked(ctx: SKRSContext2D, text: string, o: TextOpts): number {
-  return advance(glyphs(ctx, text, o), o.tracking ?? 0);
+  return advance(glyphs(ctx, text, o), trackingOf(text, o));
 }
 
 /**
@@ -108,7 +119,7 @@ export function measureTracked(ctx: SKRSContext2D, text: string, o: TextOpts): n
  */
 export function drawTracked(ctx: SKRSContext2D, text: string, x: number, y: number, o: TextOpts): number {
   const family = o.family ?? defaultFamily;
-  const tracking = o.tracking ?? 0;
+  const tracking = trackingOf(text, o);
   const gs = glyphs(ctx, text, o);
   const total = advance(gs, tracking);
   let cursor = o.align === 'right' ? x - total : o.align === 'center' ? x - total / 2 : x;

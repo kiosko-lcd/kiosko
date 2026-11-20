@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { createCanvas } from '@napi-rs/canvas';
 import { FONT_FAMILIES } from '@kiosko/sdk';
-import { cjkFonts, hasFontFamily, registerFonts, setFontLocale, withFallback } from './fonts.ts';
+import { cjkFonts, hasFontFamily, otherScriptFonts, registerFonts, scriptFontStatus, setFontLocale, withFallback } from './fonts.ts';
 
 registerFonts();
 /** Tests that draw need a CJK font on this machine (Noto Sans CJK on Linux). */
@@ -87,4 +87,20 @@ test('Traditional and Simplified glyphs differ for the same character', { skip: 
   setFontLocale('zh-CN');
   const cn = pixels('骨', `32px "${FONT_FAMILIES.sans}"`);
   assert.notEqual(tw, cn);
+});
+
+test('an invalid font leaves the context, and what reading it says, as they were', () => {
+  setFontLocale('zh-TW');
+  const g = createCanvas(4, 4).getContext('2d');
+  g.font = `14px "${FONT_FAMILIES.mono}"`;
+  g.font = 'garbage';
+  assert.equal(g.font, `14px "${FONT_FAMILIES.mono}"`);
+});
+
+test('other writings get a font behind every font too, when the machine has one', () => {
+  for (const f of otherScriptFonts()) assert.ok(withFallback('12px "KioskoSans"').includes(`"${f.family}"`), f.family);
+  assert.equal(scriptFontStatus('en'), null);
+  assert.equal(scriptFontStatus('zh-TW'), null, 'CJK has its own status');
+  const th = scriptFontStatus('th');
+  assert.ok(th && /Thai/.test(th.line));
 });

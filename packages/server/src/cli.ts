@@ -12,7 +12,7 @@
 import { spawn } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { Registry, Runtime, cjkFontStatus, installSdkResolver, listUsb, loadConfig, paths, resolveLocale, saveConfig, type Config } from '@kiosko/core';
+import { Registry, Runtime, cjkFontStatus, installSdkResolver, scriptFontStatus, listUsb, loadConfig, paths, resolveLocale, saveConfig, type Config } from '@kiosko/core';
 import { hanScript } from '@kiosko/sdk';
 import { BUILTIN_PLUGINS, OFFICIAL_PLUGINS } from './builtin.ts';
 import { configCommand } from './config-cli.ts';
@@ -37,7 +37,7 @@ const USAGE = `Kiosko ${VERSION}: a widget mosaic for USB LCD panels
   kiosko usb [list]                          the LY panels libusb sees, with their serial numbers
   kiosko usb test [--serial S] [--seconds 10] [--size 1920x462] [--rotate 180]
                                              drive a panel with the sample screen (experimental)
-  kiosko gallery [--out gallery] [--locale en] [--theme midnight] [--pages config.json]
+  kiosko gallery [--out gallery] [--locale en | --all-languages] [--theme midnight] [--pages config.json]
   kiosko plugins [list|add <id>…|link <folder>…|remove <id>…]
   kiosko service install|uninstall|print   (start with your session)
   kiosko version`;
@@ -115,6 +115,8 @@ async function main(): Promise<void> {
         const fonts = cjkFontStatus(locale);
         if (!fonts.ok) console.warn(`fonts: ${fonts.line}`);
       }
+      const other = scriptFontStatus(locale);
+      if (other && !other.ok) console.warn(`fonts: ${other.line}`);
       if (flag('--open')) openBrowser(url);
       const stop = () => {
         rt.stop();
@@ -210,6 +212,8 @@ async function main(): Promise<void> {
       console.log(`plugins ${reg.list().map((p) => p.def.id).join(', ')}`);
       const fonts = cjkFontStatus(resolveLocale(cfg));
       console.log(`fonts   ${fonts.ok ? '' : '✗ '}${fonts.line}`);
+      const other = scriptFontStatus(resolveLocale(cfg));
+      if (other) console.log(`fonts   ${other.ok ? '' : '✗ '}${other.line}`);
       for (const p of reg.problems) console.log(`  ✗ ${p.origin}: ${p.message}`);
       const usb = await listUsb();
       if (!usb.ok) console.log(`usb     not available: ${usb.error}`);
@@ -232,7 +236,7 @@ async function main(): Promise<void> {
       const reg = await registry();
       const out = opt('--out') ?? 'gallery';
       const sample = opt('--pages');
-      const n = buildGallery(reg, { out, locale: opt('--locale') ?? 'en', theme: opt('--theme') ?? 'midnight', ...(sample ? { pages: JSON.parse(readFileSync(sample, 'utf8')) as Config } : {}) });
+      const n = buildGallery(reg, { out, locale: opt('--locale') ?? 'en', languages: flag('--all-languages'), theme: opt('--theme') ?? 'midnight', ...(sample ? { pages: JSON.parse(readFileSync(sample, 'utf8')) as Config } : {}) });
       console.log(`${n} widgets → ${out}/index.html`);
       return;
     }
