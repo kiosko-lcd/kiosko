@@ -51,9 +51,10 @@ test('EventEmitter: on, once, off', () => {
   assert.deepEqual(seen, [1, 'once 1', 2]);
 });
 
-test('the demo bundles every official plugin', () => {
+test('the demo bundles every bundled official plugin, and none of the optional ones', () => {
   const src = read('./plugins.ts');
-  for (const o of OFFICIAL_PLUGINS) {
+  for (const o of OFFICIAL_PLUGINS.filter((p) => !p.bundled)) assert.doesNotMatch(src, new RegExp(`from '${o.npm}'`), `demo/plugins.ts should not import ${o.npm} (optional)`);
+  for (const o of OFFICIAL_PLUGINS.filter((p) => p.bundled)) {
     assert.match(src, new RegExp(`^import ${o.id} from '${o.npm}';$`, 'm'), `demo/plugins.ts should import ${o.npm}`);
     assert.match(src, new RegExp(`[{ ,]${o.id}[,} ]`), `${o.id} should be in OFFICIAL`);
   }

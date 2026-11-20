@@ -15,6 +15,7 @@ import { createServer } from 'node:http';
 import { createRequire } from 'node:module';
 import { existsSync, mkdirSync, readFileSync, statSync } from 'node:fs';
 import { extname, join, normalize, resolve } from 'node:path';
+import { BUNDLED_PLUGIN_IDS } from '../packages/server/src/official.ts';
 
 const require = createRequire(join(process.cwd(), 'x.js'));
 const playwright = require('playwright');
@@ -386,7 +387,7 @@ async function fullCheck(browser) {
   await page.locator('.rail-btn').nth(2).click();
   await page.waitForSelector('.plugin-card');
   const ids = await page.$$eval('.plugin-title small', (l) => l.map((e) => e.textContent?.split('·')[0]?.trim()));
-  const official = ['agents', 'cats', 'system', 'vitals', 'usage', 'weather', 'calendar', 'news', 'mirror', 'gitlab', 'github', 'calls', 'timesheet', 'llm', 'gpu', 'homeassistant'];
+  const official = [...BUNDLED_PLUGIN_IDS];
   const missing = ['core', 'legacy', ...official].filter((id) => !ids.includes(id));
   check('Plugins page lists every plugin', !missing.length && ids.length === 2 + official.length, `${ids.length} plugins${missing.length ? `, missing ${missing}` : ''}`);
   // Switching a plugin off takes its widgets out of the library; back on, back in.
@@ -596,6 +597,17 @@ async function frontPage(browser, name) {
   check(`${name} front page: "open it in the editor" hands the config to the demo`, /\/demo\/(\?lang=[^#]*)?$/.test(page.url()) && handed?.screens?.[0]?.id === 'mine', `${page.url()} with screens ${handed?.screens?.map((x) => x.id)}`);
   await page.evaluate(() => localStorage.removeItem('kiosko.demo.config'));
   await page.goto(home);
+
+  // The Doom section: the recording of kiosko-plugin-doom loads when its section comes, and plays.
+  await page.locator('section[data-step="doom"]').evaluate((el) => window.scrollTo({ top: el.getBoundingClientRect().top + scrollY + el.offsetHeight / 2 - innerHeight / 2, behavior: 'instant' }));
+  await page.waitForFunction(() => (document.querySelector('video.doom')?.currentTime ?? 0) > 0.5, null, { timeout: 20_000 }).catch(() => undefined);
+  const doom = await page.evaluate(() => {
+    const v = document.querySelector('video.doom');
+    return { step: document.documentElement.dataset.step, src: v?.currentSrc.split('/').pop() ?? '', t: v?.currentTime ?? 0, paused: v?.paused ?? true };
+  });
+  await shot(page, `front-doom-${name}.jpg`);
+  check(`${name} front page: the Doom section plays its recording`, doom.step === 'doom' && /^doom\.(webm|mp4)/.test(doom.src) && doom.t > 0.5 && !doom.paused, `section ${doom.step}, ${doom.src || 'no video'} at ${doom.t.toFixed(1)} s${doom.paused ? ', paused' : ''}`);
+  await page.evaluate(() => scrollTo(0, 0));
 
   // The menu: Spanish now, and still Spanish on the next visit to the English address.
   await page.locator('.lang summary').click();

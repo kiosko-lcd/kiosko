@@ -21,7 +21,7 @@ import { readConfig, screensToShow, stackFor, type Problem, type ShownScreen } f
 /** Where the visitor's choice of language is kept (pages.mjs: the English page reads it). */
 const LANG_KEY = 'kiosko.lang';
 
-type StepId = 'hero' | 'editor' | 'plugins' | 'always' | 'many' | 'cable' | 'yours';
+type StepId = 'hero' | 'editor' | 'plugins' | 'always' | 'many' | 'cable' | 'yours' | 'doom';
 
 /** Where the scene is while each section is in the middle of the window. */
 const POSES: Record<StepId, Direction> = {
@@ -35,6 +35,8 @@ const POSES: Record<StepId, Direction> = {
   cable: { azimuth: 152, elevation: 15, zoom: 0.94, shiftX: -0.2, shiftY: 0, stack: 1 },
   // Back to the front, for the visitor's own config: as many panels as it has screens (poseOf).
   yours: { azimuth: -17, elevation: 9, zoom: 0.78, shiftX: 0.22, shiftY: 0.02, stack: 0 },
+  // One panel, close, playing Doom (a recording: see doom() below).
+  doom: { azimuth: 22, elevation: 6, zoom: 0.88, shiftX: -0.2, shiftY: 0.02, stack: 0 },
 };
 
 const smooth = (x: number) => {
@@ -187,6 +189,9 @@ function channels(): StageChannel[] {
       return [on('p0', [PAGE.news, PAGE.dashboard, PAGE.cats], { pageMs: 4500 })];
     case 'always':
       return [on('p0', [PAGE.dashboard]), ...above];
+    case 'doom':
+      // The recording plays on the panel instead.
+      return [];
     case 'yours':
       // A panel for each of the visitor's screens, the first on top, its pages taking turns. Until
       // there is a config, the sample's.
@@ -242,6 +247,7 @@ function enter(): void {
 
   if (active === 'editor' && tour) void mirror();
   else void show();
+  doom();
 }
 
 let mirrored = 0;
@@ -265,10 +271,67 @@ tourChannel?.addEventListener('message', (e: MessageEvent<TourMessage>) => {
 
 onRendererEvent((e) => {
   if (e.name !== 'stage') return;
-  const panel = scene?.panels[Number(e.data.channel.slice(1))];
+  const panel = active === 'doom' ? null : scene?.panels[Number(e.data.channel.slice(1))];
   if (panel) panel.show(e.data, performance.now());
   else e.data.bitmap.close();
 });
+
+// ---------- Doom: an optional plugin (kiosko-plugin-doom), shown as a recording of what it paints ----------
+
+const doomVideo = document.querySelector<HTMLVideoElement>('video.doom');
+const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+let doomOn = false;
+let doomSeq = 0;
+/** Each time it starts: a loop of an earlier start ends rather than run beside this one. */
+let doomRun = 0;
+let doomCanvas: HTMLCanvasElement | null = null;
+
+/** The video's picture on the first panel as the plugin paints it: 4:3, sharp pixels, black around (Panel.draw). */
+async function doomFrame(): Promise<void> {
+  const v = doomVideo!;
+  const panel = scene?.panels[0];
+  if (!panel || !doomOn || v.readyState < 2) return;
+  doomCanvas ??= Object.assign(document.createElement('canvas'), { width: 616, height: 462 });
+  const g = doomCanvas.getContext('2d')!;
+  g.imageSmoothingEnabled = false;
+  g.drawImage(v, 0, 0, doomCanvas.width, doomCanvas.height);
+  const bitmap = await createImageBitmap(doomCanvas);
+  if (!doomOn) return bitmap.close();
+  panel.show({ channel: 'p0', seq: ++doomSeq, bitmap, page: 'Doom', kind: 'interlude', what: 'doom/attract' }, performance.now());
+}
+
+/**
+ * Plays while its section is the one on screen and someone can see it. Loaded the first time.
+ * With reduced motion, only its first picture.
+ */
+function doom(): void {
+  const v = doomVideo;
+  const on = active === 'doom' && watching && !document.hidden;
+  if (!v || on === doomOn) return;
+  doomOn = on;
+  if (!on) return v.pause();
+  if (!v.getAttribute('src') && v.dataset.mp4) {
+    // VP9 where it plays (browsers built without H.264), H.264 elsewhere (older Safari).
+    v.src = (v.dataset.webm && v.canPlayType('video/webm; codecs="vp9"') ? v.dataset.webm : v.dataset.mp4)!;
+    v.addEventListener('loadeddata', () => void doomFrame());
+    v.load();
+  }
+  if (!reducedMotion.matches) v.play().catch(() => undefined);
+  if (!scene) return;
+  const run = ++doomRun;
+  const going = () => doomOn && run === doomRun;
+  void doomFrame();
+  if ('requestVideoFrameCallback' in v) {
+    const next = () => {
+      if (!going()) return;
+      void doomFrame();
+      v.requestVideoFrameCallback(next);
+    };
+    v.requestVideoFrameCallback(next);
+  } else {
+    const timer = setInterval(() => (going() ? void doomFrame() : clearInterval(timer)), 1000 / 24);
+  }
+}
 
 let booting: Promise<void> | null = null;
 /** The runtime (a worker, its plugins and fonts), started once: after the page, or when first needed. */
@@ -481,8 +544,12 @@ if (scene) {
     if (watching) live.start();
     else live.stop();
     void feed();
+    doom();
   }).observe(story);
-  document.addEventListener('visibilitychange', () => void feed());
+  document.addEventListener('visibilitychange', () => {
+    void feed();
+    doom();
+  });
 
   // The runtime after the page itself: it is the heavy part.
   const begin = () => void boot().then(show).catch((err: unknown) => console.warn('Kiosko:', err));

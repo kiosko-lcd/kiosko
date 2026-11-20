@@ -375,6 +375,13 @@ editor's **Plugins** page or with `kiosko plugins add <id>`.
 | [mirror](https://github.com/kiosko-lcd/kiosko-plugin-mirror) | countdown, compliments, tasks, now playing, on this day, air quality, earthquakes, rain radar |
 | [gitlab](https://github.com/kiosko-lcd/kiosko-plugin-gitlab) | pipelines and merge requests waiting for your review |
 
+Some official plugins are **optional**: they don't come with Kiosko, and the
+**Plugins** page offers them under *Official plugins not installed*.
+
+| Plugin | Gives you |
+|---|---|
+| [doom](https://github.com/kiosko-lcd/kiosko-plugin-doom) | the game's own demos as an interlude, on Freedoom or your IWAD (GPL, engine in a process of its own) |
+
 Every official widget, painted with its sample data: run `kiosko gallery`
 (published to GitHub Pages by the `Gallery` workflow, together with the
 [browser demo](https://kioskolcd.dev/demo/)).

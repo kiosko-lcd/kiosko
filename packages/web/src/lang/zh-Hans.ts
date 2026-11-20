@@ -146,6 +146,8 @@ export const zhHans: Dictionary = {
   'plugins.official': '未安装的官方插件',
   'plugins.officialHint': '与 Kiosko 一同维护，各有独立的仓库，通过 npm 安装。',
   'plugins.officialShort': '官方',
+  'plugins.optionalShort': '可选',
+  'plugins.optionalHint': '不随 Kiosko 一起安装：需要时再添加。',
   'plugins.write': '自己写一个',
   'plugins.writeHint': '插件就是一个 ES 模块。放进插件文件夹后重启：',
   'settings.title': '设置',

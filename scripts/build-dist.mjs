@@ -10,6 +10,7 @@ import { build } from 'esbuild';
 import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { BUNDLED_PLUGIN_IDS } from '../packages/server/src/official.ts';
 import { execFileSync } from 'node:child_process';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -74,7 +75,7 @@ const pkg = {
   dependencies: deps,
   // The official plugins live in their own repos; installing Kiosko brings
   // them along. Optional, so a missing one never breaks the install.
-  optionalDependencies: { usb: usbVersion, ...Object.fromEntries(['agents', 'cats', 'system', 'vitals', 'usage', 'weather', 'calendar', 'news', 'mirror', 'gitlab', 'github', 'calls', 'timesheet', 'llm', 'gpu', 'homeassistant'].map((id) => [`kiosko-plugin-${id}`, pluginRange])) },
+  optionalDependencies: { usb: usbVersion, ...Object.fromEntries(BUNDLED_PLUGIN_IDS.map((id) => [`kiosko-plugin-${id}`, pluginRange])) },
 };
 writeFileSync(join(out, 'package.json'), `${JSON.stringify(pkg, null, 2)}\n`);
 for (const f of ['README.md', 'LICENSE']) cpSync(join(root, f), join(out, f));

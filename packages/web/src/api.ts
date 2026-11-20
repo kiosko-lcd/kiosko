@@ -145,7 +145,8 @@ export interface AppState {
   status: Status;
   paths: { config: string; plugins: string; home: string };
   restartNeeded: boolean;
-  official: { id: string; npm: string }[];
+  /** `bundled: false`: offered here, not installed with Kiosko. */
+  official: { id: string; npm: string; bundled?: boolean }[];
   demo: boolean;
   platform: string;
 }

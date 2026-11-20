@@ -22,6 +22,7 @@ import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, write
 import { createHash } from 'node:crypto';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { BUNDLED_PLUGIN_IDS } from '../packages/server/src/official.ts';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const argv = process.argv.slice(2);
@@ -57,13 +58,15 @@ if (existsSync(prebuilds)) {
   rmSync(join(app, 'node_modules', '@types'), { recursive: true, force: true });
 }
 
-// 3. The official plugins, built, over whatever npm brought.
+// 3. The bundled official plugins, built, over whatever npm brought. The
+// optional ones (doom…) are left out: the editor offers them.
 const pluginsDir = resolve(opt('--plugins') ?? join(root, '..', 'kiosko-plugins'));
 const bundled = [];
 if (existsSync(pluginsDir)) {
   for (const d of readdirSync(pluginsDir)) {
     const src = join(pluginsDir, d);
     if (!d.startsWith('kiosko-plugin-') || !existsSync(join(src, 'dist', 'index.js'))) continue;
+    if (!BUNDLED_PLUGIN_IDS.includes(d.slice('kiosko-plugin-'.length))) continue;
     const dest = join(app, 'node_modules', d);
     rmSync(dest, { recursive: true, force: true });
     mkdirSync(dest, { recursive: true });
