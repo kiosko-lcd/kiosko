@@ -921,6 +921,29 @@ Lo que cambia en el camino:
       lluvias fuertes (颱風警報, 豪雨特報), que van con horas, son donde más
       luce. Ni en la web ni en el plugin se promete «alerta temprana», y la
       tesela dice que no es un sistema de avisos oficial.
+28. **Doom en el panel** («¿pero corre Doom?»). El guiño clásico de
+    cualquier pantalla, y un vídeo que se comparte solo. Dos caminos, no
+    excluyentes:
+    - *Vídeo*: un interludio o widget que reproduce un vídeo del propio
+      usuario (una partida grabada), sobre el punto 3 (vídeos propios con
+      ffmpeg). Lo más barato; el vídeo lo pone el usuario.
+    - *El juego de verdad*: un plugin `kiosko-plugin-doom` con un motor
+      libre (doomgeneric o similar, GPL) compilado a WebAssembly, que
+      pinta cada fotograma en el lienzo de la tesela. En modo demo
+      (*attract mode*) reproduce las demos grabadas del propio WAD, sin
+      teclado; jugar de verdad necesitaría entrada (el teclado del PC, un
+      mando o el móvil) y queda para después.
+    - *Datos del juego*: **Freedoom** (licencia BSD) por defecto, que se
+      puede distribuir; los WAD originales de id Software (incluido el
+      shareware) solo si el usuario apunta a su propia copia. Ni la web ni
+      las capturas usan arte original de Doom.
+    - *Licencias*: el motor GPL va en su propio plugin y repositorio, no en
+      Kiosko (MIT); el plugin lo dice en su ficha.
+    - *Rendimiento*: a 320×200 escalado, 15–20 fps caben en el límite de
+      los paneles por USB (punto 2, animaciones); medirlo en el Trofeo, y
+      que el interludio respete el `maxFps` de la pantalla.
+    - *Para presumir*: un clip para la portada y el README, grabado con
+      `panel3d-film.mjs` sobre el panel en 3D. Con Freedoom, claro.
 
 ### Decisiones abiertas para ti
 
