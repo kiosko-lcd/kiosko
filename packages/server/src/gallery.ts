@@ -115,7 +115,7 @@ figcaption code{color:#22d3ee;font-size:12px}figcaption span{flex-basis:100%;col
 a{color:#22d3ee}
 p.os{margin-top:14px}p.os b{color:var(--text)}
 a.try{display:inline-block;margin-top:10px;padding:8px 14px;border-radius:10px;background:linear-gradient(135deg,#8b5cf6,#22d3ee);color:#fff;font-weight:600;text-decoration:none}
-</style></head><body><header><p><a href="${home}">← Kiosko</a></p><h1>${esc(L(T.title))}</h1><p>${esc(L(T.lede).replace('{n}', String(pluginsOf.reduce((n, p) => n + p.def.widgets!.length, 0))))} <a href="https://github.com/kiosko-lcd/kiosko">${esc(L(T.github))}</a></p><p><a class="try" href="${HOME_URL}demo/">${esc(L(T.editor))}</a> &nbsp; <a class="try" href="${HOME_URL}demo/3d/?lang=${lang.locale}">${esc(L(T.in3d))}</a></p><p class="os">${L(T.os).replace('{releases}', RELEASES_URL).replace('{usb}', usb)}</p></header><main>${sections.join('')}</main></body></html>`,
+</style></head><body><header><p><a href="${home}">← Kiosko</a></p><h1>${esc(L(T.title))}</h1><p>${esc(L(T.lede).replace('{n}', String(pluginsOf.reduce((n, p) => n + p.def.widgets!.length, 0))))} <a href="https://github.com/kiosko-lcd/kiosko">${esc(L(T.github))}</a></p><p><a class="try" href="${HOME_URL}demo/?lang=${lang.locale}">${esc(L(T.editor))}</a> &nbsp; <a class="try" href="${HOME_URL}demo/3d/?lang=${lang.locale}">${esc(L(T.in3d))}</a></p><p class="os">${L(T.os).replace('{releases}', RELEASES_URL).replace('{usb}', usb)}</p></header><main>${sections.join('')}</main></body></html>`,
     );
   }
   // The pages of a sample screen (the most bar-shaped one), for the front page to show before anything loads.
@@ -128,11 +128,14 @@ a.try{display:inline-block;margin-top:10px;padding:8px 14px;border-radius:10px;b
     }
     // The widgets speak the config's language: each picture is painted once in each.
     for (const l of langs) {
-      const rt = new Runtime(registry, normalize({ ...localizeSample(sample, l.locale), locale: l.locale }), { demo: true });
+      // Painted from the localized config: its pages lose the English titles of the sample.
+      const local = normalize({ ...localizeSample(sample, l.locale), locale: l.locale });
+      const shown = local.screens.find((s) => s.id === screen!.id)!;
+      const rt = new Runtime(registry, local, { demo: true });
       try {
         for (const listed of data.pages) {
-          const page = screen!.pages.find((p) => p.id === listed.id)!;
-          writeFileSync(join(o.out, listed.file[l.id]!), rt.preview(screen!, page, { now, demo: true }).canvas.toBuffer('image/jpeg', 88));
+          const page = shown.pages.find((p) => p.id === listed.id)!;
+          writeFileSync(join(o.out, listed.file[l.id]!), rt.preview(shown, page, { now, demo: true }).canvas.toBuffer('image/jpeg', 88));
         }
       } finally {
         rt.stop();
