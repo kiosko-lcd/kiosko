@@ -32,6 +32,10 @@ jobs:
           done
       - run: npm install --no-audit --no-fund
       - run: npm run dev:link
+      # The site paints the panel in Chinese too (the posters of /zh-Hant/ and /zh-Hans/): the panel
+      # takes its CJK font from the system, and this runner has none.
+      - name: CJK fonts for the panel
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq fonts-noto-cjk
       # The whole site (packages/web/landing/build.mjs): the front page, https://kioskolcd.dev/ ; the
       # widget gallery, /gallery/ ; the editor running in the browser with sample data, /demo/ ; the
       # panel in 3D, /demo/3d/ ; and the config's JSON Schema at its stable address,
