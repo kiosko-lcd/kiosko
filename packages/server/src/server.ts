@@ -161,7 +161,7 @@ export function startServer(o: ServerOptions) {
       const b = (await body(req)) as { config?: unknown; baseRev?: number };
       // Old clients send the bare config; new ones say which revision they edited.
       const raw = b && typeof b === 'object' && 'config' in b ? b.config : b;
-      if (typeof b?.baseRev === 'number' && b.baseRev !== rev) return json(res, 409, { error: 'the configuration changed elsewhere', rev, config: runtime.config });
+      if (typeof b?.baseRev === 'number' && b.baseRev !== rev) return json(res, 409, { error: 'the configuration changed elsewhere', code: 'conflict', rev, config: runtime.config });
       const cfg = normalize(raw);
       saveConfig(cfg, o.configPath);
       rev++;
@@ -186,7 +186,7 @@ export function startServer(o: ServerOptions) {
     let mm = /^\/api\/screens\/([^/]+)\/frame\.(?:jpg|png)$/.exec(p);
     if (mm && m === 'GET') {
       const f = runtime.lastFrame(decodeURIComponent(mm[1]!));
-      if (!f) return json(res, 404, { error: 'no frame yet' });
+      if (!f) return json(res, 404, { error: 'no frame yet', code: 'noFrame' });
       const buf = f.image();
       res.writeHead(200, { 'content-type': 'image/jpeg', 'cache-control': 'no-store', 'content-length': String(buf.length), 'x-kiosko-at': String(f.at) });
       return void res.end(buf);
@@ -198,7 +198,7 @@ export function startServer(o: ServerOptions) {
       const cfg = normalize({ screens: [b.screen] });
       const screen = cfg.screens[0]!;
       const page = screen.pages.find((x) => x.id === b.pageId) ?? screen.pages[0];
-      if (!page) return json(res, 400, { error: 'no page' });
+      if (!page) return json(res, 400, { error: 'no page', code: 'noPage' });
       const r = runtime.preview(screen, page, { ...(b.forceShown ? { forceShown: b.forceShown } : {}), demo: b.demo ?? true });
       return png(res, r.canvas.toBuffer('image/png'), { 'x-kiosko-tiles': encodeURIComponent(JSON.stringify(r.tiles)) });
     }
@@ -211,7 +211,7 @@ export function startServer(o: ServerOptions) {
       const key = `${look.theme ?? runtime.config.theme}|${type}|${w}x${h}|${look.locale ?? runtime.config.locale}`;
       let buf = thumbs.get(key);
       if (!buf) {
-        if (!runtime.registry.widget(type)) return json(res, 404, { error: 'unknown widget' });
+        if (!runtime.registry.widget(type)) return json(res, 404, { error: 'unknown widget', code: 'unknownWidget' });
         buf = runtime.thumbnail(type, w, h, {}, undefined, look);
         thumbs.set(key, buf);
       }
@@ -272,7 +272,7 @@ export function startServer(o: ServerOptions) {
       const id = decodeURIComponent(mm[1]!);
       try {
         const r = await removePlugin(id, { registry: runtime.registry, runtime });
-        if (!r.removed) return json(res, 409, { error: `can't remove "${id}": ${r.reason}` });
+        if (!r.removed) return json(res, 409, { error: `can't remove "${id}": ${r.reason}`, code: 'cantRemove', params: { id, why: r.reason } });
         rev++;
         send('config', { rev, by: null });
         return json(res, 200, state());
@@ -297,7 +297,7 @@ export function startServer(o: ServerOptions) {
     if (mm && m === 'POST') {
       const id = decodeURIComponent(mm[1]!);
       const u = updates?.plugins.find((x) => x.id === id);
-      if (!u?.version) return json(res, 409, { error: u?.blocked ? `can't update "${id}": ${u.blocked}` : `no update for "${id}"` });
+      if (!u?.version) return json(res, 409, u?.blocked ? { error: `can't update "${id}": ${u.blocked}`, code: 'cantUpdate', params: { id, why: u.blocked } } : { error: `no update for "${id}"`, code: 'noUpdate', params: { id } });
       try {
         const r = await installPlugin(`${u.package}@${u.version}`, { registry: runtime.registry, runtime });
         if (!r.problem && updates) updates = { ...updates, plugins: updates.plugins.filter((x) => x.id !== id) };
@@ -314,7 +314,7 @@ export function startServer(o: ServerOptions) {
     if (mm && m === 'POST') {
       const id = decodeURIComponent(mm[1]!);
       const problem = await reloadPlugin(id, { registry: runtime.registry, runtime });
-      if (problem) return json(res, 409, { error: problem });
+      if (problem) return json(res, 409, { error: problem, code: 'reloadFailed', params: { id, why: problem } });
       rev++;
       send('config', { rev, by: null });
       return json(res, 200, state());
@@ -338,12 +338,12 @@ export function startServer(o: ServerOptions) {
     if (p === '/api/screens/export' && m === 'GET') {
       const id = url.searchParams.get('id') ?? '';
       const s = findScreen(runtime.config, id);
-      if (!s || !safeId(id)) return json(res, 404, { error: 'unknown screen' });
+      if (!s || !safeId(id)) return json(res, 404, { error: 'unknown screen', code: 'unknownScreen' });
       res.writeHead(200, { 'content-type': 'application/json', 'content-disposition': `attachment; filename="kiosko-${id}.json"` });
       return void res.end(JSON.stringify({ kiosko: 'screen', version: 1, screen: { ...s, device: { driver: 'virtual' } } }, null, 2));
     }
 
-    return json(res, 404, { error: 'not found' });
+    return json(res, 404, { error: 'not found', code: 'notFound' });
   }
 
   function serveStatic(res: ServerResponse, pathname: string): void {
