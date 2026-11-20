@@ -86,8 +86,17 @@ test('fmt in Chinese: its own units, AM/PM before the time, Traditional or Simpl
   assert.equal(tw.ago(now - 3 * 3_600_000), '3 小時前');
   assert.equal(cn.ago(now - 14 * 86_400_000), '2 周前');
   assert.equal(tw.ago(now - 30_000), '剛剛');
-  assert.equal(tw.duration(65 * 60_000), '1 小時 05 分');
-  assert.equal(cn.duration(65 * 60_000), '1 小时 05 分');
+  assert.equal(tw.duration(65 * 60_000), '1 小時 5 分');
+  assert.equal(cn.duration(65 * 60_000), '1 小时 5 分');
   assert.equal(tw.duration(2 * 86_400_000 + 3 * 3_600_000), '2 天 3 小時');
   assert.equal(createFormatters({ locale: 'zh-HK', now }).ago(now - 60_000), '1 分鐘前');
+});
+
+test('fmt.range: AM/PM once when both times share a half of the day', () => {
+  const at = (h: number, m: number) => new Date(2026, 10, 20, h, m).getTime();
+  const now = at(12, 0);
+  assert.equal(createFormatters({ locale: 'zh-TW', now }).range(at(15, 30), at(16, 0)), '下午 3:30–4:00');
+  assert.equal(createFormatters({ locale: 'en-US', now }).range(at(15, 30), at(16, 0)), '3:30–4:00 PM');
+  assert.equal(createFormatters({ locale: 'en-US', now }).range(at(11, 30), at(13, 0)), '11:30 AM–1:00 PM');
+  assert.equal(createFormatters({ locale: 'es', now }).range(at(15, 30), at(16, 0)), '15:30–16:00');
 });

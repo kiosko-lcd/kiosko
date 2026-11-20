@@ -6,7 +6,7 @@
  *   const ctx = { ...createBaseContext({ now, locale: 'es' }), options, signal, intervalMs: 60_000, timeoutMs: 20_000 };
  */
 import { createFormatters, type TimeFormat } from './format.ts';
-import { localize, type Localized } from './i18n.ts';
+import { localize, pickLocale, plural, type Localized, type PluralForms } from './i18n.ts';
 import type { BaseContext, Location, Logger } from './plugin.ts';
 import { DEFAULT_WORKDAY, type Workday } from './workday.ts';
 
@@ -16,6 +16,8 @@ export function createBaseContext(o: { now: number; locale?: string; timeFormat?
     now: o.now,
     locale,
     t: (text: Localized) => localize(text, locale),
+    plural: (n: number, forms: Record<string, PluralForms>) => plural(n, forms, locale),
+    pickLanguage: (available: readonly string[]) => pickLocale(available, locale) ?? (available.includes('en') ? 'en' : available[0] ?? 'en'),
     fmt: createFormatters({ locale, timeFormat: o.timeFormat ?? 'auto', now: o.now }),
     log: o.log ?? (() => undefined),
     dataDir: o.dataDir ?? '',

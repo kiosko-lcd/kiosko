@@ -20,7 +20,7 @@
 import type { Canvas, Image, SKRSContext2D, createCanvas, loadImage } from '@napi-rs/canvas';
 import type * as Kit from '@loksly/lcd-canvas-kit';
 import type { Formatters } from './format.ts';
-import type { Localized } from './i18n.ts';
+import type { Localized, PluralForms } from './i18n.ts';
 import type { Field, Infer, ObjectField } from './schema.ts';
 import type { Theme } from './theme.ts';
 import type { Workday } from './workday.ts';
@@ -92,6 +92,18 @@ export interface BaseContext {
   locale: string;
   /** Picks the user's language from a `Localized` text. */
   t: (text: Localized) => string;
+  /**
+   * `{n} files` with the plural form the user's language asks for:
+   * `ctx.plural(n, { en: { one: '{n} file', other: '{n} files' }, 'zh-Hant': { other: '{n} 個檔案' } })`.
+   * Use it for any text with a count in it, rather than `n === 1 ? … : …`.
+   */
+  plural: (n: number, forms: Record<string, PluralForms>) => string;
+  /**
+   * Which of `available` (language tags) to use for this user: for tables
+   * kept one per language (`TABLES[ctx.pickLanguage(Object.keys(TABLES))]`).
+   * English when none fits, else the first.
+   */
+  pickLanguage: (available: readonly string[]) => string;
   /**
    * Times and lengths of time in the user's language and clock (Settings →
    * time format): `fmt.time(at)` "14:05" / "2:05 PM", `fmt.ago(at)`
