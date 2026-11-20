@@ -3,7 +3,7 @@ import { useState } from 'preact/hooks';
 import { api, type AppState, type JsonSchema, type PluginInfo } from '../api.ts';
 import { SchemaForm, Toggle } from '../forms/SchemaForm.tsx';
 import { Icon } from '../icons.tsx';
-import { fmtMs, tr } from '../i18n.ts';
+import { UI_LANGUAGES, fmtMs, tr } from '../i18n.ts';
 import { app, config, edit, logs, notify, setUiTheme, status, uiTheme } from '../store.ts';
 import { DemoNote } from '../demo/ui.tsx';
 
@@ -376,11 +376,7 @@ export function Settings() {
             <Icon name="languages" size={16} /> {tr('settings.language')}
           </h3>
           <div class="segmented">
-            {[
-              ['auto', tr('settings.auto')],
-              ['es', 'Español'],
-              ['en', 'English'],
-            ].map(([v, l]) => (
+            {[['auto', tr('settings.auto')], ...UI_LANGUAGES.map((l) => [l.id, l.name])].map(([v, l]) => (
               <button class={cfg.locale === v ? 'on' : ''} onClick={() => edit((d) => (d.locale = v!))}>
                 {l}
               </button>

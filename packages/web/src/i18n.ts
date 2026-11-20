@@ -541,10 +541,16 @@ const es: Record<Key, string> = {
 export type TKey = Key;
 
 /**
- * The editor's languages. Another one is a `Record<Key, string>` added here
- * (Chinese as `zh-Hant` and `zh-Hans`, see `pickLocale`).
+ * The editor's languages, each with its name in itself for the language
+ * picker (Settings). Another language is a `Record<Key, string>` above and
+ * a line here, tagged as BCP 47 (Chinese by script: `zh-Hant`, `zh-Hans`;
+ * see `pickLocale`). CONTRIBUTING.md, "Translations", says the rest.
  */
-const DICTS: Record<string, Record<Key, string>> = { en, es };
+export const UI_LANGUAGES: { id: string; name: string; texts: Record<Key, string> }[] = [
+  { id: 'en', name: 'English', texts: en },
+  { id: 'es', name: 'Español', texts: es },
+];
+const DICTS: Record<string, Record<Key, string>> = Object.fromEntries(UI_LANGUAGES.map((l) => [l.id, l.texts]));
 const LANGS = Object.keys(DICTS);
 
 /** The editor language for the current locale (English when there is none). */
