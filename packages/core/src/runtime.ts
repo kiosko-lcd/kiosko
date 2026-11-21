@@ -20,6 +20,7 @@ import { composePage, composeWidget, rotateCanvas, type Animatable, type Compose
 import { isWorking, legibleCjkPx, whenMatches, widgetsOf, type Config, type Page, type Screen, type WidgetInstance } from './config/model.ts';
 import { FetchHost, SourceHub } from './data.ts';
 import { encodeFor, openDevice, type Device, type DeviceStatus } from './devices.ts';
+import { FrameStats } from './frame-stats.ts';
 import { CANVAS, baseContext, kit, resolveLocale, type LogFn } from './env.ts';
 import { registerFonts, setFontLocale } from './fonts.ts';
 import { pickPage } from './layout/stack.ts';
@@ -68,9 +69,17 @@ function lazyJpeg(c: Canvas, turned = 0): () => Buffer {
  * Encodes on libuv's thread pool, not on the JS thread: a 1920×462 JPEG takes
  * ~35 ms, so two screens playing at 12 fps took most of the only thread there
  * is, and they ended up taking turns (one froze while the other played).
+ *
+ * Not all of it leaves the thread, though: the canvas records what is drawn
+ * on it and only rasterizes it when asked for its pixels, so the call itself
+ * blocks while Skia paints (5–20 ms for a busy 1920×462 page). `raster` gets
+ * that time: it is painting, not encoding.
  */
-function encode(c: Canvas, kind: 'png' | 'jpeg', quality: number): Promise<Buffer> {
-  return kind === 'jpeg' ? c.encode('jpeg', Math.max(1, Math.min(100, quality || 90))) : c.encode('png');
+function encode(c: Canvas, kind: 'png' | 'jpeg', quality: number, raster?: { ms: number }): Promise<Buffer> {
+  const t0 = performance.now();
+  const p = kind === 'jpeg' ? c.encode('jpeg', Math.max(1, Math.min(100, quality || 90))) : c.encode('png');
+  if (raster) raster.ms += performance.now() - t0;
+  return p;
 }
 
 /** Lowest JPEG quality `encodeFit` goes down to. */
@@ -82,9 +91,9 @@ const MIN_FIT_QUALITY = 20;
  * LY panels drop frames over ~500 KB and keep showing the previous one, so a
  * photo-heavy page at quality 100 looked frozen. `over` says nothing fitted.
  */
-export async function encodeFit(c: Canvas, kind: 'png' | 'jpeg', quality: number, maxBytes: number): Promise<{ out: Buffer; quality: number; over: boolean }> {
+export async function encodeFit(c: Canvas, kind: 'png' | 'jpeg', quality: number, maxBytes: number, raster?: { ms: number }): Promise<{ out: Buffer; quality: number; over: boolean }> {
   const q0 = Math.max(1, Math.min(100, quality || 90));
-  let out = await encode(c, kind, q0);
+  let out = await encode(c, kind, q0, raster);
   if (kind !== 'jpeg' || !(maxBytes > 0) || out.length <= maxBytes) return { out, quality: q0, over: false };
   let q = q0;
   while (q > MIN_FIT_QUALITY) {
@@ -135,6 +144,8 @@ class ScreenRunner {
   private alertStart = 0;
   /** What the last alert frame showed, so an equal one isn't painted again. */
   private alertKey: string | null = null;
+  /** Real fps, paint and encode times (see frame-stats.ts). */
+  readonly stats = new FrameStats();
 
   screen: Screen;
   private readonly rt: Runtime;
@@ -148,8 +159,12 @@ class ScreenRunner {
   }
 
   /** Encodes a frame within the screen's `maxBytes`, saying so in the log (at most every 10 min) when it had to shrink it. */
-  private async fit(c: Canvas, kind: 'png' | 'jpeg', quality: number, screen: Screen): Promise<Buffer> {
-    const r = await encodeFit(c, kind, quality, screen.maxBytes);
+  private async fit(c: Canvas, kind: 'png' | 'jpeg', quality: number, screen: Screen, paintMs = 0): Promise<Buffer> {
+    const t0 = performance.now();
+    const raster = { ms: 0 };
+    const r = await encodeFit(c, kind, quality, screen.maxBytes, raster);
+    // Rasterizing happens in the first encode call, on this thread: it counts as painting.
+    this.stats.painted(paintMs + raster.ms, performance.now() - t0 - raster.ms);
     if ((r.quality !== Math.max(1, Math.min(100, quality || 90)) || r.over) && Date.now() - this.fitLoggedAt > 10 * 60_000) {
       this.fitLoggedAt = Date.now();
       this.rt.log(
@@ -245,9 +260,16 @@ class ScreenRunner {
     }
   }
 
+  /** Sends a frame and counts it. */
+  private async send(out: Buffer): Promise<void> {
+    await this.device.send(out);
+    this.stats.sentAt(Date.now());
+  }
+
   private async paint(page: Page | null, now: number): Promise<void> {
     const { screen } = this;
     const theme = this.rt.theme();
+    const t0 = performance.now();
     let result: ComposeResult | null = null;
     let canvas: Canvas;
     if (page && !this.off) {
@@ -294,12 +316,12 @@ class ScreenRunner {
     }
     const kind = encodeFor(screen.device, screen.jpegQuality);
     // Painted the panel's way round already (composePage's `rotate`): no turning here.
-    const out = await this.fit(canvas, kind, screen.jpegQuality, screen);
+    const out = await this.fit(canvas, kind, screen.jpegQuality, screen, performance.now() - t0);
     this.lastInfo = { screenId: screen.id, pageId: page?.id ?? null, at: now, image: lazyJpeg(canvas, screen.rotate), tiles: result?.tiles ?? [], interlude: null, sleeping };
     this.rt.emit('frame', this.lastInfo);
     if (this.last?.equals(out)) return;
     this.last = out;
-    await this.device.send(out);
+    await this.send(out);
   }
 
   /**
@@ -318,18 +340,20 @@ class ScreenRunner {
     const key = JSON.stringify([a.id, a.level, a.title, a.text, a.icon, shown.more, intensity, shift, sinceText, minPx, screen.width, screen.height, screen.rotate]);
     if (key === this.alertKey) return;
     this.alertKey = key;
+    const t0 = performance.now();
     registerFonts();
     setFontLocale(resolveLocale(cfg));
     kit.setMinCjkPx(minPx);
     const canvas = CANVAS.createCanvas(screen.width, screen.height);
     paintAlert(canvas.getContext('2d'), screen.width, screen.height, shown, { intensity, fonts: this.rt.theme().fonts, minPx, sinceText, shift });
     const kind = encodeFor(screen.device, screen.jpegQuality || 85);
-    const out = await this.fit(rotateCanvas(canvas, screen.rotate), kind, screen.jpegQuality || 85, screen);
+    const turned = rotateCanvas(canvas, screen.rotate);
+    const out = await this.fit(turned, kind, screen.jpegQuality || 85, screen, performance.now() - t0);
     this.lastInfo = { screenId: screen.id, pageId: this.page?.id ?? null, at: now, image: lazyJpeg(canvas), tiles: [], interlude: null, alert: a.id, sleeping: false };
     this.rt.emit('frame', this.lastInfo);
     if (this.last?.equals(out)) return;
     this.last = out;
-    await this.device.send(out);
+    await this.send(out);
   }
 
   /**
@@ -394,6 +418,7 @@ class ScreenRunner {
         this.rt.log(`screen:${this.screen.name}`, `${due.type}: nobody playing, back to the pages`);
         break;
       }
+      const t0 = performance.now();
       g.save();
       try {
         await player.draw(g, i);
@@ -404,8 +429,9 @@ class ScreenRunner {
         g.restore();
       }
       // Encoded off the JS thread: meanwhile the other screens paint and play.
-      const out = await this.fit(rotateCanvas(canvas, this.screen.rotate), kind, this.screen.jpegQuality || 85, this.screen);
-      await this.device.send(out);
+      const turned = rotateCanvas(canvas, this.screen.rotate);
+      const out = await this.fit(turned, kind, this.screen.jpegQuality || 85, this.screen, performance.now() - t0);
+      await this.send(out);
       if (i % 3 === 0) {
         // The interlude draws every frame on the same canvas: snapshot it.
         const snap = CANVAS.createCanvas(canvas.width, canvas.height);
@@ -495,6 +521,7 @@ class ScreenRunner {
         const i = Math.round((s / fps) * play.fps);
         return i <= 0 || i >= play.frames - 1 ? [] : [{ tileId: a.tileId, instanceId: a.instanceId, frame: { plan: play.plan, i, t: i / (play.frames - 1) } }];
       });
+      const t0 = performance.now();
       const result = composePage({
         cfg: this.rt.config,
         screen,
@@ -519,7 +546,7 @@ class ScreenRunner {
         rotate: screen.rotate,
       });
       // Encoding goes on in the thread pool while the next frame is painted.
-      sent.push({ out: this.fit(result.canvas, kind, screen.jpegQuality || 85, screen), snap: s % 3 === 1 ? result.canvas : null });
+      sent.push({ out: this.fit(result.canvas, kind, screen.jpegQuality || 85, screen, performance.now() - t0), snap: s % 3 === 1 ? result.canvas : null });
       // Let the loop breathe: a long animation must not freeze the timers and the other screens.
       await new Promise((r) => setImmediate(r));
     }
@@ -533,7 +560,7 @@ class ScreenRunner {
       // Late: skip the frame rather than let the delay pile up.
       const due = Math.floor(((Date.now() - start) * fps) / 1000);
       if (k < due - 1 && k !== holdAt && k < sent.length - 1) continue;
-      await this.device.send(outs[k]!);
+      await this.send(outs[k]!);
       const snap = sent[k]!.snap;
       if (snap) {
         this.lastInfo = { screenId: screen.id, pageId: page.id, at: Date.now(), image: lazyJpeg(snap, screen.rotate), tiles: [], interlude: null, animation: items.map((x) => x.animatable.type).join(', '), sleeping: false };
@@ -948,6 +975,16 @@ export class Runtime extends EventEmitter {
     return a;
   }
 
+  /** The main thread's event loop use, sampled every few seconds (whoever asks for the status). */
+  private elu = { mark: performance.eventLoopUtilization(), at: Date.now(), value: 0 };
+  private mainLoad(): number {
+    if (Date.now() - this.elu.at >= 2_000) {
+      const mark = performance.eventLoopUtilization();
+      this.elu = { mark, at: Date.now(), value: Math.round(performance.eventLoopUtilization(mark, this.elu.mark).utilization * 100) / 100 };
+    }
+    return this.elu.value;
+  }
+
   status() {
     return {
       screens: [...this.runners.values()].map((r) => ({
@@ -965,7 +1002,11 @@ export class Runtime extends EventEmitter {
         off: r.off,
         /** The alert that has the screen, if any. */
         alert: r.alert?.top.id ?? null,
+        /** Real fps, paint and encode times. */
+        frames: r.stats.read(),
       })),
+      /** How busy the main thread was since the last status (0–1). */
+      mainLoad: this.mainLoad(),
       sources: this.hub.status(),
       fetches: this.fetches.status(),
       /** Paint times of the widgets on the panels, slowest first. */
