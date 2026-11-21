@@ -463,6 +463,7 @@ export function Settings() {
         </section>
       )}
       {!KIOSKO_DEMO && <HomeAssistantCard />}
+      <ThreadsCard />
       <div class="grid-2 gap-lg">
         <section class="card">
           <h3>
@@ -487,6 +488,59 @@ export function Settings() {
         </section>
       </div>
     </div>
+  );
+}
+
+/** Megabytes, the way the language writes numbers. */
+export const megabytes = (bytes: number) => `${new Intl.NumberFormat(uiLanguage(), { maximumFractionDigits: 0 }).format(bytes / 1e6)} MB`;
+
+/** Where a screen is painted, in words: its own thread (and its memory) or the main one, and why. */
+export function threadText(th: NonNullable<NonNullable<AppState['status']['screens'][number]['thread']>>): string {
+  if (th.on) return t('threads.own', { mem: th.heapBytes ? megabytes(th.heapBytes) : '…' });
+  if (th.why === 'never' || th.why === 'fewScreens' || th.why === 'fewCores' || th.why === 'off') return tr(`threads.why.${th.why}`);
+  if (th.why === 'failed') return t('threads.why.failed', { error: th.error ?? '' });
+  return tr('threads.main');
+}
+
+/** Painting each screen in its own thread: the setting, and what it costs now (memory, the main thread's load, real fps). */
+function ThreadsCard() {
+  const cfg = config.value!;
+  const st = status.value;
+  const mode = cfg.threads ?? 'auto';
+  return (
+    <section class="card">
+      <h3>
+        <Icon name="cpu" size={16} /> {tr('settings.threads')}
+      </h3>
+      <p class="muted small">{tr('settings.threadsHint')}</p>
+      <div class="segmented">
+        {(
+          [
+            ['auto', tr('settings.auto')],
+            ['always', tr('threads.always')],
+            ['never', tr('threads.never')],
+          ] as const
+        ).map(([v, l]) => (
+          <button class={mode === v ? 'on' : ''} onClick={() => edit((d) => (v === 'auto' ? delete d.threads : (d.threads = v)))}>
+            {l}
+          </button>
+        ))}
+      </div>
+      {/* Not in the browser demo: nothing runs there to measure. */}
+      {st?.threads && st.threads.rssBytes > 0 && (
+        <>
+          <p class="muted small">{t('settings.threadsNow', { cores: st.threads.cores, load: Math.round((st.mainLoad ?? 0) * 100), mem: megabytes(st.threads.rssBytes) })}</p>
+          <ul class="thread-list small">
+            {st.screens.map((x) => (
+              <li>
+                <b>{x.name}</b>: {x.thread ? threadText(x.thread) : tr('threads.main')}
+                {x.frames && x.thread?.why !== 'off' ? ` · ${new Intl.NumberFormat(uiLanguage()).format(x.frames.fps)} fps` : ''}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </section>
   );
 }
 

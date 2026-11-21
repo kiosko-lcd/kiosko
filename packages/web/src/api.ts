@@ -120,7 +120,11 @@ export interface ThemeInfo {
 }
 
 export interface Status {
-  screens: { id: string; name: string; page: string | null; pinned: string | null; interlude: string | null; playing?: boolean; device: { driver: string; ok: boolean; message: string; code?: string; params?: Record<string, string | number>; framesSent: number; lastSentAt: number | null; detected?: { width: number; height: number; rotate?: number } }; lastFrameAt: number | null; sleeping: boolean; alert?: string | null }[];
+  screens: { id: string; name: string; page: string | null; pinned: string | null; interlude: string | null; playing?: boolean; device: { driver: string; ok: boolean; message: string; code?: string; params?: Record<string, string | number>; framesSent: number; lastSentAt: number | null; detected?: { width: number; height: number; rotate?: number } }; lastFrameAt: number | null; sleeping: boolean; alert?: string | null; frames?: ScreenFrames; thread?: ScreenThread }[];
+  /** Painting in threads: the setting, the cores, the main thread's heap and the whole process' memory. */
+  threads?: { mode: 'auto' | 'always' | 'never'; cores: number; heapBytes: number; rssBytes: number };
+  /** How busy the main thread is (0–1). */
+  mainLoad?: number;
   sources: { type: string; ok: boolean; error: string | null; updatedAt: number | null; intervalMs?: number }[];
   fetches: { id: string; type: string; ok: boolean; error: string | null; updatedAt: number | null }[];
   /** How long each widget instance takes to paint on the panels, slowest first. */
@@ -128,6 +132,22 @@ export interface Status {
   problems: { origin: string; message: string }[];
   /** Kiosko as a device in Home Assistant, over MQTT. */
   homeassistant?: { enabled: boolean; state: 'off' | 'connecting' | 'connected' | 'error' | 'closed'; error: string | null; broker?: string };
+}
+
+/** What a screen really does: frames sent per second, ms painting (on its thread) and encoding each one. */
+export interface ScreenFrames {
+  fps: number;
+  paintMs: number;
+  encodeMs: number;
+  frames: number;
+}
+
+/** Where a screen is painted (see core's threads/plan.ts) and what its thread holds in memory. */
+export interface ScreenThread {
+  on: boolean;
+  why: 'always' | 'never' | 'setting' | 'auto' | 'fewScreens' | 'fewCores' | 'off' | 'failed';
+  error: string | null;
+  heapBytes: number | null;
 }
 
 /** A full-screen alert (see core's alerts.ts). */

@@ -8,6 +8,7 @@ import { Icon } from '../icons.tsx';
 import { clock, count, deviceText, errorText, t, tr } from '../i18n.ts';
 import { app, config, draftScreen, edit, go, lastFrame, notify, pageId, screenId, status } from '../store.ts';
 import { DemoFrame, dt, exportScreen } from '../demo/ui.tsx';
+import { threadText } from './Others.tsx';
 
 export function Screens() {
   const cfg = config.value!;
@@ -293,10 +294,29 @@ function ScreenCard({ s }: { s: Screen }) {
               <span class="muted small">{tr('screens.diagonalHint')}</span>
             </>
           )}
+          <label class="field-label">{tr('screens.thread')}</label>
+          <div class="segmented">
+            {(
+              [
+                [undefined, tr('screens.threadAuto')],
+                ['always', tr('screens.threadAlways')],
+                ['never', tr('screens.threadNever')],
+              ] as const
+            ).map(([v, l]) => (
+              <button class={s.thread === v ? 'on' : ''} onClick={() => set((x) => (v ? (x.thread = v) : delete x.thread), 'thread')}>
+                {l}
+              </button>
+            ))}
+          </div>
+          <span class="muted small">{tr('screens.threadHint')}</span>
           {st && (
             <div class="muted small">
               {count('screens.frames', st.device.framesSent)}
               {st.lastFrameAt ? ` · ${clock(st.lastFrameAt, { seconds: true })}` : ''}
+              {st.frames && st.frames.frames > 0 && (
+                <div>{t('screens.live', { fps: st.frames.fps, paint: Math.round(st.frames.paintMs), encode: Math.round(st.frames.encodeMs) })}</div>
+              )}
+              {st.thread && !KIOSKO_DEMO && <div>{threadText(st.thread)}</div>}
             </div>
           )}
         </div>
