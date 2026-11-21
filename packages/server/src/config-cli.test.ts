@@ -80,6 +80,7 @@ const EXPECTED_RISKS: Record<string, Record<string, unknown>> = {
   'gpu/devices': { ssh: 'exec', url: 'network' },
   'homeassistant/states': { url: 'network' },
   'doom/attract': { wad: 'path' },
+  'video/clip': { source: 'path', bin: 'exec' },
 };
 
 test('the plugins mark every option that runs programs, contacts hosts or reads paths', () => {
