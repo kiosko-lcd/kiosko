@@ -10,14 +10,18 @@
  * time and, with `trcc serve`, a copy on disk.
  */
 import { EventEmitter } from 'node:events';
-import { PAD_KEYS, themeById, validate, type PadEvent, type Theme } from '@kiosko/sdk';
+import { PAD_KEYS, createFormatters, localize, themeById, validate, type AlertLevel, type PadEvent, type Theme } from '@kiosko/sdk';
+import { pixelShift } from '@loksly/lcd-canvas-kit';
 import type { Canvas } from '@napi-rs/canvas';
+import { alertIntensity, alertStepMs, paintAlert } from './alert-paint.ts';
+import { AlertBoard, type ActiveAlert, type PluginAlert, type ShownAlert } from './alerts.ts';
 import { AnimationScheduler, MAX_CONCURRENT, type PlayablePlan } from './animation.ts';
 import { composePage, composeWidget, rotateCanvas, type Animatable, type ComposeResult, type TileCache } from './compositor.ts';
-import { isWorking, whenMatches, widgetsOf, type Config, type Page, type Screen, type WidgetInstance } from './config/model.ts';
+import { isWorking, legibleCjkPx, whenMatches, widgetsOf, type Config, type Page, type Screen, type WidgetInstance } from './config/model.ts';
 import { FetchHost, SourceHub } from './data.ts';
 import { encodeFor, openDevice, type Device, type DeviceStatus } from './devices.ts';
-import { CANVAS, baseContext, type LogFn } from './env.ts';
+import { CANVAS, baseContext, kit, resolveLocale, type LogFn } from './env.ts';
+import { registerFonts, setFontLocale } from './fonts.ts';
 import { pickPage } from './layout/stack.ts';
 import type { Registry } from './registry.ts';
 
@@ -41,6 +45,8 @@ export interface FrameInfo {
   interlude: string | null;
   /** Type of the widget whose animation is playing (a frame of it), if any. */
   animation?: string;
+  /** Id of the alert that has the screen (see alerts.ts), if any. */
+  alert?: string;
   sleeping: boolean;
 }
 
@@ -123,6 +129,12 @@ class ScreenRunner {
   /** Set while a widget's animation plays: its widget type. */
   animating: string | null = null;
   private closed = false;
+  /** The alert that has the screen now, over everything (set by the runtime, see `setAlert`). */
+  alert: ShownAlert | null = null;
+  /** When the alert on top came up here: it flashes from then. */
+  private alertStart = 0;
+  /** What the last alert frame showed, so an equal one isn't painted again. */
+  private alertKey: string | null = null;
 
   screen: Screen;
   private readonly rt: Runtime;
@@ -177,10 +189,36 @@ class ScreenRunner {
     return pickPage(pages, now, this.pinned);
   }
 
+  /**
+   * The alert for this screen now (or none). One coming up stops what plays
+   * (an interlude, a game, an animation: they check `alert`) and the next
+   * update paints it; one going away gives the pages back.
+   */
+  setAlert(shown: ShownAlert | null, now: number): void {
+    const was = this.alert;
+    this.alert = shown;
+    if (shown && shown.top.id !== was?.top.id) this.alertStart = now;
+    if (shown && !was && this.interlude) {
+      this.rt.log(`screen:${this.screen.name}`, `${this.interlude.type} stopped: an alert`);
+      this.stopInterlude();
+    }
+    if (!shown && was) {
+      this.alertKey = null;
+      this.last = null;
+      this.dirty = true;
+    }
+  }
+
   async update(now: number): Promise<void> {
     if (this.busy || !this.screen.enabled) return;
     this.busy = true;
     try {
+      // An alert is above everything: pages, interludes, animations, sleep.
+      if (this.alert) {
+        this.wanted = null;
+        await this.paintAlert(this.alert, now);
+        return;
+      }
       // One asked for goes first; otherwise the one due, if any.
       const asked = this.wanted;
       const play = this.wantedPlay;
@@ -265,6 +303,36 @@ class ScreenRunner {
   }
 
   /**
+   * A frame of the alert: only when it would differ from the last one (the
+   * frame's brightness steps every half second at most, see alert-paint.ts),
+   * so a flashing alert costs 2 frames a second and no more.
+   */
+  private async paintAlert(shown: ShownAlert, now: number): Promise<void> {
+    const { screen } = this;
+    const a = shown.top;
+    const intensity = alertIntensity(a.level, now - this.alertStart, alertStepMs(screen.maxFps));
+    const shift = screen.pixelShift.enabled ? pixelShift(now, screen.pixelShift) : { x: 0, y: 0 };
+    const cfg = this.rt.config;
+    const sinceText = createFormatters({ locale: resolveLocale(cfg), timeFormat: cfg.timeFormat, now }).time(a.since);
+    const minPx = legibleCjkPx(screen);
+    const key = JSON.stringify([a.id, a.level, a.title, a.text, a.icon, shown.more, intensity, shift, sinceText, minPx, screen.width, screen.height, screen.rotate]);
+    if (key === this.alertKey) return;
+    this.alertKey = key;
+    registerFonts();
+    setFontLocale(resolveLocale(cfg));
+    kit.setMinCjkPx(minPx);
+    const canvas = CANVAS.createCanvas(screen.width, screen.height);
+    paintAlert(canvas.getContext('2d'), screen.width, screen.height, shown, { intensity, fonts: this.rt.theme().fonts, minPx, sinceText, shift });
+    const kind = encodeFor(screen.device, screen.jpegQuality || 85);
+    const out = await this.fit(rotateCanvas(canvas, screen.rotate), kind, screen.jpegQuality || 85, screen);
+    this.lastInfo = { screenId: screen.id, pageId: this.page?.id ?? null, at: now, image: lazyJpeg(canvas), tiles: [], interlude: null, alert: a.id, sleeping: false };
+    this.rt.emit('frame', this.lastInfo);
+    if (this.last?.equals(out)) return;
+    this.last = out;
+    await this.device.send(out);
+  }
+
+  /**
    * Plays an interlude if one is due. Returns true while it played (no normal paint this tick).
    * `play`: someone plays it from the Play page (an interlude with `input`): it gets their
    * buttons and lasts while they press them, not `maxSeconds`.
@@ -320,7 +388,7 @@ class ScreenRunner {
     let start = Date.now();
     // maxSeconds is a time: a screen slower than the interlude's fps plays fewer frames, not longer.
     const until = playing ? Infinity : Date.now() + due.maxSeconds * 1000;
-    for (let i = 0; i < frames && this.interlude; i++) {
+    for (let i = 0; i < frames && this.interlude && !this.alert; i++) {
       if (Date.now() >= until) break;
       if (playing && Date.now() - lastPress > this.rt.playIdleMs) {
         this.rt.log(`screen:${this.screen.name}`, `${due.type}: nobody playing, back to the pages`);
@@ -406,7 +474,8 @@ class ScreenRunner {
     const interruptible = items.every((x) => x.play.interruptible);
     // A hold has a meaning for a single animation: with several it is ignored.
     const hold = items.length === 1 ? items[0]!.play.hold : undefined;
-    const abort = () => this.closed || (interruptible && this.dirty) || !this.screen.enabled;
+    // An alert stops any of them, interruptible or not.
+    const abort = () => this.closed || !!this.alert || (interruptible && this.dirty) || !this.screen.enabled;
     this.dirty = false;
     // The page as it was at the start: same clock, same data for every frame, so
     // only the animated tiles move (a changing clock would flicker) and, if it
@@ -489,7 +558,7 @@ class ScreenRunner {
    * used to be dropped without a word).
    */
   async playNow(slotId: string, play = false): Promise<void> {
-    if (this.off) return;
+    if (this.off || this.alert) return;
     this.wanted = slotId;
     this.wantedPlay = play;
     if (this.busy) return;
@@ -570,6 +639,18 @@ export class PaintTimes {
 
 const round = (ms: number) => Math.round(ms * 10) / 10;
 
+/** How often the plugins' alerts are asked again without a data change (for the ones that depend on the time). */
+export const ALERTS_EVERY_MS = 5_000;
+
+const TEST_ALERT_TITLE = { en: 'Test alert', es: 'Alerta de prueba', de: 'Testalarm', 'zh-Hant': '測試警報', 'zh-Hans': '测试警报' };
+const TEST_ALERT_TEXT = {
+  en: 'This is how an alert looks on {screen}. Can you read it from where you sit?',
+  es: 'Así se ve una alerta en {screen}. ¿Se lee desde donde te sientas?',
+  de: 'So sieht ein Alarm auf {screen} aus. Lesbar von deinem Platz aus?',
+  'zh-Hant': '這是警報在「{screen}」上的樣子。從你的座位看得清楚嗎？',
+  'zh-Hans': '这是警报在“{screen}”上的样子。从你的座位看得清吗？',
+};
+
 export class Runtime extends EventEmitter {
   config: Config;
   readonly hub: SourceHub;
@@ -585,6 +666,15 @@ export class Runtime extends EventEmitter {
   playIdleMs: number = PLAY_IDLE_MS;
   /** Random numbers for the animations; tests replace it with a seeded one. */
   rnd: () => number = Math.random;
+  /** Alerts from the plugins, from outside and the screens' tests (see alerts.ts). */
+  readonly alerts = new AlertBoard((m) => this.log('alerts', m));
+  /** Data changed since the plugins' alerts were last asked. */
+  private alertsDirty = true;
+  private alertsAskedAt = 0;
+  /** What the editor was last told, to tell it only changes. */
+  private alertsSig = '';
+  /** A plugin's `alerts` failing, said once per message. */
+  private alertErrors = new Map<string, string>();
 
   readonly registry: Registry;
   /**
@@ -619,6 +709,7 @@ export class Runtime extends EventEmitter {
   }
 
   private onData(change: { source?: string; instance?: string }): void {
+    this.alertsDirty = true;
     for (const r of this.runners.values()) {
       if ((change.instance && r.visibleIds.has(change.instance)) || (change.source && r.sourceTypes.has(change.source))) r.dirty = true;
     }
@@ -675,6 +766,7 @@ export class Runtime extends EventEmitter {
   /** Applies a new config: screens added, removed or changed; data kept where possible. */
   apply(config: Config): void {
     this.config = config;
+    this.alertsDirty = true;
     this.registry.setDisabled(config.plugins.disabled);
     const ids = new Set(config.screens.map((s) => s.id));
     for (const [id, r] of this.runners) {
@@ -698,6 +790,8 @@ export class Runtime extends EventEmitter {
       const now = Date.now();
       this.hub.tick(this.config, now);
       this.fetches.tick(this.config, now);
+      if (this.alertsDirty || now - this.alertsAskedAt >= ALERTS_EVERY_MS) this.askAlerts(now);
+      this.refreshAlerts(now);
       await Promise.all([...this.runners.values()].map((r) => r.update(now)));
     };
     this.timer = setInterval(() => void loop(), TICK_MS);
@@ -751,6 +845,109 @@ export class Runtime extends EventEmitter {
     this.fetches.refresh(instanceId);
   }
 
+  /** Asks every widget instance of the enabled screens (any page) and every running source for its alerts. */
+  askAlerts(now = Date.now()): void {
+    this.alertsDirty = false;
+    this.alertsAskedAt = now;
+    const out: PluginAlert[] = [];
+    const call = (from: string, fn: () => unknown, origin: PluginAlert['origin']) => {
+      let list: unknown;
+      try {
+        list = fn();
+        this.alertErrors.delete(from);
+      } catch (err) {
+        const m = err instanceof Error ? err.message : String(err);
+        if (this.alertErrors.get(from) !== m) this.log(from, `alerts failed: ${m}`);
+        this.alertErrors.set(from, m);
+        return;
+      }
+      if (Array.isArray(list)) for (const alert of list) out.push({ alert, origin, from });
+    };
+    // In demo mode nothing runs: sample data must not set the panels flashing.
+    if (!this.demoMode) {
+      const working = this.working(now);
+      const cfg = this.config;
+      const done = new Set<string>();
+      for (const r of this.runners.values()) {
+        if (!r.screen.enabled) continue;
+        for (const { widget } of widgetsOf(r.screen)) {
+          const def = this.registry.widget(widget.type);
+          if (!def?.alerts || widget.disabled || done.has(widget.id)) continue;
+          done.add(widget.id);
+          call(widget.type, () => {
+            const options = def.options ? (validate(def.options, widget.options).value as Record<string, unknown>) : {};
+            return def.alerts!({ options, data: this.fetches.data(widget.id), sources: this.hub.pick(def.sources), now, working, workday: cfg.workday, ...(cfg.location ? { location: cfg.location } : {}) });
+          }, 'widget');
+        }
+      }
+      for (const { type, options } of this.hub.running()) {
+        const def = this.registry.source(type);
+        if (def?.alerts) call(type, () => def.alerts!({ data: this.hub.data(type), options, now }), 'source');
+      }
+    }
+    this.alerts.sync(out, now, resolveLocale(this.config));
+  }
+
+  /** Every screen gets the alert it must show now, and the editor hears of any change. */
+  refreshAlerts(now = Date.now()): void {
+    this.alerts.prune(now);
+    const list = this.alerts.list(now);
+    for (const r of this.runners.values()) r.setAlert(r.screen.enabled ? this.alerts.forScreen(r.screen, now, r.off) : null, now);
+    const sig = JSON.stringify(list);
+    if (sig === this.alertsSig) return;
+    this.alertsSig = sig;
+    this.emit('alerts', list);
+  }
+
+  /** Alerts not seen nor expired, highest first; the snoozed ones too. */
+  listAlerts(now = Date.now()): ActiveAlert[] {
+    return this.alerts.list(now);
+  }
+
+  /** An alert from outside (`POST /api/alerts`); throws `AlertError` if it is not one. */
+  postAlert(raw: unknown): ActiveAlert {
+    const now = Date.now();
+    const a = this.alerts.post(raw, now, resolveLocale(this.config), this.config.screens.map((s) => s.id));
+    this.log('alerts', `${a.level}: ${a.title} (${a.id})`);
+    this.refreshAlerts(now);
+    return a;
+  }
+
+  ackAlert(id: string): ReturnType<AlertBoard['ack']> {
+    const r = this.alerts.ack(id);
+    if (r === 'ok') this.refreshAlerts();
+    return r;
+  }
+
+  /** Every dismissible alert seen at once; how many. */
+  ackAllAlerts(): number {
+    const n = this.alerts.ackAll(Date.now());
+    this.refreshAlerts();
+    return n;
+  }
+
+  snoozeAlert(id: string, ms: number): ReturnType<AlertBoard['snooze']> {
+    const r = this.alerts.snooze(id, ms, Date.now());
+    if (r === 'ok') this.refreshAlerts();
+    return r;
+  }
+
+  removeAlert(id: string): boolean {
+    const r = this.alerts.remove(id);
+    if (r) this.refreshAlerts();
+    return r;
+  }
+
+  /** The screen's test alert ("Test alert" in Screens): shown there for a while, whatever its settings. */
+  testAlert(screenId: string, level: AlertLevel = 'critical'): ActiveAlert | null {
+    const screen = this.config.screens.find((s) => s.id === screenId);
+    if (!screen) return null;
+    const locale = resolveLocale(this.config);
+    const a = this.alerts.test(screen, level, Date.now(), { title: localize(TEST_ALERT_TITLE, locale), text: localize(TEST_ALERT_TEXT, locale).replace('{screen}', screen.name) });
+    this.refreshAlerts();
+    return a;
+  }
+
   status() {
     return {
       screens: [...this.runners.values()].map((r) => ({
@@ -766,6 +963,8 @@ export class Runtime extends EventEmitter {
         lastFrameAt: r.lastInfo?.at ?? null,
         sleeping: r.lastInfo?.sleeping ?? false,
         off: r.off,
+        /** The alert that has the screen, if any. */
+        alert: r.alert?.top.id ?? null,
       })),
       sources: this.hub.status(),
       fetches: this.fetches.status(),

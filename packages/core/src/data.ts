@@ -185,6 +185,11 @@ export class SourceHub {
     return this.states.get(type)?.data;
   }
 
+  /** The sources running now, with their options. */
+  running(): { type: string; options: Record<string, unknown> }[] {
+    return [...this.states.values()].map((s) => ({ type: s.type, options: s.options }));
+  }
+
   pick(types: readonly string[] | undefined): Record<string, unknown> {
     const out: Record<string, unknown> = {};
     for (const t of types ?? []) out[t] = this.data(t);
