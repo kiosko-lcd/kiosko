@@ -37,7 +37,7 @@ const FULL: Config = {
   theme: 'paper',
   location: { latitude: 40.4, longitude: -3.7, name: 'Madrid' },
   workday: { days: [1, 2, 3, 4], start: '08:00', end: '15:30', hours: 7, holidays: ['2026-12-25'], byDay: { '4': { end: '14:00', hours: 6 } } },
-  sources: { 'demo/remote': { host: 'example.org', intervalMs: 120_000, timeoutMs: 20_000 } },
+  sources: { 'demo/remote': { host: 'example.org', intervalMs: 120_000, timeoutMs: 20_000 }, 'demo/warnings': { background: true } },
   plugins: { disabled: ['demo'] },
   server: { host: '127.0.0.1', port: 7421 },
   homeassistant: { enabled: true, broker: 'mqtt://ha.local:1883', username: 'kiosko', password: 's3cret', discoveryPrefix: 'ha', nodeId: 'desk' },
@@ -273,6 +273,14 @@ test('shared settings: time format, zoom, the widget switches and source timing'
   assert.equal(remote.properties.intervalMs['x-ui'].unit, 'ms');
   assert.equal(remote.properties.timeoutMs['x-ui'].advanced, true);
   assert.equal(schema.properties.sources.properties['demo/push'].properties, undefined);
+  // Only a source that may run with no widget (background and alerts) gets the switch, first and off.
+  const warnings = schema.properties.sources.properties['demo/warnings'];
+  assert.deepEqual(Object.keys(warnings.properties), ['background', 'intervalMs', 'timeoutMs']);
+  assert.equal(warnings.properties.background.default, false);
+  assert.equal(warnings.properties.background['x-ui'].label.es, 'Vigilar avisos sin widget');
+  assert.equal(remote.properties.background, undefined);
+  assert.equal(schema.properties.sources.properties['demo/idle'].properties, undefined);
+  assert.deepEqual(validateConfig({ sources: { 'demo/warnings': { background: 'yes' } } }, plugins).errors.map((e) => e.path), ['sources["demo/warnings"].background']);
   const r = validateConfig({ sources: { 'demo/remote': { intervalMs: 1000, timeoutMs: 5000 } } }, plugins);
   assert.deepEqual(r.warnings, []);
   assert.match(r.errors[0]!.message, /at least 30000/);

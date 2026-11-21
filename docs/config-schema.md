@@ -58,6 +58,7 @@ Settings every widget or source shares, whatever its plugin:
 | a widget | `hideWhenEmpty` | only on widgets that list things: skip the widget in its tile while it has nothing to list |
 | `sources["plugin/source"]` | `intervalMs` | how often a polled source is read, at least its own minimum (`minimum` in the schema) |
 | `sources["plugin/source"]` | `timeoutMs` | how long one read may take before it counts as failed (default 2 min) |
+| `sources["plugin/source"]` | `background` | only on sources that may run with no widget (they declare `background` and `alerts`): `true` runs it, and asks its alerts, even when no tile uses it; default `false` |
 | list widgets' `options` | `rows`, `layout` | rows to show (0 = as many as fit, up to 30; what doesn't fit is "+N more") and, where the widget has two, `"auto"`, `"one-line"` or `"detailed"` |
 | some widgets' `options` | `projects`, `repos`… | patterns: `[]` = all, `"web"` (by full name or last part), `"acme/*"`, `"!*-old"` to leave out |
 

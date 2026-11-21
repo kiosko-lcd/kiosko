@@ -66,8 +66,9 @@ test('lintPlugin: contract, languages, requirements, sizes and templates', () =>
     render() {},
   });
   const s = defineSource({ id: 'feed', name: 'Feed', read: async () => 1 });
+  const bg = defineSource({ id: 'bg', name: { en: 'Bg', es: 'Bg' }, background: true, options: t.object({ background: t.boolean() }), read: async () => 1 });
   const issues = messages(lintPlugin(definePlugin({
-    id: 'x', name: { en: 'X', es: 'X' }, version: '1.0', widgets: [w, w], sources: [s],
+    id: 'x', name: { en: 'X', es: 'X' }, version: '1.0', widgets: [w, w], sources: [s, bg],
     optional: ['weather/current'],
     templates: [{ id: 'main', name: 'Main', wide: [{ x: 0.5, y: 0, w: 0.7, h: 1, widgets: ['card'] }] }],
   })));
@@ -83,6 +84,8 @@ test('lintPlugin: contract, languages, requirements, sizes and templates', () =>
   assert.ok(!issues.some((m) => /uses x\/feed/.test(m)), 'its own are fine');
   has(/^x\/feed: "Feed" has no es \(the plugin speaks en, es\)/);
   has(/^x\/main template: tiles are fractions/);
+  has(/^x\/bg: `background` without `alerts`/);
+  has(/^x\/bg options\.background: running with no widget is not an option/);
 });
 
 test('lintPlugin: a complete plugin is clean', () => {
