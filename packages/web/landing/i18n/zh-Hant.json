@@ -174,5 +174,19 @@
   "store-write-yours": "自己寫一個：以關鍵字 <code>kiosko-plugin</code> 發佈到 npm，一天內就會出現在這裡。",
   "store-updated": "{date} 的目錄",
   "store-pictures": "圖片",
-  "store-filters": "篩選"
+  "store-filters": "篩選",
+  "store-hero-title": "面板能顯示的一切，",
+  "store-hero-em": "只差一個外掛。",
+  "store-hero-alt": "一塊 Kiosko 長條面板，顯示這些外掛的小工具",
+  "store-stat-plugins": "個外掛",
+  "store-stat-widgets": "個小工具",
+  "store-stat-languages": "種語言",
+  "store-stat-free": "全部都是",
+  "store-browse": "瀏覽外掛",
+  "store-write-cta": "自己寫一個",
+  "store-featured": "精選",
+  "store-all-plugins": "所有外掛",
+  "store-copy": "複製",
+  "store-copied": "已複製",
+  "store-more-in": "更多{category}"
 }
