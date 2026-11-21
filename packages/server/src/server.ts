@@ -227,10 +227,19 @@ export function startServer(o: ServerOptions) {
     }
     mm = /^\/api\/screens\/([^/]+)\/interlude$/.exec(p);
     if (mm && m === 'POST') {
-      const b = (await body(req)) as { slotId?: string; stop?: boolean };
+      const b = (await body(req)) as { slotId?: string; stop?: boolean; play?: boolean };
       if (b.stop) runtime.stopInterlude(decodeURIComponent(mm[1]!));
-      else if (b.slotId) runtime.playInterlude(decodeURIComponent(mm[1]!), b.slotId);
+      else if (b.slotId) runtime.playInterlude(decodeURIComponent(mm[1]!), b.slotId, !!b.play);
       return json(res, 200, { ok: true });
+    }
+    // The Play page's buttons, for the interlude being played on that screen: one or several.
+    mm = /^\/api\/screens\/([^/]+)\/input$/.exec(p);
+    if (mm && m === 'POST') {
+      const b = (await body(req)) as { events?: { key: string; pressed: boolean }[] } & { key?: string; pressed?: boolean };
+      const events = b.events ?? (b.key ? [{ key: b.key, pressed: !!b.pressed }] : []);
+      let taken = false;
+      for (const e of events.slice(0, 32)) taken = runtime.press(decodeURIComponent(mm[1]!), e as never) || taken;
+      return json(res, 200, { ok: true, playing: taken });
     }
     mm = /^\/api\/widgets\/([^/]+)\/refresh$/.exec(p);
     if (mm && m === 'POST') {

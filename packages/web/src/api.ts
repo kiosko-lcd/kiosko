@@ -77,7 +77,8 @@ export interface PluginInfo {
   widgets: WidgetInfo[];
   /** `options` include Kiosko's `intervalMs` and `timeoutMs` for polled sources. */
   sources: { type: string; name: string; description: string; options: JsonSchema | null; intervalMs: number | null; polled: boolean }[];
-  interludes: { type: string; name: string; description: string; icon?: string; fps: number; options: JsonSchema | null }[];
+  /** `input`: it can be played from the Play page. */
+  interludes: { type: string; name: string; description: string; icon?: string; fps: number; input?: boolean; options: JsonSchema | null }[];
 }
 
 export interface JsonSchema {
@@ -119,7 +120,7 @@ export interface ThemeInfo {
 }
 
 export interface Status {
-  screens: { id: string; name: string; page: string | null; pinned: string | null; interlude: string | null; device: { driver: string; ok: boolean; message: string; code?: string; params?: Record<string, string | number>; framesSent: number; lastSentAt: number | null; detected?: { width: number; height: number; rotate?: number } }; lastFrameAt: number | null; sleeping: boolean }[];
+  screens: { id: string; name: string; page: string | null; pinned: string | null; interlude: string | null; playing?: boolean; device: { driver: string; ok: boolean; message: string; code?: string; params?: Record<string, string | number>; framesSent: number; lastSentAt: number | null; detected?: { width: number; height: number; rotate?: number } }; lastFrameAt: number | null; sleeping: boolean }[];
   sources: { type: string; ok: boolean; error: string | null; updatedAt: number | null; intervalMs?: number }[];
   fetches: { id: string; type: string; ok: boolean; error: string | null; updatedAt: number | null }[];
   /** How long each widget instance takes to paint on the panels, slowest first. */
@@ -188,7 +189,10 @@ export const api = {
     `/api/thumbnail?type=${encodeURIComponent(type)}&w=${Math.round(w)}&h=${Math.round(h)}&theme=${encodeURIComponent(look.theme ?? '')}&locale=${encodeURIComponent(look.locale ?? '')}`,
   liveFrameUrl: (screenId: string, at: number) => `/api/screens/${encodeURIComponent(screenId)}/frame.jpg?at=${at}`,
   pin: (screenId: string, pageId: string | null) => fetch(`/api/screens/${encodeURIComponent(screenId)}/pin`, { method: 'POST', headers: H, body: JSON.stringify({ pageId }) }).then((r) => ok(r)),
-  playInterlude: (screenId: string, slotId: string) => fetch(`/api/screens/${encodeURIComponent(screenId)}/interlude`, { method: 'POST', headers: H, body: JSON.stringify({ slotId }) }).then((r) => ok(r)),
+  playInterlude: (screenId: string, slotId: string, play = false) => fetch(`/api/screens/${encodeURIComponent(screenId)}/interlude`, { method: 'POST', headers: H, body: JSON.stringify({ slotId, ...(play ? { play: true } : {}) }) }).then((r) => ok(r)),
+  stopInterlude: (screenId: string) => fetch(`/api/screens/${encodeURIComponent(screenId)}/interlude`, { method: 'POST', headers: H, body: JSON.stringify({ stop: true }) }).then((r) => ok(r)),
+  /** The Play page's buttons, for the interlude being played on that screen. */
+  press: (screenId: string, events: { key: string; pressed: boolean }[]) => fetch(`/api/screens/${encodeURIComponent(screenId)}/input`, { method: 'POST', headers: H, body: JSON.stringify({ events }), keepalive: true }).then((r) => ok(r)),
   refreshWidget: (id: string) => fetch(`/api/widgets/${encodeURIComponent(id)}/refresh`, { method: 'POST', headers: H, body: '{}' }).then((r) => ok(r)),
   discover: (url?: string) => fetch(`/api/devices/discover${url ? `?url=${encodeURIComponent(url)}` : ''}`).then((r) => ok<{ trcc: { key: string; width: number; height: number }[]; usb: { serial: string; key: string; width: number; height: number; rotate?: number; location: string; error?: string }[] }>(r)),
   logs: () => fetch('/api/logs').then((r) => ok<{ at: number; scope: string; message: string }[]>(r)),

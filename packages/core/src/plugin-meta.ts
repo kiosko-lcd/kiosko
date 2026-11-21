@@ -124,7 +124,7 @@ export interface PluginManifest {
   optional: { type: string; plugin: string }[];
   widgets: ManifestWidget[];
   sources: { type: string; name: Localized; description?: Localized; polled: boolean; intervalMs?: number; options: Record<string, unknown> | null }[];
-  interludes: { type: string; name: Localized; description?: Localized; icon?: string; fps: number }[];
+  interludes: { type: string; name: Localized; description?: Localized; icon?: string; fps: number; input?: boolean }[];
   templates: { id: string; name: Localized; icon?: string; widgets: string[] }[];
 }
 
@@ -245,7 +245,7 @@ export function pluginManifest(def: PluginDefinition, o: { screenshots?: Record<
       ...(s.read && s.intervalMs ? { intervalMs: s.intervalMs } : {}),
       options: s.options ? toJsonSchema(s.options) : null,
     })),
-    interludes: (def.interludes ?? []).map((i) => ({ type: `${def.id}/${i.id}`, name: i.name, ...(i.description ? { description: i.description } : {}), ...(i.icon ? { icon: i.icon } : {}), fps: i.fps })),
+    interludes: (def.interludes ?? []).map((i) => ({ type: `${def.id}/${i.id}`, name: i.name, ...(i.description ? { description: i.description } : {}), ...(i.icon ? { icon: i.icon } : {}), fps: i.fps, ...(i.input ? { input: true } : {}) })),
     templates: (def.templates ?? []).map((tp) => ({
       id: tp.id,
       name: tp.name,

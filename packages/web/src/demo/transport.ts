@@ -174,6 +174,8 @@ export const api: typeof httpApi = {
     return { ok: true };
   },
   playInterlude: async () => ({ ok: true }),
+  stopInterlude: async () => ({ ok: true }),
+  press: async () => ({ ok: true }),
   refreshWidget: async () => ({ ok: true }),
   discover: async () => ({ trcc: [], usb: [] }),
   logs: async () => (await start()).logs(),

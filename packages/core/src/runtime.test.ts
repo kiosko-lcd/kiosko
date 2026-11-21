@@ -312,3 +312,91 @@ test('runtime: an interlude asked for while the screen is busy plays right after
     rt.stop();
   }
 });
+
+test('runtime: an interlude played from the Play page gets the buttons, outlasts maxSeconds and ends when nobody plays', async () => {
+  const reg = new Registry();
+  const got: string[] = [];
+  let input: unknown = 'not asked';
+  let drawn = 0;
+  reg.add(definePlugin({
+    id: 'g', name: 'G', version: '1',
+    interludes: [{
+      id: 'game', name: 'Game', fps: 30, input: true,
+      prepare: async (ctx) => {
+        input = ctx.input;
+        ctx.input?.on((e) => got.push(`${e.key}${e.pressed ? '↓' : '↑'}`));
+        return { frames: Infinity, draw: () => void drawn++ };
+      },
+    }],
+  }));
+  // maxSeconds 1: a slot would stop it after a second; being played, it doesn't.
+  const rt = new Runtime(reg, norm({ screens: [{ id: 'a', name: 'a', width: 32, height: 16, maxFps: 30, device: { driver: 'virtual' }, interludes: [{ id: 'x', type: 'g/game', enabled: false, everyMs: 3_600_000, maxSeconds: 1 }], pages: [] }] }));
+  const idle = (rt as unknown as { runners: Map<string, unknown> }).runners;
+  rt.start();
+  try {
+    await sleep(100);
+    assert.equal(rt.press('a', { key: 'a', pressed: true }), false, 'nothing being played yet');
+    // At its slot (not played): no buttons.
+    rt.playInterlude('a', 'x');
+    await until(() => input !== 'not asked');
+    assert.equal(input, undefined);
+    await until(() => rt.status().screens[0]!.interlude === null);
+    input = 'not asked';
+    rt.playInterlude('a', 'x', true);
+    await until(() => rt.status().screens[0]!.playing);
+    assert.ok(input && typeof (input as { on: unknown }).on === 'function');
+    assert.equal(rt.press('a', { key: 'up', pressed: true }), true);
+    rt.press('a', { key: 'up', pressed: false });
+    assert.equal(rt.press('a', { key: 'nope' as never, pressed: true }), false, 'only the pad’s buttons');
+    assert.deepEqual(got, ['up↓', 'up↑']);
+    // Past maxSeconds, still playing while buttons come.
+    for (let k = 0; k < 6; k++) {
+      await sleep(250);
+      rt.press('a', { key: 'a', pressed: k % 2 === 0 });
+    }
+    assert.ok(rt.status().screens[0]!.playing, 'still being played after 1.5 s');
+    assert.ok(drawn > 30, `${drawn} frames`);
+    rt.stopInterlude('a');
+    await until(() => !rt.status().screens[0]!.playing);
+    assert.equal(rt.press('a', { key: 'a', pressed: true }), false, 'over: the buttons go nowhere');
+    // Played again, and left alone: it ends by itself.
+    rt.playIdleMs = 400;
+    rt.playInterlude('a', 'x', true);
+    await until(() => rt.status().screens[0]!.playing);
+    await until(() => !rt.status().screens[0]!.playing, 3000);
+    assert.match(rt.logs.map((l) => l.message).join('\n'), /nobody playing, back to the pages/);
+    void idle;
+  } finally {
+    rt.stop();
+  }
+});
+
+test('runtime: maxSeconds is a time, even on a screen slower than the interlude', async () => {
+  const reg = new Registry();
+  let drawn = 0;
+  const busy = (ms: number) => {
+    const end = Date.now() + ms;
+    while (Date.now() < end) {
+      /* a frame slow to make */
+    }
+  };
+  reg.add(definePlugin({
+    id: 's', name: 'S', version: '1',
+    // 30 fps asked, but each frame takes 100 ms to make: 10 fps at most.
+    interludes: [{ id: 'slow', name: 'Slow', fps: 30, prepare: async () => ({ frames: 10_000, draw: () => { drawn++; busy(100); } }) }],
+  }));
+  const rt = new Runtime(reg, norm({ screens: [{ id: 'a', name: 'a', width: 32, height: 16, maxFps: 30, device: { driver: 'virtual' }, interludes: [{ id: 'x', type: 's/slow', enabled: false, everyMs: 3_600_000, maxSeconds: 1 }], pages: [] }] }));
+  rt.start();
+  try {
+    await sleep(100);
+    const t0 = Date.now();
+    rt.playInterlude('a', 'x');
+    await until(() => rt.status().screens[0]!.interlude !== null);
+    await until(() => rt.status().screens[0]!.interlude === null, 5000);
+    const took = Date.now() - t0;
+    // 30 frames would have taken 3 s here.
+    assert.ok(took < 1800, `played ${took} ms for maxSeconds 1 (${drawn} frames)`);
+  } finally {
+    rt.stop();
+  }
+});
