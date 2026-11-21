@@ -21,6 +21,10 @@ export interface ActiveAlert {
   level: AlertLevel;
   title: string;
   text: string;
+  /** Who published it ("IGN", "NWS"), when the alert says. */
+  source?: string;
+  /** A second line, the authority's instruction, when the alert has one. */
+  detail?: string;
   icon?: string;
   origin: AlertOrigin;
   /** The widget or source type that returned it. */
@@ -53,6 +57,8 @@ export class AlertError extends Error {
 export const EXTERNAL_ID = /^[A-Za-z0-9_.-]{1,80}$/;
 const MAX_TITLE = 120;
 const MAX_TEXT = 240;
+const MAX_SOURCE = 40;
+const MAX_DETAIL = 240;
 /** How long the test alert of a screen lasts. */
 export const TEST_ALERT_MS = 20_000;
 /** Snoozing without saying for how long. */
@@ -61,6 +67,9 @@ export const DEFAULT_SNOOZE_MS = 10 * 60_000;
 export const levelRank = (l: AlertLevel | 'off'): number => (l === 'off' ? Infinity : ALERT_LEVELS.indexOf(l));
 const clip = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1).trimEnd()}…` : s);
 const oneLine = (s: string) => s.replace(/\s+/g, ' ').trim();
+
+/** A text an alert may carry: a string or a `Localized` (an object with at least `en`). */
+const isText = (x: unknown): boolean => typeof x === 'string' || (!!x && typeof x === 'object' && !Array.isArray(x) && typeof (x as { en?: unknown }).en === 'string');
 
 function text(x: unknown, locale: string): string {
   if (typeof x === 'string') return oneLine(x);
@@ -82,11 +91,15 @@ export function parseAlert(raw: unknown, now: number, locale: string): Omit<Acti
   if (!title) throw new AlertError('an alert needs a title', 'badAlert');
   const expiresAt = typeof a.expiresAt === 'number' && Number.isFinite(a.expiresAt) ? a.expiresAt : typeof a.ttlMs === 'number' && a.ttlMs > 0 ? now + a.ttlMs : null;
   const icon = typeof a.icon === 'string' && a.icon.trim() ? a.icon.trim().slice(0, 40) : undefined;
+  const source = clip(text(a.source, locale), MAX_SOURCE);
+  const detail = clip(text(a.detail, locale), MAX_DETAIL);
   return {
     id,
     level: a.level as AlertLevel,
     title,
     text: clip(text(a.text, locale), MAX_TEXT),
+    ...(source ? { source } : {}),
+    ...(detail ? { detail } : {}),
     ...(icon ? { icon } : {}),
     expiresAt,
     dismissible: a.dismissible !== false,
@@ -149,6 +162,11 @@ export class AlertBoard {
   post(raw: unknown, now: number, locale: string, screenIds: readonly string[] = []): ActiveAlert {
     const body = raw && typeof raw === 'object' ? { ...(raw as object) } : raw;
     if (body && typeof body === 'object' && !(body as { id?: unknown }).id) (body as { id: string }).id = `alert-${now.toString(36)}${Math.floor(Math.random() * 1296).toString(36)}`;
+    // From outside, a wrong type is said rather than dropped (a plugin's just loses the field).
+    for (const k of ['source', 'detail'] as const) {
+      const v = body && typeof body === 'object' ? (body as Record<string, unknown>)[k] : undefined;
+      if (v !== undefined && v !== null && !isText(v)) throw new AlertError(`${k} is a text, or an object of texts by language with at least "en"`, 'badAlert');
+    }
     const a = parseAlert(body, now, locale);
     if (!EXTERNAL_ID.test(a.id)) throw new AlertError('the id may have only letters, digits, ".", "_" and "-" (up to 80)', 'badAlert');
     const screens = (raw as { screens?: unknown }).screens;

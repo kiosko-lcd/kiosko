@@ -21,6 +21,23 @@ test('alerts: what is kept of one, and what is refused', () => {
   }
 });
 
+test('alerts: who published it and the instruction are kept when given, as text, and checked when posted', () => {
+  const a = parseAlert({ id: 'tsunami', level: 'critical', title: 'Tsunami', source: { en: 'NWS', es: 'NWS (EE. UU.)' }, detail: '  Move away from\n the coast ' }, NOW, 'es');
+  assert.equal(a.source, 'NWS (EE. UU.)');
+  assert.equal(a.detail, 'Move away from the coast');
+  // Optional: an alert without them is as before.
+  assert.deepEqual(Object.keys(parseAlert({ id: 'x', level: 'info', title: 'T', source: '  ', detail: '' }, NOW, 'en')).sort(), ['dismissible', 'expiresAt', 'id', 'level', 'text', 'title']);
+  assert.equal(parseAlert({ id: 'x', level: 'info', title: 'T', source: 'x'.repeat(100), detail: 'y'.repeat(500) }, NOW, 'en').source!.length, 40);
+  assert.equal(parseAlert({ id: 'x', level: 'info', title: 'T', detail: 'y'.repeat(500) }, NOW, 'en').detail!.length, 240);
+  // A plugin's of the wrong type loses the field, not the alert.
+  assert.equal(parseAlert({ id: 'x', level: 'info', title: 'T', source: 42 }, NOW, 'en').source, undefined);
+  const b = new AlertBoard();
+  assert.equal(b.post({ id: 'q', level: 'warn', title: 'Quake', source: 'IGN', detail: 'Stay outside' }, NOW, 'en').source, 'IGN');
+  for (const bad of [{ source: 42 }, { detail: ['a'] }, { source: { es: 'sin en' } }]) {
+    assert.throws(() => b.post({ id: 'q', level: 'warn', title: 'Quake', ...bad }, NOW, 'en'), (err: AlertError) => err.code === 'badAlert' && /source|detail/.test(err.message));
+  }
+});
+
 test('alerts: posted ones, their order, ack, snooze, expiry and removal', () => {
   const b = new AlertBoard();
   b.post({ id: 'door', level: 'info', title: 'Doorbell', ttlMs: 30_000 }, NOW, 'en');
@@ -173,4 +190,38 @@ test('an alert is painted over the whole panel: the frame in the level\'s colour
   // Dimmed, the frame is far from the full red.
   paintAlert(g, 640, 160, { top, more: 0 }, { intensity: 0.15, fonts: FONT_FAMILIES, minPx: 14 });
   assert.ok(px(1, 1)[0]! < 0x60);
+});
+
+/** The lines `paint` draws (character by character, see the kit's drawTracked), with their colour. */
+function drawnLines(w: number, h: number, paint: (g: ReturnType<ReturnType<typeof createCanvas>['getContext']>) => void): { text: string; color: string }[] {
+  const g = createCanvas(w, h).getContext('2d');
+  const lines: { text: string; color: string; y: number }[] = [];
+  const fill = g.fillText.bind(g);
+  g.fillText = (ch: string, x: number, y: number) => {
+    const last = lines.at(-1);
+    if (last && last.y === y && last.color === g.fillStyle) last.text += ch;
+    else lines.push({ text: ch, color: String(g.fillStyle), y });
+    fill(ch, x, y);
+  };
+  paint(g);
+  return lines.map(({ text, color }) => ({ text, color }));
+}
+
+test('an alert\'s source goes small in the corner with the time, and its detail under the text in the level\'s colour', () => {
+  const top = { id: 'x', level: 'critical' as const, title: 'Tsunami warning', text: 'NTWC · M7.8 off Portugal', source: 'NWS', detail: 'Move away from the coast and go to high ground', origin: 'source' as const, since: NOW, expiresAt: null, dismissible: true };
+  const lines = drawnLines(1920, 462, (g) => paintAlert(g, 1920, 462, { top, more: 0 }, { intensity: 1, fonts: FONT_FAMILIES, minPx: 14, sinceText: '14:05' }));
+  const texts = lines.map((l) => l.text.replace(/ /g, ''));
+  assert.deepEqual(texts, ['NWS·14:05', 'Tsunamiwarning', 'NTWC·M7.8offPortugal', 'Moveawayfromthecoastandgotohighground']);
+  const [corner, title, text, detail] = lines;
+  assert.equal(title!.color, '#ffffff');
+  assert.notEqual(detail!.color, text!.color, 'the instruction stands apart from the text');
+  assert.notEqual(corner!.color, title!.color);
+  // A long source goes over the time, cut short: the title keeps its room.
+  const long = drawnLines(1920, 462, (g) => paintAlert(g, 1920, 462, { top: { ...top, source: 'Agencia Estatal de Meteorología de España' }, more: 0 }, { intensity: 1, fonts: FONT_FAMILIES, minPx: 14, sinceText: '14:05' }));
+  assert.match(long[0]!.text, /^Agencia.*…$/);
+  assert.equal(long[1]!.text, '14:05');
+  assert.equal(long[2]!.text.replace(/ /g, ''), 'Tsunamiwarning');
+  // Without them, as before: just the time.
+  const plain = drawnLines(1920, 462, (g) => paintAlert(g, 1920, 462, { top: { ...top, source: undefined, detail: undefined }, more: 0 }, { intensity: 1, fonts: FONT_FAMILIES, minPx: 14, sinceText: '14:05' }));
+  assert.deepEqual(plain.map((l) => l.text.replace(/ /g, '')), ['14:05', 'Tsunamiwarning', 'NTWC·M7.8offPortugal']);
 });
