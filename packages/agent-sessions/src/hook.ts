@@ -85,6 +85,13 @@ export function handleEvent(provider: string, data: Record<string, any>, prev: S
       detail = arg ? `${e.tool}: ${arg}` : e.tool;
       break;
     }
+    case 'PermissionRequest': {
+      // Claude Code, Codex CLI and Qwen Code ask before running a tool: blocked on you, with what it wants to run.
+      state = 'permission';
+      const arg = summarizeToolInput(e.toolInput);
+      detail = arg ? `${e.tool}: ${arg}` : e.tool || e.fallback;
+      break;
+    }
     case 'Notification': {
       // Documented matchers: permission_prompt | idle_prompt | auth_success |
       // elicitation_* | agent_*.

@@ -1,7 +1,7 @@
 # @loksly/agent-sessions
 
 A tiny file protocol for the state of your AI coding sessions (Claude Code,
-Gemini CLI, …), so that anything can show which session needs you: an LCD
+Gemini CLI, Codex CLI, Qwen Code, Kimi CLI, …), so that anything can show which session needs you: an LCD
 panel, a status bar, a tmux segment, a microcontroller on your desk.
 
 - **A hook** (`agent-sessions-hook`) that your CLI calls on every event. It
@@ -65,6 +65,7 @@ npm install -g @loksly/agent-sessions
     "PostToolUse":        [{ "hooks": [{ "type": "command", "command": "agent-sessions-hook", "timeout": 5 }] }],
     "PostToolUseFailure": [{ "hooks": [{ "type": "command", "command": "agent-sessions-hook", "timeout": 5 }] }],
     "Notification":       [{ "hooks": [{ "type": "command", "command": "agent-sessions-hook", "timeout": 5 }] }],
+    "PermissionRequest":  [{ "hooks": [{ "type": "command", "command": "agent-sessions-hook", "timeout": 5 }] }],
     "Stop":               [{ "hooks": [{ "type": "command", "command": "agent-sessions-hook", "timeout": 5 }] }],
     "SubagentStop":       [{ "hooks": [{ "type": "command", "command": "agent-sessions-hook", "timeout": 5 }] }],
     "PreCompact":         [{ "hooks": [{ "type": "command", "command": "agent-sessions-hook", "timeout": 5 }] }],
@@ -74,6 +75,13 @@ npm install -g @loksly/agent-sessions
 ```
 
 **Gemini CLI**: the same command with `--provider gemini`.
+
+**Codex CLI**, **Qwen Code** and **Kimi CLI**: the same command with
+`--provider codex`, `--provider qwen` or `--provider kimi`, on the events each
+one has (see their hooks documentation; kiosko-plugin-agents' README has
+ready-to-paste snippets). `PermissionRequest` marks the session as waiting for
+your permission, with the tool it wants to run; Codex has no Notification
+event, so it is the one to hook there.
 
 ## Reading it
 

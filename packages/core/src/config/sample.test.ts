@@ -21,15 +21,14 @@ test('in Chinese: the widgets’ own names instead of English titles, pages and 
   assert.equal(localizeSample(showcase, 'fr').screens[0]!.pages[0]!.name, showcase.screens[0]!.pages[0]!.name, 'other languages keep the names they have no table for');
 });
 
-test('in mainland China, no Claude or Gemini: local models instead of agents, cats and usage', () => {
+test('in mainland China: the agents and cats stay (they read the agents used there), Claude’s usage bar gives way', () => {
   const types = (c: Config) => c.screens.flatMap((s) => s.pages.flatMap((p) => p.tiles.flatMap((t) => t.widgets.map((w) => w.type))));
-  const without = ['agents', 'cats', 'usage'];
   const cn = localizeSample(showcase, 'zh-CN');
-  assert.deepEqual(types(cn).filter((t) => without.includes(t.split('/')[0]!)), []);
-  assert.ok(types(cn).some((t) => t.startsWith('llm/')) && types(cn).some((t) => t.startsWith('gpu/')), types(cn).join());
-  for (const id of without) assert.ok(cn.plugins?.disabled.includes(id), `${id} disabled`);
+  // The Claude-only usage widgets give way to the ones that read DeepSeek or Kimi and the agents (usage 0.3).
+  assert.deepEqual(types(cn).filter((t) => t === 'usage/rail' || t === 'usage/blocks'), []);
+  if (types(showcase).includes('cats/room')) assert.ok(types(cn).includes('cats/room'), 'the cats room stays');
+  assert.deepEqual(cn.plugins?.disabled ?? [], showcase.plugins?.disabled ?? [], 'nothing disabled for the market');
   // Same tiles, same places: only what is painted in them changes.
   assert.equal(types(cn).length, types(showcase).length);
-  // Taiwan has Claude: its sample keeps them.
-  assert.ok(types(localizeSample(showcase, 'zh-TW')).includes('cats/room'));
+  assert.deepEqual(types(localizeSample(showcase, 'zh-TW')), types(showcase), 'Taiwan: the sample as it is');
 });

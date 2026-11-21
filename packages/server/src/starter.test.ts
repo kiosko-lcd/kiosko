@@ -20,7 +20,7 @@ test('the first page fits the screen it is made for: a strip, a square, a panel 
   for (const [x, y, w, h] of square.tiles) assert.ok(x! + w! <= 6 && y! + h! <= 6);
 });
 
-test('in mainland China the first page leaves out the AI agents and Claude usage (languages.ts): a welcome instead', async () => {
+test('in mainland China the first page has the agents used there but not Claude’s usage bar (languages.ts)', async () => {
   const { definePlugin } = await import('@kiosko/sdk');
   const r = new Registry();
   r.add(core);
@@ -29,6 +29,6 @@ test('in mainland China the first page leaves out the AI agents and Claude usage
     r.add(definePlugin({ id, name: id, version: '1', widgets: widgets.map(w) }));
   }
   const types = (locale: string) => starterConfig(r, { locale }).screens[0]!.pages[0]!.tiles.flatMap((t) => t.widgets.map((x) => x.type));
-  assert.deepEqual(types('zh-CN'), ['core/text', 'core/clock', 'system/health']);
+  assert.deepEqual(types('zh-CN'), ['agents/sessions', 'core/clock', 'system/health']);
   assert.deepEqual(types('zh-TW'), ['agents/sessions', 'core/clock', 'usage/rail', 'system/health']);
 });

@@ -12,11 +12,11 @@ export function starterConfig(registry: Registry, o: { width?: number; height?: 
   const L = (t: Localized) => localize(t, o.locale ?? 'en');
   const screen = newScreen(L({ en: 'My panel', es: 'Mi panel', de: 'Mein Panel', 'zh-Hant': '我的面板', 'zh-Hans': '我的屏幕' }), width, height);
   // Where the language is read, the services some plugins need may not be offered (mainland China:
-  // no Claude nor Gemini, languages.ts): the first page leaves them out and shows what works with
-  // nothing to set up (a welcome, the clock, the machine's own health), not their stand-ins (local
-  // models), which would open on an empty tile for most.
+  // no Claude nor Gemini, languages.ts): the first page leaves out the plugins not offered there and
+  // the widgets that have a stand-in there (Claude's usage bar), and shows what works with nothing to
+  // set up, not the stand-ins (a balance needs a key), which would open on an empty tile for most.
   const market = languageById(pickLocale(LANGUAGE_IDS, o.locale ?? 'en') ?? 'en')?.plugins;
-  const offered = (t: string) => !market?.without.includes(t.split('/')[0]!);
+  const offered = (t: string) => !market?.without.includes(t.split('/')[0]!) && !market?.instead[t];
   const has = (t: string) => offered(t) && !!registry.widget(t);
   const page = newPage(L({ en: 'Home', es: 'Inicio', de: 'Start', 'zh-Hant': '首頁', 'zh-Hans': '首页' }), width, height);
   page.grid = { cols: 24, rows: 6, gap: 10, padding: 10 };

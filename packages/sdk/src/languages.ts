@@ -29,13 +29,16 @@ export interface Language {
 
 /**
  * Simplified Chinese is read in mainland China, where Claude (and Gemini) are
- * not offered: no AI-agent, cats-room nor Claude-usage plugins there, and local
- * models (Qwen, DeepSeek… on your own GPU) in their place.
+ * not offered. The AI-agent plugins read the agents used there (agents 0.3:
+ * Qwen Code, Kimi CLI, iFlow, Codex, OpenCode, with the cats room on top) and
+ * `usage` the providers' balances (usage 0.3: DeepSeek, Kimi), so all are
+ * offered; local models lead, and the Claude-only usage widgets give way to
+ * the ones that read those providers.
  */
 const MAINLAND_CHINA: NonNullable<Language['plugins']> = {
-  without: ['agents', 'cats', 'usage'],
-  first: ['llm', 'gpu'],
-  instead: { 'agents/summary': 'llm/status', 'agents/sessions': 'llm/models', 'usage/rail': 'gpu/cards', 'cats/room': 'gpu/history' },
+  without: [],
+  first: ['llm', 'gpu', 'usage'],
+  instead: { 'usage/rail': 'usage/balance', 'usage/blocks': 'usage/agents' },
 };
 
 export const LANGUAGES: readonly Language[] = [

@@ -56,12 +56,12 @@ test('store pages: the list and each plugin, in every language, with the links b
     // Picked ones first, from those offered (an editorial order, nothing made up).
     const en = readFileSync(join(out, 'store/index.html'), 'utf8');
     assert.deepEqual([...en.matchAll(/<a class="feature" href="([^/]+)\//g)].map((m) => m[1]), FEATURED.filter((id: string) => ['weather', 'agents', 'acuario'].includes(id)).slice(0, 3));
-    // Simplified Chinese: no AI agents there (languages.ts), as on the front page.
+    // Simplified Chinese: the AI agents are offered too (they read the agents used there, languages.ts).
     const hans = readFileSync(join(out, 'zh-Hans/store/index.html'), 'utf8');
-    assert.ok(!hans.includes('data-id="agents"'));
-    assert.ok(!existsSync(join(out, 'zh-Hans/store/agents')));
+    assert.ok(hans.includes('data-id="agents"'));
+    assert.ok(existsSync(join(out, 'zh-Hans/store/agents/index.html')));
     assert.ok(existsSync(join(out, 'zh-Hant/store/agents/index.html')));
-    assert.deepEqual(offeredIn(index, 'zh-Hans').map((p: { id: string }) => p.id).sort(), ['acuario', 'weather']);
+    assert.deepEqual(offeredIn(index, 'zh-Hans').map((p: { id: string }) => p.id).sort(), ['acuario', 'agents', 'weather']);
     // A plugin's page: open in Kiosko (never an install), the command, what it does, and its languages only.
     const page = readFileSync(join(out, 'es/store/weather/index.html'), 'utf8');
     assert.ok(page.includes(`href="${OPEN_IN_KIOSKO}weather"`));
@@ -72,14 +72,14 @@ test('store pages: the list and each plugin, in every language, with the links b
     // The command, and a button that copies it (a script's: the page works without).
     assert.ok(page.includes('<button type="button" class="copy" data-copy="kiosko plugins install kiosko-plugin-weather@0.2.0">'));
     const agents = readFileSync(join(out, 'es/store/agents/index.html'), 'utf8');
-    assert.ok(!agents.includes('hreflang="zh-Hans"'), 'not offered in zh-Hans: no alternate there');
+    assert.ok(agents.includes('hreflang="zh-Hans"'), 'offered in zh-Hans: its alternate there');
     const fish = readFileSync(join(out, 'store/acuario/index.html'), 'utf8');
     assert.match(fish, /class="note unreviewed"/);
     assert.match(fish, /Only useful in Spain/);
     // The sitemap has them, each in its languages.
     const xml = sitemap(pages) as string;
     assert.match(xml, /<loc>https:\/\/kioskolcd\.dev\/es\/store\/weather\/<\/loc>/);
-    assert.doesNotMatch(xml, /zh-Hans\/store\/agents/);
+    assert.match(xml, /zh-Hans\/store\/agents/);
     assert.equal(readdirSync(join(out, 'store')).sort().join(), 'acuario,agents,index.html,weather');
   } finally {
     rmSync(out, { recursive: true, force: true });

@@ -50,8 +50,8 @@ test('marketFor: useful here, only elsewhere, or missing here (and the per-langu
   assert.equal(marketFor(p, { region: null, lang: 'en' }), 'ok');
   assert.equal(marketFor({ id: 'eu', markets: { only: ['EU'] } }, { region: 'DE', lang: 'de' }), 'ok');
   assert.equal(marketFor({ id: 'x', markets: { without: ['CN'] } }, { region: 'CN', lang: 'zh-Hans' }), 'missing');
-  // Simplified Chinese: no Claude there (languages.ts), as on the front page.
-  assert.equal(marketFor({ id: 'agents' }, { region: 'CN', lang: 'zh-Hans' }), 'missing');
+  // Simplified Chinese: the agents plugin reads the agents used there (languages.ts lists none left out).
+  assert.equal(marketFor({ id: 'agents' }, { region: 'CN', lang: 'zh-Hans' }), 'ok');
   assert.equal(marketFor({ id: 'agents' }, { region: 'TW', lang: 'zh-Hant' }), 'ok');
 });
 
