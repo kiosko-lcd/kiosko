@@ -974,6 +974,35 @@ Lo que cambia en el camino:
     - *Para presumir*: un clip para la portada y el README, grabado con
       `panel3d-film.mjs` sobre el panel en 3D. Con Freedoom, claro.
 
+29. **Los gatos y los agentes con proveedores disponibles en China.** Claude
+    y Gemini no se ofrecen en China continental. La web en chino
+    simplificado, la demo y el ejemplo dejan fuera `agents`, `cats` y `usage`
+    y ponen en su lugar modelos locales (`llm`, `gpu`); lo decide
+    `plugins.without/first/instead` en `packages/sdk/src/languages.ts`. La
+    sala de los gatos es de lo más vistoso de Kiosko, y allí hay agentes de
+    programación propios que la pueden llenar:
+    - *Candidatos* (comprobar uno a uno qué dejan leer y cómo):
+      **Qwen Code** (Alibaba, derivado de Gemini CLI: puede que lea casi
+      igual que Gemini), **iFlow CLI** (también de la familia de Gemini
+      CLI), **Kimi CLI** (Moonshot), **CodeBuddy** (Tencent), **TRAE**
+      (ByteDance, IDE con agente) y **Comate** (Baidu). Empezar por los de
+      línea de órdenes, que son los que hoy lee `agents`.
+    - *Cómo*: `agents` ya separa proveedores (`provider: 'gemini'`). Cada
+      uno nuevo es un lector de sus sesiones (estado, a la espera, permiso,
+      proyecto, cambios en git) con su icono y su nombre, y entra en las
+      mismas teselas y en la sala de los gatos sin tocarlas.
+    - *Uso y coste*: `usage` lee hoy ccusage (Claude). Con estos agentes,
+      sus cuotas y su gasto (DashScope, Moonshot…), que enlaza con Z26 del
+      [estudio](estudio-chino.md#8-backlog) (DeepSeek y Qwen en
+      `usage`/`llm`).
+    - *Cuando esté*: quitar `agents` y `cats` de `plugins.without` de
+      `zh-Hans` (no `usage` hasta que lea alguno de ellos), devolver los
+      gatos a la portada y al recorrido del editor en simplificado, y que la
+      demo enseñe sesiones de estos agentes en chino.
+    - *Fuera*: usar Claude Code desde China contra modelos de allí (con una
+      API compatible) no se anuncia ni se documenta: en la web se ofrece lo
+      que está disponible donde se lee.
+
 ### Decisiones abiertas para ti
 
 - **Nombre**: `Kiosko` es provisional (el paquete npm está como
