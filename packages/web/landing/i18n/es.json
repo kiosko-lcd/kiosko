@@ -51,6 +51,7 @@
   "open-the-editor": "Abrir el editor",
   "the-panel-in-3d": "El panel en 3D",
   "install-it": "Instálalo",
+  "install-commands": "npm install -g kiosko\nkiosko start --open",
   "node-js-22-18-or": "Node.js 22.18 o posterior. En Windows hay un instalador que no necesita Node.js.",
   "download-for-windows": "Descargar para Windows",
   "open-my-editor": "Abrir mi editor",

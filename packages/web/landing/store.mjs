@@ -14,7 +14,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { icons } from 'lucide';
 import { LANGS, SITE, esc, plural, text } from './pages.mjs';
-import { languageById } from '../../sdk/src/languages.ts';
+import { languageById, listIn, regionName as regionNameIn } from '../../sdk/src/languages.ts';
 
 /** Where "Open in Kiosko" goes: the editor of the Kiosko on this computer, at the plugin's page. Never an install. */
 export const OPEN_IN_KIOSKO = 'http://127.0.0.1:7420/#/plugins/store/';
@@ -107,13 +107,7 @@ function tierBadge(p, texts, lang) {
   return '';
 }
 
-const regionName = (code, lang) => {
-  try {
-    return new Intl.DisplayNames([lang], { type: 'region' }).of(code) ?? code;
-  } catch {
-    return code;
-  }
-};
+const regionName = (code, lang) => regionNameIn(code, lang);
 const languageName = (tag, lang) => {
   const own = languageById(tag);
   if (own) return own.name;
@@ -123,7 +117,9 @@ const languageName = (tag, lang) => {
     return tag;
   }
 };
-const list = (items, lang) => new Intl.ListFormat(lang, { type: 'conjunction' }).format(items);
+const list = (items, lang) => listIn(items, lang);
+/** Chinese and Japanese: full-width punctuation with no space after it. */
+const fullWidth = (lang) => /^(zh|ja|ko)\b/.test(lang);
 const date = (iso, lang) => (iso ? new Intl.DateTimeFormat(lang, { dateStyle: 'medium', timeZone: 'UTC' }).format(new Date(iso)) : '');
 const number = (n, lang) => new Intl.NumberFormat(lang).format(n);
 
@@ -196,7 +192,7 @@ function feature(p, index, texts, lang, root) {
 }
 
 /** The top of every store page: the same bar as the front page, with this page in each language. */
-function head(o) {
+export function pageHead(o) {
   const { lang, texts, title, description, path, root, css } = o;
   const l = LANGS.find((x) => x.id === lang);
   const langs = o.langs ?? LANGS;
@@ -306,7 +302,7 @@ export function storeListPage({ index, texts, lang, css, js, presets, pages = []
   const widgets = plugins.reduce((n, p) => n + p.widgets.length, 0);
   const stat = (n, k) => `<li><b>${esc(number(n, lang))}</b><span>${t(k)}</span></li>`;
   const docs = 'https://github.com/kiosko-lcd/kiosko/blob/main/docs/plugins.md';
-  return `${head({ lang, texts, title, description: text(texts, lang, 'store-meta-description'), path: 'store/', root, css })}
+  return `${pageHead({ lang, texts, title, description: text(texts, lang, 'store-meta-description'), path: 'store/', root, css })}
   <main class="store-main">
     <header class="hero">
       <div class="hero-copy">
@@ -362,7 +358,7 @@ export function storePluginPage({ index, detail, plugin: p, texts, lang, css, js
   const presetName = (id) => presets.find((x) => x.id === id)?.name ?? id;
   const notes = [
     p.tier === 'found' ? `<p class="note unreviewed">${icon('triangle-alert', 16)}<span><b>${t('store-unreviewed')}.</b> ${t('store-unreviewed-note')}</span></p>` : '',
-    p.markets?.only?.length ? `<p class="note">${icon('map-pin', 16)}<span>${esc(text(texts, lang, 'store-only-in').replace('{regions}', list(p.markets.only.map((c) => regionName(c, lang)), lang)))}${p.markets.note ? `: ${esc(say(p.markets.note, lang))}` : ''}</span></p>` : '',
+    p.markets?.only?.length ? `<p class="note">${icon('map-pin', 16)}<span>${esc(text(texts, lang, 'store-only-in').replace('{regions}', list(p.markets.only.map((c) => regionName(c, lang)), lang)))}${p.markets.note ? `${fullWidth(lang) ? '：' : ': '}${esc(say(p.markets.note, lang))}` : ''}</span></p>` : '',
     p.markets?.without?.length ? `<p class="note">${icon('map-pin-off', 16)}<span>${esc(text(texts, lang, 'store-not-here').replace('{regions}', list(p.markets.without.map((c) => regionName(c, lang)), lang)))}</span></p>` : '',
     p.health.manifest === 'missing' ? `<p class="note">${icon('info', 16)}<span>${t('store-no-manifest')}</span></p>` : '',
   ].join('');
@@ -404,8 +400,8 @@ export function storePluginPage({ index, detail, plugin: p, texts, lang, css, js
   const pluginName = (id) => say(index.plugins.find((x) => x.id === id)?.name, lang) || id;
   const pluginLink = (id) => (index.plugins.some((x) => x.id === id && !x.hidden) ? `<a href="../${esc(id)}/">${esc(pluginName(id))}</a>` : esc(id));
   const facts = [
-    [t('store-needs'), p.requires.length ? p.requires.map(pluginLink).join(', ') : t('store-requires-none')],
-    p.optional.length ? [t('store-uses'), p.optional.map(pluginLink).join(', ')] : null,
+    [t('store-needs'), p.requires.length ? p.requires.map(pluginLink).join(fullWidth(lang) ? '、' : ', ') : t('store-requires-none')],
+    p.optional.length ? [t('store-uses'), p.optional.map(pluginLink).join(fullWidth(lang) ? '、' : ', ')] : null,
     [t('store-works-on'), esc(list(p.platforms.map((x) => OS[x] ?? x), lang))],
     latest?.sdk ? [t('store-api'), `<code>${esc(latest.sdk)}</code>`] : null,
     [t('store-language'), esc(list(p.languages.map((x) => languageName(x, lang)), lang))],
@@ -421,14 +417,14 @@ export function storePluginPage({ index, detail, plugin: p, texts, lang, css, js
     p.links.npm && `<a class="link-chip" href="${esc(p.links.npm)}" rel="noopener">${icon('package', 15)}npm</a>`,
     p.links.funding && `<a class="link-chip" href="${esc(p.links.funding)}" rel="noopener">${icon('heart', 15)}${t('store-funding')}</a>`,
   ].filter(Boolean).join('');
-  const weekly = p.popularity?.weekly ? `<p class="fine">${esc(text(texts, lang, 'store-downloads').replace('{n}', number(p.popularity.weekly, lang)))}. ${t('store-downloads-hint')}</p>` : '';
+  const weekly = p.popularity?.weekly ? `<p class="fine">${esc(text(texts, lang, 'store-downloads').replace('{n}', number(p.popularity.weekly, lang)))}${fullWidth(lang) ? '。' : '. '}${t('store-downloads-hint')}</p>` : '';
   const problems = p.health.problems?.length ? `<details class="problems"><summary>${t('store-notes')}</summary><ul>${p.health.problems.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></details>` : '';
   const install = `kiosko plugins install ${p.package}@${p.latest}`;
   const description = say(p.description, lang) || text(texts, lang, 'store-meta-description');
   const cat = p.categories[0];
   const related = cat ? offeredIn(index, lang).filter((x) => x.id !== p.id && x.categories.includes(cat)).slice(0, 3) : [];
   const status = p.tier === 'official' ? `<p class="seal">${icon('shield-check', 15)}<span>${t('store-official-note')}</span></p>` : '';
-  return `${head({ lang, texts, title: `${name} · ${text(texts, lang, 'store-title')}`, description, path, root, css, langs: offered })}
+  return `${pageHead({ lang, texts, title: `${name} · ${text(texts, lang, 'store-title')}`, description, path, root, css, langs: offered })}
   <main class="store-main plugin-page" data-id="${esc(p.id)}" style="--tint:${tint(p)}">
     <p class="crumbs"><a class="back" href="../">${icon('chevron-left', 15)}${t('store-nav')}</a>${cat ? `<span aria-hidden="true">/</span><a href="../?cat=${esc(cat)}#plugins">${esc(categoryName(index, cat, lang))}</a>` : ''}</p>
     <header class="plugin-head">
