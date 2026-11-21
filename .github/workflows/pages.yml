@@ -3,6 +3,10 @@ name: Gallery
 on:
   push:
     branches: [main]
+  # Daily, for the plugin store's catalogue (new plugins and versions on npm, yesterday's downloads,
+  # which npm has counted by then).
+  schedule:
+    - cron: '17 3 * * *'
   workflow_dispatch:
 
 permissions:
@@ -41,8 +45,20 @@ jobs:
       # panel in 3D, /demo/3d/ ; and the config's JSON Schema at its stable address,
       # /schema/v1/config.json (with the official plugins). The same build is checked end to end
       # on a developer's machine by scripts/demo-check-docker.sh.
-      - name: Front page, gallery, browser demo and config schema
+      # The plugin store reads every plugin's tarball once per version: kept between runs by its
+      # integrity (scripts/store/build-index.ts), with npm's ETags for the rest.
+      - uses: actions/cache@v4
+        with:
+          path: tmp/store-cache
+          key: store-cache-${{ github.run_id }}
+          restore-keys: store-cache-
+      # ... and the plugin store, /store/ in every language, with its catalogue as data at
+      # /store/v1/ (index.json, plugins/<id>.json, withdrawn.json, schema/): from npm, read without
+      # running any plugin's code. The token only reads public repositories' stars.
+      - name: Front page, gallery, browser demo, config schema and plugin store
         run: node packages/web/build.mjs --site --out site
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
       # The custom domain is also set in Settings → Pages.
       - name: Domain
         run: echo kioskolcd.dev > site/CNAME

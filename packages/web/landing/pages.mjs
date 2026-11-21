@@ -137,9 +137,15 @@ export function renderPage(template, texts, langId, fill) {
   });
 }
 
-/** sitemap.xml: the front page in every language, each listing the others. */
-export function sitemap() {
-  const alternates = LANGS.flatMap((l) => l.hreflang.map((h) => `    <xhtml:link rel="alternate" hreflang="${h}" href="${SITE}${l.path}"/>`)).join('\n');
-  const urls = LANGS.map((l) => `  <url>\n    <loc>${SITE}${l.path}</loc>\n${alternates}\n  </url>`).join('\n');
+/**
+ * sitemap.xml: the front page in every language, each listing the others; and `more` pages
+ * (the store's: `{ path: 'store/weather/', langs }`) in the languages each is offered in.
+ */
+export function sitemap(more = []) {
+  const page = (path, langs) => {
+    const alternates = langs.flatMap((l) => l.hreflang.map((h) => `    <xhtml:link rel="alternate" hreflang="${h}" href="${SITE}${l.path}${path}"/>`)).join('\n');
+    return langs.map((l) => `  <url>\n    <loc>${SITE}${l.path}${path}</loc>\n${alternates}\n  </url>`);
+  };
+  const urls = [...page('', LANGS), ...more.flatMap((m) => page(m.path, m.langs))].join('\n');
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n${urls}\n</urlset>\n`;
 }
