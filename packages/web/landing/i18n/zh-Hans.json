@@ -53,6 +53,8 @@
   "install-it": "安装",
   "node-js-22-18-or": "需要 Node.js 22.18 或更高版本。Windows 另有安装程序，无需 Node.js。在中国大陆可以加上 <code>--registry=https://registry.npmmirror.com</code> 加快下载。",
   "download-for-windows": "下载 Windows 版",
+  "open-my-editor": "打开我的编辑器",
+  "already-installed-its-editor": "已经安装了？编辑器就在你自己的电脑上：<code>localhost:7420</code>；运行 <code>kiosko editor</code> 也能打开。",
   "read-the-guide": "阅读说明",
   "or-let-an-ai-set": "或者让 AI 帮你配置",
   "everything-is-one-config-json": "所有配置都在一个 <code>config.json</code> 里，并附有公开的 JSON Schema。交给你的 AI 助手，使用前检查一下它写的内容。",
