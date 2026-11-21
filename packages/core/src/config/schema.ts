@@ -218,6 +218,11 @@ export function configSchema(plugins: readonly PluginDefinition[]): S {
           port: { type: 'integer', minimum: 1, maximum: 65535, default: DEFAULT_CONFIG.server.port },
         },
       },
+      threads: {
+        enum: ['auto', 'always', 'never'],
+        default: 'auto',
+        description: 'Paint each screen in a thread of its own, so a slow widget on one does not slow the others: "auto" (with two or more screens on and a core to spare for each), "always", or "never" (every screen on the main thread: less memory, for a small machine). A screen\'s "thread" overrides it.',
+      },
       homeassistant: {
         type: 'object',
         additionalProperties: false,
@@ -391,6 +396,7 @@ export function configSchema(plugins: readonly PluginDefinition[]): S {
           readingDistance: { enum: ['near', 'normal', 'far'], default: 'normal', description: 'How far the readers sit (40, 60, 90 cm): with the pixel size it sets the smallest Chinese, Japanese or Korean text painted.' },
           textScale: { type: 'number', minimum: 0.75, maximum: 2, default: 1, description: "Every widget's text size times this." },
           diagonalIn: { type: 'number', minimum: 0.5, maximum: 60, description: "The panel's diagonal in inches, when it isn't a known model." },
+          thread: { enum: ['always', 'never'], description: 'Paint this screen in a thread of its own (always) or on the main thread (never), whatever the config\'s "threads" says. Missing: as it says.' },
           alerts: {
             type: 'object',
             additionalProperties: false,

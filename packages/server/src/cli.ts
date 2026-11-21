@@ -52,6 +52,10 @@ const opt = (name: string) => {
   return i >= 0 ? argv[i + 1] : undefined;
 };
 
+/** The entry point of the screens' threads: next to this file, compiled in the published bundle or not here. */
+const SCREEN_THREAD = ['./screen-thread.js', './screen-thread.ts'].map((f) => new URL(f, import.meta.url)).find((u) => existsSync(u));
+const THREADS = SCREEN_THREAD ? { threadEntry: SCREEN_THREAD } : {};
+
 async function registry(): Promise<Registry> {
   // The official plugins, installed with npm next to this CLI, import the SDK and the canvas:
   // point them at ours. (`loadDir` does it too, but only when the user's plugins folder exists,
@@ -64,8 +68,10 @@ async function registry(): Promise<Registry> {
   for (const o of OFFICIAL_PLUGINS) {
     if (r.plugin(o.id)) continue;
     try {
-      const mod = (await import(import.meta.resolve(o.npm))) as { default?: Parameters<Registry['add']>[0] };
-      if (mod.default) r.add(mod.default, `npm:${o.npm}`);
+      const url = import.meta.resolve(o.npm);
+      const mod = (await import(url)) as { default?: Parameters<Registry['add']>[0] };
+      // With its module, so a screen's thread can load it too.
+      if (mod.default) r.add(mod.default, `npm:${o.npm}`, url);
     } catch {
       /* not installed: the editor offers it */
     }
@@ -104,7 +110,7 @@ async function main(): Promise<void> {
       const cfg = await config(reg, path);
       const host = opt('--host') ?? cfg.server.host;
       const port = Number(opt('--port') ?? cfg.server.port);
-      const rt = new Runtime(reg, cfg, { demo: flag('--demo') });
+      const rt = new Runtime(reg, cfg, { demo: flag('--demo'), ...THREADS });
       if (flag('--demo')) console.log('demo mode: every widget shows sample data, nothing is read');
       rt.start();
       const srv = startServer({ runtime: rt, host, port, configPath: path, version: VERSION });
@@ -136,7 +142,7 @@ async function main(): Promise<void> {
       const screen = cfg.screens.find((s) => !want || s.id === want || s.name === want) ?? starterConfig(reg).screens[0]!;
       const wantPage = opt('--page');
       const page = screen.pages.find((p) => !wantPage || p.id === wantPage || p.name === wantPage) ?? screen.pages[0]!;
-      const rt = new Runtime(reg, cfg);
+      const rt = new Runtime(reg, cfg, THREADS);
       if (flag('--live')) {
         // Let the data come in for a few seconds before painting.
         rt.apply(cfg);
@@ -185,7 +191,7 @@ async function main(): Promise<void> {
         const screen = cfg.screens[0]!;
         screen.device = { driver: 'usb', ...(opt('--serial') ? { serial: opt('--serial')! } : {}) };
         screen.rotate = Number(opt('--rotate') ?? 0) as 0 | 90 | 180 | 270;
-        const rt = new Runtime(reg, cfg, { demo: true });
+        const rt = new Runtime(reg, cfg, { demo: true, ...THREADS });
         rt.start();
         const seconds = Number(opt('--seconds') ?? 10);
         let ok = false;

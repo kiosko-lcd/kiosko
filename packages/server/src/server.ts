@@ -194,7 +194,7 @@ export function startServer(o: ServerOptions) {
     if (mm && m === 'GET') {
       const f = runtime.lastFrame(decodeURIComponent(mm[1]!));
       if (!f) return json(res, 404, { error: 'no frame yet', code: 'noFrame' });
-      const buf = f.image();
+      const buf = await f.image();
       res.writeHead(200, { 'content-type': 'image/jpeg', 'cache-control': 'no-store', 'content-length': String(buf.length), 'x-kiosko-at': String(f.at) });
       return void res.end(buf);
     }

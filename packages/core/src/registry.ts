@@ -33,6 +33,8 @@ export class Registry {
   readonly refused: { id?: string; version?: string; origin: string; reason: string }[] = [];
   /** Where a plugin's code came from, to load it again (`reload`). */
   private entries = new Map<string, { entry: string; origin: string }>();
+  /** The module each plugin's code came from (its URL), for a screen's thread to load it too. */
+  private modules = new Map<string, string>();
   private reloads = 0;
 
   private refuse(r: { id?: string | undefined; version?: string | undefined; origin: string; reason: string }): void {
@@ -40,7 +42,8 @@ export class Registry {
     this.problems.push({ origin: r.origin, message: `${r.id ? `"${r.id}" ` : ''}not loaded: ${r.reason}` });
   }
 
-  add(def: PluginDefinition, origin = 'builtin'): void {
+  /** `module`: the URL its code can be imported from again (see `threadPlugins`). */
+  add(def: PluginDefinition, origin = 'builtin', module?: string): void {
     if (!def || typeof def !== 'object' || !ID.test(def.id ?? '')) {
       this.problems.push({ origin, message: `invalid plugin id ${JSON.stringify(def?.id)}` });
       return;
@@ -52,11 +55,14 @@ export class Registry {
       return;
     }
     this.plugins.set(def.id, { def, origin, enabled: true });
+    if (module) this.modules.set(def.id, module);
+    else this.modules.delete(def.id);
   }
 
   /** Forgets a plugin (removed, or about to be loaded again). Its module stays in memory: ES modules can't be unloaded. */
   remove(id: string): boolean {
     this.entries.delete(id);
+    this.modules.delete(id);
     return this.plugins.delete(id);
   }
 
@@ -118,6 +124,16 @@ export class Registry {
       }
     }
     return out;
+  }
+
+  /**
+   * What a screen's thread loads to have the same plugins, in the same
+   * order: the built-in ones by id (the thread brings its own copies) and the
+   * rest by the URL of their module (the version reloaded last, if it was).
+   * Plugins added with no module (a test's) can't be loaded there.
+   */
+  threadPlugins(): { id: string; origin: string; module: string | null }[] {
+    return this.list().map(({ def, origin }) => ({ id: def.id, origin, module: this.modules.get(def.id) ?? null }));
   }
 
   /** Where a loaded plugin came from (its folder), or undefined for a built-in one. */
@@ -224,7 +240,7 @@ export class Registry {
       return undefined;
     }
     const before = this.plugins.size;
-    this.add(mod.default, origin);
+    this.add(mod.default, origin, url);
     if (this.plugins.size > before) this.entries.set(mod.default.id, { entry, origin });
     return mod.default;
   }

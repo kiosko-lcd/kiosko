@@ -556,6 +556,43 @@ curl -X POST -H 'X-Kiosko: 1' -H 'content-type: application/json' \
 In tests, `widgetAlerts(widget, { data, options })` from `@kiosko/sdk/testing`
 asks `alerts` the way Kiosko does.
 
+## Screens in threads of their own
+
+Kiosko may paint each screen in a thread of its own (Settings → *Paint each
+screen in its own thread*: automatic with two or more screens on and a core
+to spare for each, always or never; each screen can say otherwise in
+Screens), so a slow widget on one screen doesn't slow the others. What runs
+where:
+
+- **On the main thread**, as always: sources (`read`, `watch`), `fetch`,
+  `alerts`, `choices`, and the editor's previews and thumbnails.
+- **In a screen's thread**: `render`, `visible`, `urgent`, `empty`, `idle`,
+  `redraw`, `animation`, `animationEnded`, and interludes (`skip`,
+  `prepare`, `draw`, `input`).
+
+What that means for a plugin:
+
+- **Your module is loaded once per thread.** Module-level state (a cache, a
+  counter, "what I saw last") is not shared between the screens' threads,
+  nor with the main thread where `fetch` and the sources run. Keep what
+  `render` needs in the data, and anything that must be shared in a file
+  under `ctx.dataDir` or `ctx.cacheDir`. Loading also costs memory and time
+  once per thread: keep heavy work out of the module's top level.
+- **Data crosses between threads by copy** (structured clone). Plain
+  objects, arrays, numbers, strings, `Map`, `Set`, `Date`, `Buffer` and
+  typed arrays arrive as they left. Images (`loadImage`) and canvases
+  painted in `fetch` arrive too: Kiosko sends their bytes and makes them
+  again on the other side, once per picture. **Functions and objects of a
+  class can't**: their methods would be lost. When a screen's data has one,
+  Kiosko paints that screen on the main thread and says why in Activity
+  and in Screens. Return plain data from `fetch` and your sources, and put
+  the logic in functions that take it.
+- The editor paints its previews on the main thread with the same data and
+  the same code, so they match what the panel shows, as long as `render`
+  depends only on its context.
+- `ctx.log` and paint times come back to the main thread; logs say which
+  plugin as usual.
+
 ## Testing your plugin
 
 `@kiosko/sdk/testing` paints widgets the way Kiosko does, with their demo data

@@ -829,7 +829,9 @@ Lo que cambia en el camino:
       socket de Docker equivale a root); un log desbocado (búfer circular y
       emitir como mucho una vez por segundo); y las opciones con
       `risk: ['exec', 'path']`.
-25. **Cada pantalla en su propio hilo, configurable en la interfaz.** Desde
+25. **Cada pantalla en su propio hilo, configurable en la interfaz.** *Hecho*
+    (`threads` en la configuración y `thread` por pantalla; ver abajo lo
+    medido). Lo que sigue era el plan. Desde
     la 0.2.4 el JPEG se codifica fuera del hilo de Node y las pantallas ya
     no se turnan, pero siguen pintando todas en el mismo hilo: un widget
     lento en una (`news/column` ~300 ms, `timesheet/hours` ~240 ms, los
@@ -860,6 +862,21 @@ Lo que cambia en el camino:
     - *Antes de hacerlo*: medir cuánto del tiempo es pintar y cuánto
       codificar en una máquina modesta, y si basta con arreglar los widgets
       lentos (pintar en `fetch`, cachear lo que no cambia).
+    - *Medido* el 2026-11-21 (16 núcleos, y con `taskset` a 4 y a 2; tres
+      paneles de 1920×462 con el corredor en uno, un fractal en otro y los
+      gatos en el tercero, en modo demo): pintar un fotograma son 5–45 ms
+      en el hilo (el código del widget **y** el rasterizado de Skia, que
+      @napi-rs/canvas hace de forma síncrona al llamar a `encode`: eso no
+      salía del hilo) y codificarlo 25–50 ms en el *pool* de libuv. Con
+      todo en el principal, el hilo principal va al 60–70 % y cada vez que
+      `cats/room` prepara una animación (0,5–1 s de pintar) las otras dos
+      bajan a 4–9 fps durante uno o dos segundos. Con un hilo por pantalla
+      (4 núcleos o más) siguen a 12 fps, y el principal queda al 2–4 %;
+      con 2 núcleos no mejora (por eso `auto` pide un núcleo por pantalla y
+      uno más). Cuesta unos 50 MB de RSS por hilo (unos 22–30 MB de montón
+      de JavaScript cada uno: los plugins se cargan otra vez). Arreglar
+      `cats/room` quitaría esos baches concretos, pero no el rasterizado en
+      el principal ni el siguiente widget lento.
 26. **Lo que cuesta cada plugin, dicho antes de usarlo.** Medido el
     2026-11-20: la habitación de los gatos se queda estable en 330–430 MB
     de proceso durante 25 horas simuladas (~3 800 fotogramas), unos
