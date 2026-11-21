@@ -3,7 +3,7 @@
  * demo data, at a few sizes, to PNG files. For plugin development:
  *
  *   node --conditions=source scripts/render-widgets.ts [--plugin id] [--widget id] [--entry plugins/x/src/index.ts]
- *        [--out dir] [--theme id] [--locale es|en] [--now iso] [--size 600x400 ...]
+ *        [--out dir] [--theme id] [--locale en|es|de|zh-TW|zh-CN] [--now iso] [--size 600x400 ...]
  *        [--options '{"rows":2}' | --options @file.json] [--data file] [--sources file] [--empty] [--name label] [--chrome card|bare]
  *
  * - `--plugin` takes a built-in plugin (`core`, `legacy`) or an official one
@@ -22,8 +22,9 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { extname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { Registry, composeWidget, normalize } from '@kiosko/core';
-import { themeById, type PluginDefinition, type WidgetDefinition } from '@kiosko/sdk';
+import { LANGUAGE_IDS, pickLocale } from '@kiosko/sdk';
+import { Registry, SAMPLE_PLACES, composeWidget, normalize } from '@kiosko/core';
+import { localize, themeById, type PluginDefinition, type WidgetDefinition } from '@kiosko/sdk';
 import { BUILTIN_PLUGINS } from '../packages/server/src/builtin.ts';
 
 const args = process.argv.slice(2);
@@ -70,7 +71,9 @@ const entry = opt('--entry');
 if (entry) registry.add((await import(pathToFileURL(resolve(entry)).href)).default, entry);
 else if (only && !BUILTIN_PLUGINS.some((p) => p.id === only)) registry.add(((await import(`kiosko-plugin-${only}`)) as { default: PluginDefinition }).default, `kiosko-plugin-${only}`);
 else for (const p of BUILTIN_PLUGINS) registry.add(p);
-const cfg = normalize({ location: { latitude: 40.4168, longitude: -3.7038, name: 'Madrid' }, locale });
+// The sample place its readers know (Taipei for zh-Hant, Shanghai for zh-Hans), else Madrid.
+const place = SAMPLE_PLACES[pickLocale(LANGUAGE_IDS, locale) ?? 'en'] ?? { latitude: 40.4168, longitude: -3.7038, name: 'Madrid' };
+const cfg = normalize({ location: place, locale });
 const given = readOptions();
 for (const p of registry.list()) {
   if (only && p.def.id !== only) continue;
@@ -100,7 +103,7 @@ for (const p of registry.list()) {
       const t0 = performance.now();
       const r = composeWidget({
         cfg, registry, theme, type, width, height, now,
-        title: typeof w.name === 'string' ? w.name : (w.name.es ?? w.name.en),
+        title: localize(w.name, locale),
         options,
         ...(chrome ? { chrome } : {}),
         ...(data !== undefined ? { data } : {}),
