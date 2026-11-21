@@ -78,7 +78,7 @@ test('one page per language, each saying what it is and where the others are', (
     assert.ok(page.includes(`src="${root}gallery/img/page-cats.${l.id}.jpg"`), `${l.id}: its own poster`);
     assert.ok(page.includes(`data-lang="${l.id}" data-root="${root}"`), `${l.id}: plugin cards in its language`);
     assert.ok(page.includes(`demo/3d/?lang=${l.panel}`), `${l.id}: the 3D page in its language`);
-    if (l.id.startsWith('zh')) assert.ok(page.includes(`docs/${l.id}/usb.md`) && page.includes(`docs/${l.id}/install.md`), `${l.id}: its own guides`);
+    if (l.id.startsWith('zh')) assert.ok(page.includes(`href="../${l.id}/docs/usb/"`) && page.includes(`href="../${l.id}/docs/install/"`), `${l.id}: its own guides, on the site`);
     if (l.id === 'en') assert.ok(page.includes('blob/main/docs/usb.md"'), 'en: the English guide');
     // Only the English page sends a first visit on to the visitor's language.
     assert.equal(page.includes('location.replace'), l.id === 'en', `${l.id}: redirect`);

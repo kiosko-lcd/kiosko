@@ -97,7 +97,8 @@ export function buildGallery(registry: Registry, o: { out: string; locale?: stri
       if (!without.includes(def.id)) sections.push(`<section><h2>${esc(L(def.name))} <small>${esc(def.id)} · v${esc(def.version)}</small></h2><p>${esc(L(def.description))}</p><div class="grid">${cards.join('')}</div></section>`);
     }
     const home = `${HOME_URL}${folder(lang.id)}`;
-    const usb = `https://github.com/kiosko-lcd/kiosko/blob/main/docs/${lang.id.startsWith('zh') ? `${lang.id}/` : ''}usb.md`;
+    // The Chinese guides are pages of the site too (landing/docs.mjs): GitHub may be out of reach there.
+    const usb = lang.id.startsWith('zh') ? `${HOME_URL}${lang.id}/docs/usb/` : 'https://github.com/kiosko-lcd/kiosko/blob/main/docs/usb.md';
     mkdirSync(join(o.out, folder(lang.id)), { recursive: true });
     writeFileSync(
       join(o.out, folder(lang.id), 'index.html'),

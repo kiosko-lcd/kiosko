@@ -15,8 +15,8 @@ import { api } from '../api.ts';
 import { Icon } from '../icons.tsx';
 import { locale } from '../store.ts';
 import { exportScreen, resetDemo, thumbnail } from './transport.ts';
+import { docsUrl } from '../i18n.ts';
 
-const README = 'https://github.com/kiosko-lcd/kiosko#readme';
 const REPO = 'https://github.com/kiosko-lcd/kiosko';
 
 
@@ -39,7 +39,7 @@ export function DemoBanner() {
         <a href="./3d/?mine=1" target="_blank" rel="noreferrer">
           <Icon name="box" size={13} /> {dt('in3d')}
         </a>
-        <a href={README} target="_blank" rel="noreferrer">
+        <a href={docsUrl()} target="_blank" rel="noreferrer">
           <Icon name="download" size={13} /> {dt('install')}
         </a>
         <a href={REPO} target="_blank" rel="noreferrer">
@@ -135,5 +135,5 @@ export { exportScreen };
 /** The boot error, in the demo's words. */
 export function demoBootError(err: unknown): string {
   const msg = String(err instanceof Error ? err.message : err).replace(/[<>&]/g, '');
-  return `<div class="boot-error"><h1>Kiosko</h1><p>${dt('bootError')}: ${msg}</p><p><a href="${README}">${dt('install')}</a></p></div>`;
+  return `<div class="boot-error"><h1>Kiosko</h1><p>${dt('bootError')}: ${msg}</p><p><a href="${docsUrl()}">${dt('install')}</a></p></div>`;
 }

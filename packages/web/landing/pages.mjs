@@ -16,12 +16,15 @@ export const SITE = 'https://kioskolcd.dev/';
 const REPO = 'https://github.com/kiosko-lcd/kiosko';
 const DOCS = new URL('../../../docs/', import.meta.url);
 
-/** The guides in the page's language when they exist (docs/<id>/), else the English ones. */
-function docsFor(id) {
-  const has = (f) => existsSync(new URL(`${id}/${f}`, DOCS));
+/**
+ * The guides in the page's language when they exist (docs/<id>/): as pages of this site (docs.mjs),
+ * which reach where GitHub may not (mainland China). Else the English ones, on GitHub.
+ */
+function docsFor(id, root) {
+  const has = (f) => id !== 'en' && existsSync(new URL(`${id}/${f}`, DOCS));
   return {
-    DOCS_USB: has('usb.md') ? `${REPO}/blob/main/docs/${id}/usb.md` : `${REPO}/blob/main/docs/usb.md`,
-    DOCS_GUIDE: has('install.md') ? `${REPO}/blob/main/docs/${id}/install.md` : `${REPO}#readme`,
+    DOCS_USB: has('usb.md') ? `${root}${id}/docs/usb/` : `${REPO}/blob/main/docs/usb.md`,
+    DOCS_GUIDE: has('install.md') ? `${root}${id}/docs/install/` : `${REPO}#readme`,
   };
 }
 
@@ -114,7 +117,7 @@ export function renderPage(template, texts, langId, fill) {
     CSS: root + fill.CSS,
     JS: root + fill.JS,
     POSTER: root + fill.POSTER[langId],
-    ...docsFor(lang.id),
+    ...docsFor(lang.id, root),
     LANG: lang.id,
     DIR: lang.dir,
     PATH: lang.path,
