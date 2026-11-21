@@ -18,7 +18,7 @@ import { createCanvas, loadImage, type Canvas } from '@napi-rs/canvas';
 import * as kit from '@loksly/lcd-canvas-kit';
 import { createBaseContext } from './context.ts';
 import type { TimeFormat } from './format.ts';
-import type { Alert, Box, PluginDefinition, RenderContext, StateContext, WidgetDefinition } from './plugin.ts';
+import type { Alert, Box, PluginDefinition, RenderContext, SourceDefinition, StateContext, WidgetDefinition } from './plugin.ts';
 import { validate } from './schema.ts';
 import { THEMES, themeById, type Theme } from './theme.ts';
 import { DEFAULT_WORKDAY } from './workday.ts';
@@ -143,6 +143,30 @@ export function widgetAlerts(w: WidgetDefinition<any, any>, o: RenderOptions = {
   if (!w.alerts) return [];
   const { now, options, data, sources } = resolve(w, o);
   return w.alerts({ options, data, sources, now, working: true, workday: DEFAULT_WORKDAY });
+}
+
+export interface SourceAlertOptions {
+  /** The source's options (validated against its schema, defaults filled in). */
+  options?: Record<string, unknown>;
+  /** Its latest data. Default: its `demo` data. */
+  data?: unknown;
+  now?: number;
+  /** For its `demo`. */
+  locale?: string;
+  /** Use the source's `demo` when `data` isn't given. Default true. */
+  demo?: boolean;
+}
+
+/**
+ * Asks a source's `alerts` the way Kiosko does: its options validated with
+ * their defaults, its demo data unless given other; `[]` when it has none.
+ */
+export function sourceAlerts(s: SourceDefinition<any, any>, o: SourceAlertOptions = {}): Alert[] {
+  if (!s.alerts) return [];
+  const now = o.now ?? Date.UTC(2026, 10, 5, 9, 42);
+  const options = s.options ? (validate(s.options, o.options ?? {}).value as Record<string, unknown>) : {};
+  const data = 'data' in o ? o.data : o.demo === false ? undefined : s.demo?.({ now, locale: o.locale ?? 'en' });
+  return s.alerts({ data, options, now });
 }
 
 export interface PluginIssue {

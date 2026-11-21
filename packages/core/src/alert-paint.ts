@@ -171,11 +171,20 @@ export function paintAlert(g: SKRSContext2D, w: number, h: number, shown: ShownA
     g.fill();
     kit.drawTracked(g, label, cx + counterW / 2, box.y + ph * 0.5 + small * 0.36, { size: small, family: bold, color: '#0b0b0b', align: 'center' });
   }
+  // Who published it and when, small in the bottom corner: "IGN · 14:05" on
+  // one line if it is short, else the source over the time, cut to a fifth
+  // of the panel so the title keeps its room.
   let sinceW = 0;
   const sinceSize = Math.max(minPx, Math.round(small * 0.8));
-  if (o.sinceText) {
-    sinceW = kit.drawTracked(g, o.sinceText, box.x + box.w, box.y + box.h, { size: sinceSize, family: regular, color: mixHex(bg, '#ffffff', 0.55), align: 'right' });
-  }
+  const cornerFont = { size: sinceSize, family: regular, color: mixHex(bg, '#ffffff', 0.62) };
+  const cornerMax = Math.round(box.w * (w / h >= 1.5 ? 0.2 : 0.9));
+  let corner = [a.source && o.sinceText ? `${a.source} · ${o.sinceText}` : (a.source ?? o.sinceText)].filter((x): x is string => !!x);
+  if (a.source && o.sinceText && kit.measureTracked(g, corner[0]!, cornerFont) > cornerMax) corner = [a.source, o.sinceText];
+  corner = corner.map((line) => kit.truncate(g, line, cornerMax, cornerFont));
+  corner.forEach((line, i) => {
+    const y = box.y + box.h - (corner.length - 1 - i) * Math.round(sinceSize * 1.2);
+    sinceW = Math.max(sinceW, kit.drawTracked(g, line, box.x + box.w, y, { ...cornerFont, align: 'right' }));
+  });
 
   const wide = w / h >= 1.5;
   let col: { x: number; y: number; w: number; h: number };
@@ -188,37 +197,56 @@ export function paintAlert(g: SKRSContext2D, w: number, h: number, shown: ShownA
   } else {
     drawIcon(g, a, box.x + (box.w - iconSize) / 2, box.y, iconSize, color, bold);
     const gap = Math.round(iconSize * 0.15);
-    const below = o.sinceText ? Math.round(sinceSize * 1.3) : 0;
+    const below = corner.length ? Math.round(sinceSize * (0.1 + 1.2 * corner.length)) : 0;
     col = { x: box.x, y: box.y + iconSize + gap, w: box.w, h: box.h - iconSize - gap - below };
   }
   const align = wide ? 'left' : 'center';
   const ax = wide ? col.x : col.x + col.w / 2;
 
-  // The title as big as it fits on one line; on two if that would make it small.
+  // The title as big as it fits on one line; on two if that would make it
+  // small. A little smaller when the instruction (`detail`) comes too.
   const hasText = !!a.text;
-  let size = Math.round(col.h * (hasText ? 0.4 : 0.55));
+  const hasDetail = !!a.detail;
+  const lower = hasText && hasDetail ? 2 : hasText || hasDetail ? 1 : 0;
+  let size = Math.round(col.h * [0.55, 0.4, 0.34][lower]!);
   const floor = Math.max(minPx * 2, Math.round(col.h * 0.2));
   size = kit.fitSize(g, a.title, col.w, { size, family: bold }, floor);
   let titleLines = [a.title];
   if (kit.measureTracked(g, a.title, { size, family: bold }) > col.w) {
-    size = Math.max(minPx * 1.5, Math.round(col.h * (hasText ? 0.27 : 0.36)));
+    size = Math.max(minPx * 1.5, Math.round(col.h * [0.36, 0.27, 0.24][lower]!));
     titleLines = kit.wrapLines(g, a.title, col.w, 2, { size, family: bold });
   }
   const tLine = size * 1.08;
-  // The text under it, smaller, on as many lines (up to 3) as there is room for.
+  // Under it, smaller: the text, then the detail in the level's colour, on
+  // as many lines (up to 3 between both) as there is room for. The text
+  // comes first; the detail gets what is left (at least a line when the
+  // text takes one).
   const textSize = Math.max(minPx, Math.min(Math.round(size * 0.5), Math.round(size * 0.42 + minPx * 0.4)));
-  const room = col.h - titleLines.length * tLine - textSize * 0.4;
-  const textLines = hasText ? kit.wrapLines(g, a.text, col.w, Math.max(1, Math.min(3, Math.floor(room / (textSize * 1.25)))), { size: textSize, family: regular }) : [];
-  const blockH = titleLines.length * tLine + (textLines.length ? textSize * 0.4 + textLines.length * textSize * 1.25 : 0);
+  const lineH = textSize * 1.25;
+  const gapH = textSize * 0.4;
+  const detailGap = hasText && hasDetail ? textSize * 0.25 : 0;
+  const room = col.h - titleLines.length * tLine - gapH - detailGap;
+  const fits = Math.max(1, Math.min(3, Math.floor(room / lineH)));
+  const font = { size: textSize, family: regular };
+  const textLines = hasText ? kit.wrapLines(g, a.text, col.w, hasDetail ? Math.max(1, fits - 1) : fits, font) : [];
+  const detailLines = hasDetail ? kit.wrapLines(g, a.detail!, col.w, fits - textLines.length, font) : [];
+  const lowerLines = textLines.length + detailLines.length;
+  const blockH = titleLines.length * tLine + (lowerLines ? gapH + lowerLines * lineH + (textLines.length && detailLines.length ? detailGap : 0) : 0);
   let y = col.y + Math.max(0, (col.h - blockH) / 2);
   for (const line of titleLines) {
     kit.drawTracked(g, line, ax, y + size * 0.86, { size, family: bold, color: '#ffffff', align });
     y += tLine;
   }
-  if (textLines.length) y += textSize * 0.4;
+  if (lowerLines) y += gapH;
   for (const line of textLines) {
-    kit.drawTracked(g, line, ax, y + textSize * 0.95, { size: textSize, family: regular, color: '#e4e4e7', align });
-    y += textSize * 1.25;
+    kit.drawTracked(g, line, ax, y + textSize * 0.95, { ...font, color: '#e4e4e7', align });
+    y += lineH;
+  }
+  if (textLines.length && detailLines.length) y += detailGap;
+  const detailColor = mixHex(color, '#ffffff', 0.45);
+  for (const line of detailLines) {
+    kit.drawTracked(g, line, ax, y + textSize * 0.95, { ...font, color: detailColor, align });
+    y += lineH;
   }
   g.restore();
 }

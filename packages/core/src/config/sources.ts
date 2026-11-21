@@ -3,7 +3,9 @@
  * `sources["plugin/source"]`, and that Kiosko handles itself: how often the
  * source is read (`intervalMs`) and how long one read may take
  * (`timeoutMs`). Plugins only declare defaults and a floor
- * (`SourceDefinition.intervalMs`, `minIntervalMs`, `timeoutMs`).
+ * (`SourceDefinition.intervalMs`, `minIntervalMs`, `timeoutMs`). A source
+ * that may run with no widget (`SourceDefinition.background`) also gets the
+ * user's switch for it (`background`, off by default).
  *
  * `sourceOptionsField` merges both into one schema, so the runtime, the JSON
  * Schema, `kiosko config validate` and the editor's Data sources form all
@@ -23,7 +25,24 @@ const MIN_TIMEOUT_MS = 1_000;
 const MAX_TIMEOUT_MS = 10 * 60_000;
 
 /** The keys Kiosko handles in a source's options. */
-export const SOURCE_COMMON_KEYS = ['intervalMs', 'timeoutMs'] as const;
+export const SOURCE_COMMON_KEYS = ['background', 'intervalMs', 'timeoutMs'] as const;
+
+/** Whether a source may run with no widget using it: it says so and has `alerts` to give. */
+export const canRunInBackground = (def: SourceDefinition<any, any>): boolean => def.background === true && typeof def.alerts === 'function' && !('background' in (def.options?.props ?? {}));
+
+/**
+ * The sources the user turned on to run with no widget using them
+ * (`sources["plugin/source"].background`), of those that may (see
+ * `canRunInBackground`) and whose plugin is enabled (`source` finds only
+ * those).
+ */
+export function backgroundSources(cfg: { sources: Record<string, Record<string, unknown>> }, source: (type: string) => SourceDefinition<any, any> | undefined): string[] {
+  return Object.keys(cfg.sources).filter((type) => {
+    if (cfg.sources[type]?.background !== true) return false;
+    const def = source(type);
+    return !!def && canRunInBackground(def);
+  });
+}
 
 /** `5000` → "5 s", `120000` → "2 min". */
 function human(ms: number): string {
@@ -47,15 +66,31 @@ export function sourceTiming(def: SourceDefinition<any, any>): { intervalMs: num
  * definition's value instead; dropping the option hands it over to Kiosko.
  */
 export function sourceCommonFields(def: SourceDefinition<any, any>): Record<string, Field> {
-  if (!def.read) return {};
+  const fields: Record<string, Field> = {};
+  if (canRunInBackground(def)) {
+    fields.background = t.boolean({
+      default: false,
+      label: { en: 'Watch for alerts without a widget', es: 'Vigilar avisos sin widget', de: 'Ohne Widget auf Alarme achten', 'zh-Hant': '無需小工具也監看警報', 'zh-Hans': '无需小组件也监看警报' },
+      help: {
+        en: 'Kiosko reads it even when no tile uses it, and its alerts take the panel over like any other. Off: it runs only while a widget uses it.',
+        es: 'Kiosko la lee aunque ninguna tesela la use, y sus avisos ocupan el panel como cualquier otro. Apagado: solo corre mientras algún widget la usa.',
+        de: 'Kiosko liest sie, auch wenn keine Kachel sie verwendet, und ihre Alarme übernehmen das Panel wie jeder andere. Aus: Sie läuft nur, solange ein Widget sie verwendet.',
+        'zh-Hant': '即使沒有圖塊使用，Kiosko 也會讀取它，其警報會像其他警報一樣佔滿面板。關閉時：只在有小工具使用時才執行。',
+        'zh-Hans': '即使没有图块使用，Kiosko 也会读取它，其警报会像其他警报一样占满副屏。关闭时：只在有小组件使用时才运行。',
+      },
+    });
+  }
+  if (!def.read) return fields;
   const { intervalMs, minIntervalMs, timeoutMs } = sourceTiming(def);
-  const fields: Record<string, Field> = {
+  Object.assign(fields, {
     intervalMs: t.duration({
       default: intervalMs,
       min: minIntervalMs,
       max: Math.max(MAX_INTERVAL_MS, intervalMs),
       label: { en: 'Read every', es: 'Leer cada', de: 'Lesen alle', 'zh-Hant': '讀取間隔', 'zh-Hans': '读取间隔' },
-      help: { en: `How often Kiosko reads it while a widget uses it. At least ${human(minIntervalMs)}.`, es: `Cada cuánto lo lee Kiosko mientras algún widget lo usa. Como mínimo, ${human(minIntervalMs)}.`, de: `Wie oft Kiosko sie liest, solange ein Widget sie verwendet. Mindestens ${human(minIntervalMs)}.`, 'zh-Hant': `小工具使用時，Kiosko 讀取它的頻率。最少 ${human(minIntervalMs)}。`, 'zh-Hans': `有小组件使用时 Kiosko 读取它的频率。最少 ${human(minIntervalMs)}。` },
+      help: fields.background
+        ? { en: `How often Kiosko reads it while it runs. At least ${human(minIntervalMs)}.`, es: `Cada cuánto lo lee Kiosko mientras corre. Como mínimo, ${human(minIntervalMs)}.`, de: `Wie oft Kiosko sie liest, solange sie läuft. Mindestens ${human(minIntervalMs)}.`, 'zh-Hant': `執行時 Kiosko 讀取它的頻率。最少 ${human(minIntervalMs)}。`, 'zh-Hans': `运行时 Kiosko 读取它的频率。最少 ${human(minIntervalMs)}。` }
+        : { en: `How often Kiosko reads it while a widget uses it. At least ${human(minIntervalMs)}.`, es: `Cada cuánto lo lee Kiosko mientras algún widget lo usa. Como mínimo, ${human(minIntervalMs)}.`, de: `Wie oft Kiosko sie liest, solange ein Widget sie verwendet. Mindestens ${human(minIntervalMs)}.`, 'zh-Hant': `小工具使用時，Kiosko 讀取它的頻率。最少 ${human(minIntervalMs)}。`, 'zh-Hans': `有小组件使用时 Kiosko 读取它的频率。最少 ${human(minIntervalMs)}。` },
     }),
     timeoutMs: t.duration({
       default: timeoutMs,
@@ -65,7 +100,7 @@ export function sourceCommonFields(def: SourceDefinition<any, any>): Record<stri
       label: { en: 'Give up a reading after', es: 'Abandonar una lectura tras', de: 'Lesen abbrechen nach', 'zh-Hant': '讀取逾時', 'zh-Hans': '读取超时' },
       help: { en: 'A reading that takes longer is cancelled and counts as failed; the next try comes sooner.', es: 'Una lectura que tarde más se cancela y cuenta como fallida; el siguiente intento llega antes.', de: 'Ein Lesevorgang, der länger dauert, wird abgebrochen und zählt als fehlgeschlagen; der nächste Versuch kommt früher.', 'zh-Hant': '超過此時間的讀取會被取消並視為失敗；下次會提早重試。', 'zh-Hans': '超过此时间的读取会被取消并视为失败；下次会提前重试。' },
     }),
-  };
+  });
   const own = def.options?.props ?? {};
   return Object.fromEntries(Object.entries(fields).filter(([k]) => !(k in own)));
 }

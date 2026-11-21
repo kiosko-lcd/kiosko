@@ -56,6 +56,7 @@ export function lintOptions(where: string, f: Field | undefined, kind: 'widget' 
     if (name === 'takeOver') err(path, 'takeOver is the instance\'s switch, not an option: declare `takeOver` on the definition');
     if (name === 'hideWhenEmpty') err(path, 'hideWhenEmpty is the instance\'s switch: declare `empty(ctx)` (and `hideWhenEmpty` on the definition)');
     if (kind === 'source' && (name === 'intervalMs' || name === 'timeoutMs') && !path.includes('.')) err(path, 'refresh and timeout are not options: declare intervalMs / timeoutMs on the source');
+    if (kind === 'source' && name === 'background' && !path.includes('.')) err(path, 'running with no widget is not an option: declare `background: true` on the source, and Kiosko gives the user the switch');
     if (name === 'max' || name === 'count') warn(path, 'a cap is max<Things> (maxProcesses); a list length is `rows` through listOptions()');
     if ((name === 'latitude' || name === 'longitude') && !(x.kind === 'number' && x.advanced)) warn(path, 'use ctx.location, with locationOptions() as an advanced override');
     if (x.kind === 'string') {
@@ -177,6 +178,7 @@ export function lintPlugin(def: PluginDefinition): LintIssue[] {
     out.push(...lintOptions(where, s.options, 'source'));
     if (!s.read && !s.watch) add('error', where, 'a source needs `read` or `watch`');
     if (!s.demo) add('warn', where, 'no `demo`: widgets using it show nothing in the gallery');
+    if (s.background && !s.alerts) add('warn', where, '`background` without `alerts`: it would run for nothing, so Kiosko offers no switch');
   }
   for (const i of def.interludes ?? []) {
     const where = part('interlude', i as InterludeDefinition<any>);

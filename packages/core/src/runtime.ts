@@ -16,6 +16,7 @@ import { AlertBoard, type ActiveAlert, type PluginAlert } from './alerts.ts';
 import { MAX_CONCURRENT } from './animation.ts';
 import { composePage, composeWidget, type ComposeResult } from './compositor.ts';
 import { isWorking, widgetsOf, type Config, type Page, type Screen, type WidgetInstance } from './config/model.ts';
+import { backgroundSources } from './config/sources.ts';
 import { FetchHost, SourceHub } from './data.ts';
 import { openDevice, type Device, type DeviceStatus } from './devices.ts';
 import { resolveLocale, type LogFn } from './env.ts';
@@ -211,6 +212,8 @@ export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
       }
       for (const slot of r.screen.interludes) for (const s of this.registry.interlude(slot.type)?.sources ?? []) if (slot.enabled) sources.add(s);
     }
+    // And those the user turned on to watch for alerts with no widget.
+    for (const s of backgroundSources(this.config, (type) => this.registry.source(type))) sources.add(s);
     this.paintTimes.retain(new Set(instances.map((i) => i.inst.id)));
     if (this.demoMode) {
       sources.clear();

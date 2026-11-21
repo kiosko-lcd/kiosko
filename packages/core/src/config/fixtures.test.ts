@@ -56,6 +56,10 @@ export const demoPlugin: PluginDefinition = definePlugin({
       minIntervalMs: 30_000,
     }),
     defineSource({ id: 'push', name: 'Push', watch: () => () => undefined }),
+    // May run with no widget, for its alerts: the user's switch, off by default.
+    defineSource({ id: 'warnings', name: 'Warnings', background: true, read: async () => [], alerts: () => [] }),
+    // Says background but has no alerts to give: no switch.
+    defineSource({ id: 'idle', name: 'Idle', background: true, watch: () => () => undefined }),
   ],
   interludes: [defineInterlude({ id: 'blink', name: 'Blink', fps: 10, options: t.object({ color: t.color() }), prepare: async () => null })],
 });

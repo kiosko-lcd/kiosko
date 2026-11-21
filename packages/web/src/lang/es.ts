@@ -195,6 +195,8 @@ export const es: Dictionary = {
   'settings.addHoliday': 'Añadir',
   'settings.sources': 'Fuentes de datos',
   'settings.sourcesHint': 'Compartidas por todos los widgets que las usan.',
+  'settings.sourcesBackgroundHint': 'Las que pueden vigilar avisos también corren sin widget, si lo activas.',
+  'settings.sourceBackgroundOn': 'Vigila avisos sin widget',
   'settings.files': 'Ficheros',
   'settings.ha': 'Home Assistant',
   'settings.haHint': 'Kiosko como dispositivo en Home Assistant, por MQTT: cada pantalla con su página a elegir, la página que se ve, un interruptor para apagarla y un botón por interludio, para tus automatizaciones (la página de la cámara cuando llaman al timbre, los paneles apagados cuando no hay nadie).',

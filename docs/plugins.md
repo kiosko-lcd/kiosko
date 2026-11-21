@@ -321,7 +321,8 @@ export const queue = defineSource({
 ```
 
 A source runs only while some enabled widget declares it, once for all of
-them. Every polled source (one with `read`) also accepts `intervalMs` and
+them (or always, if it may run in the background and the user turned that
+on: see *Alerts*). Every polled source (one with `read`) also accepts `intervalMs` and
 `timeoutMs` in `sources["plugin/source"]`, shown in Settings → Data sources
 and in the config schema: Kiosko clamps the interval to `minIntervalMs`
 (default 5 s, or `intervalMs` if shorter), and aborts `ctx.signal` when a
@@ -510,8 +511,9 @@ defineWidget({
 defineSource({
   id: 'quakes',
   // …
+  background: true,   // may run with no widget, if the user turns it on
   alerts: ({ data, options, now }) => (data?.reports ?? []).filter((r) => r.magnitude >= options.minMagnitude)
-    .map((r) => ({ id: r.id, level: 'warn', title: r.place, text: `M${r.magnitude}`, icon: 'activity', ttlMs: 30 * 60_000 })),
+    .map((r) => ({ id: r.id, level: 'warn', title: r.place, text: `M${r.magnitude}`, source: 'IGN', icon: 'activity', ttlMs: 30 * 60_000 })),
 });
 ```
 
@@ -521,6 +523,8 @@ defineSource({
 | `level` | `info` (blue, pulses), `warn` (amber) or `critical` (red): these two flash for a few seconds, then pulse. Each screen says from which level an alert takes it over, and its quiet hours let only `critical` through. |
 | `title` | A few words, `Localized`: painted as big as the panel allows. |
 | `text` | One short line under it. |
+| `source` | Who published it, a few letters (`IGN`, `NWS`, `AEMET`, `气象署`), painted small in the corner with the time. Name the authority when the alert is someone else's: their licences ask for it, and the user must know where it comes from. Optional. |
+| `detail` | A second line under `text`, in the level's colour: the authority's own instruction as it is ("Move away from the coast and go to high ground"). Painted as far as it fits, after `text`. Optional. |
 | `icon` | A Lucide name the panel draws: `triangle-alert`, `octagon-alert`, `info`, `bell`, `bell-ring`, `flame`, `droplet`, `phone`, `phone-incoming`, `activity`, `zap`, `cloud-lightning`, `wind`, `waves`, `thermometer`, `siren`, `shield-alert`, `door-open`, `git-branch`, `circle-x`, `bug`, `mail`; or one or two characters (`震`). Anything else: the level's. |
 | `expiresAt` / `ttlMs` | When it stops on its own: a time, or how long from when Kiosko first sees it. |
 | `dismissible` | Default `true`. `false`: "Seen" and snooze can't hide it; it stays while you return it. |
@@ -529,6 +533,17 @@ defineSource({
 only the page shown), whenever its data changes and every few seconds; a
 source's while the source runs (while some widget uses it). Keep it cheap
 and decide from the data alone. Nothing runs in demo mode.
+
+**With no widget.** Alerts that matter whether or not a tile shows them
+(official warnings, earthquake reports) come from a source that declares
+`background: true` next to its `alerts`. Settings → Data sources then
+offers that source a switch, **Watch for alerts without a widget**
+(`sources["plugin/source"].background`), off by default: while it is on and
+the plugin is enabled, Kiosko reads (or watches) the source at its interval
+and asks its `alerts` even if no tile uses it. Without `alerts`, or with an
+option of its own named `background`, there is no switch (`kiosko plugins
+check` says so). Older Kiosko ignores `background`: the source runs only
+while a widget uses it.
 
 An alert goes over everything: pages, interludes (a game too), animations,
 and a panel asleep. The frame flashes at most once a second (WCAG 2.3.1)
@@ -539,7 +554,7 @@ Assistant (**Acknowledge alerts**), or the API:
 | | |
 |---|---|
 | `GET /api/alerts` | The active ones, highest first (snoozed ones with `snoozedUntil`). |
-| `POST /api/alerts` | One from outside (a webhook, a script, a Home Assistant automation): the same fields, `id` optional (letters, digits, `.`, `_`, `-`), plus `screens: ["id"]` to show it only there. Posting the same id again replaces it. |
+| `POST /api/alerts` | One from outside (a webhook, a script, a Home Assistant automation): the same fields, `id` optional (letters, digits, `.`, `_`, `-`), plus `screens: ["id"]` to show it only there; `source` and `detail`, if given, must be text (or texts by language). Posting the same id again replaces it. |
 | `DELETE /api/alerts/<id>` | Takes away one posted from outside (its cause is over). |
 | `POST /api/alerts/<id>/ack` | "Seen". 409 if it isn't `dismissible`. |
 | `POST /api/alerts/<id>/snooze` | Hidden for `{ "minutes": 10 }` (1 to 1440), then back if it's still there. |
@@ -553,8 +568,17 @@ curl -X POST -H 'X-Kiosko: 1' -H 'content-type: application/json' \
   http://127.0.0.1:7420/api/alerts
 ```
 
-In tests, `widgetAlerts(widget, { data, options })` from `@kiosko/sdk/testing`
-asks `alerts` the way Kiosko does.
+In tests, `widgetAlerts(widget, { data, options })` and
+`sourceAlerts(source, { data, options, now })` from `@kiosko/sdk/testing` ask
+`alerts` the way Kiosko does (with the demo data when `data` isn't given):
+
+```js
+import { sourceAlerts } from '@kiosko/sdk/testing';
+
+const [a] = sourceAlerts(quakes, { data: { reports: [{ id: 'es2026abc', place: 'Alborán Sur', magnitude: 5.2 }] }, options: { minMagnitude: 4 } });
+assert.equal(a.source, 'IGN');
+assert.deepEqual(sourceAlerts(quakes, { data: { reports: [] } }), []);
+```
 
 ## Screens in threads of their own
 

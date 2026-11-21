@@ -75,8 +75,8 @@ export interface PluginInfo {
   origin: string;
   enabled: boolean;
   widgets: WidgetInfo[];
-  /** `options` include Kiosko's `intervalMs` and `timeoutMs` for polled sources. */
-  sources: { type: string; name: string; description: string; options: JsonSchema | null; intervalMs: number | null; polled: boolean }[];
+  /** `options` include Kiosko's `intervalMs` and `timeoutMs` for polled sources, and `background` for those that may run with no widget. */
+  sources: { type: string; name: string; description: string; options: JsonSchema | null; intervalMs: number | null; polled: boolean; background?: boolean }[];
   /** `input`: it can be played from the Play page. */
   interludes: { type: string; name: string; description: string; icon?: string; fps: number; input?: boolean; options: JsonSchema | null }[];
 }
@@ -156,6 +156,10 @@ export interface AlertInfo {
   level: 'info' | 'warn' | 'critical';
   title: string;
   text: string;
+  /** Who published it ("IGN", "NWS"). */
+  source?: string;
+  /** A second line: the authority's instruction. */
+  detail?: string;
   icon?: string;
   origin: 'widget' | 'source' | 'api' | 'test';
   from?: string;

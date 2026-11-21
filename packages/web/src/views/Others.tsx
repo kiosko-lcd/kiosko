@@ -350,6 +350,7 @@ export function Settings() {
   const a = app.value!;
   const days = tr('days.short').split(',');
   const sources = a.catalog.flatMap((p) => (p.enabled ? p.sources : [])).filter((s) => s.options && Object.keys(s.options.properties ?? {}).length);
+  const sourcesHint = sources.some((s) => s.background) ? `${tr('settings.sourcesHint')} ${tr('settings.sourcesBackgroundHint')}` : tr('settings.sourcesHint');
   return (
     <div class="page-view">
       <header class="view-head">
@@ -451,10 +452,10 @@ export function Settings() {
           </h3>
           {KIOSKO_DEMO ? (
             <>
-              <p class="muted small">{tr('settings.sourcesHint')}</p>
+              <p class="muted small">{sourcesHint}</p>
               <DemoNote k="sources" />
             </>
-          ) : <p class="muted small">{tr('settings.sourcesHint')}</p>}
+          ) : <p class="muted small">{sourcesHint}</p>}
           <div class="sources">
             {sources.map((s) => (
               <SourceRow key={s.type} s={s} />
@@ -552,6 +553,8 @@ function SourceRow({ s }: { s: PluginInfo['sources'][number] }) {
   const cfg = config.value!;
   const st = status.value?.sources.find((x) => x.type === s.type);
   const [open, setOpen] = useState(!!st && !st.ok);
+  // Switched on to run with no widget, for its alerts (see SourceDefinition.background).
+  const background = !!s.background && cfg.sources[s.type]?.background === true;
   const every = s.intervalMs && fmtMs(st?.intervalMs ?? (cfg.sources[s.type]?.intervalMs as number | undefined) ?? s.intervalMs);
   return (
     <div class={`source-block ${open ? 'open' : ''}`}>
@@ -560,6 +563,11 @@ function SourceRow({ s }: { s: PluginInfo['sources'][number] }) {
         <b>{s.name}</b>
         <code class="muted">{s.type}</code>
         {every && <span class="muted small">· {every}</span>}
+        {background && (
+          <span class="source-bg small">
+            <Icon name="bell-ring" size={13} /> {tr('settings.sourceBackgroundOn')}
+          </span>
+        )}
         {!open && <span class="source-desc muted small">{s.description}</span>}
         {st && <span class={`status-pill ${st.ok ? 'ok' : 'bad'}`} title={st.error ?? ''}><span class="dot" /> {st.ok ? (st.updatedAt ? clock(st.updatedAt, { seconds: true }) : '…') : st.error}</span>}
       </button>

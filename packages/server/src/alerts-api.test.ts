@@ -37,6 +37,13 @@ test('the alerts API: post, list, snooze, ack, take away, a screen\'s test; the 
     assert.equal((await call('POST', '/api/alerts', { level: 'info', title: 'x' }, {})).status, 403, 'mutating needs X-Kiosko');
     assert.equal((await call('POST', '/api/alerts', { level: 'loud', title: 'x' })).status, 400);
     assert.equal((await call('POST', '/api/alerts', 'not json')).status, 400);
+    // Who published it and the instruction: optional, text, said back; checked.
+    const bad = await call('POST', '/api/alerts', { level: 'warn', title: 'Quake', source: 42 });
+    assert.deepEqual([bad.status, bad.body.code], [400, 'badAlert']);
+    assert.match(bad.body.error, /^source is a text/);
+    const quake = await call('POST', '/api/alerts', { id: 'quake', level: 'info', title: 'Earthquake M4.1', source: 'IGN', detail: 'Felt nearby' });
+    assert.deepEqual([quake.body.alert.source, quake.body.alert.detail], ['IGN', 'Felt nearby']);
+    assert.equal((await call('DELETE', '/api/alerts/quake')).status, 200);
     const posted = await call('POST', '/api/alerts', { id: 'door', level: 'warn', title: 'Someone at the door', icon: 'bell-ring', screens: ['hall'] });
     assert.equal(posted.status, 200);
     assert.deepEqual(posted.body.alert.screens, ['hall']);

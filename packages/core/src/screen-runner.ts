@@ -392,7 +392,7 @@ export class ScreenRunner implements Runner {
     const cfg = this.rt.config;
     const sinceText = createFormatters({ locale: resolveLocale(cfg), timeFormat: cfg.timeFormat, now }).time(a.since);
     const minPx = legibleCjkPx(screen);
-    const key = JSON.stringify([a.id, a.level, a.title, a.text, a.icon, shown.more, intensity, shift, sinceText, minPx, screen.width, screen.height, screen.rotate]);
+    const key = JSON.stringify([a.id, a.level, a.title, a.text, a.source, a.detail, a.icon, shown.more, intensity, shift, sinceText, minPx, screen.width, screen.height, screen.rotate]);
     if (key === this.alertKey) return;
     this.alertKey = key;
     const t0 = performance.now();

@@ -6,7 +6,7 @@
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { sourceOptionsField, sourceTiming } from './config/sources.ts';
+import { canRunInBackground, sourceOptionsField, sourceTiming } from './config/sources.ts';
 import { declaredLanguages, fullType, incompatibility, packageMeta, pluginOf } from './plugin-meta.ts';
 import { installSdkResolver } from './sdk-resolver.ts';
 import { localize, toJsonSchema, type Choice, type InterludeDefinition, type PluginDefinition, type SourceDefinition, type TemplateTile, type WidgetDefinition } from '@kiosko/sdk';
@@ -321,9 +321,9 @@ export class Registry {
         hideWhenEmpty: w.empty ? (w.hideWhenEmpty ?? false) : null,
       })),
       sources: (def.sources ?? []).map((s) => {
-        // Its own options plus Kiosko's intervalMs and timeoutMs (polled sources).
+        // Its own options plus Kiosko's intervalMs and timeoutMs (polled sources) and the background switch (if it may).
         const field = sourceOptionsField(s);
-        return { type: `${def.id}/${s.id}`, name: L(s.name), description: L(s.description), options: field ? toJsonSchema(field) : null, intervalMs: s.read ? sourceTiming(s).intervalMs : null, polled: !!s.read };
+        return { type: `${def.id}/${s.id}`, name: L(s.name), description: L(s.description), options: field ? toJsonSchema(field) : null, intervalMs: s.read ? sourceTiming(s).intervalMs : null, polled: !!s.read, background: canRunInBackground(s) };
       }),
       interludes: (def.interludes ?? []).map((i) => ({ type: `${def.id}/${i.id}`, name: L(i.name), description: L(i.description), icon: i.icon, fps: i.fps, input: !!i.input, options: i.options ? toJsonSchema(i.options) : null })),
     }));

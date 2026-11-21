@@ -273,6 +273,20 @@ export interface Alert {
   /** One short line under it: "Sensor 2 · since 14:05". */
   text?: Localized;
   /**
+   * Who published it, a few letters, painted small in a corner next to the
+   * time: "IGN", "NWS", "AEMET", "气象署". Name the authority when the alert
+   * is someone else's: their licences ask for it, and the user must know
+   * where it comes from. Kiosko 0.2.7 and later; older ones ignore it.
+   */
+  source?: Localized;
+  /**
+   * A second line under `text`, to be read after it: the authority's own
+   * instruction ("Move away from the coast and go to high ground"), as it
+   * is. Painted smaller than the title and only as far as it fits. Kiosko
+   * 0.2.7 and later; older ones ignore it.
+   */
+  detail?: Localized;
+  /**
    * An icon of Lucide's (`flame`, `droplet`, `bell-ring`, `phone-incoming`,
    * `activity`, `cloud-lightning`, `git-branch`…; see docs/plugins.md for
    * those the panel draws) or one or two characters (`震`). Default: by level.
@@ -422,10 +436,10 @@ export interface SourceDefinition<OF extends ObjectField<any> = ObjectField<any>
   /** Global options, edited once in Settings → Sources. */
   options?: OF;
   /**
-   * Polled every `intervalMs` while some widget uses it. The user can change
-   * the interval and the timeout in Settings → Data sources
-   * (`sources["plugin/source"].intervalMs` / `.timeoutMs`): don't add options
-   * of your own for them.
+   * Polled every `intervalMs` while some widget uses it (or always, see
+   * `background`). The user can change the interval and the timeout in
+   * Settings → Data sources (`sources["plugin/source"].intervalMs` /
+   * `.timeoutMs`): don't add options of your own for them.
    */
   read?: (ctx: SourceContext<Infer<OF>>) => Promise<D>;
   /** Default interval of `read`. Default: 30 s. */
@@ -444,9 +458,20 @@ export interface SourceDefinition<OF extends ObjectField<any> = ObjectField<any>
    * Alerts to show full-screen (see `Alert`), from the source's latest data:
    * like a widget's `alerts`, for alerts that belong to the data itself (a
    * Home Assistant smoke sensor, an earthquake report). Asked while the
-   * source runs, that is while some widget uses it. Kiosko 0.2.7 and later.
+   * source runs: while some widget uses it, or always if it runs in the
+   * `background`. Kiosko 0.2.7 and later.
    */
   alerts?: (ctx: SourceAlertContext<Infer<OF>, D>) => Alert[];
+  /**
+   * May run with no widget using it, for its `alerts` alone (official
+   * warnings, earthquake reports): Settings → Data sources then offers a
+   * switch, "Watch for alerts without a widget", off by default
+   * (`sources["plugin/source"].background`). While it is on and the plugin
+   * is enabled, Kiosko reads (or watches) the source and asks its `alerts`
+   * even if no tile shows it. Only with `alerts`; Kiosko 0.2.7 and later,
+   * older ones ignore it (the source runs only while a widget uses it).
+   */
+  background?: boolean;
   /**
    * Named lists of values for the editor to offer in options, made from
    * this source's latest data (or its demo data before there is any): the
