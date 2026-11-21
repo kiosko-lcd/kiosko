@@ -193,6 +193,8 @@ export const en = {
   'settings.addHoliday': 'Add',
   'settings.sources': 'Data sources',
   'settings.sourcesHint': 'Shared by every widget that uses them.',
+  'settings.sourcesBackgroundHint': 'Those that can watch for alerts can also run with no widget, if you turn it on.',
+  'settings.sourceBackgroundOn': 'Watching for alerts without a widget',
   'settings.files': 'Files',
   'settings.ha': 'Home Assistant',
   'settings.haHint': 'Kiosko as a device in Home Assistant, over MQTT: each screen with its page to choose, the page shown, a switch to turn it off and a button per interlude, for your automations (the camera page when the doorbell rings, the panels off when nobody is home).',

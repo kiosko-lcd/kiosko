@@ -195,6 +195,8 @@ export const zhHans: Dictionary = {
   'settings.addHoliday': '添加',
   'settings.sources': '数据源',
   'settings.sourcesHint': '由所有使用它们的小组件共享。',
+  'settings.sourcesBackgroundHint': '可监看警报的数据源也可以在没有小组件时运行。',
+  'settings.sourceBackgroundOn': '无需小组件也在监看警报',
   'settings.files': '文件',
   'settings.ha': 'Home Assistant',
   'settings.haHint': 'Kiosko 通过 MQTT 作为 Home Assistant 中的一个设备：每块屏幕都有可选的页面、当前显示的页面、一个关闭屏幕的开关，以及每个过场动画对应的按钮，供你的自动化使用（门铃响时切到摄像头页面，家里没人时关闭屏幕）。',

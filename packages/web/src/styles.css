@@ -347,6 +347,7 @@ span.day { display: inline-grid; place-items: center; cursor: default; flex: non
 .source-head > b { white-space: nowrap; }
 .source-desc { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-left: 6px; }
 .source-head .status-pill { margin-left: auto; flex-shrink: 0; }
+.source-bg { display: inline-flex; gap: 4px; align-items: center; flex-shrink: 0; padding: 2px 8px; border-radius: 999px; color: color-mix(in srgb, var(--warn) 75%, var(--text)); background: color-mix(in srgb, var(--warn) 14%, transparent); white-space: nowrap; }
 .source-body { padding: 0 14px 14px 38px; max-width: 760px; }
 .source-body > p { margin-top: 0; }
 .paths { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 0; }
@@ -554,6 +555,7 @@ html:lang(zh) :is(.lib-hint, .field-help) { font-size: 12.5px; line-height: 1.5;
 .alert-what { display: flex; flex-direction: column; min-width: 0; flex: 1; }
 .alert-what strong { font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .alert-what .small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.alert-detail { color: color-mix(in srgb, var(--lvl) 55%, var(--text)); font-weight: 500; }
 .alert-actions { display: flex; gap: 6px; flex: none; }
 .btn.alert-seen { background: var(--lvl); border-color: transparent; color: #111; }
 .alert-more { padding-left: 46px; }

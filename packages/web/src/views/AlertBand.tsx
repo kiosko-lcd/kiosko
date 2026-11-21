@@ -40,8 +40,10 @@ export function AlertBand() {
             <span class="muted small">
               {a.origin === 'test' ? `${tr('alerts.test')} · ` : ''}
               {tr(`level.${a.level}`)} · {t('alerts.since', { time: clock(a.since) })}
+              {a.source ? ` · ${a.source}` : ''}
               {a.text ? ` · ${a.text}` : ''}
             </span>
+            {a.detail && <span class="alert-detail small">{a.detail}</span>}
           </div>
           {a.dismissible ? (
             <div class="alert-actions">
