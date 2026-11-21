@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { definePlugin, defineWidget } from './plugin.ts';
+import { definePlugin, defineSource, defineWidget } from './plugin.ts';
 import { t } from './schema.ts';
-import { checkPlugin, renderWidget, widgetAlerts, widgetState } from './testing.ts';
+import { checkPlugin, renderWidget, sourceAlerts, widgetAlerts, widgetState } from './testing.ts';
 
 const good = defineWidget({
   id: 'good',
@@ -57,6 +57,22 @@ test('widgetAlerts asks alerts with the same inputs; none without the hook', () 
   assert.deepEqual(widgetAlerts(smoke, { data: { smoke: true } }), [{ id: 'k', level: 'critical', title: 'Smoke' }]);
   assert.deepEqual(widgetAlerts(smoke, { data: { smoke: false } }), []);
   assert.deepEqual(widgetAlerts(good), []);
+});
+
+test('sourceAlerts asks a source\'s alerts with its options, its demo data unless given other; none without the hook', () => {
+  const quakes = defineSource({
+    id: 'quakes',
+    name: 'Quakes',
+    options: t.object({ minMag: t.number({ default: 5 }) }),
+    background: true,
+    demo: () => ({ mag: 6.1 }),
+    alerts: ({ data, options, now }) => (data && data.mag >= options.minMag ? [{ id: `q-${now}`, level: 'warn', title: `M${data.mag}`, source: 'IGN', detail: 'Stay away from the coast' }] : []),
+  });
+  assert.deepEqual(sourceAlerts(quakes, { now: 7 }), [{ id: 'q-7', level: 'warn', title: 'M6.1', source: 'IGN', detail: 'Stay away from the coast' }]);
+  assert.deepEqual(sourceAlerts(quakes, { data: { mag: 4 } }), []);
+  assert.equal(sourceAlerts(quakes, { data: { mag: 4 }, options: { minMag: 3 } }).length, 1);
+  assert.deepEqual(sourceAlerts(quakes, { demo: false }), []);
+  assert.deepEqual(sourceAlerts(defineSource({ id: 'plain', name: 'Plain', read: async () => 1 })), []);
 });
 
 test('checkPlugin: a clean plugin passes; it names what throws, spills over or shows nothing', () => {
