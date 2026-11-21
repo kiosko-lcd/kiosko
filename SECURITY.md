@@ -2,7 +2,8 @@
 
 ## Reporting a vulnerability
 
-Please **don't open a public issue**. Report it privately on GitHub instead:
+Please **don't open a public issue**. Report it privately, by email to
+[**security@kioskolcd.dev**](mailto:security@kioskolcd.dev), or on GitHub:
 [**Security → Report a vulnerability**](https://github.com/kiosko-lcd/kiosko/security/advisories/new)
 in this repository, or in the repository of the plugin it affects
 (`kiosko-lcd/kiosko-plugin-*`, each has the same button).
@@ -27,3 +28,8 @@ each official plugin. Fixes are not backported.
 - **Configs from elsewhere** (one an AI wrote, someone else's): `kiosko
   config import <file>` lists every value that runs a program, contacts a
   host or reads a path before applying it.
+
+## Contact
+
+Vulnerabilities: security@kioskolcd.dev. Anything else (the website, the
+npm packages): info@kioskolcd.dev.

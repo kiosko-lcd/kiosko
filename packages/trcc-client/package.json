@@ -4,7 +4,7 @@
   "description": "Dependency-free Node client for the REST API of `trcc serve` (Thermalright USB LCD panels on Linux).",
   "type": "module",
   "license": "MIT",
-  "author": "Loksly",
+  "author": "Loksly <info@kioskolcd.dev> (https://kioskolcd.dev)",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Loksly/aimonitor.git",

@@ -65,5 +65,5 @@
     "url": "git+https://github.com/kiosko-lcd/kiosko.git",
     "directory": "packages/sdk"
   },
-  "author": "Loksly"
+  "author": "Loksly <info@kioskolcd.dev> (https://kioskolcd.dev)"
 }
