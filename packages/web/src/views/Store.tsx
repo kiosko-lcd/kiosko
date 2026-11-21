@@ -12,7 +12,8 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { fitsScreens, installableRelease, marketFor, matches, regionOf, releaseProblem, searchText, textIn, type StorePlugin, type StorePluginFile } from '@kiosko/core/store';
 import { api, type StoreState } from '../api.ts';
 import { Icon } from '../icons.tsx';
-import { dateTime, errorText, t, tr, uiLanguage } from '../i18n.ts';
+import { listIn, regionName as regionNameIn } from '@kiosko/sdk/languages';
+import { dateTime, errorText, fullWidth, labelled, listOf, t, tr, uiLanguage } from '../i18n.ts';
 import { app, config, locale, notify, status } from '../store.ts';
 import { DemoNote } from '../demo/ui.tsx';
 
@@ -78,13 +79,7 @@ function StoreScreen({ p, st, lang }: { p: StorePlugin; st: StoreState; lang: st
   );
 }
 
-const regionName = (code: string) => {
-  try {
-    return new Intl.DisplayNames([uiLanguage()], { type: 'region' }).of(code) ?? code;
-  } catch {
-    return code;
-  }
-};
+const regionName = (code: string) => regionNameIn(code, uiLanguage());
 const languageName = (tag: string) => {
   try {
     return new Intl.DisplayNames([tag], { type: 'language' }).of(tag) ?? tag;
@@ -92,7 +87,7 @@ const languageName = (tag: string) => {
     return tag;
   }
 };
-const list = (items: string[]) => new Intl.ListFormat(uiLanguage(), { type: 'conjunction' }).format(items);
+const list = (items: string[]) => listIn(items, uiLanguage());
 const what = (v: string) => (v === 'user' ? tr('perm.user') : v === 'lan' ? tr('perm.lan') : v);
 
 /** Whether it runs here, and why not. */
@@ -128,7 +123,7 @@ function PermissionChips({ perms }: { perms: StorePlugin['permissions'] }) {
     <>
       {any.map(([k, icon]) => (
         <span class="perm-chip" title={tr(`perm.${k}Help`)}>
-          <Icon name={icon} size={12} /> {tr(`perm.${k}`)}: {perms[k]!.map(what).join(', ')}
+          <Icon name={icon} size={12} /> {labelled(tr(`perm.${k}`), listOf(perms[k]!.map(what)))}
         </span>
       ))}
     </>
@@ -323,7 +318,7 @@ export function StoreSheet({ id }: { id: string }) {
           <Icon name="triangle-alert" size={16} /> {tr('store.nobodyLooked')}
         </div>
       )}
-      {market === 'elsewhere' && <div class="banner info">{t('store.elsewhere', { regions: list((p.markets?.only ?? []).map(regionName)) })}{p.markets?.note ? `: ${textIn(p.markets.note, lang)}` : ''}</div>}
+      {market === 'elsewhere' && <div class="banner info">{t('store.elsewhere', { regions: list((p.markets?.only ?? []).map(regionName)) })}{p.markets?.note ? `${fullWidth() ? '：' : ': '}${textIn(p.markets.note, lang)}` : ''}</div>}
       {market === 'missing' && <div class="banner info">{tr('store.missingHere')}</div>}
       <StoreGallery p={p} st={st} lang={lang} />
       <div class="grid-2 gap-lg">
@@ -390,7 +385,7 @@ export function StoreSheet({ id }: { id: string }) {
             {p.requires.length > 0 && (
               <>
                 <dt>{tr('plugins.needs')}</dt>
-                <dd>{p.requires.join(', ')}</dd>
+                <dd>{listOf(p.requires)}</dd>
               </>
             )}
             {p.publisher?.name && (
@@ -500,7 +495,7 @@ function InstallDialog({ p, st, risky = p.riskyOptions, onClose }: { p: StorePlu
         {PERMS.map(([k, icon]) => (
           <li class={perms[k]?.length ? '' : 'muted'}>
             <Icon name={icon} size={14} />
-            <b>{tr(`perm.${k}`)}:</b> {perms[k]?.length ? perms[k]!.map(what).join(', ') : '—'}
+            <b>{tr(`perm.${k}`)}{fullWidth() ? '：' : ':'}</b>{fullWidth() ? '' : ' '}{perms[k]?.length ? listOf(perms[k]!.map(what)) : '—'}
           </li>
         ))}
         {risky > 0 && <li class="warn"><Icon name="triangle-alert" size={14} /> {t('store.risky', { n: risky })}</li>}

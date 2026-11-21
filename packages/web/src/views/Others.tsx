@@ -5,7 +5,7 @@ import { api, type AppState, type JsonSchema, type PluginInfo } from '../api.ts'
 import { SchemaForm, Toggle } from '../forms/SchemaForm.tsx';
 import { Icon } from '../icons.tsx';
 import { pickLocale } from '@kiosko/sdk/i18n';
-import { UI_LANGUAGES, clock, count, dateTime, errorText, fmtMs, t, tr, uiLanguage, weekOrder } from '../i18n.ts';
+import { UI_LANGUAGES, aside, clock, count, dateTime, errorText, fmtMs, labelled, listOf, sentences, t, tr, uiLanguage, weekOrder } from '../i18n.ts';
 import { app, config, edit, logs, notify, setUiTheme, status, uiTheme } from '../store.ts';
 import { DemoNote } from '../demo/ui.tsx';
 import { StoreSheet, StoreView } from './Store.tsx';
@@ -36,8 +36,8 @@ function Permissions({ p }: { p: PluginInfo }) {
   return (
     <div class="plugin-perms">
       {entries.map((k) => (
-        <span class="perm-chip" title={`${tr(`perm.${k}Help`)} ${p.permissions[k]!.map(what).join(', ')}`}>
-          <Icon name={PERMISSION_ICONS[k]} size={12} /> {tr(`perm.${k}`)}: {p.permissions[k]!.map(what).join(', ')}
+        <span class="perm-chip" title={sentences(tr(`perm.${k}Help`), listOf(p.permissions[k]!.map(what)))}>
+          <Icon name={PERMISSION_ICONS[k]} size={12} /> {labelled(tr(`perm.${k}`), listOf(p.permissions[k]!.map(what)))}
         </span>
       ))}
     </div>
@@ -48,7 +48,7 @@ function Permissions({ p }: { p: PluginInfo }) {
 const permissionsLine = (p: PluginInfo['permissions']) =>
   (Object.keys(PERMISSION_ICONS) as (keyof PluginInfo['permissions'])[])
     .filter((k) => p[k]?.length)
-    .map((k) => `${tr(`perm.${k}`)}: ${p[k]!.join(', ')}`)
+    .map((k) => labelled(tr(`perm.${k}`), listOf(p[k]!)))
     .join(' · ');
 
 /** Newer versions on npm: Kiosko itself, and every plugin, with Update and Update all. */
@@ -285,7 +285,7 @@ export default definePlugin({
             {/* Its texts fall back to English for this user: say so before they wonder. */}
             {p.languages.length > 0 && !pickLocale(p.languages, uiLanguage()) && (
               <p class="muted small" title={p.languages.join(', ')}>
-                <Icon name="languages" size={13} /> {t('plugins.notYourLanguage', { languages: p.languages.join(', ') })}
+                <Icon name="languages" size={13} /> {t('plugins.notYourLanguage', { languages: listOf(p.languages) })}
               </p>
             )}
             <div class="plugin-widgets">
@@ -367,7 +367,7 @@ export function Settings() {
   const a = app.value!;
   const days = tr('days.short').split(',');
   const sources = a.catalog.flatMap((p) => (p.enabled ? p.sources : [])).filter((s) => s.options && Object.keys(s.options.properties ?? {}).length);
-  const sourcesHint = sources.some((s) => s.background) ? `${tr('settings.sourcesHint')} ${tr('settings.sourcesBackgroundHint')}` : tr('settings.sourcesHint');
+  const sourcesHint = sources.some((s) => s.background) ? sentences(tr('settings.sourcesHint'), tr('settings.sourcesBackgroundHint')) : tr('settings.sourcesHint');
   return (
     <div class="page-view">
       <header class="view-head">
@@ -758,7 +758,7 @@ export function LanguageMenu() {
   const { current, choose, options } = languageChoice();
   // "Automatic" alone would be said in the very language that may not be the reader's: its name first.
   const here = UI_LANGUAGES.find((l) => l.id === uiLanguage())?.name ?? '';
-  const named = options.map(([v, l]): [string, string] => [v, v === 'auto' && here ? `${here} (${l})` : l]);
+  const named = options.map(([v, l]): [string, string] => [v, v === 'auto' && here ? aside(here, l) : l]);
   return (
     <label class="lang-menu" title={tr('settings.language')}>
       <Icon name="languages" size={16} />

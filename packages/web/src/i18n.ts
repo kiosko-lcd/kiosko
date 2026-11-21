@@ -63,6 +63,43 @@ export function count(key: PluralKey, n: number): string {
   return fill(text, { n });
 }
 
+/** The languages whose install guide is on the site (docs/<id>/install.md, published by landing/docs.mjs). */
+const GUIDES = new Set(['zh-Hant', 'zh-Hans']);
+
+/**
+ * Where "Docs" leads: the install guide in the editor's language, on kioskolcd.dev (which reaches
+ * where GitHub may not, as in mainland China), else the README on GitHub.
+ */
+export function docsUrl(): string {
+  const lang = uiLanguage();
+  return GUIDES.has(lang) ? `https://kioskolcd.dev/${lang}/docs/install/` : 'https://github.com/kiosko-lcd/kiosko#readme';
+}
+
+/** Whether the editor writes in Chinese, Japanese or Korean: full-width punctuation, no spaces around it. */
+export function fullWidth(): boolean {
+  return /^(zh|ja|ko)\b/.test(uiLanguage());
+}
+
+/** `Run: git` — `執行：git` in Chinese (a full-width colon, no space). */
+export function labelled(label: string, value: string): string {
+  return fullWidth() ? `${label}：${value}` : `${label}: ${value}`;
+}
+
+/** `a, b, c` — `a、b、c` in Chinese. */
+export function listOf(items: readonly string[]): string {
+  return items.join(fullWidth() ? '、' : ', ');
+}
+
+/** `Español (Auto)` — `繁體中文（自動）` in Chinese. */
+export function aside(text: string, note: string): string {
+  return fullWidth() ? `${text}（${note}）` : `${text} (${note})`;
+}
+
+/** Two sentences one after the other: with a space between them, but none after a Chinese 。 */
+export function sentences(...parts: string[]): string {
+  return parts.filter(Boolean).join(fullWidth() ? '' : ' ');
+}
+
 /** "90000" ms → "1.5 min" */
 export function fmtMs(ms: number): string {
   if (ms < 60_000) return t('unit.s', { n: Math.round(ms / 1000) });
