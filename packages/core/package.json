@@ -42,6 +42,7 @@
   "files": [
     "dist",
     "src",
+    "schema",
     "!src/**/*.test.ts",
     "README.md",
     "LICENSE"

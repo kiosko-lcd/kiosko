@@ -9,6 +9,7 @@
  * a convention, or something a person installing it would want to know.
  */
 import type { Field, InterludeDefinition, Localized, ObjectField, PluginDefinition, SourceDefinition, WidgetDefinition } from '@kiosko/sdk';
+import { isRegion, parseLicense } from './licenses.ts';
 import { languagesOf } from './plugin-meta.ts';
 
 export interface LintIssue {
@@ -97,6 +98,23 @@ export function lintPlugin(def: PluginDefinition): LintIssue[] {
   const reaches = (def.sources ?? []).length > 0 || (def.widgets ?? []).some((w) => w.fetch);
   if (reaches && !def.permissions) add('warn', 'plugin', 'it reads data: declare `permissions` (hosts, programs, files, devices) so people know before installing');
   if (!def.description) add('warn', 'plugin', 'a description, for the Plugins page and the store');
+  // What the store reads: the licence, where it is useful, how it is sold.
+  if (def.license) {
+    try {
+      const lic = parseLicense(def.license);
+      for (const f of lic.fix) add('warn', 'plugin', `license: write "${f.from}" as "${f.to}" (SPDX identifiers are case-sensitive)`);
+      for (const u of lic.unknown) add('warn', 'plugin', `license: "${u}" is not an SPDX identifier Kiosko knows (https://spdx.org/licenses/); the store lists it as "other"`);
+    } catch (err) {
+      add('error', 'plugin', `license ${JSON.stringify(def.license)}: ${(err as Error).message}`);
+    }
+  }
+  for (const k of ['only', 'without'] as const) {
+    for (const code of def.markets?.[k] ?? []) if (!isRegion(code)) add('error', 'plugin', `markets.${k}: "${code}" is not an ISO 3166-1 alpha-2 country code (ES, TW…) nor EU`);
+  }
+  if (def.markets?.only?.length && def.markets.without?.length) add('warn', 'plugin', 'markets: `only` and `without` together; `only` alone says it');
+  if (def.pricing && def.pricing.model !== 'free') add('error', 'plugin', `pricing.model ${JSON.stringify((def.pricing as { model: unknown }).model)}: only "free" for now (paid plugins are not supported yet)`);
+  if (def.category && (def.widgets ?? []).length) add('warn', 'plugin', '`category` is for plugins without widgets: the store takes the widgets\' own');
+  for (const [k, url] of [...Object.entries(def.support ?? {}), ['funding', def.funding] as const]) if (url && !/^https:\/\//.test(url)) add('warn', 'plugin', `${k === 'funding' ? 'funding' : `support.${k}`}: an https:// address`);
   for (const r of [...(def.requires ?? []), ...(def.optional ?? [])]) if (!/^[a-z0-9][a-z0-9-]*\/[a-zA-Z0-9-]+$/.test(r)) add('error', 'plugin', `requires/optional ${JSON.stringify(r)}: a type, plugin/thing`);
   // The languages it says it speaks, checked against the ones its texts use.
   const used = languagesOf(def);

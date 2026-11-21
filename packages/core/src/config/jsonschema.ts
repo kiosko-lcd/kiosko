@@ -7,7 +7,7 @@
  * Supported: local `$ref`, `type`, `const`, `enum`, `properties`, `required`,
  * `additionalProperties`, `propertyNames`, `items`, `minItems`, `maxItems`,
  * `uniqueItems`, `minimum`, `maximum`, `minLength`, `maxLength`, `pattern`,
- * `format: date`, `allOf`, `anyOf`, `oneOf` and `not`. A `oneOf` whose
+ * `format: date` and `date-time`, `allOf`, `anyOf`, `oneOf` and `not`. A `oneOf` whose
  * branches all pin the same property with `const` (widgets by `type`, devices
  * by `driver`) is a tagged union: only the branch named by the value is
  * checked, so errors talk about that widget and not about all seventy.
@@ -279,6 +279,7 @@ function check(run: Run, schema: JsonSchema, value: unknown, path: PathSeg[], co
       push(run, path, `must be ${hint}; got ${describe(value)}`, context);
     }
     if (s.format === 'date' && !validDate(value)) push(run, path, `must be a date as YYYY-MM-DD; got ${describe(value)}`, context);
+    if (s.format === 'date-time' && !(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})$/.test(value) && validDate(value.slice(0, 10)))) push(run, path, `must be a date and time as YYYY-MM-DDTHH:MM:SSZ; got ${describe(value)}`, context);
   }
 
   if (Array.isArray(value)) {

@@ -1,0 +1,169 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kioskolcd.dev/schema/v1/plugin-manifest.json",
+  "title": "Kiosko plugin manifest (kiosko-manifest.json)",
+  "description": "What a plugin store or the editor knows about a plugin without running it. Written by `kiosko plugins manifest` (packages/core/src/plugin-meta.ts, PluginManifest); new fields are optional, so `manifest: 1` stays.",
+  "type": "object",
+  "required": ["manifest", "id", "name", "version", "platforms", "languages", "categories", "tags", "permissions", "riskyOptions", "requires", "optional", "widgets", "sources", "interludes", "templates"],
+  "properties": {
+    "manifest": { "const": 1 },
+    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+    "package": { "type": "string", "pattern": "^(@[a-z0-9][\\w.-]*/)?[a-z0-9][\\w.-]*$" },
+    "name": { "$ref": "#/$defs/localized" },
+    "version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+" },
+    "description": { "$ref": "#/$defs/localized" },
+    "author": { "type": "string" },
+    "license": { "type": "string" },
+    "homepage": { "type": "string" },
+    "repository": { "type": "string" },
+    "icon": { "type": "string" },
+    "sdk": { "type": "string" },
+    "platforms": { "type": "array", "items": { "$ref": "#/$defs/platform" } },
+    "languages": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+    "categories": { "type": "array", "items": { "$ref": "#/$defs/category" } },
+    "tags": { "type": "array", "items": { "type": "string" } },
+    "permissions": { "$ref": "#/$defs/permissions" },
+    "riskyOptions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "risk", "secret"],
+        "properties": { "path": { "type": "string" }, "risk": { "type": "array", "items": { "enum": ["exec", "network", "path"] } }, "secret": { "type": "boolean" } }
+      }
+    },
+    "requires": { "$ref": "#/$defs/dependencies" },
+    "optional": { "$ref": "#/$defs/dependencies" },
+    "widgets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["type", "name", "category", "tags", "size", "chrome", "sources", "animated", "urgent"],
+        "properties": {
+          "type": { "$ref": "#/$defs/type" },
+          "name": { "$ref": "#/$defs/localized" },
+          "description": { "$ref": "#/$defs/localized" },
+          "icon": { "type": "string" },
+          "category": { "$ref": "#/$defs/category" },
+          "tags": { "type": "array", "items": { "type": "string" } },
+          "size": {
+            "type": "object",
+            "properties": { "min": { "$ref": "#/$defs/size" }, "preferred": { "$ref": "#/$defs/size" }, "max": { "$ref": "#/$defs/size" } },
+            "additionalProperties": false
+          },
+          "chrome": { "enum": ["card", "bare"] },
+          "sources": { "type": "array", "items": { "type": "string" } },
+          "options": { "type": ["object", "null"] },
+          "screenshot": { "$ref": "#/$defs/file" },
+          "screenshots": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["file", "theme", "lang", "w", "h"],
+              "properties": { "file": { "$ref": "#/$defs/file" }, "theme": { "type": "string" }, "lang": { "type": "string" }, "w": { "type": "integer", "minimum": 1 }, "h": { "type": "integer", "minimum": 1 } }
+            }
+          },
+          "animated": { "type": "boolean" },
+          "urgent": { "type": "boolean" }
+        }
+      }
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["type", "name", "polled"],
+        "properties": {
+          "type": { "$ref": "#/$defs/type" },
+          "name": { "$ref": "#/$defs/localized" },
+          "description": { "$ref": "#/$defs/localized" },
+          "polled": { "type": "boolean" },
+          "intervalMs": { "type": "number", "minimum": 0 },
+          "options": { "type": ["object", "null"] }
+        }
+      }
+    },
+    "interludes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["type", "name", "fps"],
+        "properties": {
+          "type": { "$ref": "#/$defs/type" },
+          "name": { "$ref": "#/$defs/localized" },
+          "description": { "$ref": "#/$defs/localized" },
+          "icon": { "type": "string" },
+          "fps": { "type": "number", "minimum": 0 },
+          "input": { "type": "boolean" },
+          "preview": { "type": "object", "required": ["poster"], "properties": { "video": { "$ref": "#/$defs/file" }, "poster": { "$ref": "#/$defs/file" } } }
+        }
+      }
+    },
+    "templates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "widgets"],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "$ref": "#/$defs/localized" },
+          "icon": { "type": "string" },
+          "widgets": { "type": "array", "items": { "type": "string" } },
+          "layouts": { "type": "array", "items": { "enum": ["wide", "square", "tall"] } }
+        }
+      }
+    },
+    "markets": {
+      "type": "object",
+      "properties": {
+        "only": { "type": "array", "items": { "$ref": "#/$defs/region" } },
+        "without": { "type": "array", "items": { "$ref": "#/$defs/region" } },
+        "note": { "$ref": "#/$defs/localized" }
+      },
+      "additionalProperties": false
+    },
+    "support": {
+      "type": "object",
+      "properties": { "issues": { "type": "string" }, "discussions": { "type": "string" }, "docs": { "type": "string" } },
+      "additionalProperties": false
+    },
+    "pricing": { "type": "object", "required": ["model"], "properties": { "model": { "const": "free" } } },
+    "funding": { "type": "string" },
+    "resources": {
+      "type": "object",
+      "properties": { "memoryMb": { "type": "number", "minimum": 0 }, "cpu": { "enum": ["low", "medium", "high"] }, "note": { "$ref": "#/$defs/localized" } },
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "localized": {
+      "anyOf": [
+        { "type": "string" },
+        { "type": "object", "required": ["en"], "additionalProperties": { "type": "string" } }
+      ]
+    },
+    "platform": { "enum": ["linux", "darwin", "win32"] },
+    "category": { "enum": ["agents", "system", "time", "productivity", "dev", "info", "media", "scene", "fun"] },
+    "region": { "type": "string", "pattern": "^([A-Z]{2}|EU)$" },
+    "type": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*/[a-zA-Z0-9-]+$" },
+    "file": { "type": "string", "pattern": "^(?!/)(?!.*\\.\\.)[\\w./-]+$" },
+    "size": {
+      "type": "object",
+      "required": ["w", "h"],
+      "properties": { "w": { "type": "number", "minimum": 1 }, "h": { "type": "number", "minimum": 1 } }
+    },
+    "permissions": {
+      "type": "object",
+      "properties": {
+        "network": { "type": "array", "items": { "type": "string" } },
+        "exec": { "type": "array", "items": { "type": "string" } },
+        "files": { "type": "array", "items": { "type": "string" } },
+        "devices": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+    "dependencies": {
+      "type": "array",
+      "items": { "type": "object", "required": ["type", "plugin"], "properties": { "type": { "type": "string" }, "plugin": { "type": "string" } } }
+    }
+  }
+}

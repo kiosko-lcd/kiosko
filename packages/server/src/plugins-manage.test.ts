@@ -136,13 +136,18 @@ test('kiosko plugins new: a plugin that declares its API and permissions, with t
   const { newPluginFiles } = await import('./plugins-cli.ts');
   const { SDK_VERSION } = await import('@kiosko/sdk');
   const files = newPluginFiles('solar-meter');
-  assert.deepEqual(Object.keys(files).sort(), ['.gitignore', 'README.md', 'build.mjs', 'package.json', 'src/index.test.ts', 'src/index.ts', 'tsconfig.json']);
+  assert.deepEqual(Object.keys(files).sort(), ['.github/workflows/release.yml', '.gitignore', 'README.md', 'build.mjs', 'package.json', 'src/index.test.ts', 'src/index.ts', 'tsconfig.json']);
   const pkg = JSON.parse(files['package.json']!) as { name: string; kiosko: { id: string; sdk: string }; peerDependencies: Record<string, string> };
   const range = `^${SDK_VERSION.split('.').slice(0, 2).join('.')}.0`;
   assert.equal(pkg.name, 'kiosko-plugin-solar-meter');
   assert.deepEqual([pkg.kiosko.id, pkg.kiosko.sdk, pkg.peerDependencies['@kiosko/sdk']], ['solar-meter', range, range]);
   assert.match(files['src/index.ts']!, /id: 'solar-meter',\n  name: \{ en: 'Solar Meter'/);
   assert.match(files['src/index.ts']!, /permissions: \{ network: \['user'\] \}/);
+  // What the store links to, and a release that publishes with provenance (trusted publishing, no token).
+  const meta = JSON.parse(files['package.json']!) as { bugs: { url: string }; repository: { url: string } };
+  assert.match(meta.bugs.url, /kiosko-plugin-solar-meter\/issues$/);
+  assert.match(files['.github/workflows/release.yml']!, /id-token: write/);
+  assert.match(files['.github/workflows/release.yml']!, /\$\{\{ github\.token \}\}/);
 });
 
 test('install: a bad update brings the previous version back; a new one says what more it does', async () => {

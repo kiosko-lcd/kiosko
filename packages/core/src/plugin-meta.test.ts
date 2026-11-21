@@ -98,11 +98,43 @@ test('pluginManifest: what a store needs, without running anything', () => {
   assert.equal(w.animated, false);
   assert.equal((w.options as { properties: Record<string, unknown> }).properties.rows !== undefined, true);
   assert.deepEqual(m.sources[0], { type: 'demo/feed', name: { en: 'Feed', es: 'Fuente' }, polled: true, intervalMs: 60_000, options: m.sources[0]!.options });
-  assert.deepEqual(m.templates, [{ id: 'main', name: 'Main', widgets: ['demo/card', 'core/clock'] }]);
+  assert.deepEqual(m.templates, [{ id: 'main', name: 'Main', widgets: ['demo/card', 'core/clock'], layouts: ['wide'] }]);
   // Plain data: it goes to disk as JSON with nothing lost but undefined hints.
   const json = JSON.stringify(m);
   assert.equal(JSON.stringify(JSON.parse(json)), json);
   assert.ok(!/function|=>/.test(json));
+});
+
+test('pluginManifest: what the store reads besides (markets, support, pricing, funding, resources, pictures, previews)', () => {
+  const store = definePlugin({
+    id: 'tarifa',
+    name: 'Tarifa',
+    version: '1.0.0',
+    markets: { only: ['ES'], note: { en: 'Spanish PVPC tariff', es: 'La tarifa PVPC' } },
+    pricing: { model: 'free' },
+    resources: { memoryMb: 30, cpu: 'low' },
+    category: 'fun',
+    interludes: [{ id: 'show', name: 'Show', fps: 12, preview: { poster: 'docs/show.jpg', video: 'docs/show.webm' }, prepare: async () => null }],
+  });
+  const m = pluginManifest(store, { pkg: { name: 'kiosko-plugin-tarifa', bugs: { url: 'https://github.com/ana/t/issues' }, homepage: 'https://ana.dev/t', funding: [{ type: 'github', url: 'https://github.com/sponsors/ana' }] } });
+  assert.deepEqual(m.markets, { only: ['ES'], note: { en: 'Spanish PVPC tariff', es: 'La tarifa PVPC' } });
+  assert.deepEqual(m.support, { issues: 'https://github.com/ana/t/issues', docs: 'https://ana.dev/t' });
+  assert.deepEqual(m.pricing, { model: 'free' });
+  assert.equal(m.funding, 'https://github.com/sponsors/ana');
+  assert.deepEqual(m.resources, { memoryMb: 30, cpu: 'low' });
+  // No widgets: the plugin's own category.
+  assert.deepEqual(m.categories, ['fun']);
+  assert.deepEqual(m.interludes[0]!.preview, { poster: 'docs/show.jpg', video: 'docs/show.webm' });
+  // Its own support wins over package.json's; a string `funding` too.
+  const own = pluginManifest({ ...store, support: { issues: 'https://ana.dev/help' }, funding: 'https://ko-fi.com/ana' }, { pkg: { bugs: 'https://github.com/ana/t/issues' } });
+  assert.deepEqual(own.support, { issues: 'https://ana.dev/help' });
+  assert.equal(own.funding, 'https://ko-fi.com/ana');
+  // Pictures by theme, language and size.
+  const shots = pluginManifest(plugin, { shots: { card: [{ file: 'docs/card--dark--es--400x200.png', theme: 'dark', lang: 'es', w: 400, h: 200 }] } });
+  assert.equal(shots.widgets[0]!.screenshots![0]!.lang, 'es');
+  // Nothing invented when nothing is declared.
+  const bare = pluginManifest(plugin);
+  for (const k of ['markets', 'support', 'pricing', 'funding', 'resources'] as const) assert.equal(bare[k], undefined, k);
 });
 
 test('languages: as the plugin declares them, else package.json, else read from its texts', () => {

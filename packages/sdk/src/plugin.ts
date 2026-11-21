@@ -548,6 +548,12 @@ export interface InterludeDefinition<OF extends ObjectField<any> = ObjectField<a
    * later.
    */
   input?: boolean;
+  /**
+   * A short recording for the plugin store, relative to its package
+   * (`docs/<id>.webm`, 6–10 s, and a still `docs/<id>.jpg` for where video
+   * doesn't play).
+   */
+  preview?: { video?: string; poster: string };
   /** Builds the animation. May be slow (it runs before playing, not during). */
   prepare: (ctx: InterludeContext<Infer<OF>>) => Promise<InterludePlayer | null>;
   /** Don't interrupt now (someone waits for a permission, a meeting is about to start). */
@@ -663,6 +669,39 @@ export interface PluginDefinition {
   interludes?: InterludeDefinition<any>[];
   /** Page layouts the editor offers, built from its widgets (see `PageTemplate`). */
   templates?: PageTemplate[];
+  /**
+   * The category it is browsed under in the plugin store when it has no
+   * widgets of its own (only interludes, say): `fun` or `scene`. With widgets,
+   * the store takes theirs.
+   */
+  category?: Category;
+  /**
+   * Where it is useful, for the plugin store (see `PluginMarkets`): only in
+   * Spain (an electricity tariff), not where its service isn't offered.
+   */
+  markets?: PluginMarkets;
+  /** Where to ask for help. Missing: `bugs` and `homepage` of package.json. */
+  support?: { issues?: string; discussions?: string; docs?: string };
+  /** How it is sold. Only `free` for now: paid plugins are not there yet. */
+  pricing?: { model: 'free' };
+  /** A page to support its author (also `funding` in package.json). */
+  funding?: string;
+  /** What it costs to run, roughly, for the store (`memoryMb` while painting, `cpu`). */
+  resources?: { memoryMb?: number; cpu?: 'low' | 'medium' | 'high'; note?: Localized };
+}
+
+/**
+ * Where a plugin is useful, as regions: ISO 3166-1 alpha-2 country codes
+ * (`ES`, `TW`) or `EU`. The store marks it ("only useful in Spain") and its
+ * "available in my region" filter uses it; it is never hidden from search.
+ */
+export interface PluginMarkets {
+  /** Only useful here (a country's tariff, a city's metro). */
+  only?: string[];
+  /** Its service isn't offered here. */
+  without?: string[];
+  /** What it needs there ("an account with Red Eléctrica"). */
+  note?: Localized;
 }
 
 /* Identity helpers: they only exist so TypeScript infers option and data types. */

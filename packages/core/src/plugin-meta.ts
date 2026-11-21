@@ -6,7 +6,7 @@
  * identity, authorship, versions, permissions, languages, widgets with their
  * sizes, options and screenshots.
  */
-import { SDK_VERSION, risksOf, satisfies, toJsonSchema, type Field, type Localized, type Permissions, type Platform, type PluginDefinition, type Risk } from '@kiosko/sdk';
+import { SDK_VERSION, risksOf, satisfies, toJsonSchema, type Field, type Localized, type Permissions, type Platform, type PluginDefinition, type PluginMarkets, type Risk } from '@kiosko/sdk';
 
 const PLATFORMS: Platform[] = ['linux', 'darwin', 'win32'];
 
@@ -84,8 +84,19 @@ export interface ManifestWidget {
   options: Record<string, unknown> | null;
   /** A picture painted with its demo data, relative to the package (`docs/forecast.png`). */
   screenshot?: string;
+  /** More pictures, by theme, language and size (`kiosko plugins manifest --shots`), for the store. */
+  screenshots?: ManifestScreenshot[];
   animated: boolean;
   urgent: boolean;
+}
+
+/** One picture of a widget, relative to the package. */
+export interface ManifestScreenshot {
+  file: string;
+  theme: string;
+  lang: string;
+  w: number;
+  h: number;
 }
 
 /**
@@ -124,8 +135,30 @@ export interface PluginManifest {
   optional: { type: string; plugin: string }[];
   widgets: ManifestWidget[];
   sources: { type: string; name: Localized; description?: Localized; polled: boolean; intervalMs?: number; options: Record<string, unknown> | null }[];
-  interludes: { type: string; name: Localized; description?: Localized; icon?: string; fps: number; input?: boolean }[];
-  templates: { id: string; name: Localized; icon?: string; widgets: string[] }[];
+  interludes: { type: string; name: Localized; description?: Localized; icon?: string; fps: number; input?: boolean; preview?: { video?: string; poster: string } }[];
+  templates: { id: string; name: Localized; icon?: string; widgets: string[]; layouts?: ('wide' | 'square' | 'tall')[] }[];
+  /** Where it is useful (country codes or `EU`), for the store. */
+  markets?: PluginMarkets;
+  /** Where to ask for help: its own, or `bugs` and `homepage` of package.json. */
+  support?: { issues?: string; discussions?: string; docs?: string };
+  /** Only `free` until paid plugins exist. */
+  pricing?: { model: 'free' };
+  /** A page to support its author. */
+  funding?: string;
+  resources?: { memoryMb?: number; cpu?: 'low' | 'medium' | 'high'; note?: Localized };
+}
+
+/** npm's `funding` (a URL, `{ url }`, or a list of them): the first URL. */
+function fundingUrl(f: unknown): string | undefined {
+  const one = Array.isArray(f) ? f[0] : f;
+  const url = typeof one === 'string' ? one : one && typeof one === 'object' ? (one as { url?: unknown }).url : undefined;
+  return typeof url === 'string' && url ? url : undefined;
+}
+
+/** npm's `bugs` (a URL or `{ url }`). */
+function bugsUrl(b: unknown): string | undefined {
+  const url = typeof b === 'string' ? b : b && typeof b === 'object' ? (b as { url?: unknown }).url : undefined;
+  return typeof url === 'string' && /^https?:/.test(url) ? url : undefined;
 }
 
 /** A BCP 47 tag (`en`, `fil`, `yue`, `es-419`, `zh-Hant-TW`), not just any short key. */
@@ -189,7 +222,7 @@ export function riskyOptions(f: Field | undefined, prefix = ''): ManifestOption[
  * The manifest of a plugin. `screenshots` maps widget ids to pictures
  * (relative paths in its package); `pkg` adds what only package.json knows.
  */
-export function pluginManifest(def: PluginDefinition, o: { screenshots?: Record<string, string>; pkg?: Record<string, any> } = {}): PluginManifest {
+export function pluginManifest(def: PluginDefinition, o: { screenshots?: Record<string, string>; shots?: Record<string, ManifestScreenshot[]>; pkg?: Record<string, any> } = {}): PluginManifest {
   const meta = o.pkg ? packageMeta(o.pkg) : {};
   const widgets = def.widgets ?? [];
   const repo = typeof o.pkg?.repository === 'string' ? o.pkg.repository : o.pkg?.repository?.url;
@@ -197,6 +230,9 @@ export function pluginManifest(def: PluginDefinition, o: { screenshots?: Record<
   const sdk = def.sdk ?? meta.sdk;
   const homepage = def.homepage ?? o.pkg?.homepage;
   const repository = def.repository ?? (typeof repo === 'string' ? repo.replace(/^git\+/, '') : undefined);
+  const support = { ...(bugsUrl(o.pkg?.bugs) ? { issues: bugsUrl(o.pkg?.bugs) } : {}), ...(homepage ? { docs: homepage } : {}), ...(def.support ?? {}) };
+  const funding = def.funding ?? fundingUrl(o.pkg?.funding);
+  const categories = [...new Set([...widgets.map((w) => w.category ?? 'info'), ...(def.category ? [def.category] : [])])];
   return {
     manifest: 1,
     id: def.id,
@@ -212,7 +248,7 @@ export function pluginManifest(def: PluginDefinition, o: { screenshots?: Record<
     ...(sdk ? { sdk } : {}),
     platforms: def.platforms ?? meta.platforms ?? [...PLATFORMS],
     languages: declaredLanguages(def, meta),
-    categories: [...new Set(widgets.map((w) => w.category ?? 'info'))],
+    categories,
     tags: [...new Set(widgets.flatMap((w) => w.tags ?? []))],
     permissions: def.permissions ?? {},
     riskyOptions: [
@@ -234,6 +270,7 @@ export function pluginManifest(def: PluginDefinition, o: { screenshots?: Record<
       sources: w.sources ?? [],
       options: w.options ? toJsonSchema(w.options) : null,
       ...(o.screenshots?.[w.id] ? { screenshot: o.screenshots[w.id] } : {}),
+      ...(o.shots?.[w.id]?.length ? { screenshots: o.shots[w.id] } : {}),
       animated: !!w.animation,
       urgent: !!w.urgent,
     })),
@@ -245,12 +282,18 @@ export function pluginManifest(def: PluginDefinition, o: { screenshots?: Record<
       ...(s.read && s.intervalMs ? { intervalMs: s.intervalMs } : {}),
       options: s.options ? toJsonSchema(s.options) : null,
     })),
-    interludes: (def.interludes ?? []).map((i) => ({ type: `${def.id}/${i.id}`, name: i.name, ...(i.description ? { description: i.description } : {}), ...(i.icon ? { icon: i.icon } : {}), fps: i.fps, ...(i.input ? { input: true } : {}) })),
+    interludes: (def.interludes ?? []).map((i) => ({ type: `${def.id}/${i.id}`, name: i.name, ...(i.description ? { description: i.description } : {}), ...(i.icon ? { icon: i.icon } : {}), fps: i.fps, ...(i.input ? { input: true } : {}), ...(i.preview ? { preview: i.preview } : {}) })),
     templates: (def.templates ?? []).map((tp) => ({
       id: tp.id,
       name: tp.name,
       ...(tp.icon ? { icon: tp.icon } : {}),
       widgets: [...new Set([...tp.wide, ...(tp.square ?? []), ...(tp.tall ?? [])].flatMap((tile) => tile.widgets.map((w) => fullType(def.id, typeof w === 'string' ? w : w[0]))))],
+      layouts: (['wide', 'square', 'tall'] as const).filter((k) => tp[k]?.length),
     })),
+    ...(def.markets ? { markets: def.markets } : {}),
+    ...(Object.keys(support).length ? { support } : {}),
+    ...(def.pricing ? { pricing: def.pricing } : {}),
+    ...(funding ? { funding } : {}),
+    ...(def.resources ? { resources: def.resources } : {}),
   };
 }
