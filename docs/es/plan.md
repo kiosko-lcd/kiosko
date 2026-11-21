@@ -974,7 +974,7 @@ Lo que cambia en el camino:
     - *Para presumir*: un clip para la portada y el README, grabado con
       `panel3d-film.mjs` sobre el panel en 3D. Con Freedoom, claro.
 
-29. **Los gatos y los agentes con proveedores disponibles en China.** Claude
+29. **Los gatos y los agentes con proveedores disponibles en China.** *Hecho* (2026-11-22): `agents` 0.3 lee Qwen Code, Codex CLI y Kimi CLI sin configurar nada, y OpenCode, iFlow o cualquier otro con ficheros de estado; los gatos llevan collar por agente; `usage` 0.3 lee el saldo de DeepSeek y Kimi y el gasto de los agentes; el chino simplificado ya los ofrece. Lo que sigue era el plan. Claude
     y Gemini no se ofrecen en China continental. La web en chino
     simplificado, la demo y el ejemplo dejan fuera `agents`, `cats` y `usage`
     y ponen en su lugar modelos locales (`llm`, `gpu`); lo decide

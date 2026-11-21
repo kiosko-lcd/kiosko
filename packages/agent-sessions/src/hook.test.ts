@@ -91,3 +91,16 @@ test('reader: skips broken and foreign files; reap deletes the dead ones', () =>
   assert.ok(!existsSync(join(dir, 'dead.json')));
   assert.deepStrictEqual(readSessions(join(dir, 'missing')), []);
 });
+
+test('hook: PermissionRequest blocks on you, with the tool it wants to run (Claude Code, Codex CLI, Qwen Code)', () => {
+  for (const provider of ['claude', 'codex', 'qwen']) {
+    const out = handleEvent(provider, ev({ hook_event_name: 'PermissionRequest', tool_name: 'Bash', tool_input: { command: 'sudo systemctl restart nginx' } }), null, 1000);
+    assert.ok('record' in out);
+    assert.strictEqual(out.record.state, 'permission', provider);
+    assert.strictEqual(out.record.detail, 'Bash: sudo systemctl restart nginx', provider);
+    assert.strictEqual(out.record.provider, provider);
+  }
+  const bare = handleEvent('codex', ev({ hook_event_name: 'PermissionRequest', tool_name: 'apply_patch' }), null, 1000);
+  assert.ok('record' in bare);
+  assert.strictEqual(bare.record.detail, 'apply_patch');
+});

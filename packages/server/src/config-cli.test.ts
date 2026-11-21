@@ -65,7 +65,7 @@ const EXPECTED_RISKS: Record<string, Record<string, unknown>> = {
   'core/text': { file: 'path' },
   'core/image': { src: ['network', 'path'] },
   'legacy/module': { module: 'exec', dir: 'exec' },
-  'agents/sessions': { dir: 'path' },
+  'agents/sessions': { dir: 'path', codexDir: 'path', kimiDir: 'path', qwenDir: 'path', statusDir: 'path' },
   'system/health': { 'mounts[]': 'path' },
   'system/vitals': { diskPath: 'path' },
   'usage/ccusage': { bin: 'exec' },

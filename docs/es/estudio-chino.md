@@ -666,12 +666,12 @@ En el orden de §6:
 - **Z23.** Lo más visto (DailyHotApi).
 - **Z24.** Bilibili.
 - **Z25.** AQI.
-- **Z26.** DeepSeek y Qwen en `usage`/`llm`.
+- **Z26.** DeepSeek y Qwen en `usage`/`llm`. *Hecho* en `usage` 0.3 (DeepSeek y Kimi; Qwen/DashScope no da saldo por API, y lo que gasta Qwen Code se ve por ccusage).
 - **Z27.** TDX.
 - **Z28.** QWeather.
 - **Z29.** `calls` con LINE, WeChat, DingTalk y Feishu.
 - **Z30.** Tema «春節».
-- **Z34. Gatos y agentes con proveedores disponibles en China (M).** Claude y
+- **Z34. Gatos y agentes con proveedores disponibles en China (M).** *Hecho* (`agents` 0.3, punto 29 del plan). Claude y
   Gemini no se ofrecen en China continental, y por eso la web en chino
   simplificado no ofrece hoy `agents`, `cats` ni `usage` (la lista de
   idiomas, `plugins.without`). Que `agents` (y con él la sala de los gatos)

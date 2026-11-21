@@ -8,3 +8,6 @@ Thumbs.db
 dist-demo/
 /site/
 /out/
+
+# Personal notes, never committed
+/temas.md
