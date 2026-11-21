@@ -541,7 +541,9 @@ html:lang(zh) :is(.lib-hint, .field-help) { font-size: 12.5px; line-height: 1.5;
 }
 
 /* ---------- Alerts: the band at the top, and a screen's settings ---------- */
-.alert-band { --lvl: var(--bad); position: fixed; top: 64px; left: 50%; transform: translateX(-50%); width: min(94vw, 760px); z-index: 55; display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: 14px; background: var(--elev); border: 1px solid color-mix(in srgb, var(--lvl) 55%, var(--line-2)); border-left: 5px solid var(--lvl); box-shadow: var(--shadow), 0 0 0 4px color-mix(in srgb, var(--lvl) 14%, transparent); animation: rise 0.2s ease-out; }
+.alert-band { --lvl: var(--bad); grid-column: 1 / -1; grid-row: 2; display: flex; flex-direction: column; gap: 6px; padding: 8px 16px 8px 13px; max-height: 40vh; overflow-y: auto; background: color-mix(in srgb, var(--lvl) 9%, var(--elev)); border-bottom: 1px solid color-mix(in srgb, var(--lvl) 45%, var(--line-2)); border-left: 5px solid var(--lvl); position: relative; z-index: 4; }
+.shell.has-alerts { grid-template-rows: 56px auto minmax(0, 1fr); }
+.shell.has-alerts .rail, .shell.has-alerts .content { grid-row: 3; }
 .alert-band.warn { --lvl: var(--warn); }
 .alert-band.info { --lvl: #38bdf8; }
 .alert-row { --lvl: var(--bad); display: flex; align-items: center; gap: 12px; min-width: 0; }
@@ -556,7 +558,10 @@ html:lang(zh) :is(.lib-hint, .field-help) { font-size: 12.5px; line-height: 1.5;
 .btn.alert-seen { background: var(--lvl); border-color: transparent; color: #111; }
 .alert-more { padding-left: 46px; }
 @media (max-width: 720px) {
-  .alert-band { top: 58px; }
+  .shell.has-alerts { grid-template-rows: 52px auto minmax(0, 1fr) 62px; }
+  .shell.has-alerts .content { grid-row: 3; }
+  .shell.has-alerts .rail { grid-row: 4; }
+  .alert-band { padding: 6px 10px 6px 8px; max-height: 45vh; }
   .alert-row { flex-wrap: wrap; }
   .alert-actions { width: 100%; justify-content: flex-end; }
 }

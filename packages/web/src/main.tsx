@@ -3,7 +3,7 @@ import { effect } from '@preact/signals';
 import { Editor } from './editor/Editor.tsx';
 import { Icon } from './icons.tsx';
 import { UI_LANGUAGES, t, tr, uiLanguage } from './i18n.ts';
-import { app, boot, config, go, online, pageId, saveError, saving, screen, screenId, selectedTile, status, toast, view, type View } from './store.ts';
+import { alerts, app, boot, config, go, online, pageId, saveError, saving, screen, screenId, selectedTile, status, toast, view, type View } from './store.ts';
 import { Screens } from './views/Screens.tsx';
 import { LanguageMenu, Logs, Plugins, Settings } from './views/Others.tsx';
 import { Play } from './views/Play.tsx';
@@ -117,13 +117,19 @@ function App() {
   }
   const v = view.value;
   return (
-    <div class={KIOSKO_DEMO ? 'shell demo' : 'shell'}>
+    // With alerts, the band gets a row of its own under the top bar: it pushes the views down, never covers them.
+    <div class={KIOSKO_DEMO ? 'shell demo' : alerts.value.some((a) => !a.snoozedUntil) ? 'shell has-alerts' : 'shell'}>
       {KIOSKO_DEMO ? (
         <>
           <DemoBanner />
           <TopBar />
         </>
-      ) : <TopBar />}
+      ) : (
+        <>
+          <TopBar />
+          <AlertBand />
+        </>
+      )}
       <Rail />
       <div class="content">
         {v === 'editor' && <Editor />}
@@ -133,7 +139,6 @@ function App() {
         {v === 'settings' && <Settings />}
         {v === 'logs' && <Logs />}
       </div>
-      {!KIOSKO_DEMO && <AlertBand />}
       {!online.value && (
         <div class="offline">
           <Icon name="wifi-off" size={15} /> {tr('offline')}
