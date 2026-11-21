@@ -25,6 +25,7 @@ import { fileURLToPath } from 'node:url';
 import { buildDemo } from '../demo/build.mjs';
 import { LANGS, esc, loadTexts, plural, renderPage, sitemap } from './pages.mjs';
 import { buildStorePages } from './store.mjs';
+import { buildDocPages } from './docs.mjs';
 import { languageById } from '../../sdk/src/languages.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -137,7 +138,9 @@ export async function buildSite({ out, editorOptions }) {
   }
   // The store, in every language.
   const storePages = buildStorePages({ out, index: store, details, texts, css: `demo/assets/store.css?v=${hash('store.css')}`, js: `demo/assets/store.js?v=${hash('store.js')}`, presets: store.presets ?? [], pages: gallery.pages ?? [] });
-  writeFileSync(join(out, 'sitemap.xml'), sitemap(storePages));
+  // The guides that are translated, as pages of the site (GitHub is slow or out of reach in mainland China).
+  const docPages = buildDocPages({ out, docsDir: join(root, 'docs'), texts, css: `demo/assets/store.css?v=${hash('store.css')}` });
+  writeFileSync(join(out, 'sitemap.xml'), sitemap([...storePages, ...docPages]));
   writeFileSync(join(out, 'robots.txt'), 'User-agent: *\nAllow: /\nSitemap: https://kioskolcd.dev/sitemap.xml\n');
   // Where to report a vulnerability (RFC 9116); it must say when it expires, so a year from each build.
   mkdirSync(join(out, '.well-known'), { recursive: true });

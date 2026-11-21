@@ -5,7 +5,7 @@ import { ALERT_THRESHOLDS, TEXT_SCALE, detectedPicture, screenAlerts, type Scree
 import { api } from '../api.ts';
 import { DurationInput, SchemaForm, Toggle } from '../forms/SchemaForm.tsx';
 import { Icon } from '../icons.tsx';
-import { clock, count, deviceText, errorText, t, tr } from '../i18n.ts';
+import { clock, count, deviceText, errorText, labelled, listOf, t, tr } from '../i18n.ts';
 import { app, config, draftScreen, edit, go, lastFrame, notify, pageId, screenId, status } from '../store.ts';
 import { DemoFrame, dt, exportScreen } from '../demo/ui.tsx';
 import { threadText } from './Others.tsx';
@@ -205,7 +205,7 @@ function ScreenCard({ s }: { s: Screen }) {
             <button class="btn ghost small" onClick={() => set((x) => turnScreen(x, 180))}>
               <Icon name="refresh-cw" size={14} /> {tr('screens.flip')}
             </button>
-            <span class="muted small">{tr('screens.angle')}: {s.rotate}°</span>
+            <span class="muted small">{labelled(tr('screens.angle'), `${s.rotate}°`)}</span>
           </div>
           <p class="muted small">{portrait ? tr('screens.portraitHelp').replace('{w}', String(s.width)).replace('{h}', String(s.height)) : tr('screens.flippedHelp')}</p>
           <label class="field-label">{tr('screens.driver')}</label>
@@ -505,7 +505,7 @@ function ImportLayout() {
           screenId.value = s.id;
           pageId.value = s.pages[0]?.id ?? null;
           const missing = [...new Set(s.pages.flatMap((p) => p.tiles.flatMap((t) => t.widgets.map((w) => w.type))))].filter((t) => !app.value?.catalog.some((c) => c.widgets.some((w) => w.type === t)));
-          notify(missing.length ? t('screens.importMissing', { list: missing.join(', ') }) : tr('screens.imported'), missing.length ? 'error' : 'ok');
+          notify(missing.length ? t('screens.importMissing', { list: listOf(missing) }) : tr('screens.imported'), missing.length ? 'error' : 'ok');
         } catch (err) {
           notify(errorText(err), 'error');
         }

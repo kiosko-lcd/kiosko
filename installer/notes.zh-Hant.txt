@@ -8,10 +8,10 @@
   記錄檔：       %APPDATA%\Kiosko\kiosko.log
   命令列：       kiosko doctor   |   kiosko usb   |   kiosko service uninstall
 
-USB 面板（Thermalright Trofeo Vision 及其他 LY 面板）
+USB 面板（利民 Thermalright Trofeo Vision 及其他 LY 面板）
 Kiosko 會直接與面板通訊，但 Windows 需要在面板上安裝 WinUSB 驅動程式，只需用
 Zadig（https://zadig.akeo.ie）安裝一次：選擇面板，選取 WinUSB，再按
 「Replace Driver」。之後執行「kiosko usb」就會列出面板，在編輯器的
-「螢幕 > 新增螢幕 > 偵測面板」中也會出現。面板使用 WinUSB 期間，Thermalright
-官方軟體將偵測不到它；如需改回，請從「裝置管理員」還原原本的驅動程式。
-詳細說明（英文）：https://github.com/kiosko-lcd/kiosko/blob/main/docs/usb.md
+「螢幕 > 新增螢幕 > 偵測面板」中也會出現。面板使用 WinUSB 期間，利民官方的
+TRCC 軟體將偵測不到它；如需改回，請從「裝置管理員」還原原本的驅動程式。
+詳細說明：https://kioskolcd.dev/zh-Hant/docs/usb/

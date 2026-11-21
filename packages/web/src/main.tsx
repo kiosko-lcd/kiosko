@@ -2,7 +2,7 @@ import { render } from 'preact';
 import { effect } from '@preact/signals';
 import { Editor } from './editor/Editor.tsx';
 import { Icon } from './icons.tsx';
-import { UI_LANGUAGES, t, tr, uiLanguage } from './i18n.ts';
+import { UI_LANGUAGES, docsUrl, t, tr, uiLanguage } from './i18n.ts';
 import { alerts, app, boot, config, go, online, pageId, saveError, saving, screen, screenId, selectedTile, status, toast, view, type View } from './store.ts';
 import { Screens } from './views/Screens.tsx';
 import { LanguageMenu, Logs, Plugins, Settings } from './views/Others.tsx';
@@ -81,7 +81,7 @@ function TopBar() {
       {!KIOSKO_DEMO && app.value?.demo && <span class="demo-pill" title="kiosko start --demo">DEMO</span>}
       <SaveState />
       <LanguageMenu />
-      <a class="icon-btn" href="https://github.com/kiosko-lcd/kiosko#readme" target="_blank" rel="noreferrer" title={tr('docs')}>
+      <a class="icon-btn" href={docsUrl()} target="_blank" rel="noreferrer" title={tr('docs')}>
         <Icon name="book-open" size={17} />
       </a>
     </header>

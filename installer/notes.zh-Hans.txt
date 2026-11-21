@@ -8,10 +8,10 @@
   日志：         %APPDATA%\Kiosko\kiosko.log
   命令行：       kiosko doctor   |   kiosko usb   |   kiosko service uninstall
 
-USB 屏幕（Thermalright Trofeo Vision 及其他 LY 屏幕）
-Kiosko 会直接与屏幕通信，但 Windows 需要为屏幕安装 WinUSB 驱动程序，只需用
-Zadig（https://zadig.akeo.ie）安装一次：选择屏幕，选中 WinUSB，然后点击
-“Replace Driver”。之后运行“kiosko usb”就会列出该屏幕，在编辑器的
-“屏幕 > 添加屏幕 > 检测屏幕”中也会出现。屏幕使用 WinUSB 期间，Thermalright
-官方软件将无法识别它；如需恢复，请在“设备管理器”中还原原来的驱动程序。
-详细说明（英文）：https://github.com/kiosko-lcd/kiosko/blob/main/docs/usb.md
+USB 副屏（利民 Thermalright Trofeo Vision 及其他 LY 副屏）
+Kiosko 会直接与副屏通信，但 Windows 需要为副屏安装 WinUSB 驱动程序，只需用
+Zadig（https://zadig.akeo.ie）安装一次：选择副屏，选中 WinUSB，然后点击
+“Replace Driver”。之后运行“kiosko usb”就会列出该副屏，在编辑器的
+“屏幕 > 添加屏幕 > 检测副屏”中也会出现。副屏使用 WinUSB 期间，利民官方的
+TRCC 软件将无法识别它；如需恢复，请在“设备管理器”中还原原来的驱动程序。
+详细说明：https://kioskolcd.dev/zh-Hans/docs/usb/

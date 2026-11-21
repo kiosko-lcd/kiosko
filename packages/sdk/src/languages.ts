@@ -52,3 +52,39 @@ export const LANGUAGE_IDS: readonly string[] = LANGUAGES.map((l) => l.id);
 export function languageById(id: string): Language | undefined {
   return LANGUAGES.find((l) => l.id === id);
 }
+
+/**
+ * Region names as their readers write them, where `Intl.DisplayNames` says
+ * otherwise: mainland usage names Taiwan, Hong Kong and Macau as part of China
+ * (and a site that lists it among countries reads as foreign there); in
+ * Taiwan, Hong Kong is plain 香港, not the long official name.
+ */
+const REGION_NAMES: Record<string, Readonly<Record<string, string>>> = {
+  'zh-Hans': { TW: '中国台湾', HK: '中国香港', MO: '中国澳门' },
+  'zh-Hant': { HK: '香港', MO: '澳門' },
+};
+
+/** A region's name (`TW`, `ES`) in a language Kiosko speaks (`zh-Hans`). */
+export function regionName(code: string, lang: string): string {
+  const own = REGION_NAMES[lang]?.[code.toUpperCase()];
+  if (own) return own;
+  try {
+    return new Intl.DisplayNames([lang], { type: 'region' }).of(code) ?? code;
+  } catch {
+    return code;
+  }
+}
+
+/**
+ * `a, b and c` in `lang`. Chinese lists with 、 throughout, the way prose and
+ * labels do (`Intl.ListFormat` gives `Linux、macOS和Windows`, glued to the
+ * Latin names).
+ */
+export function listIn(items: readonly string[], lang: string): string {
+  if (/^zh\b/.test(lang)) return items.join('、');
+  try {
+    return new Intl.ListFormat(lang, { type: 'conjunction' }).format(items);
+  } catch {
+    return items.join(', ');
+  }
+}

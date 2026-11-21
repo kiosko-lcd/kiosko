@@ -19,3 +19,16 @@ test('the first page fits the screen it is made for: a strip, a square, a panel 
   assert.deepEqual(square.grid, [6, 6]);
   for (const [x, y, w, h] of square.tiles) assert.ok(x! + w! <= 6 && y! + h! <= 6);
 });
+
+test('in mainland China the first page leaves out the AI agents and Claude usage (languages.ts): a welcome instead', async () => {
+  const { definePlugin } = await import('@kiosko/sdk');
+  const r = new Registry();
+  r.add(core);
+  const w = (id: string) => ({ id, name: id, render() {} });
+  for (const [id, widgets] of [['agents', ['sessions', 'summary']], ['usage', ['rail']], ['llm', ['models', 'status']], ['system', ['health']]] as const) {
+    r.add(definePlugin({ id, name: id, version: '1', widgets: widgets.map(w) }));
+  }
+  const types = (locale: string) => starterConfig(r, { locale }).screens[0]!.pages[0]!.tiles.flatMap((t) => t.widgets.map((x) => x.type));
+  assert.deepEqual(types('zh-CN'), ['core/text', 'core/clock', 'system/health']);
+  assert.deepEqual(types('zh-TW'), ['agents/sessions', 'core/clock', 'usage/rail', 'system/health']);
+});

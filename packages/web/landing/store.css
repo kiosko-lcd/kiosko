@@ -27,6 +27,9 @@ html:lang(zh-Hant) { --font: 'Inter', 'PingFang TC', 'Microsoft JhengHei', 'Noto
 html:lang(zh-Hans) { --font: 'Inter', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', 'Noto Sans CJK SC', 'Source Han Sans SC', ui-sans-serif, system-ui, sans-serif; }
 html:lang(zh) h1, html:lang(zh) h2, html:lang(zh) h3, html:lang(zh) .brand { letter-spacing: 0; }
 html:lang(zh) .kicker { letter-spacing: 0.04em; }
+/* Han lines want room above the tall characters, and no line may start with 。，」. */
+html:lang(zh) body { line-break: strict; }
+html:lang(zh) :is(.hero h1, .plugin-head h1) { line-height: 1.22; }
 html:lang(de) h1, html:lang(de) h2, html:lang(de) h3 { hyphens: auto; }
 a { color: var(--accent-2); text-decoration: none; }
 a:hover { text-decoration: underline; }
@@ -332,3 +335,25 @@ details.problems summary { cursor: pointer; }
   .hero-panel .glass img:not(:first-child) { display: none; }
   .hero-panel .slab { transform: rotateX(10deg); }
 }
+
+/* A guide (docs.mjs): the translated install and USB guides, as pages of the site. */
+.doc { max-width: 860px; margin: 0 auto; padding: 40px max(20px, env(safe-area-inset-right)) 72px max(20px, env(safe-area-inset-left)); }
+.guide { color: var(--dim); font-size: 16px; line-height: 1.75; }
+.guide :is(h1, h2, h3, h4) { color: var(--ink); line-height: 1.3; margin: 1.8em 0 0.6em; scroll-margin-top: 80px; }
+.guide h1 { font-size: clamp(28px, 3.4vw, 40px); margin-top: 0.4em; }
+.guide h2 { font-size: 24px; padding-top: 0.6em; border-top: 1px solid var(--line); }
+.guide h3 { font-size: 19px; }
+.guide :is(p, ul, ol, blockquote, pre, .table) { margin: 0 0 1em; }
+.guide :is(ul, ol) { padding-left: 1.4em; }
+.guide li { margin: 0.3em 0; }
+.guide strong { color: var(--ink); }
+.guide code { font-family: var(--mono); font-size: 0.9em; color: #cfe3ff; background: rgba(255, 255, 255, 0.06); padding: 1px 5px; border-radius: 5px; overflow-wrap: anywhere; }
+.guide pre { padding: 12px 14px; border-radius: 10px; background: #06080d; border: 1px solid var(--line); overflow-x: auto; line-height: 1.6; }
+.guide pre code { background: none; padding: 0; font-size: 13.5px; overflow-wrap: normal; }
+.guide blockquote { margin-left: 0; padding: 10px 16px; border-left: 3px solid var(--accent); background: rgba(139, 123, 255, 0.08); border-radius: 0 10px 10px 0; }
+.guide blockquote p { margin: 0; }
+.guide .table { overflow-x: auto; }
+.guide table { border-collapse: collapse; width: 100%; font-size: 15px; }
+.guide :is(th, td) { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+.guide th { color: var(--ink); white-space: nowrap; }
+.doc > .fine { color: var(--faint); font-size: 13px; }
