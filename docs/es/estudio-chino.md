@@ -671,6 +671,12 @@ En el orden de §6:
 - **Z28.** QWeather.
 - **Z29.** `calls` con LINE, WeChat, DingTalk y Feishu.
 - **Z30.** Tema «春節».
+- **Z34. Gatos y agentes con proveedores disponibles en China (M).** Claude y
+  Gemini no se ofrecen en China continental, y por eso la web en chino
+  simplificado no ofrece hoy `agents`, `cats` ni `usage` (la lista de
+  idiomas, `plugins.without`). Que `agents` (y con él la sala de los gatos)
+  lea las sesiones de los agentes de programación de allí. Detalle en el
+  punto 29 del [plan](plan.md#pendiente).
 
 ### Fase 6: mercado
 
