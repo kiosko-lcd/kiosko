@@ -151,7 +151,21 @@ export interface Screen {
   diagonalIn?: number;
   /** How alerts take this panel over (see `ScreenAlerts`). Missing = every level, at any hour. */
   alerts?: ScreenAlerts;
+  /**
+   * Paint this screen in a thread of its own (`always`) or on the main
+   * thread (`never`), whatever the config's `threads` says. Missing: as it
+   * says.
+   */
+  thread?: 'always' | 'never';
 }
+
+/**
+ * Whether each screen paints in a thread of its own (see threads/):
+ * `auto` = yes with two or more screens on and a core to spare for each;
+ * `always`; `never` = every screen on the main thread (less memory).
+ */
+export type ThreadsMode = 'auto' | 'always' | 'never';
+export const THREADS_MODES: readonly ThreadsMode[] = ['auto', 'always', 'never'];
 
 /** An alert's level (`AlertLevel` in the SDK), and `off` for none. */
 export type AlertThreshold = 'info' | 'warn' | 'critical' | 'off';
@@ -217,6 +231,8 @@ export interface Config {
   server: { host: string; port: number };
   /** Kiosko as a device in Home Assistant, over MQTT (see docs/homeassistant.md). Absent = off. */
   homeassistant?: HomeAssistantLink;
+  /** Each screen painting in a thread of its own (see `ThreadsMode`). Missing = `auto`. */
+  threads?: ThreadsMode;
 }
 
 /**
