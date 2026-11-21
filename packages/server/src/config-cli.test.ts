@@ -76,7 +76,7 @@ const EXPECTED_RISKS: Record<string, Record<string, unknown>> = {
   'github/activity': { host: 'network', bin: 'exec' },
   'timesheet/timelogs': { host: 'network', bin: 'exec' },
   'timesheet/activity': { dir: 'path' },
-  'llm/servers': { 'endpoints[].url': 'network' },
+  'llm/servers': { 'endpoints[].url': 'network', 'endpoints[].proxyHost': 'network', 'endpoints[].proxyPort': 'network' },
   'gpu/devices': { ssh: 'exec', url: 'network' },
   'homeassistant/states': { url: 'network' },
   'doom/attract': { wad: 'path' },
