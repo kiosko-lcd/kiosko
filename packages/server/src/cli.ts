@@ -3,6 +3,7 @@
  * `kiosko` command line.
  *
  *   kiosko start [--port 7420] [--host 127.0.0.1] [--config file] [--open] [--demo]
+ *   kiosko editor [--print] [--port 7420] [--host 127.0.0.1] [--config file]
  *   kiosko render [--screen id|name] [--page id|name] [--out frame.png] [--live]
  *   kiosko import-aimonitor [--from ~/.aimonitor/config.json] [--with-secrets] [--write]
  *   kiosko config schema|validate|import …   (see config-cli.ts)
@@ -16,6 +17,7 @@ import { Registry, Runtime, cjkFontStatus, installSdkResolver, scriptFontStatus,
 import { hanScript } from '@kiosko/sdk';
 import { BUILTIN_PLUGINS, OFFICIAL_PLUGINS } from './builtin.ts';
 import { configCommand } from './config-cli.ts';
+import { editorCommand } from './editor-cli.ts';
 import { pluginsCommand } from './plugins-cli.ts';
 import { writePreview } from './preview.ts';
 import { buildGallery } from './gallery.ts';
@@ -28,6 +30,7 @@ const VERSION = '0.2.7';
 const USAGE = `Kiosko ${VERSION}: a widget mosaic for USB LCD panels
 
   kiosko start [--port 7420] [--host 127.0.0.1] [--config file] [--open] [--demo]
+  kiosko editor [--print]                    open the editor of the Kiosko running here
   kiosko render [--screen id|name] [--page id|name] [--out frame.png] [--live]
   kiosko import-aimonitor [--from ~/.aimonitor/config.json] [--with-secrets] [--write]
   kiosko config schema [--out file]          JSON Schema of config.json, with your plugins
@@ -132,6 +135,12 @@ async function main(): Promise<void> {
       };
       process.on('SIGINT', stop);
       process.on('SIGTERM', stop);
+      return;
+    }
+    case 'editor': {
+      // Only reads the config: no starter is written for a Kiosko that was never started.
+      const { config: cfg } = loadConfig(path);
+      process.exitCode = await editorCommand({ server: cfg.server, flags: { host: opt('--host'), port: opt('--port'), print: flag('--print') }, open: openBrowser, log: (l) => console.log(l) });
       return;
     }
     case 'render': {

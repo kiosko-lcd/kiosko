@@ -439,6 +439,7 @@ Data sources, how often each source is read.
 
 ```
 kiosko start [--port 7420] [--host 127.0.0.1] [--open]
+kiosko editor [--print]                        # open the editor of the Kiosko running here
 kiosko render [--screen name] [--page name] [--out frame.png] [--live]
 kiosko import-aimonitor [--from ~/.aimonitor/config.json] [--write]
 kiosko config schema [--out file]              # JSON Schema of config.json, with your plugins

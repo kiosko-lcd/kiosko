@@ -53,6 +53,8 @@
   "install-it": "安裝",
   "node-js-22-18-or": "需要 Node.js 22.18 或更新版本。Windows 另有安裝程式，不需要 Node.js。",
   "download-for-windows": "下載 Windows 版",
+  "open-my-editor": "開啟我的編輯器",
+  "already-installed-its-editor": "已經安裝了？編輯器就在你自己的電腦上：<code>localhost:7420</code>；執行 <code>kiosko editor</code> 也能開啟。",
   "read-the-guide": "閱讀說明",
   "or-let-an-ai-set": "或讓 AI 幫你設定",
   "everything-is-one-config-json": "所有設定都在一個 <code>config.json</code> 裡，並附有公開的結構描述（schema）。交給你的 AI 助理，並在使用前檢查它寫的內容。",

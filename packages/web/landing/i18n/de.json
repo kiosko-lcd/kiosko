@@ -53,6 +53,8 @@
   "install-it": "Installieren",
   "node-js-22-18-or": "Node.js 22.18 oder neuer. Für Windows gibt es einen Installer, der kein Node.js braucht.",
   "download-for-windows": "Für Windows herunterladen",
+  "open-my-editor": "Meinen Editor öffnen",
+  "already-installed-its-editor": "Schon installiert? Der Editor läuft auf deinem eigenen Rechner unter <code>localhost:7420</code>; <code>kiosko editor</code> öffnet ihn auch.",
   "read-the-guide": "Anleitung lesen",
   "or-let-an-ai-set": "Oder lass eine KI es einrichten",
   "everything-is-one-config-json": "Alles steckt in einer <code>config.json</code> mit veröffentlichtem Schema. Verweise deinen Assistenten darauf und prüfe, was er geschrieben hat, bevor es verwendet wird.",
