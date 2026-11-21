@@ -146,7 +146,7 @@ async function unpack(name: string, version: Record<string, any>): Promise<Unpac
   }
   let files: Map<string, Buffer>;
   try {
-    files = readTarGz(bytes, (p) => p === 'package/kiosko-manifest.json' || /^package\/docs\/[\w.-]+\.(png|jpe?g|webp)$/i.test(p)).files;
+    files = readTarGz(bytes, (p) => p === 'package/kiosko-manifest.json' || /^package\/docs\/[\w.-]+\.(png|jpe?g|webp|webm)$/i.test(p)).files;
   } catch (err) {
     return { manifest: null, problem: `its tarball: ${(err as Error).message}`, pictures: new Map() };
   }
@@ -322,7 +322,7 @@ async function main(): Promise<void> {
         withdrawn: overrides.withdrawn,
       });
       if (e) entries.push(e);
-      log(`${name}@${latest}: ${manifest ? `manifest (${source})` : 'no manifest'}${problems.length ? `, ${problems.length} problem(s)` : ''}`);
+      log(`${name}@${latest}: ${manifest ? `manifest (${source})` : 'no manifest'}${problems.length ? `, ${problems.length} problem(s): ${problems.join('; ')}` : ''}`);
     } catch (err) {
       log(`${name}: ${(err as Error).message}`);
       if (official.has(name)) throw err;
