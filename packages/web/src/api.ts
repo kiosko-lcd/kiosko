@@ -120,7 +120,7 @@ export interface ThemeInfo {
 }
 
 export interface Status {
-  screens: { id: string; name: string; page: string | null; pinned: string | null; interlude: string | null; playing?: boolean; device: { driver: string; ok: boolean; message: string; code?: string; params?: Record<string, string | number>; framesSent: number; lastSentAt: number | null; detected?: { width: number; height: number; rotate?: number } }; lastFrameAt: number | null; sleeping: boolean }[];
+  screens: { id: string; name: string; page: string | null; pinned: string | null; interlude: string | null; playing?: boolean; device: { driver: string; ok: boolean; message: string; code?: string; params?: Record<string, string | number>; framesSent: number; lastSentAt: number | null; detected?: { width: number; height: number; rotate?: number } }; lastFrameAt: number | null; sleeping: boolean; alert?: string | null }[];
   sources: { type: string; ok: boolean; error: string | null; updatedAt: number | null; intervalMs?: number }[];
   fetches: { id: string; type: string; ok: boolean; error: string | null; updatedAt: number | null }[];
   /** How long each widget instance takes to paint on the panels, slowest first. */
@@ -128,6 +128,22 @@ export interface Status {
   problems: { origin: string; message: string }[];
   /** Kiosko as a device in Home Assistant, over MQTT. */
   homeassistant?: { enabled: boolean; state: 'off' | 'connecting' | 'connected' | 'error' | 'closed'; error: string | null; broker?: string };
+}
+
+/** A full-screen alert (see core's alerts.ts). */
+export interface AlertInfo {
+  id: string;
+  level: 'info' | 'warn' | 'critical';
+  title: string;
+  text: string;
+  icon?: string;
+  origin: 'widget' | 'source' | 'api' | 'test';
+  from?: string;
+  since: number;
+  expiresAt: number | null;
+  dismissible: boolean;
+  screens?: string[];
+  snoozedUntil?: number;
 }
 
 export interface AppState {
@@ -144,6 +160,8 @@ export interface AppState {
   themes: ThemeInfo[];
   presets: { id: string; name: string; width: number; height: number; maker?: string; tested?: boolean }[];
   status: Status;
+  /** Active alerts, highest first (not in the demo). */
+  alerts?: AlertInfo[];
   paths: { config: string; plugins: string; home: string };
   restartNeeded: boolean;
   /** `bundled: false`: offered here, not installed with Kiosko. */
@@ -193,6 +211,11 @@ export const api = {
   stopInterlude: (screenId: string) => fetch(`/api/screens/${encodeURIComponent(screenId)}/interlude`, { method: 'POST', headers: H, body: JSON.stringify({ stop: true }) }).then((r) => ok(r)),
   /** The Play page's buttons, for the interlude being played on that screen. */
   press: (screenId: string, events: { key: string; pressed: boolean }[]) => fetch(`/api/screens/${encodeURIComponent(screenId)}/input`, { method: 'POST', headers: H, body: JSON.stringify({ events }), keepalive: true }).then((r) => ok(r)),
+  /** "Seen". */
+  ackAlert: (id: string) => fetch(`/api/alerts/${encodeURIComponent(id)}/ack`, { method: 'POST', headers: H, body: '{}' }).then((r) => ok<{ ok: true; alerts: AlertInfo[] }>(r)),
+  snoozeAlert: (id: string, minutes: number) => fetch(`/api/alerts/${encodeURIComponent(id)}/snooze`, { method: 'POST', headers: H, body: JSON.stringify({ minutes }) }).then((r) => ok<{ ok: true; alerts: AlertInfo[] }>(r)),
+  /** How an alert looks on that screen, for a while. */
+  testAlert: (screenId: string, level: AlertInfo['level']) => fetch(`/api/screens/${encodeURIComponent(screenId)}/test-alert`, { method: 'POST', headers: H, body: JSON.stringify({ level }) }).then((r) => ok<{ ok: true; alert: AlertInfo }>(r)),
   refreshWidget: (id: string) => fetch(`/api/widgets/${encodeURIComponent(id)}/refresh`, { method: 'POST', headers: H, body: '{}' }).then((r) => ok(r)),
   discover: (url?: string) => fetch(`/api/devices/discover${url ? `?url=${encodeURIComponent(url)}` : ''}`).then((r) => ok<{ trcc: { key: string; width: number; height: number }[]; usb: { serial: string; key: string; width: number; height: number; rotate?: number; location: string; error?: string }[] }>(r)),
   logs: () => fetch('/api/logs').then((r) => ok<{ at: number; scope: string; message: string }[]>(r)),
@@ -213,11 +236,13 @@ export interface FrameEvent {
   pageId: string | null;
   at: number;
   interlude: string | null;
+  /** The alert that has the screen, if any. */
+  alert?: string | null;
   sleeping: boolean;
 }
 
 /** Server-sent events, reconnecting on their own. */
-export function connectEvents(h: { config?: (e: { rev: number; by: string | null }) => void; frame?: (e: FrameEvent) => void; log?: (e: { at: number; scope: string; message: string }) => void; status?: (s: Status) => void; online?: (on: boolean) => void }): () => void {
+export function connectEvents(h: { config?: (e: { rev: number; by: string | null }) => void; frame?: (e: FrameEvent) => void; log?: (e: { at: number; scope: string; message: string }) => void; status?: (s: Status) => void; alerts?: (a: AlertInfo[]) => void; online?: (on: boolean) => void }): () => void {
   let es: EventSource | null = null;
   let closed = false;
   const open = () => {
@@ -227,6 +252,7 @@ export function connectEvents(h: { config?: (e: { rev: number; by: string | null
     es.addEventListener('config', (e) => h.config?.(JSON.parse((e as MessageEvent).data)));
     es.addEventListener('log', (e) => h.log?.(JSON.parse((e as MessageEvent).data)));
     es.addEventListener('status', (e) => h.status?.(JSON.parse((e as MessageEvent).data)));
+    es.addEventListener('alerts', (e) => h.alerts?.(JSON.parse((e as MessageEvent).data)));
     es.onerror = () => {
       h.online?.(false);
       es?.close();

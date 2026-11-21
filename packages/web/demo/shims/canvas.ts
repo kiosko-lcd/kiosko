@@ -57,6 +57,9 @@ export function createCanvas(width: number, height: number): Canvas {
   return Object.defineProperties(c, extras) as Canvas;
 }
 
+/** SVG path data as a path (the alerts' icons): the browser has the same class. */
+export const Path2D = globalThis.Path2D;
+
 type Source = string | URL | Blob | ArrayBuffer | ArrayBufferView;
 
 /** Decodes an image from a URL or from bytes. File paths can't be read here. */

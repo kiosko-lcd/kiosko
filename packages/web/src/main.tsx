@@ -7,6 +7,7 @@ import { app, boot, config, go, online, pageId, saveError, saving, screen, scree
 import { Screens } from './views/Screens.tsx';
 import { LanguageMenu, Logs, Plugins, Settings } from './views/Others.tsx';
 import { Play } from './views/Play.tsx';
+import { AlertBand } from './views/AlertBand.tsx';
 import { startTour, touring } from './demo/tour.ts';
 import { DemoBanner, demoBootError } from './demo/ui.tsx';
 
@@ -132,6 +133,7 @@ function App() {
         {v === 'settings' && <Settings />}
         {v === 'logs' && <Logs />}
       </div>
+      {!KIOSKO_DEMO && <AlertBand />}
       {!online.value && (
         <div class="offline">
           <Icon name="wifi-off" size={15} /> {tr('offline')}

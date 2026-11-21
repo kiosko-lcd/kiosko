@@ -176,6 +176,12 @@ export const api: typeof httpApi = {
   playInterlude: async () => ({ ok: true }),
   stopInterlude: async () => ({ ok: true }),
   press: async () => ({ ok: true }),
+  // No alerts in the demo: nothing runs that could raise one.
+  ackAlert: async () => ({ ok: true as const, alerts: [] }),
+  snoozeAlert: async () => ({ ok: true as const, alerts: [] }),
+  testAlert: async () => {
+    throw notHere();
+  },
   refreshWidget: async () => ({ ok: true }),
   discover: async () => ({ trcc: [], usb: [] }),
   logs: async () => (await start()).logs(),
