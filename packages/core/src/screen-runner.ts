@@ -150,6 +150,8 @@ export interface Runner {
   /** Some data changed: repaint if it is on screen. */
   dataChanged(change: { source?: string; instance?: string }): void;
   setAlert(shown: ShownAlert | null, now: number): void;
+  /** The panel, for whoever paints the screen next; closing this runner leaves it open. */
+  takeDevice(): Device;
   setPinned(pageId: string | null): void;
   setOff(off: boolean): void;
   playNow(slotId: string, play?: boolean): Promise<void>;
@@ -679,10 +681,16 @@ export class ScreenRunner implements Runner {
     return true;
   }
 
+  private deviceTaken = false;
+  takeDevice(): Device {
+    this.deviceTaken = true;
+    return this.device;
+  }
+
   close(): void {
     this.closed = true;
     this.interlude = null;
-    this.device.close();
+    if (!this.deviceTaken) this.device.close();
   }
 }
 

@@ -10,6 +10,7 @@
  * time and, with `trcc serve`, a copy on disk.
  */
 import { EventEmitter } from 'node:events';
+import { availableParallelism } from 'node:os';
 import { localize, themeById, validate, type AlertLevel, type PadEvent, type Theme } from '@kiosko/sdk';
 import { AlertBoard, type ActiveAlert, type PluginAlert } from './alerts.ts';
 import { MAX_CONCURRENT } from './animation.ts';
@@ -20,6 +21,8 @@ import { openDevice, type Device, type DeviceStatus } from './devices.ts';
 import { resolveLocale, type LogFn } from './env.ts';
 import type { Registry } from './registry.ts';
 import { PLAY_IDLE_MS, ScreenRunner, TICK_MS, type FrameInfo, type Runner, type RunnerHost } from './screen-runner.ts';
+import { planThreads, threadsMode, type ThreadWhy } from './threads/plan.ts';
+import { ThreadRunner, defaultThreadEntry, type ThreadOwner } from './threads/thread-runner.ts';
 
 export { PLAY_IDLE_MS, encodeFit, type FrameInfo } from './screen-runner.ts';
 
@@ -89,7 +92,7 @@ const TEST_ALERT_TEXT = {
   'zh-Hans': '这是警报在“{screen}”上的样子。从你的座位看得清吗？',
 };
 
-export class Runtime extends EventEmitter implements RunnerHost {
+export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
   config: Config;
   readonly hub: SourceHub;
   readonly fetches: FetchHost;
@@ -114,16 +117,26 @@ export class Runtime extends EventEmitter implements RunnerHost {
   /** A plugin's `alerts` failing, said once per message. */
   private alertErrors = new Map<string, string>();
 
+  /** The cores `threads: auto` counts on (see threads/plan.ts); tests set it. */
+  cores: number = cpuCount();
+  /** Where each screen is painted, and why (see threads/plan.ts). */
+  private threadWhy = new Map<string, ThreadWhy>();
+  /** Screens whose thread failed, with why: they paint here until their config or the plugins change. */
+  private threadless = new Map<string, { reason: string; key: string }>();
+  /** The entry point of the screens' threads (the server brings one with the built-in plugins). */
+  private readonly threadEntry: URL | undefined;
+
   readonly registry: Registry;
   /**
    * Demo mode: no source or fetch runs, every widget paints its sample data.
    * For trying Kiosko without any setup, screenshots and kiosks at fairs.
    */
   readonly demoMode: boolean;
-  constructor(registry: Registry, config: Config, o: { demo?: boolean } = {}) {
+  constructor(registry: Registry, config: Config, o: { demo?: boolean; threadEntry?: URL } = {}) {
     super();
     this.registry = registry;
     this.demoMode = !!o.demo;
+    this.threadEntry = o.threadEntry;
     this.setMaxListeners(100);
     this.config = config;
     this.hub = new SourceHub(registry, this.log, (type) => this.onData({ source: type }));
@@ -149,6 +162,9 @@ export class Runtime extends EventEmitter implements RunnerHost {
   // The runners' host (see screen-runner.ts), for the screens painted on this thread.
   dataOf(instanceId: string): unknown {
     return this.fetches.data(instanceId);
+  }
+  sourceData(type: string): unknown {
+    return this.hub.data(type);
   }
   sourcesOf(types: readonly string[] | undefined): Record<string, unknown> {
     return this.hub.pick(types);
@@ -214,7 +230,11 @@ export class Runtime extends EventEmitter implements RunnerHost {
       this.hub.forget(id);
       this.fetches.forget(id);
     }
+    // A screen sent back from its thread because of a plugin may go again.
+    const retry = this.threadless.size > 0;
+    this.threadless.clear();
     for (const r of this.runners.values()) r.invalidate();
+    if (retry) this.placeRunners();
     this.refreshWanted();
     this.emit('config', this.config);
   }
@@ -232,16 +252,62 @@ export class Runtime extends EventEmitter implements RunnerHost {
       }
     }
     for (const s of config.screens) {
-      const r = this.runners.get(s.id);
-      if (r) r.reconfigure(s);
-      else this.runners.set(s.id, new ScreenRunner(s, this));
+      const failed = this.threadless.get(s.id);
+      if (failed && failed.key !== JSON.stringify(s)) this.threadless.delete(s.id);
+      this.runners.get(s.id)?.reconfigure(s);
     }
+    this.placeRunners();
     this.refreshWanted();
     this.emit('config', config);
   }
 
+  /**
+   * Each screen's runner where the config says (see threads/plan.ts): a new
+   * one where there was none, and moved, panel and all, when it changed
+   * between the main thread and one of its own.
+   */
+  private placeRunners(): void {
+    const plan = planThreads(this.config, this.cores);
+    for (const s of this.config.screens) {
+      const choice = plan.get(s.id)!;
+      // Threads only once started: a config applied before that (tests, the CLI's one-offs) starts nothing.
+      const thread = choice.thread && !this.threadless.has(s.id) && this.timer !== null;
+      this.threadWhy.set(s.id, choice.why);
+      const r = this.runners.get(s.id);
+      if (r && r instanceof ThreadRunner === thread) continue;
+      this.runners.set(s.id, this.makeRunner(s, thread, r));
+    }
+  }
+
+  /** A runner for `s` here or in a thread; `old`: the one it replaces, whose panel it keeps (and state). */
+  private makeRunner(s: Screen, thread: boolean, old?: Runner): Runner {
+    let device: Device | undefined;
+    if (old) {
+      const taken = old.takeDevice();
+      old.close();
+      if (JSON.stringify(old.screen.device) === JSON.stringify(s.device)) device = taken;
+      else taken.close();
+    }
+    const r = thread ? new ThreadRunner(s, this, this.threadEntry ?? defaultThreadEntry(), device) : new ScreenRunner(s, this, device);
+    if (old) {
+      if (old.pinned !== r.pinned) r.setPinned(old.pinned);
+      if (old.off) r.setOff(true);
+      if (old.alert) r.setAlert(old.alert, Date.now());
+    }
+    return r;
+  }
+
+  threadFailed(screenId: string, reason: string): void {
+    const s = this.config.screens.find((x) => x.id === screenId);
+    const r = this.runners.get(screenId);
+    if (!s || !r) return;
+    this.log(`screen:${s.name}`, `painting on the main thread: ${reason}`);
+    this.threadless.set(screenId, { reason, key: JSON.stringify(s) });
+    this.runners.set(screenId, this.makeRunner(s, false, r));
+    this.refreshWanted();
+  }
+
   start(): void {
-    this.apply(this.config);
     const loop = async () => {
       const now = Date.now();
       this.hub.tick(this.config, now);
@@ -251,6 +317,7 @@ export class Runtime extends EventEmitter implements RunnerHost {
       await Promise.all([...this.runners.values()].map((r) => r.update(now)));
     };
     this.timer = setInterval(() => void loop(), TICK_MS);
+    this.apply(this.config);
     void loop();
   }
 
@@ -401,11 +468,11 @@ export class Runtime extends EventEmitter implements RunnerHost {
   }
 
   /** The main thread's event loop use, sampled every few seconds (whoever asks for the status). */
-  private elu = { mark: performance.eventLoopUtilization(), at: Date.now(), value: 0 };
+  private elu = { mark: loopUse(), at: Date.now(), value: 0 };
   private mainLoad(): number {
     if (Date.now() - this.elu.at >= 2_000) {
-      const mark = performance.eventLoopUtilization();
-      this.elu = { mark, at: Date.now(), value: Math.round(performance.eventLoopUtilization(mark, this.elu.mark).utilization * 100) / 100 };
+      const mark = loopUse();
+      this.elu = { mark, at: Date.now(), value: mark && this.elu.mark ? Math.round(nodePerf.eventLoopUtilization!(mark, this.elu.mark).utilization * 100) / 100 : 0 };
     }
     return this.elu.value;
   }
@@ -429,7 +496,20 @@ export class Runtime extends EventEmitter implements RunnerHost {
         alert: r.alert?.top.id ?? null,
         /** Real fps, paint and encode times. */
         frames: r.stats.read(),
+        /** Painted in a thread of its own or here, why, and what its thread holds in memory. */
+        thread: {
+          on: r instanceof ThreadRunner,
+          why: this.threadless.has(r.screen.id) ? ('failed' as const) : (this.threadWhy.get(r.screen.id) ?? 'setting'),
+          error: this.threadless.get(r.screen.id)?.reason ?? null,
+          heapBytes: r instanceof ThreadRunner ? r.heapBytes : null,
+        },
       })),
+      threads: {
+        mode: threadsMode(this.config),
+        cores: this.cores,
+        /** The main thread's JavaScript heap and the whole process' memory, in bytes. */
+        ...memory(),
+      },
       /** How busy the main thread was since the last status (0–1). */
       mainLoad: this.mainLoad(),
       sources: this.hub.status(),
@@ -470,6 +550,25 @@ export class Runtime extends EventEmitter implements RunnerHost {
   thumbnail(type: string, width: number, height: number, options: Record<string, unknown> = {}, title?: string, look: ThumbnailLook = {}): Buffer {
     const cfg = withLook(this.config, look);
     return composeWidget({ cfg, registry: this.registry, theme: themeById(cfg.theme), type, width, height, options, ...(title ? { title } : {}) }).canvas.toBuffer('image/png');
+  }
+}
+
+// Node's, read with care: the browser demo runs this Runtime too, with none of them.
+type LoopUse = { idle: number; active: number; utilization: number };
+const nodePerf = globalThis.performance as { eventLoopUtilization?: (a?: LoopUse, b?: LoopUse) => LoopUse };
+const loopUse = (): LoopUse | null => nodePerf.eventLoopUtilization?.() ?? null;
+function cpuCount(): number {
+  try {
+    return availableParallelism();
+  } catch {
+    return 1;
+  }
+}
+function memory(): { heapBytes: number; rssBytes: number } {
+  try {
+    return { heapBytes: process.memoryUsage().heapUsed, rssBytes: process.memoryUsage.rss() };
+  } catch {
+    return { heapBytes: 0, rssBytes: 0 };
   }
 }
 

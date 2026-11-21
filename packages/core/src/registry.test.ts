@@ -165,3 +165,24 @@ test('choices: a source offers values for options from its live data, or its dem
   assert.deepEqual(schema.properties.entity!['x-ui'].choices, { source: 'ha/states', list: 'entities' });
   assert.deepEqual(schema.properties.only!['x-ui'].choices, { source: 'ha/states', list: 'entities' });
 });
+
+test("threadPlugins: what a screen's thread loads, in order: built-in ones by id, the rest by their module (the reloaded one after a reload)", async () => {
+  const f = folder();
+  try {
+    const r = new Registry();
+    r.add(definePlugin({ id: 'inner', name: 'Inner', version: '1.0.0' }));
+    r.add(definePlugin({ id: 'npmish', name: 'N', version: '1.0.0' }), 'npm:kiosko-plugin-npmish', 'file:///somewhere/index.js');
+    f.plugin('mine', { 'index.js': code('mine'), 'package.json': '{"type":"module"}' });
+    await r.loadDir(f.dir);
+    const list = r.threadPlugins();
+    assert.deepEqual(list.map((p) => [p.id, p.origin === 'builtin' ? 'builtin' : 'other', p.module?.startsWith('file:') ?? null]), [['inner', 'builtin', null], ['npmish', 'other', true], ['mine', 'other', true]]);
+    const before = list.find((p) => p.id === 'mine')!.module!;
+    assert.match(before, /\/mine\/index\.js$/);
+    assert.equal(await r.reload('mine'), null);
+    assert.match(r.threadPlugins().find((p) => p.id === 'mine')!.module!, /\/mine\/index\.js\?v=/, 'the code reloaded last');
+    r.remove('npmish');
+    assert.deepEqual(r.threadPlugins().map((p) => p.id), ['inner', 'mine']);
+  } finally {
+    f.done();
+  }
+});

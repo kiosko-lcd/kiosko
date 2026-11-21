@@ -24,3 +24,8 @@ export * from './env.ts';
 export * from './fsperm.ts';
 export * from './sdk-resolver.ts';
 export * from './frame-stats.ts';
+export * from './screen-runner.ts';
+export * from './threads/plan.ts';
+export * from './threads/clone.ts';
+export { ThreadRunner, defaultThreadEntry, type ThreadOwner } from './threads/thread-runner.ts';
+export { loadThreadPlugins, runScreenThread } from './threads/worker-main.ts';

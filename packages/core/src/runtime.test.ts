@@ -1,11 +1,14 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { definePlugin, defineWidget, t } from '@kiosko/sdk';
-import { normalize as norm } from './config/store.ts';
+import { normalize } from './config/store.ts';
 import { Registry } from './registry.ts';
 import { Runtime, type FrameInfo } from './runtime.ts';
 
 process.env.KIOSKO_QUIET = '1';
+
+// Every screen on the main thread here: threads/threads.test.ts tests them in threads of their own.
+const norm = (raw: Record<string, unknown>) => normalize({ threads: 'never', ...raw });
 
 const drawn: { anim: boolean; frame?: number; data: unknown }[] = [];
 
