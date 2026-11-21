@@ -14,7 +14,10 @@ import { dirname, extname, join, normalize as normPath, resolve } from 'node:pat
 import { THEMES } from '@kiosko/sdk';
 import { CATEGORIES } from '@kiosko/sdk';
 import { OFFICIAL_PLUGINS } from './builtin.ts';
-import { installPlugin, reloadPlugin, removePlugin } from './plugins-manage.ts';
+import { IntegrityError, installPlugin, reloadPlugin, removePlugin } from './plugins-manage.ts';
+import { StoreCatalog } from './store.ts';
+import { SDK_VERSION } from '@kiosko/sdk';
+import { installableRelease, releaseProblem, type StorePlugin } from '@kiosko/core';
 import { HomeAssistantBridge } from './homeassistant.ts';
 import { ALERT_LEVELS, type AlertLevel } from '@kiosko/sdk';
 import { AlertError, DEFAULT_SNOOZE_MS, PANEL_PRESETS, checkUpdates, discoverTrcc, discoverUsb, normalize, paths, resolveLocale, saveConfig, type Config, type FrameInfo, type Runtime, type Screen, type UpdateCheck } from '@kiosko/core';
@@ -50,6 +53,8 @@ export interface ServerOptions {
   updateCheck?: () => Promise<UpdateCheck>;
   /** Kiosko as a device in Home Assistant (over MQTT), when the config asks for it. Default: on, except in demo mode. */
   homeassistant?: boolean;
+  /** The plugin store's catalogue (tests). Default: the copy that comes with Kiosko, the one kept in its folder, then the site's. */
+  store?: StoreCatalog;
 }
 
 function webRoot(): string {
@@ -108,6 +113,24 @@ export function startServer(o: ServerOptions) {
     ? [setTimeout(() => void refreshUpdates().catch(() => undefined), 20_000), setInterval(() => void refreshUpdates().catch(() => undefined), 24 * 3600_000)]
     : [];
   for (const t of updateTimers) t.unref?.();
+  // The plugin store's catalogue: offline at once (the copy that comes with Kiosko), refreshed with the update check.
+  const store = o.store ?? new StoreCatalog({ cacheDir: join(paths.home, 'store') });
+  const storeTimers = checking ? [setTimeout(() => void store.refresh(), 15_000), setInterval(() => void store.refresh(), 24 * 3600_000)] : [];
+  for (const t of storeTimers) t.unref?.();
+  /** Installs a plugin's release named in the catalogue, checked against its integrity; what it needs from the store first. */
+  const installFromStore = async (p: StorePlugin, version: string) => {
+    const index = store.current().index!;
+    const release = p.releases.find((r) => r.version === version)!;
+    const results = [];
+    for (const need of p.requires) {
+      if (runtime.registry.plugin(need)) continue;
+      const dep = index.plugins.find((x) => x.id === need && !x.hidden);
+      const r = dep && installableRelease(dep, { sdk: SDK_VERSION, platform: process.platform });
+      if (dep && r) results.push(await installPlugin(`${dep.package}@${r.version}`, { registry: runtime.registry, runtime, expectIntegrity: r.integrity }));
+    }
+    results.push(await installPlugin(`${p.package}@${release.version}`, { registry: runtime.registry, runtime, expectIntegrity: release.integrity }));
+    return results;
+  };
   /** Bumped on every save, so a stale editor tab can't overwrite newer changes. */
   let rev = Date.now();
 
@@ -319,6 +342,54 @@ export function startServer(o: ServerOptions) {
       }
     }
 
+    // The plugin store: the catalogue with what this Kiosko is, a plugin's record, a refresh, and an install of one exact release.
+    if (p === '/api/store' && m === 'GET') {
+      const st = store.current();
+      return json(res, 200, {
+        index: st.index && { ...st.index, plugins: st.index.plugins.filter((x) => !x.hidden) },
+        from: st.from,
+        fetchedAt: st.fetchedAt,
+        error: st.error,
+        url: store.url,
+        online: checking,
+        sdk: SDK_VERSION,
+        platform: process.platform,
+        installed: Object.fromEntries(runtime.registry.list().map(({ def }) => [def.id, def.version])),
+      });
+    }
+    if (p === '/api/store/refresh' && m === 'POST') {
+      const st = await store.refresh();
+      return json(res, st.error && st.from !== 'network' ? 502 : 200, { from: st.from, fetchedAt: st.fetchedAt, error: st.error });
+    }
+    mm = /^\/api\/store\/([a-z0-9-]+)$/.exec(p);
+    if (mm && m === 'GET') {
+      const sheet = await store.sheet(mm[1]!);
+      return sheet ? json(res, 200, sheet) : json(res, 404, { error: `no "${mm[1]}" in the store`, code: 'notInStore', params: { id: mm[1]! } });
+    }
+    if (p === '/api/store/install' && m === 'POST') {
+      const b = (await body(req, 4096)) as { id?: string; version?: string; acceptRisk?: boolean };
+      const id = String(b.id ?? '');
+      const sp = store.current().index?.plugins.find((x) => x.id === id && !x.hidden);
+      if (!sp) return json(res, 404, { error: `no "${id}" in the store`, code: 'notInStore', params: { id } });
+      const release = sp.releases.find((r) => r.version === b.version);
+      if (!release) return json(res, 409, { error: `${sp.package} has no release ${String(b.version)} in the store`, code: 'noRelease', params: { id, version: String(b.version) } });
+      if (release.withdrawn) return json(res, 409, { error: `${sp.package}@${release.version} was withdrawn`, code: 'withdrawn', params: { id, version: release.version } });
+      const why = releaseProblem({ sdk: release.sdk, platforms: release.platforms ?? sp.platforms }, { sdk: SDK_VERSION, platform: process.platform });
+      if (why) return json(res, 409, { error: why.code === 'sdk' ? `written for the plugin API ${why.range}; this Kiosko has ${SDK_VERSION}` : `works on ${why.platforms.join(', ')}, not ${process.platform}`, code: 'cantInstall', params: { id } });
+      // Nobody from Kiosko has read an unreviewed plugin: the person said they understand.
+      if (sp.tier === 'found' && b.acceptRisk !== true) return json(res, 409, { error: `${sp.package} is unreviewed: confirm you accept the risk`, code: 'acceptRisk', params: { id } });
+      try {
+        const results = await installFromStore(sp, release.version);
+        if (results.some((r) => r.restart)) restartNeeded = true;
+        rev++;
+        send('config', { rev, by: null });
+        const problem = results.map((r) => r.problem).filter(Boolean).join('; ') || null;
+        return json(res, 200, { ok: !problem, ids: results.flatMap((r) => r.ids), problem, rolledBack: results.some((r) => r.rolledBack), addedPermissions: results.at(-1)?.addedPermissions ?? null, version: release.version, restartNeeded, state: state() });
+      } catch (err) {
+        return json(res, err instanceof IntegrityError ? 409 : 500, { error: err instanceof Error ? err.message : String(err), ...(err instanceof IntegrityError ? { code: 'integrity', params: { id } } : {}) });
+      }
+    }
+
     mm = /^\/api\/plugins\/([^/]+)$/.exec(p);
     if (mm && m === 'DELETE') {
       const id = decodeURIComponent(mm[1]!);
@@ -439,6 +510,7 @@ export function startServer(o: ServerOptions) {
       clearInterval(statusTimer);
       bridge?.stop();
       for (const t of updateTimers) clearTimeout(t);
+      for (const t of storeTimers) clearTimeout(t);
       // The runtime outlives the server (tests, a restart of the editor only): stop hearing it.
       runtime.off('frame', onFrame);
       runtime.off('alerts', onAlerts);

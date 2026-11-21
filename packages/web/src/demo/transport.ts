@@ -201,6 +201,28 @@ export const api: typeof httpApi = {
   reloadPlugin: async () => {
     throw notHere();
   },
+  // The store: browsable with the site's own catalogue (the demo lives at /demo/, the catalogue at /store/v1/); installing needs a real Kiosko.
+  async store() {
+    const url = new URL('../store/v1/', location.href).href;
+    let index = null;
+    try {
+      const r = await fetch(`${url}index.json`);
+      if (r.ok) index = await r.json();
+    } catch {
+      /* a demo built without the site */
+    }
+    const st = await state();
+    return { index, from: index ? ('network' as const) : ('none' as const), fetchedAt: index ? Date.now() : null, error: null, url, online: false, sdk: st.version, platform: st.platform, installed: Object.fromEntries(st.catalog.map((p) => [p.id, p.version])) };
+  },
+  async storePlugin(id: string) {
+    const r = await fetch(new URL(`../store/v1/plugins/${encodeURIComponent(id)}.json`, location.href));
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return r.json();
+  },
+  refreshStore: async () => ({ from: 'network', fetchedAt: Date.now(), error: null }),
+  installFromStore: async () => {
+    throw notHere();
+  },
   async setPluginEnabled(id: string, enabled: boolean) {
     await start();
     const cfg = JSON.parse(JSON.stringify(current!.config)) as Config;

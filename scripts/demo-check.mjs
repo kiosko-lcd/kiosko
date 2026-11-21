@@ -30,7 +30,7 @@ const showcase = JSON.parse(readFileSync(new URL('../examples/showcase.json', im
 
 // ---------- A static server, like GitHub Pages ----------
 
-const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.json': 'application/json', '.ttf': 'font/ttf', '.gz': 'application/gzip', '.txt': 'text/plain' };
+const MIME = { '.jpg': 'image/jpeg', '.webp': 'image/webp', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.json': 'application/json', '.ttf': 'font/ttf', '.gz': 'application/gzip', '.txt': 'text/plain' };
 const root = resolve(siteDir);
 const server = createServer((req, res) => {
   const url = new URL(req.url ?? '/', 'http://x');
@@ -677,6 +677,47 @@ async function longTasks(browser, query) {
   return { ready, count: r.all.length, total: sum(r.all), max: Math.round(Math.max(0, ...r.all)), typingTotal: sum(r.typing), typingMax: Math.round(Math.max(0, ...r.typing)) };
 }
 
+const hasStore = existsSync(join(root, 'store/v1/index.json'));
+
+/** The plugin store (landing/store.mjs): every plugin it offers has its card, the filters work, a plugin's page opens in Kiosko and its links lead somewhere. */
+async function storePages(browser, name) {
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 }, deviceScaleFactor: 1 });
+  const page = await ctx.newPage();
+  const errors = watchErrors(page);
+  await page.goto(`${home}es/store/`);
+  const list = await page.evaluate(async () => {
+    const index = await (await fetch('../../store/v1/index.json')).json();
+    const cards = [...document.querySelectorAll('article.card')];
+    const pictures = [...document.querySelectorAll('article.card img')];
+    await Promise.all(pictures.map((i) => i.decode?.().catch(() => undefined)));
+    return { cards: cards.length, offered: index.plugins.filter((p) => !p.hidden).length, broken: pictures.filter((i) => !i.naturalWidth).map((i) => i.getAttribute('src')), count: document.querySelector('.count')?.textContent };
+  });
+  check(`${name} store: a card for every plugin, with its picture`, list.cards > 0 && list.cards === list.offered && list.broken.length === 0, `${list.cards} cards of ${list.offered}${list.broken.length ? `, broken: ${list.broken.slice(0, 3).join(', ')}` : ''}`);
+  await page.fill('input.search', 'tiempo');
+  await page.waitForTimeout(200);
+  const searched = await page.evaluate(() => ({ shown: [...document.querySelectorAll('article.card')].filter((c) => !c.hidden).map((c) => c.dataset.id), url: location.search }));
+  check(`${name} store: search filters the cards and keeps it in the address`, searched.shown.includes('weather') && searched.shown.length < list.cards && searched.url.includes('q=tiempo'), JSON.stringify(searched));
+  await page.fill('input.search', '');
+  await page.selectOption('select[name="panel"]', 'class:portrait');
+  const portrait = await page.evaluate(() => [...document.querySelectorAll('article.card')].filter((c) => !c.hidden).length);
+  check(`${name} store: the panel filter`, portrait > 0 && portrait <= list.cards, `${portrait} for portrait panels`);
+  await shot(page, `store-${name}.jpg`);
+  await page.goto(`${home}es/store/weather/`);
+  const sheet = await page.evaluate(async () => {
+    const ok = async (url) => (await fetch(url)).ok;
+    const links = [...new Set([...document.querySelectorAll('a[href]')].map((a) => a.href).filter((h) => h.startsWith(location.origin)))];
+    const missing = [];
+    for (const url of links) if (!(await ok(url))) missing.push(url);
+    const imgs = [...document.querySelectorAll('img')];
+    await Promise.all(imgs.map((i) => i.decode?.().catch(() => undefined)));
+    return { open: document.querySelector('.install a.button')?.getAttribute('href'), missing, broken: imgs.filter((i) => !i.naturalWidth).length, h1: document.querySelector('h1')?.textContent };
+  });
+  check(`${name} store: a plugin's page, "Open in Kiosko" and its links`, sheet.open === 'http://127.0.0.1:7420/#/plugins/store/weather' && sheet.missing.length === 0 && sheet.broken === 0, JSON.stringify(sheet));
+  await shot(page, `store-weather-${name}.jpg`);
+  check(`${name} store: no errors`, errors.length === 0, errors.slice(0, 3).join(' | '));
+  await ctx.close();
+}
+
 try {
   for (const name of browsers) {
     const browser = await playwright[name].launch();
@@ -693,6 +734,7 @@ try {
         }
       } else await smoke(browser, name);
       if (hasFrontPage) await frontPage(browser, name);
+      if (hasStore) await storePages(browser, name);
     } finally {
       await browser.close();
     }

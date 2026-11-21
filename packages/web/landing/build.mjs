@@ -7,6 +7,9 @@
 //   demo/assets/doom.*     the recording the front page's Doom section plays
 //   index.html             the front page (this folder): a story told over the 3D panel,
 //   es/ zh-Hant/ zh-Hans/  the same page in each language (pages.mjs, words in i18n/)
+//   store/ es/store/…      the plugin store (store.mjs), from store/v1/
+//   store/v1/              its catalogue as data: index.json, plugins/<id>.json, withdrawn.json,
+//                          schema/ (scripts/store/build-index.ts, from npm, after the gallery)
 //   sitemap.xml robots.txt the pages in every language, for search engines
 //   demo/assets/landing.*  then the plugins (from gallery.json) and how to start
 //
@@ -21,6 +24,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildDemo } from '../demo/build.mjs';
 import { LANGS, esc, loadTexts, plural, renderPage, sitemap } from './pages.mjs';
+import { buildStorePages } from './store.mjs';
 import { languageById } from '../../sdk/src/languages.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -81,6 +85,13 @@ export async function buildSite({ out, editorOptions }) {
   }
   const gallery = JSON.parse(readFileSync(join(out, 'gallery/gallery.json'), 'utf8'));
 
+  // 1b. The plugin store's catalogue, from npm (and the gallery's pictures of the official plugins).
+  //     KIOSKO_STORE_INDEX=<a site built before> copies its store/v1/ instead, for building offline.
+  const index = spawnSync(process.execPath, ['--conditions=source', join(root, 'scripts/store/build-index.ts'), '--out', out, '--gallery', join(out, 'gallery/gallery.json')], { stdio: 'inherit' });
+  if (index.status !== 0) throw new Error('site build: the plugin store index failed');
+  const store = JSON.parse(readFileSync(join(out, 'store/v1/index.json'), 'utf8'));
+  const details = Object.fromEntries(store.plugins.filter((p) => !p.hidden).map((p) => [p.id, JSON.parse(readFileSync(join(out, 'store/v1/plugins', `${p.id}.json`), 'utf8'))]));
+
   // 2. The demo (and the 3D page), whose renderer the front page starts too.
   await buildDemo({ out: join(out, 'demo'), editorOptions });
   const assets = join(out, 'demo/assets');
@@ -89,6 +100,8 @@ export async function buildSite({ out, editorOptions }) {
   const common = { outdir: assets, bundle: true, minify: true, legalComments: 'linked', logLevel: 'info', conditions: ['source'] };
   await build({ ...common, entryPoints: { landing: join(here, 'main.ts') }, format: 'esm', platform: 'browser', target: ['es2022', 'chrome110', 'firefox115', 'safari16'], define: { KIOSKO_DEMO: 'true' } });
   await build({ ...common, entryPoints: { landing: join(here, 'styles.css') } });
+  await build({ ...common, entryPoints: { store: join(here, 'store.ts') }, format: 'esm', platform: 'browser', target: ['es2022', 'chrome110', 'firefox115', 'safari16'] });
+  await build({ ...common, entryPoints: { store: join(here, 'store.css') } });
 
   // As in the demo: every reference carries a hash of what it points to (Pages caches for a while).
   const hash = (f) => createHash('sha256').update(readFileSync(join(assets, f))).digest('hex').slice(0, 10);
@@ -122,10 +135,12 @@ export async function buildSite({ out, editorOptions }) {
     mkdirSync(join(out, l.path), { recursive: true });
     writeFileSync(join(out, l.path, 'index.html'), renderPage(template, texts, l.id, fill));
   }
-  writeFileSync(join(out, 'sitemap.xml'), sitemap());
+  // The store, in every language.
+  const storePages = buildStorePages({ out, index: store, details, texts, css: `demo/assets/store.css?v=${hash('store.css')}`, js: `demo/assets/store.js?v=${hash('store.js')}`, presets: store.presets ?? [] });
+  writeFileSync(join(out, 'sitemap.xml'), sitemap(storePages));
   writeFileSync(join(out, 'robots.txt'), 'User-agent: *\nAllow: /\nSitemap: https://kioskolcd.dev/sitemap.xml\n');
   // The picture that goes with the link when it is shared (og:image). It is the front page itself
   // in 3D, so it is taken on a machine with a GPU and kept here: scripts/panel3d-film.mjs --card.
   copyFileSync(join(here, 'card.jpg'), join(out, 'card.jpg'));
-  console.log(`site → ${out}: front page in ${LANGS.map((l) => l.id).join(', ')} with ${gallery.plugins.length} plugins and ${gallery.count} widgets, gallery/, demo/, demo/3d/, schema/`);
+  console.log(`site → ${out}: front page in ${LANGS.map((l) => l.id).join(', ')} with ${gallery.plugins.length} plugins and ${gallery.count} widgets, gallery/, demo/, demo/3d/, schema/, store/ with ${storePages.length - 1} plugins`);
 }

@@ -1,0 +1,5 @@
+{
+  "//": "Until kiosko-lcd/plugin-index exists (phase 2): packages taken out of the store by hand (hidden), and versions withdrawn for safety (withdrawn.json's format, docs/es/tienda.md §3.5). Each with a PR saying why.",
+  "hidden": [],
+  "withdrawn": []
+}

@@ -1,6 +1,36 @@
 /** Thin client of the Kiosko server API. */
 import type { Config, Screen } from '@kiosko/core/model';
 import { ApiError } from './errors.ts';
+import type { StoreIndex, StorePluginFile } from '@kiosko/core/store';
+
+/** The plugin store as this Kiosko sees it (GET /api/store). */
+export interface StoreState {
+  index: StoreIndex | null;
+  /** Where the catalogue came from: the copy that comes with Kiosko, the one kept, or just downloaded. */
+  from: 'snapshot' | 'cache' | 'network' | 'none';
+  fetchedAt: number | null;
+  error: string | null;
+  /** The catalogue's folder (https://kioskolcd.dev/store/v1/); pictures are relative to the site above it. */
+  url: string;
+  /** Whether Kiosko asks the site for a newer catalogue (off with KIOSKO_NO_UPDATE_CHECK=1). */
+  online: boolean;
+  sdk: string;
+  platform: string;
+  /** Plugins loaded now, by id, with their version. */
+  installed: Record<string, string>;
+}
+
+/** What installing from the store answers. */
+export interface StoreInstallResult {
+  ok: boolean;
+  ids: string[];
+  problem: string | null;
+  rolledBack: boolean;
+  addedPermissions: PluginPermissions | null;
+  version: string;
+  restartNeeded: boolean;
+  state: AppState;
+}
 
 export interface WidgetInfo {
   type: string;
@@ -252,6 +282,13 @@ export const api = {
   checkUpdates: () => fetch('/api/plugins/updates?refresh=1').then((r) => ok<unknown>(r)),
   removePlugin: (id: string) => fetch(`/api/plugins/${encodeURIComponent(id)}`, { method: 'DELETE', headers: H }).then((r) => ok<AppState>(r)),
   reloadPlugin: (id: string) => fetch(`/api/plugins/${encodeURIComponent(id)}/reload`, { method: 'POST', headers: H }).then((r) => ok<AppState>(r)),
+  /** The plugin store's catalogue, with what this Kiosko is (system, plugin API) and has. */
+  store: () => fetch('/api/store').then((r) => ok<StoreState>(r)),
+  /** A plugin's full record in the store. */
+  storePlugin: (id: string) => fetch(`/api/store/${encodeURIComponent(id)}`).then((r) => ok<StorePluginFile>(r)),
+  refreshStore: () => fetch('/api/store/refresh', { method: 'POST', headers: H }).then((r) => ok<{ from: string; fetchedAt: number | null; error: string | null }>(r)),
+  /** Installs exactly this release (checked against the catalogue's integrity), and what it needs; an unreviewed one only with `acceptRisk`. */
+  installFromStore: (id: string, version: string, acceptRisk = false) => fetch('/api/store/install', { method: 'POST', headers: H, body: JSON.stringify({ id, version, acceptRisk }) }).then((r) => ok<StoreInstallResult>(r)),
   setPluginEnabled: (id: string, enabled: boolean) => fetch(`/api/plugins/${encodeURIComponent(id)}/enabled`, { method: 'POST', headers: H, body: JSON.stringify({ enabled }) }).then((r) => ok<AppState>(r)),
 };
 

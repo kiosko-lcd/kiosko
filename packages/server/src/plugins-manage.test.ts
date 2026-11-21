@@ -48,7 +48,7 @@ test('install loads the plugin at once; installing it again updates it in place'
     const r = await installPlugin('kiosko-plugin-hello', o);
     assert.deepEqual(r.ids, ['hello']);
     assert.equal(r.restart, false);
-    assert.deepEqual(s.calls[0], ['install', '--no-audit', '--no-fund', '--ignore-scripts', 'kiosko-plugin-hello']);
+    assert.deepEqual(s.calls[0], ['install', '--no-audit', '--no-fund', '--ignore-scripts', '--save-exact', 'kiosko-plugin-hello']);
     assert.ok(registry.widget('hello/w'));
     assert.deepEqual(s.changed, [['hello']]);
     s.versions['kiosko-plugin-hello'] = '1.1.0';
@@ -136,13 +136,18 @@ test('kiosko plugins new: a plugin that declares its API and permissions, with t
   const { newPluginFiles } = await import('./plugins-cli.ts');
   const { SDK_VERSION } = await import('@kiosko/sdk');
   const files = newPluginFiles('solar-meter');
-  assert.deepEqual(Object.keys(files).sort(), ['.gitignore', 'README.md', 'build.mjs', 'package.json', 'src/index.test.ts', 'src/index.ts', 'tsconfig.json']);
+  assert.deepEqual(Object.keys(files).sort(), ['.github/workflows/release.yml', '.gitignore', 'README.md', 'build.mjs', 'package.json', 'src/index.test.ts', 'src/index.ts', 'tsconfig.json']);
   const pkg = JSON.parse(files['package.json']!) as { name: string; kiosko: { id: string; sdk: string }; peerDependencies: Record<string, string> };
   const range = `^${SDK_VERSION.split('.').slice(0, 2).join('.')}.0`;
   assert.equal(pkg.name, 'kiosko-plugin-solar-meter');
   assert.deepEqual([pkg.kiosko.id, pkg.kiosko.sdk, pkg.peerDependencies['@kiosko/sdk']], ['solar-meter', range, range]);
   assert.match(files['src/index.ts']!, /id: 'solar-meter',\n  name: \{ en: 'Solar Meter'/);
   assert.match(files['src/index.ts']!, /permissions: \{ network: \['user'\] \}/);
+  // What the store links to, and a release that publishes with provenance (trusted publishing, no token).
+  const meta = JSON.parse(files['package.json']!) as { bugs: { url: string }; repository: { url: string } };
+  assert.match(meta.bugs.url, /kiosko-plugin-solar-meter\/issues$/);
+  assert.match(files['.github/workflows/release.yml']!, /id-token: write/);
+  assert.match(files['.github/workflows/release.yml']!, /\$\{\{ github\.token \}\}/);
 });
 
 test('install: a bad update brings the previous version back; a new one says what more it does', async () => {
@@ -206,6 +211,46 @@ test('install: replacing the copy that came with Kiosko, and failing, puts that 
     assert.equal(registry.plugin('gpu')!.def.version, '0.2.1');
     assert.equal(registry.plugin('gpu')!.origin, 'npm:kiosko-plugin-gpu');
     assert.equal(existsSync(join(dir, 'node_modules', 'kiosko-plugin-gpu')), false);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('install from the store: the exact release, and nothing of it loaded when its integrity is not the catalogue’s', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'kiosko-integrity-'));
+  try {
+    const calls: string[][] = [];
+    let served = 'sha512-good';
+    const npm: Npm = async (args) => {
+      calls.push(args);
+      const name = packageName(args.at(-1)!);
+      const folder = join(dir, 'node_modules', name);
+      if (args[0] === 'uninstall') {
+        rmSync(folder, { recursive: true, force: true });
+        return '';
+      }
+      const v = args.at(-1)!.split('@')[1] ?? '1.0.0';
+      mkdirSync(folder, { recursive: true });
+      writeFileSync(join(folder, 'package.json'), JSON.stringify({ name, version: v, type: 'module', kiosko: { plugin: './index.js' } }));
+      // A plugin that, if it ever ran, would say so.
+      writeFileSync(join(folder, 'index.js'), `globalThis.__ran = true;\n${code('sig', v)}`);
+      writeFileSync(join(dir, 'node_modules', '.package-lock.json'), JSON.stringify({ packages: { [`node_modules/${name}`]: { version: v, integrity: served } } }));
+      return 'ok';
+    };
+    const registry = new Registry();
+    const o = { registry, runtime: { pluginsChanged: () => undefined }, dir, npm };
+    const good = await installPlugin('kiosko-plugin-sig@1.0.0', { ...o, expectIntegrity: 'sha512-good' });
+    assert.deepEqual(good.ids, ['sig']);
+    assert.ok(calls[0]!.includes('--save-exact') && calls[0]!.includes('--ignore-scripts'));
+    (globalThis as { __ran?: boolean }).__ran = false;
+    served = 'sha512-evil';
+    await assert.rejects(installPlugin('kiosko-plugin-sig@1.1.0', { ...o, expectIntegrity: 'sha512-good2' }), /not what the store's catalogue says.*1\.0\.0 is back/);
+    assert.equal((globalThis as { __ran?: boolean }).__ran, false, 'the tampered code never ran');
+    assert.equal(calls.at(-1)!.at(-1), 'kiosko-plugin-sig@1.0.0');
+    assert.equal(registry.plugin('sig')!.def.version, '1.0.0');
+    // A new one that doesn't match is removed again.
+    await assert.rejects(installPlugin('kiosko-plugin-new@1.0.0', { ...o, expectIntegrity: 'sha512-x' }), /removed again/);
+    assert.ok(!existsSync(join(dir, 'node_modules', 'kiosko-plugin-new')));
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

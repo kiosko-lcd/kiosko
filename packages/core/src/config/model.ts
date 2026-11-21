@@ -316,6 +316,8 @@ export interface PanelPreset {
   maker?: string;
   /** Kiosko has run on one. A model without it comes from its maker's page: its size and resolution, untested. */
   tested?: boolean;
+  /** `round`: a circular screen (an AIO cooler's), whose corners are not there. Missing: rectangular. */
+  shape?: 'rect' | 'round';
 }
 
 /**
@@ -338,7 +340,7 @@ export const PANEL_PRESETS: PanelPreset[] = [
   { id: 'square-480', name: 'Square 480×480', width: 480, height: 480, diagonalIn: 3.4 },
   { id: 'square-320', name: 'Square 320×320', width: 320, height: 320, diagonalIn: 2.1 },
   { id: 'small-320x240', name: 'Small 320×240', width: 320, height: 240, diagonalIn: 2.4 },
-  { id: 'round-480', name: 'Round 480×480 (AIO)', width: 480, height: 480, diagonalIn: 2.8 },
+  { id: 'round-480', name: 'Round 480×480 (AIO)', width: 480, height: 480, diagonalIn: 2.8, shape: 'round' },
 ];
 
 /** Millimetres per pixel of a screen: its diagonal, or a known model's, or ~200 ppi (most of these panels). */

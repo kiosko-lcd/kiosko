@@ -132,3 +132,20 @@ test('lintPlugin: option labels, help and choice labels need every language too'
   const odd = messages(lintPlugin(definePlugin({ id: 'x', name: { en: 'X' }, version: '1.0.0', languages: ['en', 'xx'] })));
   assert.ok(odd.some((m) => /"xx" is not a language Intl knows/.test(m)), odd.join('\n'));
 });
+
+test('lintPlugin: what the store reads (licence, markets, pricing, support)', () => {
+  const base = { id: 'x', name: 'X', version: '1.0.0', sdk: '^0.2.0', languages: ['en'], description: 'X' };
+  const msgs = (extra: Record<string, unknown>) => lintPlugin({ ...base, ...extra } as never).map((i) => `${i.level}: ${i.message}`);
+  assert.deepEqual(msgs({ license: 'MIT OR Apache-2.0' }), []);
+  assert.deepEqual(msgs({ license: 'GPL-3.0-or-later WITH Classpath-exception-2.0' }), []);
+  assert.match(msgs({ license: 'MIT/Apache-2.0' })[0]!, /^error: license .*not an SPDX identifier/);
+  assert.match(msgs({ license: 'mit' })[0]!, /^warn: license: write "mit" as "MIT"/);
+  assert.match(msgs({ license: 'Proprietary-1' })[0]!, /^warn: .*Proprietary-1.*"other"/);
+  assert.deepEqual(msgs({ markets: { only: ['ES', 'EU'], note: 'PVPC' } }), []);
+  assert.match(msgs({ markets: { only: ['Spain'] } })[0]!, /^error: markets.only: "Spain"/);
+  assert.match(msgs({ markets: { without: ['QQ'] } })[0]!, /^error: markets.without: "QQ"/);
+  assert.match(msgs({ pricing: { model: 'paid' } })[0]!, /^error: pricing.model "paid"/);
+  assert.deepEqual(msgs({ pricing: { model: 'free' } }), []);
+  assert.match(msgs({ support: { issues: 'http://x.dev' } })[0]!, /^warn: support.issues: an https/);
+  assert.match(msgs({ funding: 'ko-fi' })[0]!, /^warn: funding: an https/);
+});

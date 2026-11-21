@@ -136,6 +136,10 @@ export function newPluginFiles(id: string): Record<string, string> {
     type: 'module',
     license: 'MIT',
     keywords: ['kiosko', 'kiosko-plugin', 'lcd', 'widgets'],
+    // Where the plugin store links to (its source, where to report a problem): put your own repository.
+    repository: { type: 'git', url: `git+https://github.com/YOUR-NAME/kiosko-plugin-${id}.git` },
+    bugs: { url: `https://github.com/YOUR-NAME/kiosko-plugin-${id}/issues` },
+    homepage: `https://github.com/YOUR-NAME/kiosko-plugin-${id}#readme`,
     exports: { '.': { source: './src/index.ts', default: './dist/index.js' } },
     kiosko: { plugin: './dist/index.js', id, sdk, languages: ['en', 'es'], manifest: './kiosko-manifest.json' },
     files: ['dist', 'docs', 'kiosko-manifest.json', 'README.md', 'LICENSE'],
@@ -267,6 +271,40 @@ npm run dev              # link it into your Kiosko and reload it on every build
 \`\`\`
 
 Publish with \`npm publish\`: it builds and writes \`kiosko-manifest.json\`, the record a plugin store reads.
+Better, from GitHub: set this repository up as a *trusted publisher* of the package on npmjs.com
+(Settings → Trusted publishing → GitHub Actions, workflow \`release.yml\`), then push a tag (\`git tag v0.1.0 && git push --tags\`).
+\`.github/workflows/release.yml\` tests it and publishes it with provenance, no token needed, and the Kiosko plugin
+store shows it within a day. Put your repository in \`package.json\` (\`repository\`, \`bugs\`, \`homepage\`) and, if you
+want, a \`funding\` link: the store shows them.
+`;
+  // Trusted publishing (OIDC): npm trusts this workflow of this repository, and adds provenance on its own.
+  const release = `name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      - run: npm install --no-audit --no-fund
+      - run: npm test
+      # prepublishOnly writes kiosko-manifest.json with the kiosko command.
+      - run: npm install --global kiosko --no-audit --no-fund
+      - run: npm publish --access public
+      - run: gh release create "$GITHUB_REF_NAME" --generate-notes
+        env:
+          GH_TOKEN: \${{ github.token }}
 `;
   return {
     'package.json': `${JSON.stringify(pkg, null, 2)}\n`,
@@ -276,6 +314,7 @@ Publish with \`npm publish\`: it builds and writes \`kiosko-manifest.json\`, the
     'tsconfig.json': `${JSON.stringify(tsconfig, null, 2)}\n`,
     'README.md': readme,
     '.gitignore': 'node_modules/\ndist/\n*.log\n',
+    '.github/workflows/release.yml': release,
   };
 }
 

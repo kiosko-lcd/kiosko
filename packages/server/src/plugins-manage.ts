@@ -7,8 +7,11 @@
 import { execFile } from 'node:child_process';
 import { existsSync, lstatSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, relative, resolve, sep } from 'node:path';
-import { packageMeta, paths, type Registry, type Runtime } from '@kiosko/core';
+import { addedPermissions, packageMeta, paths, type Registry, type Runtime } from '@kiosko/core';
+
 import type { Permissions } from '@kiosko/sdk';
+
+export { addedPermissions };
 
 /** An npm package name (optionally scoped) with an optional version or range: no URLs, paths or flags. */
 export const NPM_NAME = /^(@[a-z0-9][\w.-]*\/)?[a-z0-9][\w.-]*(@[\w.^~<>=*-]+)?$/i;
@@ -24,6 +27,11 @@ function ensureFolder(dir: string): void {
 
 export type Npm = (args: string[], cwd: string) => Promise<string>;
 
+/** What npm installed is not the tarball the store named. */
+export class IntegrityError extends Error {
+  override name = 'IntegrityError';
+}
+
 const realNpm: Npm = (args, cwd) =>
   new Promise((ok, fail) => {
     const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
@@ -38,16 +46,6 @@ export interface ManageOptions {
   npm?: Npm;
 }
 
-/** What a newer version declares on top of the old one (hosts, programs, files, devices), to say so. */
-export function addedPermissions(before: Permissions | undefined, after: Permissions | undefined): Permissions {
-  const out: Permissions = {};
-  for (const k of ['network', 'exec', 'files', 'devices'] as const) {
-    const added = (after?.[k] ?? []).filter((v) => !(before?.[k] ?? []).includes(v));
-    if (added.length) out[k] = added;
-  }
-  return out;
-}
-
 export interface InstallResult {
   ids: string[];
   output: string;
@@ -59,6 +57,16 @@ export interface InstallResult {
   addedPermissions?: Permissions;
 }
 
+/** The integrity npm recorded for a package it installed in `dir` (node_modules/.package-lock.json), if any. */
+export function installedIntegrity(dir: string, name: string): string | undefined {
+  try {
+    const lock = JSON.parse(readFileSync(join(dir, 'node_modules', '.package-lock.json'), 'utf8')) as { packages?: Record<string, { integrity?: string }> };
+    return lock.packages?.[`node_modules/${name}`]?.integrity;
+  } catch {
+    return undefined;
+  }
+}
+
 /**
  * Installs a package from npm into the plugins folder and loads it at once.
  * Installing a newer version of a loaded plugin replaces it in place. If the
@@ -66,7 +74,7 @@ export interface InstallResult {
  * here is reinstalled, or the copy that came with Kiosko is put back, so a
  * bad update never leaves the plugin missing.
  */
-export async function installPlugin(spec: string, o: ManageOptions): Promise<InstallResult> {
+export async function installPlugin(spec: string, o: ManageOptions & { expectIntegrity?: string }): Promise<InstallResult> {
   if (!NPM_NAME.test(spec)) throw new Error('not a valid npm package name');
   const dir = o.dir ?? paths.plugins;
   ensureFolder(dir);
@@ -77,7 +85,17 @@ export async function installPlugin(spec: string, o: ManageOptions): Promise<Ins
   const readPkg = () => (existsSync(join(folder, 'package.json')) ? (JSON.parse(readFileSync(join(folder, 'package.json'), 'utf8')) as Record<string, any>) : null);
   const beforePkg = readPkg();
   const beforeId = beforePkg ? packageMeta(beforePkg).id : undefined;
-  const output = await npm(['install', '--no-audit', '--no-fund', '--ignore-scripts', spec], dir);
+  const output = await npm(['install', '--no-audit', '--no-fund', '--ignore-scripts', '--save-exact', spec], dir);
+  // From the store: what npm installed must be the very tarball the catalogue names (a tampered
+  // registry or catalogue), checked before any of its code is loaded. Otherwise it goes again.
+  if (o.expectIntegrity) {
+    const got = installedIntegrity(dir, packageName(spec));
+    if (got !== o.expectIntegrity) {
+      if (beforePkg?.version) await npm(['install', '--no-audit', '--no-fund', '--ignore-scripts', '--save-exact', `${packageName(spec)}@${beforePkg.version}`], dir);
+      else await npm(['uninstall', '--no-audit', '--no-fund', packageName(spec)], dir);
+      throw new IntegrityError(`${spec}: what npm installed is not what the store's catalogue says (${got ? 'another integrity' : 'no integrity recorded'}); ${beforePkg?.version ? `${beforePkg.version} is back` : 'removed again'}, nothing of it was loaded`);
+    }
+  }
   const pkg = readPkg();
   if (!pkg) return { ids: [], output, restart: true, problem: `${packageName(spec)} was installed but has no package.json` };
   const id = packageMeta(pkg).id;
@@ -99,7 +117,7 @@ export async function installPlugin(spec: string, o: ManageOptions): Promise<Ins
   if (problem && prev) {
     // Put the previous version back.
     if (prevOrigin === folder && beforePkg?.version) {
-      await npm(['install', '--no-audit', '--no-fund', '--ignore-scripts', `${packageName(spec)}@${beforePkg.version}`], dir);
+      await npm(['install', '--no-audit', '--no-fund', '--ignore-scripts', '--save-exact', `${packageName(spec)}@${beforePkg.version}`], dir);
       if (!r.plugin(prev.def.id)) await r.loadOne(folder);
       else await r.reload(prev.def.id);
     } else {

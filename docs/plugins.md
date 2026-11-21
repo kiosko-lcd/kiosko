@@ -91,6 +91,26 @@ secret ones, what it needs, and every widget with its sizes, options (as JSON
 Schema) and screenshot (`docs/<widget>.png`, painted with its demo data).
 Ratings and reviews belong to the store, not to the manifest.
 
+Besides, for the store (all optional; `kiosko plugins check` validates them):
+
+```ts
+definePlugin({
+  // …
+  markets: { only: ['ES'], note: { en: 'Needs a Red Eléctrica account' } }, // ISO 3166-1 alpha-2 codes or 'EU'
+  support: { issues: 'https://…', discussions: 'https://…', docs: 'https://…' }, // default: package.json's bugs and homepage
+  pricing: { model: 'free' },           // the only model for now
+  funding: 'https://github.com/sponsors/you',  // also package.json's `funding`
+  resources: { memoryMb: 40, cpu: 'low' },
+  category: 'fun',                      // only for plugins without widgets (interludes only)
+  interludes: [{ /* … */ preview: { poster: 'docs/show.jpg', video: 'docs/show.webm' } }],
+});
+```
+
+The licence is read as an SPDX expression (`MIT`, `GPL-3.0-or-later`,
+`MIT OR Apache-2.0`). The manifest's JSON Schema is
+`packages/core/schema/manifest.json`, published at
+https://kioskolcd.dev/store/v1/schema/manifest.json.
+
 ## A widget
 
 ```js
@@ -653,7 +673,7 @@ Name the package `kiosko-plugin-<name>`. Its package.json says
 publishes one bundled file (what `kiosko plugins new` sets up; Kiosko provides
 the SDK, the drawing kit and the canvas). Run `kiosko plugins check` and
 `kiosko plugins manifest` before `npm publish`. Users install it from
-**Plugins → Install from npm** (with `--ignore-scripts`): it loads at once, and
+the store or from **Plugins → Install from npm** (with `--ignore-scripts`): it loads at once, and
 installing a newer version replaces it in place.
 
 Once a day Kiosko asks npm for newer versions of the plugins it got from npm
@@ -664,6 +684,34 @@ why. If the new version doesn't load, the previous one comes back, and if it
 declares more permissions than the old one, the editor says which. Publish a
 fix as a patch within the same range and every Kiosko it fits will offer it.
 `KIOSKO_NO_UPDATE_CHECK=1` turns the daily check off.
+
+### In the store
+
+The plugin store, at https://kioskolcd.dev/store/ and in the editor's
+**Plugins → Store**, lists every package on npm with the `kiosko-plugin`
+keyword (`kiosko plugins new` puts it there) within a day of publishing.
+It reads your `kiosko-manifest.json` out of the tarball, never running your
+code, so publish the manifest (`files` in package.json, `kiosko plugins
+manifest` before `npm publish`) and the `docs/` pictures it names: without
+it the store only knows what package.json says. Official plugins
+(kiosko-lcd) are marked so; everyone else's are listed as **Unreviewed**,
+never featured, and installing one asks the person to confirm they
+understand the risk. Before installing, the editor shows what the manifest
+declares (`permissions`, risky options) and which of their screens each
+widget fits (`size.min` and `size.preferred`). An install from the store
+takes the exact version and checks npm's integrity for it against the
+catalogue's.
+
+The catalogue is data too: https://kioskolcd.dev/store/v1/index.json (its
+schema at /store/v1/schema/index.json), one file per plugin at
+/store/v1/plugins/<id>.json and the withdrawn versions at
+/store/v1/withdrawn.json. It is built by `scripts/store/build-index.ts`; the
+design and the phases ahead (listing by PR, verified publishers, signed
+catalogue, ratings) are in docs/es/tienda.md.
+
+Publish from CI with npm's *trusted publishing* (the release workflow
+`kiosko plugins new` writes): your releases get provenance, which the store
+will show.
 
 
 ## Animations
