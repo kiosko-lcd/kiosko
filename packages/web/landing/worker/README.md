@@ -18,10 +18,16 @@ no-store`. Without the Worker, the English page's own script
 
 Tests: `landing/worker.test.ts` (part of `npm test`).
 
-## Deploy (once)
+## Deploy
 
 Free plan: the Worker only runs for visits to `/`, far below the free plan's
 100,000 requests a day.
+
+Steps 1–3 were done on 2026-11-21: the proxy is on for the A, AAAA and `www`
+records (mail is untouched) and the routes exist. SSL is *Full* rather than
+*Full (strict)* on purpose: GitHub Pages may fail to renew its certificate
+behind the proxy, and *Full* keeps the site up if it does. A change to the
+Worker only needs step 4.
 
 1. **Cloudflare → DNS**: turn on the proxy (orange cloud) on the records of
    `kioskolcd.dev` that point to GitHub Pages (`185.199.108–111.153`, and
@@ -30,8 +36,15 @@ Free plan: the Worker only runs for visits to `/`, far below the free plan's
    GitHub Pages, which forces HTTPS.
 3. An API token: *My Profile → API Tokens → Create token → Edit Cloudflare
    Workers*, for the account and the `kioskolcd.dev` zone.
-4. Deploy, with wrangler in Docker (nothing installed). Run this from the
-   repository's root:
+4. Deploy: **Actions → Language Worker → Run workflow**
+   ([worker.yml](../../../../.github/workflows/worker.yml)). It tests, deploys
+   and checks the live site. It reads the token from the repository secret
+   `CLOUDFLARE_API_TOKEN`; the token is not an input, because inputs show in
+   the run's details. Add the secret with a short-lived token, run the
+   workflow, then delete the secret.
+
+   Or from a computer, with wrangler in Docker (nothing installed). Run this
+   from the repository's root:
 
    ```sh
    docker run --rm -it -e CLOUDFLARE_API_TOKEN -v "$PWD/packages:/src:ro" node:22 sh -c '

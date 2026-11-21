@@ -1,0 +1,64 @@
+# Deploys the front page's language Worker (packages/web/landing/worker) to
+# Cloudflare. Manual only: Actions → Language Worker → Run workflow.
+#
+# The token is NOT a workflow input: inputs are visible to anyone in the run's
+# details. It is a repository secret that only exists while it is needed:
+#
+#   1. Cloudflare → My Profile → API Tokens → "Edit Cloudflare Workers",
+#      zone kioskolcd.dev, with a short expiry (a few hours).
+#   2. Settings → Secrets and variables → Actions → New repository secret
+#      CLOUDFLARE_API_TOKEN.
+#   3. Run this workflow.
+#   4. Delete the secret (and the token, if it still lives).
+name: Language Worker
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: language-worker
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: The token is there
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "::error::No CLOUDFLARE_API_TOKEN secret. Add one for this run (see the top of .github/workflows/worker.yml) and delete it afterwards."
+            exit 1
+          fi
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      # Its rules and handler (no dependencies to install: choose.ts only imports the language list).
+      - name: Test
+        run: node --conditions=source --test packages/web/landing/worker.test.ts
+      - name: Deploy
+        working-directory: packages/web/landing/worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          WRANGLER_SEND_METRICS: 'false'
+        run: |
+          # The account the token belongs to (it is scoped to one).
+          CLOUDFLARE_ACCOUNT_ID=$(curl -fsS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" https://api.cloudflare.com/client/v4/accounts | node -e "const a=JSON.parse(require('fs').readFileSync(0)).result; if (a.length !== 1) { console.error('the token sees ' + a.length + ' accounts'); process.exit(1); } console.log(a[0].id)")
+          echo "::add-mask::$CLOUDFLARE_ACCOUNT_ID"
+          export CLOUDFLARE_ACCOUNT_ID
+          npx -y wrangler@4.166.0 deploy
+      # What a visitor gets: their language, English stays, the rest of the site untouched.
+      - name: Check kioskolcd.dev
+        run: |
+          sleep 10
+          go() { curl -s -o /dev/null -w '%{http_code} %{redirect_url}' -H "Accept-Language: $1" "https://kioskolcd.dev$2"; }
+          check() { got=$(go "$1" "$2"); echo "$1 $2 → $got"; [ "$got" = "$3" ] || { echo "::error::$1 $2: expected '$3', got '$got'"; exit 1; }; }
+          check zh-TW / '302 https://kioskolcd.dev/zh-Hant/'
+          check es-ES / '302 https://kioskolcd.dev/es/'
+          check en-US / '200 '
+          check zh-TW /es/ '200 '
