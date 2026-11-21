@@ -113,11 +113,15 @@ export function startServer(o: ServerOptions) {
 
   const send = (event: string, data: unknown) => {
     const line = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
-    for (const c of clients) c.write(line);
+    // A client already gone (or the server closing) is skipped: writing after end throws, uncaught.
+    for (const c of clients) if (!c.writableEnded && !c.destroyed) c.write(line);
   };
-  runtime.on('frame', (f: FrameInfo) => send('frame', { screenId: f.screenId, pageId: f.pageId, at: f.at, interlude: f.interlude, alert: f.alert ?? null, sleeping: f.sleeping, tiles: f.tiles }));
-  runtime.on('alerts', (alerts: unknown) => send('alerts', alerts));
-  runtime.on('log', (e) => send('log', e));
+  const onFrame = (f: FrameInfo) => send('frame', { screenId: f.screenId, pageId: f.pageId, at: f.at, interlude: f.interlude, alert: f.alert ?? null, sleeping: f.sleeping, tiles: f.tiles });
+  const onAlerts = (alerts: unknown) => send('alerts', alerts);
+  const onLog = (e: unknown) => send('log', e);
+  runtime.on('frame', onFrame);
+  runtime.on('alerts', onAlerts);
+  runtime.on('log', onLog);
   runtime.on('config', () => thumbs.clear());
   // Home Assistant, over MQTT: connects only when the config has it switched on.
   const bridge = (o.homeassistant ?? !runtime.demoMode) ? new HomeAssistantBridge(runtime, o.version) : null;
@@ -177,7 +181,7 @@ export function startServer(o: ServerOptions) {
       res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-store', connection: 'keep-alive' });
       res.write(`event: hello\ndata: ${JSON.stringify({ version: o.version })}\n\n`);
       clients.add(res);
-      const ping = setInterval(() => res.write(': ping\n\n'), 20_000);
+      const ping = setInterval(() => !res.writableEnded && !res.destroyed && res.write(': ping\n\n'), 20_000);
       req.on('close', () => {
         clearInterval(ping);
         clients.delete(res);
@@ -435,7 +439,12 @@ export function startServer(o: ServerOptions) {
       clearInterval(statusTimer);
       bridge?.stop();
       for (const t of updateTimers) clearTimeout(t);
+      // The runtime outlives the server (tests, a restart of the editor only): stop hearing it.
+      runtime.off('frame', onFrame);
+      runtime.off('alerts', onAlerts);
+      runtime.off('log', onLog);
       for (const c of clients) c.end();
+      clients.clear();
       server.close();
     },
   };
