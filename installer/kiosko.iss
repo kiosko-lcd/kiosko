@@ -17,6 +17,7 @@ AppVerName=Kiosko {#Version}
 AppPublisher=Kiosko
 AppPublisherURL=https://kioskolcd.dev
 AppSupportURL=https://github.com/kiosko-lcd/kiosko/issues
+AppContact=info@kioskolcd.dev
 VersionInfoVersion={#Version}
 DefaultDirName={autopf}\Kiosko
 DefaultGroupName=Kiosko

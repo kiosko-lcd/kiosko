@@ -76,6 +76,9 @@ const pkg = {
   engines: { node: '>=22.18' },
   keywords: ['lcd', 'thermalright', 'trofeo-vision', 'dashboard', 'widgets', 'claude-code', 'aio', 'usb-display'],
   repository: { type: 'git', url: 'git+https://github.com/kiosko-lcd/kiosko.git' },
+  homepage: 'https://kioskolcd.dev',
+  bugs: { url: 'https://github.com/kiosko-lcd/kiosko/issues', email: 'info@kioskolcd.dev' },
+  author: 'Loksly <info@kioskolcd.dev> (https://kioskolcd.dev)',
   dependencies: deps,
   // The official plugins live in their own repos; installing Kiosko brings
   // them along. Optional, so a missing one never breaks the install.

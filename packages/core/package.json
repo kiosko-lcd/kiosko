@@ -57,7 +57,7 @@
     "url": "git+https://github.com/kiosko-lcd/kiosko.git",
     "directory": "packages/core"
   },
-  "author": "Loksly",
+  "author": "Loksly <info@kioskolcd.dev> (https://kioskolcd.dev)",
   "engines": {
     "node": ">=22.18"
   }

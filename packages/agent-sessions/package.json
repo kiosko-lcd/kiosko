@@ -4,7 +4,7 @@
   "description": "A tiny file protocol for the state of AI coding sessions (Claude Code, Gemini CLI…): a zero-dependency hook that writes it and helpers to read it.",
   "type": "module",
   "license": "MIT",
-  "author": "Loksly",
+  "author": "Loksly <info@kioskolcd.dev> (https://kioskolcd.dev)",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Loksly/aimonitor.git",

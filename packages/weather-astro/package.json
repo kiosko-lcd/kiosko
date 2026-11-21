@@ -4,7 +4,7 @@
   "description": "Weather from Open-Meteo (no API key), moon phase and sunrise/sunset, with no dependencies and no drawing.",
   "type": "module",
   "license": "MIT",
-  "author": "Loksly",
+  "author": "Loksly <info@kioskolcd.dev> (https://kioskolcd.dev)",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Loksly/aimonitor.git",

@@ -4,7 +4,7 @@
   "description": "Node driver for the Thermalright LY USB LCD panels (Trofeo Vision 9.16 and siblings): talks USB from Node, no Python or trcc needed.",
   "type": "module",
   "license": "MIT",
-  "author": "Loksly",
+  "author": "Loksly <info@kioskolcd.dev> (https://kioskolcd.dev)",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/kiosko-lcd/kiosko.git",

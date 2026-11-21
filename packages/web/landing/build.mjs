@@ -139,6 +139,13 @@ export async function buildSite({ out, editorOptions }) {
   const storePages = buildStorePages({ out, index: store, details, texts, css: `demo/assets/store.css?v=${hash('store.css')}`, js: `demo/assets/store.js?v=${hash('store.js')}`, presets: store.presets ?? [] });
   writeFileSync(join(out, 'sitemap.xml'), sitemap(storePages));
   writeFileSync(join(out, 'robots.txt'), 'User-agent: *\nAllow: /\nSitemap: https://kioskolcd.dev/sitemap.xml\n');
+  // Where to report a vulnerability (RFC 9116); it must say when it expires, so a year from each build.
+  mkdirSync(join(out, '.well-known'), { recursive: true });
+  const expires = new Date(Date.now() + 365 * 86400e3).toISOString().replace(/\.\d+Z$/, 'Z');
+  writeFileSync(
+    join(out, '.well-known', 'security.txt'),
+    `Contact: mailto:security@kioskolcd.dev\nContact: https://github.com/kiosko-lcd/kiosko/security/advisories/new\nExpires: ${expires}\nPreferred-Languages: en, es\nCanonical: https://kioskolcd.dev/.well-known/security.txt\nPolicy: https://github.com/kiosko-lcd/kiosko/blob/main/SECURITY.md\n`,
+  );
   // The picture that goes with the link when it is shared (og:image). It is the front page itself
   // in 3D, so it is taken on a machine with a GPU and kept here: scripts/panel3d-film.mjs --card.
   copyFileSync(join(here, 'card.jpg'), join(out, 'card.jpg'));

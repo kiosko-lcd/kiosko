@@ -4,7 +4,7 @@
   "description": "Drawing helpers for small always-on LCD panels on @napi-rs/canvas: tracked text, small caps, word wrap, sparklines, pixel shift against image retention, weather and moon icons.",
   "type": "module",
   "license": "MIT",
-  "author": "Loksly",
+  "author": "Loksly <info@kioskolcd.dev> (https://kioskolcd.dev)",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Loksly/aimonitor.git",
