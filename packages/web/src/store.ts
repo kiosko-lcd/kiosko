@@ -6,13 +6,15 @@
 import { batch, computed, signal } from '@preact/signals';
 import { localize } from '@kiosko/sdk/i18n';
 import type { Config, Page, Screen, Tile, WidgetInstance } from '@kiosko/core/model';
-import { CLIENT_ID, api, connectEvents, type AppState, type FrameEvent, type PluginInfo, type Status, type WidgetInfo } from './api.ts';
+import { CLIENT_ID, api, connectEvents, type AlertInfo, type AppState, type FrameEvent, type PluginInfo, type Status, type WidgetInfo } from './api.ts';
 
 export type View = 'editor' | 'screens' | 'plugins' | 'play' | 'settings' | 'logs';
 
 export const app = signal<AppState | null>(null);
 export const config = signal<Config | null>(null);
 export const status = signal<Status | null>(null);
+/** Full-screen alerts active now, highest first (the band at the top). */
+export const alerts = signal<AlertInfo[]>([]);
 export const online = signal(true);
 export const view = signal<View>(readView());
 export const screenId = signal<string | null>(null);
@@ -203,6 +205,7 @@ export async function boot(): Promise<void> {
     app.value = s;
     config.value = s.config;
     status.value = s.status;
+    alerts.value = s.alerts ?? [];
     screenId.value = s.config.screens[0]?.id ?? null;
     pageId.value = s.config.screens[0]?.pages[0]?.id ?? null;
   });
@@ -220,6 +223,7 @@ export async function boot(): Promise<void> {
     frame: (f) => (lastFrame.value = { ...lastFrame.value, [f.screenId]: f }),
     log: (e) => (logs.value = [...logs.value.slice(-299), e]),
     status: (st) => (status.value = st),
+    alerts: (a) => (alerts.value = a),
     online: (on) => (online.value = on),
   });
   api.logs().then((l) => (logs.value = l)).catch(() => undefined);

@@ -246,6 +246,53 @@ export interface AnimationContext<O, D> extends StateContext<O, D> {
   rnd: () => number;
 }
 
+/** How much an alert matters: the panel's frame turns blue, amber or red. */
+export type AlertLevel = 'info' | 'warn' | 'critical';
+/** From least to most. */
+export const ALERT_LEVELS: readonly AlertLevel[] = ['info', 'warn', 'critical'];
+
+/**
+ * Something that must be seen from across the room (the panel has no
+ * sound): smoke, a leak, the doorbell, a call, `main` broken, a typhoon
+ * warning. Returned by a widget's or a source's `alerts`, decided from its
+ * data like `urgent`; Kiosko decides how it is shown: over everything, on
+ * every screen whose settings let that level through (the rest keep it in
+ * the editor's band), with a flashing frame and the text still and huge.
+ * Kiosko 0.2.7 and later; older ones ignore `alerts`.
+ */
+export interface Alert {
+  /**
+   * Stable while it is the same event, new for a new one (`smoke-kitchen`,
+   * `pipeline-4711`): an alert the user has seen ("Seen") stays hidden while
+   * the plugin keeps returning the same id, and shows again with a new id.
+   */
+  id: string;
+  level: AlertLevel;
+  /** A few words, painted as big as the panel allows: "Smoke in the kitchen". */
+  title: Localized;
+  /** One short line under it: "Sensor 2 · since 14:05". */
+  text?: Localized;
+  /**
+   * An icon of Lucide's (`flame`, `droplet`, `bell-ring`, `phone-incoming`,
+   * `activity`, `cloud-lightning`, `git-branch`…; see docs/plugins.md for
+   * those the panel draws) or one or two characters (`震`). Default: by level.
+   */
+  icon?: string;
+  /** When it stops on its own (epoch ms). */
+  expiresAt?: number;
+  /** Or how long it lasts from when Kiosko first sees it, in ms. */
+  ttlMs?: number;
+  /** Whether "Seen" (or snoozing it) may hide it. Default true; `false` stays while the plugin returns it. */
+  dismissible?: boolean;
+}
+
+/** What a source's `alerts` is asked with. */
+export interface SourceAlertContext<O, D> {
+  data: D | undefined;
+  options: O;
+  now: number;
+}
+
 /**
  * When the widget must be repainted even though its data didn't change: a
  * clock every second, a countdown every minute. Fewer repaints are fewer
@@ -321,6 +368,15 @@ export interface WidgetDefinition<OF extends ObjectField<any> = ObjectField<any>
   /** Default of the instance's `takeOver` switch (keep the tile while urgent). Default true. */
   takeOver?: boolean;
   /**
+   * Alerts to show full-screen (see `Alert`): a smoke sensor going off, the
+   * pipeline of `main` failing. Plain and quick, from the data alone: it is
+   * asked for every instance on any page of an enabled screen (not only the
+   * one shown) whenever its data changes, and every few seconds. Return `[]`
+   * when there is nothing. Several instances of the widget returning the
+   * same `id` are one alert. Kiosko 0.2.7 and later.
+   */
+  alerts?: (ctx: StateContext<Infer<OF>, D>) => Alert[];
+  /**
    * Has nothing to list right now (no reviews, no tasks). Declaring it gives
    * the widget a "hide when empty" switch (`hideWhenEmpty`): when on, an
    * empty widget is skipped in its tile's rotation like `visible: false`;
@@ -384,6 +440,13 @@ export interface SourceDefinition<OF extends ObjectField<any> = ObjectField<any>
    */
   watch?: (ctx: SourceContext<Infer<OF>>, emit: (data: D) => void) => () => void;
   demo?: (ctx: { now: number; locale: string }) => D;
+  /**
+   * Alerts to show full-screen (see `Alert`), from the source's latest data:
+   * like a widget's `alerts`, for alerts that belong to the data itself (a
+   * Home Assistant smoke sensor, an earthquake report). Asked while the
+   * source runs, that is while some widget uses it. Kiosko 0.2.7 and later.
+   */
+  alerts?: (ctx: SourceAlertContext<Infer<OF>, D>) => Alert[];
   /**
    * Named lists of values for the editor to offer in options, made from
    * this source's latest data (or its demo data before there is any): the

@@ -121,3 +121,41 @@ test('Home Assistant restarting: everything is announced again', async () => {
     await broker.close();
   }
 });
+
+test('Home Assistant sees Kiosko\'s alerts: the highest in a sensor, and one button acknowledges them all', async () => {
+  const broker = await startBroker({ users: { k: 'p' } });
+  const rt = kiosko(broker.port);
+  rt.start();
+  const bridge = new HomeAssistantBridge(rt, '9.9.9');
+  const ha = new MqttClient({ url: `mqtt://127.0.0.1:${broker.port}`, clientId: 'ha', username: 'k', password: 'p' });
+  const seen = new Map<string, string>();
+  ha.on('connect', () => ha.subscribe(['homeassistant/#', 'kiosko/#']));
+  ha.on('message', (t: string, p: string) => seen.set(t, p));
+  try {
+    await until(() => seen.has('homeassistant/button/desk/alerts_ack/config') && seen.get('kiosko/desk/alerts/top') === '—');
+    const button = JSON.parse(seen.get('homeassistant/button/desk/alerts_ack/config')!);
+    assert.equal(button.name, 'Acknowledge alerts');
+    assert.equal(button.command_topic, 'kiosko/desk/alerts/ack/press');
+    assert.deepEqual(button.device.identifiers, ['kiosko_desk']);
+    const sensor = JSON.parse(seen.get('homeassistant/sensor/desk/alert/config')!);
+    assert.equal(sensor.json_attributes_topic, 'kiosko/desk/alerts/attributes');
+    assert.deepEqual(JSON.parse(seen.get('kiosko/desk/alerts/attributes')!), { level: 'none', count: 0 });
+
+    rt.postAlert({ id: 'leak', level: 'warn', title: 'Water leak', text: 'Bathroom' });
+    rt.postAlert({ id: 'smoke', level: 'critical', title: 'Smoke', dismissible: false });
+    await until(() => seen.get('kiosko/desk/alerts/top') === 'Smoke');
+    assert.deepEqual({ ...JSON.parse(seen.get('kiosko/desk/alerts/attributes')!), since: 0 }, { level: 'critical', text: '', id: 'smoke', count: 2, since: 0 });
+
+    // The button: every alert that can be is seen; the one that can't stays.
+    ha.publish('kiosko/desk/alerts/ack/press', 'PRESS');
+    await until(() => rt.listAlerts().length === 1);
+    assert.equal(rt.listAlerts()[0]!.id, 'smoke');
+    rt.removeAlert('smoke');
+    await until(() => seen.get('kiosko/desk/alerts/top') === '—');
+  } finally {
+    bridge.stop();
+    ha.close();
+    rt.stop();
+    await broker.close();
+  }
+});

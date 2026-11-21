@@ -15,6 +15,18 @@ Each screen gets:
 | `switch` **Display** | Off: the panel goes black until it is switched on again. Not saved: a restart turns it back on. |
 | `button` **Play: …** | One per interlude of the screen: plays it now. |
 
+And Kiosko itself is one more device, **Kiosko**, for its full-screen
+alerts (see [plugins.md](plugins.md#alerts)):
+
+| Entity | What it does |
+|---|---|
+| `sensor` **Alert** | The title of the highest alert, or `—`; its `level`, `text`, `id`, `since` and how many there are (`count`) as attributes. |
+| `button` **Acknowledge alerts** | Marks every alert that can be dismissed as seen. |
+
+One button for all of them, not one per alert: alerts come and go, and an
+entity per alert could not be put on a dashboard or in an automation
+beforehand. For a single one, call the API (below).
+
 While Kiosko is not running they show as unavailable.
 
 ## Setting it up
@@ -108,3 +120,27 @@ For other MQTT tools. `<node>` is `nodeId`, `<screen>` the screen's id.
 The client is Kiosko's own (MQTT 3.1.1, QoS 0): no dependency, and it
 reconnects by itself (a wrong password waits 5 minutes between tries, so it
 doesn't flood the broker's log).
+
+Smoke on every panel, as an alert that flashes until someone has seen it
+(Kiosko's API from Home Assistant, with a `rest_command`; `X-Kiosko` is
+required, and Kiosko must listen where Home Assistant can reach it):
+
+```yaml
+rest_command:
+  kiosko_alert:
+    url: http://kiosko-pc.local:7420/api/alerts
+    method: POST
+    headers: { X-Kiosko: "1" }
+    content_type: application/json
+    payload: '{"id":"{{ id }}","level":"{{ level }}","title":"{{ title }}","icon":"{{ icon }}"}'
+
+automation:
+  - alias: Smoke on the panels
+    triggers:
+      - trigger: state
+        entity_id: binary_sensor.kitchen_smoke
+        to: "on"
+    actions:
+      - action: rest_command.kiosko_alert
+        data: { id: smoke-kitchen, level: critical, title: Smoke in the kitchen, icon: flame }
+```

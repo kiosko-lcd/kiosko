@@ -400,3 +400,90 @@ test('runtime: maxSeconds is a time, even on a screen slower than the interlude'
     rt.stop();
   }
 });
+
+test('runtime: an alert takes every screen over, above an interlude and sleep, at 2 frames a second, and "seen" gives them back', async () => {
+  const reg = new Registry();
+  reg.add(definePlugin({
+    id: 'i', name: 'I', version: '1',
+    widgets: [defineWidget({ id: 'quiet', name: 'Quiet', render: () => undefined, idle: () => true })],
+    interludes: [{ id: 'long', name: 'Long', fps: 10, prepare: async () => ({ frames: 1000, draw: () => undefined }) }],
+  }));
+  const page = { id: 'p', name: 'p', grid: { cols: 1, rows: 1, gap: 0, padding: 0 }, tiles: [{ id: 't', x: 0, y: 0, w: 1, h: 1, widgets: [{ id: 'q', type: 'i/quiet', options: {} }] }] };
+  const rt = new Runtime(reg, norm({
+    screens: [
+      { id: 'play', name: 'Play', width: 192, height: 46, maxFps: 30, device: { driver: 'virtual' }, pages: [page], interludes: [{ id: 'x', type: 'i/long', enabled: false, everyMs: 3_600_000, maxSeconds: 100 }] },
+      { id: 'asleep', name: 'Asleep', width: 192, height: 46, sleepWhenIdle: true, device: { driver: 'virtual' }, pages: [page] },
+      { id: 'calm', name: 'Calm', width: 192, height: 46, alerts: { minLevel: 'critical' }, device: { driver: 'virtual' }, pages: [page] },
+    ],
+  }));
+  const shown = (id: string) => rt.lastFrame(id);
+  const events: unknown[][] = [];
+  rt.on('alerts', (l: unknown[]) => events.push(l));
+  rt.start();
+  try {
+    rt.playInterlude('play', 'x');
+    await until(() => shown('play')?.interlude === 'i/long' && !!shown('asleep')?.sleeping);
+    rt.postAlert({ id: 'smoke', level: 'warn', title: 'Smoke', text: 'Kitchen' });
+    await until(() => shown('play')?.alert === 'smoke' && shown('asleep')?.alert === 'smoke');
+    assert.equal(rt.status().screens.find((s) => s.id === 'play')!.interlude, null, 'the interlude stopped');
+    assert.equal(shown('asleep')!.sleeping, false);
+    // Below this screen's level: its pages go on.
+    assert.equal(shown('calm')?.alert, undefined);
+    assert.equal(rt.status().screens.find((s) => s.id === 'calm')!.alert, null);
+    assert.deepEqual(events.at(-1)!.map((a) => (a as { id: string }).id), ['smoke']);
+    // While it flashes: a frame every half second, not one per tick.
+    const sentBefore = rt.status().screens[1]!.device.framesSent;
+    await sleep(2000);
+    const sent = rt.status().screens[1]!.device.framesSent - sentBefore;
+    assert.ok(sent >= 3 && sent <= 5, `${sent} frames in 2 s`);
+    // Nothing plays over it.
+    rt.playInterlude('play', 'x');
+    await sleep(300);
+    assert.equal(shown('play')!.alert, 'smoke');
+
+    assert.equal(rt.ackAlert('smoke'), 'ok');
+    await until(() => !shown('play')?.alert && !!shown('asleep')?.sleeping);
+    assert.deepEqual(events.at(-1), []);
+  } finally {
+    rt.stop();
+  }
+});
+
+test('runtime: widgets and sources say their alerts from their data; a switched-off screen shows only critical ones', async () => {
+  const reg = new Registry();
+  reg.add(definePlugin({
+    id: 'ha', name: 'HA', version: '1',
+    sources: [{ id: 'states', name: 'States', watch: (_ctx, emit) => (emit({ leak: true }), () => undefined), alerts: ({ data }) => ((data as { leak?: boolean } | undefined)?.leak ? [{ id: 'leak', level: 'critical', title: 'Water leak', icon: 'droplet' }] : []) }],
+    widgets: [defineWidget({
+      id: 'smoke', name: 'Smoke', sources: ['ha/states'], render: () => undefined,
+      options: t.object({ on: t.boolean({ default: false }) }),
+      alerts: ({ options }) => (options.on ? [{ id: 'kitchen', level: 'warn', title: { en: 'Smoke', es: 'Humo' } }] : []),
+    })],
+  }));
+  const cfg = (on: boolean) => norm({
+    locale: 'es',
+    screens: [{ id: 's', name: 'S', width: 96, height: 32, device: { driver: 'virtual' }, pages: [{ id: 'p', name: 'p', grid: { cols: 1, rows: 1, gap: 0, padding: 0 }, tiles: [{ id: 't', x: 0, y: 0, w: 1, h: 1, widgets: [{ id: 'w', type: 'ha/smoke', options: { on } }] }] }] }],
+  });
+  const rt = new Runtime(reg, cfg(false));
+  rt.start();
+  try {
+    await until(() => rt.listAlerts().length === 1);
+    assert.deepEqual(rt.listAlerts().map((a) => [a.id, a.origin, a.title]), [['ha/states:leak', 'source', 'Water leak']]);
+    rt.apply(cfg(true));
+    await until(() => rt.listAlerts().length === 2);
+    assert.deepEqual(rt.listAlerts().map((a) => [a.id, a.origin, a.title]), [['ha/states:leak', 'source', 'Water leak'], ['ha/smoke:kitchen', 'widget', 'Humo']]);
+    assert.equal(rt.ackAlert('ha/states:leak'), 'ok');
+    await until(() => rt.lastFrame('s')?.alert === 'ha/smoke:kitchen');
+    rt.setOff('s', true);
+    await until(() => rt.status().screens[0]!.alert === null);
+    rt.postAlert({ id: 'fire', level: 'critical', title: 'Fire' });
+    await until(() => rt.lastFrame('s')?.alert === 'fire');
+    // A test alert is shown whatever the settings say.
+    rt.removeAlert('fire');
+    assert.equal(rt.testAlert('s', 'info')!.title, 'Alerta de prueba');
+    await until(() => rt.lastFrame('s')?.alert === 'test:s');
+    assert.equal(rt.testAlert('nope'), null);
+  } finally {
+    rt.stop();
+  }
+});

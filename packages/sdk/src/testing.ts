@@ -18,7 +18,7 @@ import { createCanvas, loadImage, type Canvas } from '@napi-rs/canvas';
 import * as kit from '@loksly/lcd-canvas-kit';
 import { createBaseContext } from './context.ts';
 import type { TimeFormat } from './format.ts';
-import type { Box, PluginDefinition, RenderContext, StateContext, WidgetDefinition } from './plugin.ts';
+import type { Alert, Box, PluginDefinition, RenderContext, StateContext, WidgetDefinition } from './plugin.ts';
 import { validate } from './schema.ts';
 import { THEMES, themeById, type Theme } from './theme.ts';
 import { DEFAULT_WORKDAY } from './workday.ts';
@@ -136,6 +136,13 @@ export function widgetState(w: WidgetDefinition<any, any>, hook: 'urgent' | 'idl
   const { now, options, data, sources } = resolve(w, o);
   const ctx: StateContext<any, any> = { options, data, sources, now, working: true, workday: DEFAULT_WORKDAY };
   return fn(ctx);
+}
+
+/** Asks a widget's `alerts` with the same inputs `renderWidget` would use; `[]` when it has none. */
+export function widgetAlerts(w: WidgetDefinition<any, any>, o: RenderOptions = {}): Alert[] {
+  if (!w.alerts) return [];
+  const { now, options, data, sources } = resolve(w, o);
+  return w.alerts({ options, data, sources, now, working: true, workday: DEFAULT_WORKDAY });
 }
 
 export interface PluginIssue {

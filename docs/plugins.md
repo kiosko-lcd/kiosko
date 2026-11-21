@@ -146,6 +146,7 @@ export default definePlugin({ id: 'crypto', name: 'Crypto', version: '1.0.0', wi
 | `visible(ctx)` | `false` when there's nothing to show: the widget is skipped in its tile's rotation. |
 | `urgent(ctx)` | `true` while it needs the user: it keeps its tile, unless the user turns the widget's **Keep the tile while urgent** switch off (`takeOver` on the instance). `takeOver: false` on the definition makes off the default. |
 | `empty(ctx)` | `true` when the list has nothing to show. Gives the widget a **Hide when empty** switch (`hideWhenEmpty` on the instance): on, an empty widget is skipped like `visible: false`; off, it paints its empty message (`drawEmpty`). `hideWhenEmpty: true` on the definition makes on the default. |
+| `alerts(ctx)` | Alerts to show **full-screen**, from the data like `urgent`: `[]` when there is nothing. See *Alerts* below. |
 | `idle(ctx)` | `true` when there's nothing worth lighting the panel for (with *sleep when idle*, the panel goes black when every widget agrees). |
 | `animation(ctx)` | A short animation inside the tile, or `null`. Returns a plan `{ id, frames, fps, params?, interruptible?, hold? }`; the runtime paints every frame by calling `render` with `ctx.anim = { plan, i, t }` (`t` is 0..1; the first and last frame are the still picture and are not sent), then plays them at `min(fps, screen maxFps)` and ends with a real still repaint. Any widget on show may ask, as if it were alone; how many play together on a screen is the runtime's decision (one for now: the others wait their turn, longest wait first). Asked with `ctx.trigger`: `'idle'` now and then (see `animationGap`, default 20-60 s, random in the range) or `'data'` when the instance's data or one of its sources changed (`ctx.prev` has the old ones; see `animationCooldownMs`). Use `ctx.rnd()` instead of `Math.random`. See *Animations* below. |
 | `animationGap`, `animationCooldownMs` | `{ minMs, maxMs }` between the `idle` questions; and the least time from the end of an animation to a `data` one. |
@@ -489,6 +490,71 @@ The buttons are a game controller's (`PadKey`): the page maps the keyboard
 (arrows or W S, A D, Space or Ctrl, E, Shift, Esc, Enter, Tab) and a
 controller in the standard mapping to them. `kiosko-plugin-doom` is the
 example.
+
+## Alerts
+
+What must be seen from across the room (the panel has no sound): smoke, a
+leak, the doorbell, a call, `main` broken, a typhoon warning. A widget or a
+source returns alerts from its data (Kiosko 0.2.7 and later; older ones
+ignore `alerts`); Kiosko decides how they are shown:
+
+```js
+defineWidget({
+  id: 'smoke',
+  // …
+  alerts: ({ data, now }) => data?.smoke
+    ? [{ id: `smoke-${data.since}`, level: 'critical', title: { en: 'Smoke in the kitchen', es: 'Humo en la cocina' }, text: data.sensor, icon: 'flame' }]
+    : [],
+});
+
+defineSource({
+  id: 'quakes',
+  // …
+  alerts: ({ data, options, now }) => (data?.reports ?? []).filter((r) => r.magnitude >= options.minMagnitude)
+    .map((r) => ({ id: r.id, level: 'warn', title: r.place, text: `M${r.magnitude}`, icon: 'activity', ttlMs: 30 * 60_000 })),
+});
+```
+
+| Field | |
+|---|---|
+| `id` | Stable while it is the same event, new for a new one (`smoke-<since>`, `pipeline-4711`). Once the user has seen it, it stays hidden while you keep returning that id. Kiosko puts the widget's or source's type in front (`home/smoke:smoke-…`): two instances returning the same id are one alert. |
+| `level` | `info` (blue, pulses), `warn` (amber) or `critical` (red): these two flash for a few seconds, then pulse. Each screen says from which level an alert takes it over, and its quiet hours let only `critical` through. |
+| `title` | A few words, `Localized`: painted as big as the panel allows. |
+| `text` | One short line under it. |
+| `icon` | A Lucide name the panel draws: `triangle-alert`, `octagon-alert`, `info`, `bell`, `bell-ring`, `flame`, `droplet`, `phone`, `phone-incoming`, `activity`, `zap`, `cloud-lightning`, `wind`, `waves`, `thermometer`, `siren`, `shield-alert`, `door-open`, `git-branch`, `circle-x`, `bug`, `mail`; or one or two characters (`震`). Anything else: the level's. |
+| `expiresAt` / `ttlMs` | When it stops on its own: a time, or how long from when Kiosko first sees it. |
+| `dismissible` | Default `true`. `false`: "Seen" and snooze can't hide it; it stays while you return it. |
+
+`alerts` is asked for every instance on any page of an enabled screen (not
+only the page shown), whenever its data changes and every few seconds; a
+source's while the source runs (while some widget uses it). Keep it cheap
+and decide from the data alone. Nothing runs in demo mode.
+
+An alert goes over everything: pages, interludes (a game too), animations,
+and a panel asleep. The frame flashes at most once a second (WCAG 2.3.1)
+and the text stands still; several at once show the highest and `+N`. The
+user dismisses it from the editor's band (**Seen** or **Snooze**), Home
+Assistant (**Acknowledge alerts**), or the API:
+
+| | |
+|---|---|
+| `GET /api/alerts` | The active ones, highest first (snoozed ones with `snoozedUntil`). |
+| `POST /api/alerts` | One from outside (a webhook, a script, a Home Assistant automation): the same fields, `id` optional (letters, digits, `.`, `_`, `-`), plus `screens: ["id"]` to show it only there. Posting the same id again replaces it. |
+| `DELETE /api/alerts/<id>` | Takes away one posted from outside (its cause is over). |
+| `POST /api/alerts/<id>/ack` | "Seen". 409 if it isn't `dismissible`. |
+| `POST /api/alerts/<id>/snooze` | Hidden for `{ "minutes": 10 }` (1 to 1440), then back if it's still there. |
+| `POST /api/screens/<id>/test-alert` | `{ "level": "critical" }`: how one looks on that screen, for 20 s, whatever its settings. |
+
+Mutating requests need the `X-Kiosko: 1` header, as everywhere in the API:
+
+```sh
+curl -X POST -H 'X-Kiosko: 1' -H 'content-type: application/json' \
+  -d '{"id":"door","level":"info","title":"Someone at the door","icon":"bell-ring","ttlMs":60000}' \
+  http://127.0.0.1:7420/api/alerts
+```
+
+In tests, `widgetAlerts(widget, { data, options })` from `@kiosko/sdk/testing`
+asks `alerts` the way Kiosko does.
 
 ## Testing your plugin
 

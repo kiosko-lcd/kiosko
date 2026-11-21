@@ -1,7 +1,7 @@
 /** Screens (physical panels): connection, resolution, rotation, burn-in care and interludes. */
 import { typed } from '../forms/ime.ts';
 import { useState } from 'preact/hooks';
-import { TEXT_SCALE, detectedPicture, isPortrait, newId, newScreen, panelSize, resizePages, setPanelSize, turnScreen, type DeviceConfig, type Screen } from '@kiosko/core/model';
+import { ALERT_THRESHOLDS, TEXT_SCALE, detectedPicture, screenAlerts, type ScreenAlerts, isPortrait, newId, newScreen, panelSize, resizePages, setPanelSize, turnScreen, type DeviceConfig, type Screen } from '@kiosko/core/model';
 import { api } from '../api.ts';
 import { DurationInput, SchemaForm, Toggle } from '../forms/SchemaForm.tsx';
 import { Icon } from '../icons.tsx';
@@ -302,6 +302,10 @@ function ScreenCard({ s }: { s: Screen }) {
         </div>
       </div>
       <h3>
+        <Icon name="siren" size={15} /> {tr('screens.alerts')}
+      </h3>
+      <AlertSettings s={s} set={set} />
+      <h3>
         <Icon name="clapperboard" size={15} /> {tr('screens.interludes')}
       </h3>
       <p class="muted small">{tr('screens.interludesHint')}</p>
@@ -366,6 +370,73 @@ function ScreenCard({ s }: { s: Screen }) {
   );
 }
 
+/** A screen's alerts: from which level they take it over, its quiet hours, and a test. */
+function AlertSettings({ s, set }: { s: Screen; set: (fn: (x: Screen) => void, key?: string) => void }) {
+  const a = screenAlerts(s);
+  const [level, setLevel] = useState<'info' | 'warn' | 'critical'>('critical');
+  // Only what differs from the defaults is kept (every level, no quiet hours).
+  const put = (fn: (x: ScreenAlerts) => void, key?: string) => set((x) => {
+    const next = screenAlerts(x);
+    fn(next);
+    if (next.minLevel === 'info' && !next.quiet) delete x.alerts;
+    else x.alerts = next;
+  }, key);
+  const quiet = a.quiet ?? { start: '22:00', end: '07:00' };
+  return (
+    <div class="alert-settings">
+      <p class="muted small">{tr('screens.alertsHint')}</p>
+      <div class="segmented" role="radiogroup" aria-label={tr('screens.alerts')}>
+        {ALERT_THRESHOLDS.map((l) => (
+          <button class={`lvl-${l} ${a.minLevel === l ? 'on' : ''}`} role="radio" aria-checked={a.minLevel === l} onClick={() => put((x) => (x.minLevel = l))}>
+            {tr(`level.${l}`)}
+          </button>
+        ))}
+      </div>
+      {a.minLevel === 'off' && <span class="muted small">{tr('screens.alertsOff')}</span>}
+      <div class="field field-row">
+        <Toggle checked={!!a.quiet} onChange={(v) => put((x) => (v ? (x.quiet = quiet) : delete x.quiet))} />
+        <span>{tr('screens.quiet')}</span>
+        {a.quiet && (
+          <>
+            <span class="muted small">{tr('screens.quietFrom')}</span>
+            <input class="input" type="time" value={quiet.start} aria-label={`${tr('screens.quiet')} · ${tr('screens.quietFrom')}`} onChange={(e) => {
+              const v = (e.target as HTMLInputElement).value;
+              if (/^\d\d:\d\d$/.test(v) && v !== quiet.end) put((x) => (x.quiet = { ...quiet, start: v }));
+            }} />
+            <span class="muted small">{tr('screens.quietTo')}</span>
+            <input class="input" type="time" value={quiet.end} aria-label={`${tr('screens.quiet')} · ${tr('screens.quietTo')}`} onChange={(e) => {
+              const v = (e.target as HTMLInputElement).value;
+              if (/^\d\d:\d\d$/.test(v) && v !== quiet.start) put((x) => (x.quiet = { ...quiet, end: v }));
+            }} />
+          </>
+        )}
+      </div>
+      <div class="row">
+        <select class="input inline-select" value={level} onChange={(e) => setLevel((e.target as HTMLSelectElement).value as typeof level)} aria-label={tr('screens.testAlert')}>
+          {(['info', 'warn', 'critical'] as const).map((l) => (
+            <option value={l}>{tr(`level.${l}`)}</option>
+          ))}
+        </select>
+        {KIOSKO_DEMO ? (
+          <button class="btn ghost small" disabled title={dt('alert')}>
+            <Icon name="siren" size={14} /> {tr('screens.testAlert')}
+          </button>
+        ) : <button class="btn ghost small test-alert" onClick={async () => {
+          try {
+            await api.testAlert(s.id, level);
+            notify(tr('screens.testAlertSent'), 'ok');
+          } catch (err) {
+            notify(errorText(err), 'error');
+          }
+        }}>
+          <Icon name="siren" size={14} /> {tr('screens.testAlert')}
+        </button>}
+        <span class="muted small">{tr('screens.testAlertHint')}</span>
+      </div>
+    </div>
+  );
+}
+
 /** What the panel is showing right now, refreshed with every new frame. */
 function LiveThumb({ s }: { s: Screen }) {
   const f = lastFrame.value[s.id];
@@ -374,6 +445,7 @@ function LiveThumb({ s }: { s: Screen }) {
     // A portrait panel stays at most 420 px tall, so the settings under it stay in view.
     <div class="live-thumb" style={{ aspectRatio: `${s.width} / ${s.height}`, maxWidth: s.width >= s.height ? '100%' : `${Math.round(Math.min(320, (420 * s.width) / s.height))}px` }}>
       {KIOSKO_DEMO ? <DemoFrame screen={s} pageId={f?.pageId} at={at} /> : at ? <img src={api.liveFrameUrl(s.id, at)} alt="" /> : <div class="panel-loading" />}
+      {f?.alert && <span class="live-badge alert"><Icon name="siren" size={13} /> {tr('stage.alert')}</span>}
       {f?.interlude && <span class="live-badge"><Icon name="clapperboard" size={13} /> {tr('stage.interlude')}</span>}
       {f?.sleeping && <span class="live-badge"><Icon name="moon" size={13} /> {tr('stage.sleeping')}</span>}
     </div>

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { definePlugin, defineWidget } from './plugin.ts';
 import { t } from './schema.ts';
-import { checkPlugin, renderWidget, widgetState } from './testing.ts';
+import { checkPlugin, renderWidget, widgetAlerts, widgetState } from './testing.ts';
 
 const good = defineWidget({
   id: 'good',
@@ -50,6 +50,13 @@ test('widgetState asks urgent, idle, empty and visible with the same inputs', ()
   assert.equal(widgetState(good, 'urgent'), false);
   assert.equal(widgetState(good, 'urgent', { data: 'now' }), true);
   assert.equal(widgetState(good, 'idle'), undefined);
+});
+
+test('widgetAlerts asks alerts with the same inputs; none without the hook', () => {
+  const smoke = defineWidget<any, { smoke: boolean }>({ id: 'smoke', name: 'Smoke', render: () => undefined, alerts: ({ data }) => (data?.smoke ? [{ id: 'k', level: 'critical', title: 'Smoke' }] : []) });
+  assert.deepEqual(widgetAlerts(smoke, { data: { smoke: true } }), [{ id: 'k', level: 'critical', title: 'Smoke' }]);
+  assert.deepEqual(widgetAlerts(smoke, { data: { smoke: false } }), []);
+  assert.deepEqual(widgetAlerts(good), []);
 });
 
 test('checkPlugin: a clean plugin passes; it names what throws, spills over or shows nothing', () => {

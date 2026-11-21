@@ -21,7 +21,7 @@ const branch = (union: S, tag: string) => union.oneOf.find((b: S) => (b.properti
 // without listing it here fails `npm run check`; the test below then fails
 // until the schema describes it too.
 const CONFIG_KEYS = { $schema: 1, version: 1, locale: 1, timeFormat: 1, theme: 1, location: 1, workday: 1, sources: 1, plugins: 1, screens: 1, server: 1, homeassistant: 1 } satisfies Record<keyof Config, 1>;
-const SCREEN_KEYS = { id: 1, name: 1, enabled: 1, width: 1, height: 1, rotate: 1, device: 1, pages: 1, pinnedPage: 1, interludes: 1, pixelShift: 1, sleepWhenIdle: 1, jpegQuality: 1, maxBytes: 1, maxFps: 1, readingDistance: 1, textScale: 1, diagonalIn: 1 } satisfies Record<keyof Screen, 1>;
+const SCREEN_KEYS = { id: 1, name: 1, enabled: 1, width: 1, height: 1, rotate: 1, device: 1, pages: 1, pinnedPage: 1, interludes: 1, pixelShift: 1, sleepWhenIdle: 1, jpegQuality: 1, maxBytes: 1, maxFps: 1, readingDistance: 1, textScale: 1, diagonalIn: 1, alerts: 1 } satisfies Record<keyof Screen, 1>;
 const PAGE_KEYS = { id: 1, name: 1, enabled: 1, durationMs: 1, when: 1, grid: 1, gravity: 1, background: 1, tiles: 1 } satisfies Record<keyof Page, 1>;
 const TILE_KEYS = { id: 1, x: 1, y: 1, w: 1, h: 1, locked: 1, widgets: 1, rotateMs: 1, chrome: 1 } satisfies Record<keyof Tile, 1>;
 const WIDGET_KEYS = { id: 1, type: 1, title: 1, options: 1, intervalMs: 1, when: 1, disabled: 1, zoom: 1, takeOver: 1, hideWhenEmpty: 1 } satisfies Record<keyof WidgetInstance, 1>;
@@ -73,6 +73,7 @@ const FULL: Config = {
       jpegQuality: 80,
       maxBytes: 300_000,
       maxFps: 10,
+      alerts: { minLevel: 'warn', quiet: { start: '22:30', end: '07:00' } },
     },
   ],
 };
@@ -118,6 +119,22 @@ test('config schema stays in sync with the types and with normalize', () => {
   const sparse = { screens: [{ pages: [{ tiles: [{ widgets: [{ type: 'demo/clock' }] }] }], interludes: [{ type: 'demo/blink' }] }] };
   assert.deepEqual(validateJson(schema, sparse), []);
   assert.deepEqual(validateJson(schema, normalize(sparse)), []);
+});
+
+test('normalize: a screen\'s alert settings, left out when they are the defaults', () => {
+  const alertsOf = (alerts: unknown) => normalize({ screens: [{ alerts }] }).screens[0]!.alerts;
+  assert.equal(alertsOf(undefined), undefined);
+  assert.equal(alertsOf({ minLevel: 'info' }), undefined);
+  assert.equal(alertsOf('loud'), undefined);
+  assert.deepEqual(alertsOf({ minLevel: 'critical' }), { minLevel: 'critical' });
+  assert.deepEqual(alertsOf({ minLevel: 'off', extra: 1 }), { minLevel: 'off' });
+  // An unknown level is the default; quiet hours need both ends, valid and different.
+  assert.deepEqual(alertsOf({ minLevel: 'loud', quiet: { start: '23:00', end: '06:30' } }), { minLevel: 'info', quiet: { start: '23:00', end: '06:30' } });
+  assert.equal(alertsOf({ quiet: { start: '23:00' } }), undefined);
+  assert.equal(alertsOf({ quiet: { start: '25:00', end: '06:00' } }), undefined);
+  assert.equal(alertsOf({ quiet: { start: '08:00', end: '08:00' } }), undefined);
+  assert.deepEqual(validateJson(schema, normalize({ screens: [{ alerts: { minLevel: 'warn', quiet: { start: '22:00', end: '07:00' } } }] })), []);
+  assert.notDeepEqual(validateJson(schema, { screens: [{ alerts: { minLevel: 'loud' } }] }), []);
 });
 
 test('normalize keeps $schema and saveConfig writes it first', () => {
