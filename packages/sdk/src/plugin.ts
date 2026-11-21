@@ -67,7 +67,7 @@ export const CATEGORIES: { id: Category; label: Localized }[] = [
   { id: 'time', label: { en: 'Time & calendar', es: 'Tiempo y agenda', de: 'Zeit & Kalender', 'zh-Hant': '時間與行事曆', 'zh-Hans': '时间与日历' } },
   { id: 'productivity', label: { en: 'Productivity', es: 'Productividad', de: 'Produktivität', 'zh-Hant': '生產力', 'zh-Hans': '效率' } },
   { id: 'dev', label: { en: 'Development', es: 'Desarrollo', de: 'Entwicklung', 'zh-Hant': '開發', 'zh-Hans': '开发' } },
-  { id: 'info', label: { en: 'News & world', es: 'Noticias y mundo', de: 'Nachrichten & Welt', 'zh-Hant': '新聞與世界', 'zh-Hans': '新闻与世界' } },
+  { id: 'info', label: { en: 'News & world', es: 'Noticias y mundo', de: 'Nachrichten & Welt', 'zh-Hant': '資訊與生活', 'zh-Hans': '资讯与生活' } },
   { id: 'media', label: { en: 'Media', es: 'Multimedia', de: 'Medien', 'zh-Hant': '多媒體', 'zh-Hans': '多媒体' } },
   { id: 'scene', label: { en: 'Scenes', es: 'Escenas', de: 'Szenen', 'zh-Hant': '場景', 'zh-Hans': '场景' } },
   { id: 'fun', label: { en: 'Fun', es: 'Diversión', de: 'Spaß', 'zh-Hant': '趣味', 'zh-Hans': '趣味' } },
