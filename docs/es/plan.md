@@ -389,7 +389,14 @@ Lo que cambia en el camino:
    tiene `animation` (ver `docs/plugins.md`, «Animations»). Falta medirlas en un
    panel real (fps sostenibles con `trcc serve`), un interruptor por pantalla
    y portar los gestos del plugin de los gatos.
-3. Vídeos propios como interludio (`easterEgg.source` con ffmpeg).
+3. Vídeos propios como interludio (`easterEgg.source` con ffmpeg). *Hecho*
+   en `kiosko-plugin-video`, plugin opcional: un vídeo o una carpeta (cada
+   franja, uno distinto), decodificado con ffmpeg al tamaño del panel
+   (recortado o con bandas), al ritmo del reloj; 15 fps estables en
+   1920×462. Usa el ffmpeg del usuario o el del PATH, y si no hay (lo normal
+   en Windows y Mac) descarga una vez uno de ffmpeg-static con su SHA-256
+   fijado. Falta su repositorio, publicarlo y probar esas descargas en
+   Windows y Mac.
 4. Emisor USB propio por número de serie y PR aguas arriba a
    `thermalright-trcc-linux` para `--serial`.
 5. Envoltorio de escritorio (Tauri) con icono en la bandeja.
@@ -921,9 +928,19 @@ Lo que cambia en el camino:
       lluvias fuertes (颱風警報, 豪雨特報), que van con horas, son donde más
       luce. Ni en la web ni en el plugin se promete «alerta temprana», y la
       tesela dice que no es un sistema de avisos oficial.
-28. **Doom en el panel** («¿pero corre Doom?»). El guiño clásico de
-    cualquier pantalla, y un vídeo que se comparte solo. Dos caminos, no
-    excluyentes:
+28. **Doom en el panel** («¿pero corre Doom?»). *Hecho* el juego de verdad
+    en modo demo: [`kiosko-plugin-doom`](https://github.com/kiosko-lcd/kiosko-plugin-doom),
+    plugin **opcional** (no viene con Kiosko; la página de Plugins lo ofrece),
+    GPL, con doomgeneric en WebAssembly en un proceso hijo, Freedoom
+    descargado una vez (o el IWAD del usuario), a 15 fps con ~5 % de un
+    núcleo; en un panel ancho, los datos de la partida a los lados (0.2.0).
+    La portada lo enseña con un vídeo grabado del plugin («Y sí, ejecuta
+    Doom.»). También reparte una partida entre dos o tres paneles apilados
+    (1920×1386 ≈ 4:3), con un solo motor y un reloj para todas las
+    pantallas. Y se juega de verdad desde la página **Jugar** del editor
+    (Kiosko 0.2.7): interludios con `input`, que reciben los botones del
+    teclado, un mando o el móvil y duran mientras se juega.
+    El plan original:
     - *Vídeo*: un interludio o widget que reproduce un vídeo del propio
       usuario (una partida grabada), sobre el punto 3 (vídeos propios con
       ffmpeg). Lo más barato; el vídeo lo pone el usuario.
