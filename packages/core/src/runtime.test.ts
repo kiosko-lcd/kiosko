@@ -370,3 +370,33 @@ test('runtime: an interlude played from the Play page gets the buttons, outlasts
     rt.stop();
   }
 });
+
+test('runtime: maxSeconds is a time, even on a screen slower than the interlude', async () => {
+  const reg = new Registry();
+  let drawn = 0;
+  const busy = (ms: number) => {
+    const end = Date.now() + ms;
+    while (Date.now() < end) {
+      /* a frame slow to make */
+    }
+  };
+  reg.add(definePlugin({
+    id: 's', name: 'S', version: '1',
+    // 30 fps asked, but each frame takes 100 ms to make: 10 fps at most.
+    interludes: [{ id: 'slow', name: 'Slow', fps: 30, prepare: async () => ({ frames: 10_000, draw: () => { drawn++; busy(100); } }) }],
+  }));
+  const rt = new Runtime(reg, norm({ screens: [{ id: 'a', name: 'a', width: 32, height: 16, maxFps: 30, device: { driver: 'virtual' }, interludes: [{ id: 'x', type: 's/slow', enabled: false, everyMs: 3_600_000, maxSeconds: 1 }], pages: [] }] }));
+  rt.start();
+  try {
+    await sleep(100);
+    const t0 = Date.now();
+    rt.playInterlude('a', 'x');
+    await until(() => rt.status().screens[0]!.interlude !== null);
+    await until(() => rt.status().screens[0]!.interlude === null, 5000);
+    const took = Date.now() - t0;
+    // 30 frames would have taken 3 s here.
+    assert.ok(took < 1800, `played ${took} ms for maxSeconds 1 (${drawn} frames)`);
+  } finally {
+    rt.stop();
+  }
+});

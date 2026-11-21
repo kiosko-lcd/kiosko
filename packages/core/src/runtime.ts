@@ -318,7 +318,10 @@ class ScreenRunner {
     const canvas = CANVAS.createCanvas(this.screen.width, this.screen.height);
     const g = canvas.getContext('2d');
     let start = Date.now();
+    // maxSeconds is a time: a screen slower than the interlude's fps plays fewer frames, not longer.
+    const until = playing ? Infinity : Date.now() + due.maxSeconds * 1000;
     for (let i = 0; i < frames && this.interlude; i++) {
+      if (Date.now() >= until) break;
       if (playing && Date.now() - lastPress > this.rt.playIdleMs) {
         this.rt.log(`screen:${this.screen.name}`, `${due.type}: nobody playing, back to the pages`);
         break;
