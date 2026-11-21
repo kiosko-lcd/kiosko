@@ -422,36 +422,29 @@ Lo que cambia en el camino:
    - Por decidir: los plugins oficiales van como dependencias opcionales del
      producto y se actualizan con él; ¿se ofrecen también sueltos? Y el
      mismo aviso para el propio Kiosko.
-8. **Tienda de plugins** (sustituye a la galería de plugins del punto 6). Hay
-   que trabajarla antes de escribir código; lo que se ha pensado:
-   - *Catálogo*: un índice propio (en kioskolcd.dev o un repo
-     `kiosko-lcd/plugin-index`) alimentado desde npm (palabra clave
-     `kiosko-plugin`) con lo que la propia definición del plugin dice:
-     widgets, fuentes, requisitos y opciones con riesgo, lo mismo que ya
-     extrae `plugins:scaffold`. Las capturas las genera el compositor con
-     los datos de demo, en varios temas y tamaños, no se suben a mano: así
-     son fieles a lo que se verá en el panel.
-   - *Ficha*: capturas, descripción, requisitos, **permisos** (qué puede
-     hacer: ejecutar programas, conectarse a hosts, leer ficheros; sale de
-     `risk`), versiones y novedades, compatibilidad con la versión de Kiosko
-     y el sistema operativo, y notas del autor (puntualizaciones, límites
-     conocidos).
-   - *Valoraciones y comentarios*: exigen cuentas (¿con GitHub?), moderación,
-     anti-spam y denuncias. Alternativa ligera para empezar: las Discussions
-     del repo de cada plugin, enlazadas desde la ficha.
-   - *Insignias*: «Oficial» (de kiosko-lcd); «Verificado» (autor
-     identificado y código revisado en una versión concreta, ligado al hash
-     `integrity` de npm, que se pierde al publicar una versión sin revisar);
-     «Probado en» tal panel; «Popular». Falta definir el proceso de revisión
-     y quién lo hace.
-   - *Instalar*: un clic desde la ficha, en el editor (el mismo camino que
-     npm) y con enlace profundo desde la web.
-   - *Riesgos*: un plugin ejecuta código con los permisos del usuario, así
-     que la tienda es cadena de suministro: provenance de npm, revisión, y
-     una lista de versiones retiradas que el editor consulte para avisar o
-     desactivar.
-   - Abierto: plugins de pago, alojamiento y coste, términos de uso y RGPD
-     de los comentarios.
+8. **Tienda de plugins** (sustituye a la galería de plugins del punto 6).
+   *Diseñada, sin código*: el plan completo, con modelo de datos, esquema del
+   índice, maquetas, fases y fuentes, está en [tienda.md](tienda.md). En
+   corto:
+   - *Catálogo*: un índice estático (`kioskolcd.dev/store/v1/index.json`)
+     que construye la Action de Pages desde npm (palabra clave
+     `kiosko-plugin`), el `kiosko-manifest.json` de cada tarball (sin
+     ejecutar código), las descargas de npm y GitHub; lo curado (listados,
+     verificados, versiones revisadas por `integrity`, retiradas) en un repo
+     de datos `kiosko-lcd/plugin-index`.
+   - *Dos caras, un catálogo*: la tienda web (`/store/`, por idioma) y la
+     vista Plugins del editor (con copia sin red, compatibilidad con *tus*
+     pantallas, SO y API, y permisos revisados antes de instalar y antes de
+     actualizar).
+   - *Confianza*: Oficial, Verificado (ligado al `integrity` de una versión
+     revisada), Listado (PR con comprobaciones automáticas) y Sin revisar.
+   - *Popularidad sin telemetría*: mediana de descargas de npm, en escalones
+     y etiquetas (Popular, En alza, Nuevo). Valoraciones en GitHub
+     Discussions al principio.
+   - *Pago, más adelante*: merchant of record y licencias firmadas que se
+     comprueban sin red; nada de DRM que llame a casa.
+   - Fase 1 (MVP, ~8–9 días): índice + tienda web + catálogo en el editor con
+     instalación de un clic. Preguntas abiertas al final de tienda.md.
 9. **Venta afiliada de hardware.** Recomendar paneles compatibles desde el
    portal de configuración y recibir parte del ingreso de las ventas que
    salgan de ahí. Hay que trabajarlo; lo pensado:
