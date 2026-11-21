@@ -68,7 +68,7 @@ kiosko start --open
 - 把一个小组件拖到另一个上面，它们就会叠在一起轮流显示；
 - 编辑器里看到的画面，和副屏上显示的是同一套代码画出来的。
 
-接上副屏后，进入 **屏幕 → 添加屏幕**，选择 **屏幕型号** 和连接方式：
+接上副屏后，进入 **屏幕 → 添加屏幕**，选择 **副屏型号** 和连接方式：
 
 | 连接方式 | 适用情况 |
 |---|---|
@@ -77,7 +77,7 @@ kiosko start --open
 | **trcc serve** | Linux，配合运行 `trcc serve` 的 [thermalright-trcc-linux](https://github.com/Lexonight1/thermalright-trcc-linux)。 |
 | **Frame file**（帧文件） | Kiosko 写出 `frame.jpg`，再由外部的发送程序推送到副屏上。 |
 
-**检测屏幕** 按钮会列出 Kiosko 找到的 USB 副屏。
+**检测副屏** 按钮会列出 Kiosko 找到的 USB 副屏。
 
 想让 Kiosko 在登录时自动启动（如果安装程序还没帮你设置）：
 

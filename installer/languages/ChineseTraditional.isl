@@ -49,9 +49,9 @@ LastErrorMessage=%1%n%n錯誤 %2: %3
 SetupFileMissing=安裝資料夾中遺失檔案 %1。請修正此問題或重新取得此軟體。
 SetupFileCorrupt=安裝檔案已經損毀。請重新取得此軟體。
 SetupFileCorruptOrWrongVer=安裝檔案已經損毀，或與安裝程式的版本不符。請重新取得此軟體。
-InvalidParameter=某個無效的變量已被傳遞到了命令列:%n%n%1
+InvalidParameter=某個無效的參數已被傳遞到命令列:%n%n%1
 SetupAlreadyRunning=安裝程式已經在執行。
-WindowsVersionNotSupported=本安裝程式並不支援目前在電腦所運行的 Windows 版本。
+WindowsVersionNotSupported=本安裝程式並不支援目前在電腦所執行的 Windows 版本。
 WindowsServicePackRequired=本安裝程式需要 %1 Service Pack %2 或更新。
 NotOnThisPlatform=這個程式無法在 %1 執行。
 OnlyOnThisPlatform=這個程式必須在 %1 執行。
@@ -79,7 +79,7 @@ ErrorTooManyFilesInDir=無法在資料夾“%1”內建立檔案，因為資料�
 
 ; *** Setup common messages
 ExitSetupTitle=結束安裝程式
-ExitSetupMessage=安裝尚未完成。如果您現在結束安裝程式，這個程式將不會被安裝。%n%n您可以稍後再執行安裝程式以完成安裝程序。您現在要結束安裝程式嗎?
+ExitSetupMessage=安裝尚未完成。如果您現在結束安裝程式，這個程式將不會被安裝。%n%n您可以稍後再執行安裝程式以完成安裝程序。您現在要結束安裝程式嗎？
 AboutSetupMenuItem=關於安裝程式 (&A)...
 AboutSetupTitle=關於安裝程式
 AboutSetupMessage=%1 版本 %2%n%3%n%n%1 網址:%n%4
@@ -153,7 +153,7 @@ SelectDirLabel3=安裝程式將會把 [name] 安裝到下面的資料夾。
 SelectDirBrowseLabel=按 「下一步」 繼續，如果您想選擇另一個資料夾，請按 「瀏覽」。
 DiskSpaceGBLabel=最少需要 [gb] GB 磁碟空間。
 DiskSpaceMBLabel=最少需要 [mb] MB 磁碟空間。
-CannotInstallToNetworkDrive=安裝程式無法安裝於網絡磁碟機。
+CannotInstallToNetworkDrive=安裝程式無法安裝於網路磁碟機。
 CannotInstallToUNCPath=安裝程式無法安裝於 UNC 路徑。
 InvalidPath=您必須輸入完整的路徑名稱及磁碟機代碼。%n%n例如 C:\App 或 UNC 路徑格式 \\伺服器\共用資料夾。
 InvalidDrive=您選取的磁碟機或 UNC 名稱不存在或無法存取，請選擇其他的目的地。
@@ -355,7 +355,7 @@ UninstallDataCorrupted=檔案“%1”已經損毀，無法解除安裝
 
 ; *** Uninstallation phase messages
 ConfirmDeleteSharedFileTitle=移除共用檔案
-ConfirmDeleteSharedFile2=系統顯示下列共用檔案已不再被任何程式所使用，您要移除這些檔案嗎?%n%n%1%n%n倘若您移除了以上檔案但仍有程式需要使用它們，將造成這些程式無法正常執行，因此您若無法確定請選擇 [否]。保留這些檔案在您的系統中不會造成任何損害。
+ConfirmDeleteSharedFile2=系統顯示下列共用檔案已不再被任何程式所使用，您要移除這些檔案嗎？%n%n%1%n%n倘若您移除了以上檔案但仍有程式需要使用它們，將造成這些程式無法正常執行，因此您若無法確定請選擇 [否]。保留這些檔案在您的系統中不會造成任何損害。
 SharedFileNameLabel=檔案名稱:
 SharedFileLocationLabel=位置:
 WizardUninstalling=解除安裝狀態

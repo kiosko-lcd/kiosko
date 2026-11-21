@@ -99,17 +99,17 @@ german.TaskPath=Den Befehl „kiosko“ zum PATH hinzufügen
 german.IconComment=Startet Kiosko und öffnet den Editor
 german.StatusStarting=Kiosko wird gestartet...
 german.RunEditor=Den Kiosko-Editor öffnen
-chinesetraditional.TaskGroup=Kiosko:
+chinesetraditional.TaskGroup=Kiosko：
 chinesetraditional.TaskService=登入 Windows 時在背景自動啟動 Kiosko
 chinesetraditional.TaskPath=將「kiosko」指令加入 PATH 環境變數
 chinesetraditional.IconComment=啟動 Kiosko 並開啟編輯器
-chinesetraditional.StatusStarting=正在啟動 Kiosko...
+chinesetraditional.StatusStarting=正在啟動 Kiosko…
 chinesetraditional.RunEditor=開啟 Kiosko 編輯器
-chinesesimplified.TaskGroup=Kiosko:
+chinesesimplified.TaskGroup=Kiosko：
 chinesesimplified.TaskService=登录 Windows 时在后台自动启动 Kiosko
 chinesesimplified.TaskPath=将“kiosko”命令添加到 PATH 环境变量
 chinesesimplified.IconComment=启动 Kiosko 并打开编辑器
-chinesesimplified.StatusStarting=正在启动 Kiosko...
+chinesesimplified.StatusStarting=正在启动 Kiosko…
 chinesesimplified.RunEditor=打开 Kiosko 编辑器
 
 [Tasks]
