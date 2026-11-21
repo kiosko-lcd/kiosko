@@ -174,5 +174,19 @@
   "store-write-yours": "自己写一个：以关键字 <code>kiosko-plugin</code> 发布到 npm，一天内就会出现在这里。",
   "store-updated": "{date} 的目录",
   "store-pictures": "图片",
-  "store-filters": "筛选"
+  "store-filters": "筛选",
+  "store-hero-title": "面板能显示的一切，",
+  "store-hero-em": "只差一个插件。",
+  "store-hero-alt": "一块 Kiosko 长条面板，显示这些插件的小组件",
+  "store-stat-plugins": "个插件",
+  "store-stat-widgets": "个小组件",
+  "store-stat-languages": "种语言",
+  "store-stat-free": "全部都是",
+  "store-browse": "浏览插件",
+  "store-write-cta": "自己写一个",
+  "store-featured": "精选",
+  "store-all-plugins": "所有插件",
+  "store-copy": "复制",
+  "store-copied": "已复制",
+  "store-more-in": "更多{category}"
 }

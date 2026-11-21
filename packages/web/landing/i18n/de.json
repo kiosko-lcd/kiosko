@@ -174,5 +174,19 @@
   "store-write-yours": "Schreib dein eigenes: Veröffentliche es auf npm mit dem Schlagwort <code>kiosko-plugin</code>, und es erscheint hier innerhalb eines Tages.",
   "store-updated": "Katalog vom {date}",
   "store-pictures": "Bilder",
-  "store-filters": "Filter"
+  "store-filters": "Filter",
+  "store-hero-title": "Alles, was dein Panel zeigen kann –",
+  "store-hero-em": "nur ein Plugin entfernt.",
+  "store-hero-alt": "Ein Kiosko-Balkenpanel mit Widgets aus diesen Plugins",
+  "store-stat-plugins": "Plugins",
+  "store-stat-widgets": "Widgets",
+  "store-stat-languages": "Sprachen",
+  "store-stat-free": "jedes einzelne",
+  "store-browse": "Plugins ansehen",
+  "store-write-cta": "Schreib dein eigenes",
+  "store-featured": "Empfohlen",
+  "store-all-plugins": "Alle Plugins",
+  "store-copy": "Kopieren",
+  "store-copied": "Kopiert",
+  "store-more-in": "Mehr aus {category}"
 }

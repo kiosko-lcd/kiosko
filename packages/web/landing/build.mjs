@@ -136,7 +136,7 @@ export async function buildSite({ out, editorOptions }) {
     writeFileSync(join(out, l.path, 'index.html'), renderPage(template, texts, l.id, fill));
   }
   // The store, in every language.
-  const storePages = buildStorePages({ out, index: store, details, texts, css: `demo/assets/store.css?v=${hash('store.css')}`, js: `demo/assets/store.js?v=${hash('store.js')}`, presets: store.presets ?? [] });
+  const storePages = buildStorePages({ out, index: store, details, texts, css: `demo/assets/store.css?v=${hash('store.css')}`, js: `demo/assets/store.js?v=${hash('store.js')}`, presets: store.presets ?? [], pages: gallery.pages ?? [] });
   writeFileSync(join(out, 'sitemap.xml'), sitemap(storePages));
   writeFileSync(join(out, 'robots.txt'), 'User-agent: *\nAllow: /\nSitemap: https://kioskolcd.dev/sitemap.xml\n');
   // Where to report a vulnerability (RFC 9116); it must say when it expires, so a year from each build.

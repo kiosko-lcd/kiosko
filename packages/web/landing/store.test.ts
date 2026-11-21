@@ -8,7 +8,7 @@ import { buildIndex, entryFrom, PANEL_PRESETS } from '@kiosko/core';
 // @ts-expect-error plain JavaScript, run by the site build
 import { LANGS, loadTexts, sitemap } from './pages.mjs';
 // @ts-expect-error plain JavaScript, run by the site build
-import { OPEN_IN_KIOSKO, buildStorePages, offeredIn } from './store.mjs';
+import { FEATURED, OPEN_IN_KIOSKO, buildStorePages, offeredIn } from './store.mjs';
 import { manifest, packument } from '../../core/src/store/fixtures/npm.ts';
 
 const here = fileURLToPath(new URL('.', import.meta.url));
@@ -28,7 +28,8 @@ test('store pages: the list and each plugin, in every language, with the links b
   const out = mkdtempSync(join(tmpdir(), 'kiosko-store-site-'));
   try {
     const { index, details } = storeIndex();
-    const pages = buildStorePages({ out, index, details, texts, css: 'demo/assets/store.css?v=1', js: 'demo/assets/store.js?v=1', presets: PANEL_PRESETS });
+    const samples = ['dashboard', 'cats', 'news'].map((n) => ({ name: n, width: 1920, height: 462, file: Object.fromEntries(langs.map((l) => [l.id, `img/page-${n}.${l.id}.jpg`])) }));
+    const pages = buildStorePages({ out, index, details, texts, css: 'demo/assets/store.css?v=1', js: 'demo/assets/store.js?v=1', presets: PANEL_PRESETS, pages: samples });
     for (const l of langs) {
       const list = readFileSync(join(out, l.path, 'store/index.html'), 'utf8');
       assert.match(list, new RegExp(`<html lang="${l.id}"`));
@@ -42,8 +43,19 @@ test('store pages: the list and each plugin, in every language, with the links b
       // Unreviewed ones are listed, and marked.
       assert.match(list, /class="card found"[^>]*data-tier="found"/);
       assert.ok(list.includes(texts[l.id]['store-unreviewed'] ?? texts.en['store-unreviewed']));
-      assert.doesNotMatch(list.replace(/<script type="application\/json"[\s\S]*?<\/script>/, ''), /\{\{|\{n\}|undefined/);
+      assert.doesNotMatch(list.replace(/<script type="application\/json"[\s\S]*?<\/script>/, ''), /\{\{|\{n\}|\{category\}|undefined/);
+      // The panel at the top shows the gallery's sample pages in this language; the first one says what it is.
+      assert.ok(list.includes(`src="${root}gallery/img/page-dashboard.${l.id}.jpg"`), `${l.id}: the sample page`);
+      assert.match(list, /class="hero-panel turns"/);
+      // The categories as chips (one of them chosen), the sort joined to the form from outside it.
+      assert.match(list, /<input type="radio" name="cat" value="" checked \/>/);
+      assert.match(list, /<select name="sort" form="store-filters">/);
+      // Icons drawn into the page, not fetched.
+      assert.match(list, /<span class="app-icon"><svg class="ic"/);
     }
+    // Picked ones first, from those offered (an editorial order, nothing made up).
+    const en = readFileSync(join(out, 'store/index.html'), 'utf8');
+    assert.deepEqual([...en.matchAll(/<a class="feature" href="([^/]+)\//g)].map((m) => m[1]), FEATURED.filter((id: string) => ['weather', 'agents', 'acuario'].includes(id)).slice(0, 3));
     // Simplified Chinese: no AI agents there (languages.ts), as on the front page.
     const hans = readFileSync(join(out, 'zh-Hans/store/index.html'), 'utf8');
     assert.ok(!hans.includes('data-id="agents"'));
@@ -57,6 +69,8 @@ test('store pages: the list and each plugin, in every language, with the links b
     assert.ok(page.includes('kiosko plugins install kiosko-plugin-weather@0.2.0'));
     assert.ok(page.includes('api.example.com') && page.includes(texts.es['store-perm-user']));
     assert.ok(page.includes('src="../../../gallery/img/es/weather-clock.png"'));
+    // The command, and a button that copies it (a script's: the page works without).
+    assert.ok(page.includes('<button type="button" class="copy" data-copy="kiosko plugins install kiosko-plugin-weather@0.2.0">'));
     const agents = readFileSync(join(out, 'es/store/agents/index.html'), 'utf8');
     assert.ok(!agents.includes('hreflang="zh-Hans"'), 'not offered in zh-Hans: no alternate there');
     const fish = readFileSync(join(out, 'store/acuario/index.html'), 'utf8');

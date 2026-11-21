@@ -689,7 +689,12 @@ async function storePages(browser, name) {
     const index = await (await fetch('../../store/v1/index.json')).json();
     const cards = [...document.querySelectorAll('article.card')];
     const pictures = [...document.querySelectorAll('article.card img')];
-    await Promise.all(pictures.map((i) => i.decode?.().catch(() => undefined)));
+    // They load lazily: brought into view one by one, as a visitor scrolling would (a lazy picture far away never decodes).
+    for (const i of pictures) {
+      i.scrollIntoView({ block: 'center' });
+      await i.decode?.().catch(() => undefined);
+    }
+    scrollTo(0, 0);
     return { cards: cards.length, offered: index.plugins.filter((p) => !p.hidden).length, broken: pictures.filter((i) => !i.naturalWidth).map((i) => i.getAttribute('src')), count: document.querySelector('.count')?.textContent };
   });
   check(`${name} store: a card for every plugin, with its picture`, list.cards > 0 && list.cards === list.offered && list.broken.length === 0, `${list.cards} cards of ${list.offered}${list.broken.length ? `, broken: ${list.broken.slice(0, 3).join(', ')}` : ''}`);
@@ -708,8 +713,11 @@ async function storePages(browser, name) {
     const links = [...new Set([...document.querySelectorAll('a[href]')].map((a) => a.href).filter((h) => h.startsWith(location.origin)))];
     const missing = [];
     for (const url of links) if (!(await ok(url))) missing.push(url);
-    const imgs = [...document.querySelectorAll('img')];
-    await Promise.all(imgs.map((i) => i.decode?.().catch(() => undefined)));
+    const imgs = [...document.querySelectorAll('img')].filter((i) => i.getClientRects().length);
+    for (const i of imgs) {
+      i.scrollIntoView({ block: 'center' });
+      await i.decode?.().catch(() => undefined);
+    }
     return { open: document.querySelector('.install a.button')?.getAttribute('href'), missing, broken: imgs.filter((i) => !i.naturalWidth).length, h1: document.querySelector('h1')?.textContent };
   });
   check(`${name} store: a plugin's page, "Open in Kiosko" and its links`, sheet.open === 'http://127.0.0.1:7420/#/plugins/store/weather' && sheet.missing.length === 0 && sheet.broken === 0, JSON.stringify(sheet));

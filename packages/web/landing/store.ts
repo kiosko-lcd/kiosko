@@ -1,8 +1,9 @@
 /**
  * The store pages' script (store.mjs writes the pages): filters and sorts the
  * cards already in the list page, keeps the choice in the address (a link
- * to "square panels, Spanish" works), and on a plugin's page switches its
- * pictures to another language. Nothing is sent anywhere.
+ * to "square panels, Spanish" works), and on a plugin's page brings a
+ * picture onto the big panel, switches the pictures to another language and
+ * copies the install command. Nothing is sent anywhere.
  */
 const texts = JSON.parse(document.getElementById('store-texts')?.textContent ?? '{}') as Record<string, string>;
 const lang = texts.lang ?? document.documentElement.lang;
@@ -12,24 +13,30 @@ function shown(n: number): string {
   return (texts[`store-shown-${form}`] ?? texts['store-shown-other'] ?? '{n}').replace('{n}', new Intl.NumberFormat(lang).format(n));
 }
 
+type Field = HTMLInputElement | HTMLSelectElement | RadioNodeList;
+
 const form = document.querySelector<HTMLFormElement>('form.filters');
-const box = document.querySelector<HTMLElement>('.cards');
+const box = document.querySelector<HTMLElement>('.browse .cards');
 
 if (form && box) {
   const cards = [...box.querySelectorAll<HTMLElement>('article.card')];
   const featured = new Map(cards.map((c, i) => [c, i]));
-  const field = <T extends HTMLInputElement | HTMLSelectElement>(name: string) => form.elements.namedItem(name) as T | null;
+  // The sort is outside the form (over the results), joined to it by its `form` attribute: still one of its elements.
+  const field = <T extends Field>(name: string) => form.elements.namedItem(name) as T | null;
   const names = ['q', 'cat', 'panel', 'orient', 'os', 'lang', 'license', 'tier', 'tag', 'sort'];
   const empty = document.querySelector<HTMLElement>('.empty');
-  const clear = form.querySelector<HTMLButtonElement>('button.clear');
-  const count = form.querySelector<HTMLElement>('.count');
+  const clear = document.querySelector<HTMLButtonElement>('.results-bar button.clear');
+  const count = document.querySelector<HTMLElement>('.results-bar .count');
 
   // What the address asks for.
   const params = new URLSearchParams(location.search);
   for (const n of names) {
     const el = field(n);
     const v = params.get(n);
-    if (el && v !== null && (!(el instanceof HTMLSelectElement) || [...el.options].some((o) => o.value === v))) el.value = v;
+    if (!el || v === null) continue;
+    if (el instanceof HTMLSelectElement) {
+      if ([...el.options].some((o) => o.value === v)) el.value = v;
+    } else el.value = v;
   }
   const region = field<HTMLInputElement>('region');
   if (region && params.get('region') === '0') region.checked = false;
@@ -75,15 +82,23 @@ if (form && box) {
     history.replaceState(null, '', `${location.pathname}${qs ? `?${qs}` : ''}${location.hash}`);
   }
 
-  // On a phone the filters start folded: the search and the plugins come first.
+  // On a phone the filters start folded: the search, the categories and the plugins come first.
   const more = form.querySelector<HTMLDetailsElement>('details.more');
-  if (more && matchMedia('(max-width: 560px)').matches && ![...params.keys()].some((k) => k !== 'q' && k !== 'sort')) more.open = false;
-  form.addEventListener('input', apply);
-  form.addEventListener('change', apply);
+  if (more && matchMedia('(max-width: 560px)').matches && ![...params.keys()].some((k) => !['q', 'sort', 'cat'].includes(k))) more.open = false;
+  // The chosen category in sight (the chips scroll sideways on a phone).
+  form.querySelector<HTMLInputElement>('fieldset.chips input:checked:not([value=""])')?.closest('label')?.scrollIntoView({ block: 'nearest', inline: 'center' });
+  // Inputs outside the form (the sort) say so through `form`; one listener for both.
+  const changed = (e: Event) => {
+    if ((e.target as HTMLInputElement).form === form) apply();
+  };
+  document.addEventListener('input', changed);
+  document.addEventListener('change', changed);
   const reset = () => {
     for (const n of names) {
       const el = field(n);
-      if (el) el.value = el instanceof HTMLSelectElement ? (el.options[0]?.value ?? '') : '';
+      if (!el) continue;
+      if (el instanceof HTMLSelectElement) el.value = el.options[0]?.value ?? '';
+      else el.value = '';
     }
     if (region) region.checked = true;
     apply();
@@ -95,7 +110,16 @@ if (form && box) {
   apply();
 }
 
-// A plugin's page: its pictures in another language.
+// A plugin's page: a thumbnail brings its picture onto the big panel.
+const thumbs = [...document.querySelectorAll<HTMLButtonElement>('.thumbs button[data-shot]')];
+for (const b of thumbs) {
+  b.addEventListener('click', () => {
+    for (const x of thumbs) x.setAttribute('aria-pressed', String(x === b));
+    for (const f of document.querySelectorAll<HTMLElement>('.stage-panel figure')) f.classList.toggle('on', f.id === `shot-${b.dataset.shot}`);
+  });
+}
+
+// Its pictures in another language.
 const pick = document.querySelector<HTMLSelectElement>('select.shot-lang');
 pick?.addEventListener('change', () => {
   for (const img of document.querySelectorAll<HTMLImageElement>('img[data-shots]')) {
@@ -103,3 +127,25 @@ pick?.addEventListener('change', () => {
     img.src = shots[pick.value] ?? shots.en ?? img.src;
   }
 });
+
+// The install command, copied.
+for (const b of document.querySelectorAll<HTMLButtonElement>('button.copy[data-copy]')) {
+  const label = b.querySelector('span');
+  const idle = label?.textContent ?? '';
+  b.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(b.dataset.copy ?? '');
+    } catch {
+      // No clipboard (an old browser, a page not served over HTTPS): select the command instead.
+      const code = b.parentElement?.querySelector('code');
+      if (code) getSelection()?.selectAllChildren(code);
+      return;
+    }
+    b.classList.add('done');
+    if (label) label.textContent = texts['store-copied'] ?? idle;
+    setTimeout(() => {
+      b.classList.remove('done');
+      if (label) label.textContent = idle;
+    }, 1800);
+  });
+}
