@@ -1,0 +1,167 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kioskolcd.dev/store/v1/schema/index.json",
+  "title": "Kiosko plugin store index",
+  "description": "https://kioskolcd.dev/store/v1/index.json: every plugin the store offers. Built by scripts/store/build-index.ts from npm and each plugin's kiosko-manifest.json; types in packages/core/src/store/types.ts.",
+  "type": "object",
+  "required": ["schema", "generatedAt", "plugins"],
+  "properties": {
+    "schema": { "const": 1 },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "kiosko": { "type": "object", "properties": { "latest": { "type": "string" }, "sdk": { "type": "string" } } },
+    "categories": {
+      "type": "array",
+      "items": { "type": "object", "required": ["id", "label"], "properties": { "id": { "type": "string" }, "label": { "$ref": "#/$defs/localized" } } }
+    },
+    "presets": {
+      "type": "array",
+      "items": { "type": "object", "required": ["id", "name", "width", "height"], "properties": { "id": { "type": "string" }, "name": { "type": "string" }, "width": { "type": "integer" }, "height": { "type": "integer" }, "shape": { "enum": ["rect", "round"] } } }
+    },
+    "plugins": { "type": "array", "items": { "$ref": "#/$defs/plugin" } }
+  },
+  "$defs": {
+    "localized": { "type": "object", "required": ["en"], "additionalProperties": { "type": "string" } },
+    "platform": { "enum": ["linux", "darwin", "win32"] },
+    "panelClass": { "enum": ["bar", "landscape", "square", "round", "portrait"] },
+    "region": { "type": "string", "pattern": "^([A-Z]{2}|EU)$" },
+    "sitePath": { "type": "string", "pattern": "^(?!/)(?!.*\\.\\.)[\\w./-]+$", "description": "A path from the site's root (gallery/img/…, store/v1/img/…)" },
+    "permissions": {
+      "type": "object",
+      "properties": {
+        "network": { "type": "array", "items": { "type": "string" } },
+        "exec": { "type": "array", "items": { "type": "string" } },
+        "files": { "type": "array", "items": { "type": "string" } },
+        "devices": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+    "size": { "type": "object", "required": ["w", "h"], "properties": { "w": { "type": "number", "minimum": 1 }, "h": { "type": "number", "minimum": 1 } } },
+    "release": {
+      "type": "object",
+      "required": ["version", "date", "integrity"],
+      "properties": {
+        "version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+        "date": { "type": "string", "format": "date-time" },
+        "integrity": { "type": "string", "pattern": "^sha512-[A-Za-z0-9+/=]+$" },
+        "sdk": { "type": "string" },
+        "platforms": { "type": "array", "items": { "$ref": "#/$defs/platform" } },
+        "provenance": { "type": "object", "properties": { "repository": { "type": "string" }, "workflow": { "type": "string" } } },
+        "deprecated": { "type": "string", "description": "npm deprecate's message" },
+        "withdrawn": { "type": "boolean" },
+        "addedPermissions": { "$ref": "#/$defs/permissions", "description": "What it declares on top of the release before it" }
+      },
+      "additionalProperties": false
+    },
+    "plugin": {
+      "type": "object",
+      "required": ["id", "package", "name", "tier", "badges", "license", "links", "latest", "releases", "platforms", "languages", "categories", "tags", "pricing", "permissions", "riskyOptions", "requires", "optional", "widgets", "interludes", "templates", "health"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+        "package": { "type": "string", "pattern": "^(@[a-z0-9][\\w.-]*/)?kiosko-plugin-[a-z0-9][a-z0-9-]*$" },
+        "name": { "$ref": "#/$defs/localized" },
+        "description": { "$ref": "#/$defs/localized" },
+        "icon": { "type": "string" },
+        "tier": { "enum": ["official", "verified", "listed", "found"] },
+        "badges": { "type": "array", "items": { "enum": ["official", "verified", "popular", "rising", "new", "tested", "bundled", "provenance"] } },
+        "publisher": {
+          "type": "object",
+          "properties": { "name": { "type": "string" }, "npm": { "type": "array", "items": { "type": "string" } }, "github": { "type": "string" }, "verified": { "type": "boolean" } }
+        },
+        "license": { "type": "string", "description": "SPDX expression, UNLICENSED, or empty when it says none" },
+        "licenseKind": { "enum": ["permissive", "copyleft", "other"] },
+        "links": {
+          "type": "object",
+          "properties": {
+            "repository": { "$ref": "#/$defs/https" }, "homepage": { "$ref": "#/$defs/https" }, "issues": { "$ref": "#/$defs/https" }, "discussions": { "$ref": "#/$defs/https" },
+            "docs": { "$ref": "#/$defs/https" }, "funding": { "$ref": "#/$defs/https" }, "npm": { "$ref": "#/$defs/https" }
+          },
+          "additionalProperties": false
+        },
+        "bundled": { "type": "boolean", "description": "Installed with Kiosko" },
+        "latest": { "type": "string" },
+        "releases": { "type": "array", "minItems": 1, "maxItems": 20, "items": { "$ref": "#/$defs/release" }, "description": "Stable, newest first" },
+        "platforms": { "type": "array", "items": { "$ref": "#/$defs/platform" } },
+        "languages": { "type": "array", "items": { "type": "string" } },
+        "categories": { "type": "array", "items": { "type": "string" } },
+        "tags": { "type": "array", "maxItems": 10, "items": { "type": "string" } },
+        "markets": {
+          "type": "object",
+          "properties": { "only": { "type": "array", "items": { "$ref": "#/$defs/region" } }, "without": { "type": "array", "items": { "$ref": "#/$defs/region" } }, "note": { "$ref": "#/$defs/localized" } },
+          "additionalProperties": false
+        },
+        "pricing": {
+          "type": "object",
+          "required": ["model"],
+          "properties": {
+            "model": { "enum": ["free", "paid", "freemium"] },
+            "price": { "type": "object", "properties": { "amount": { "type": "integer", "description": "In cents" }, "currency": { "type": "string" }, "taxIncluded": { "type": "boolean" } } },
+            "checkout": { "type": "string" },
+            "seller": { "type": "string" },
+            "licenseKey": { "type": "string", "description": "Ed25519 public key its licences are checked with" }
+          }
+        },
+        "permissions": { "$ref": "#/$defs/permissions" },
+        "riskyOptions": { "type": "integer", "minimum": 0, "description": "How many; the detail in plugins/<id>.json" },
+        "requires": { "type": "array", "items": { "type": "string" }, "description": "Plugin ids" },
+        "optional": { "type": "array", "items": { "type": "string" } },
+        "resources": { "type": "object", "properties": { "memoryMb": { "type": "number" }, "cpu": { "enum": ["low", "medium", "high"] } } },
+        "widgets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["type", "name"],
+            "properties": {
+              "type": { "type": "string" },
+              "name": { "$ref": "#/$defs/localized" },
+              "description": { "$ref": "#/$defs/localized" },
+              "icon": { "type": "string" },
+              "category": { "type": "string" },
+              "min": { "$ref": "#/$defs/size" },
+              "preferred": { "$ref": "#/$defs/size" },
+              "fits": { "type": "array", "items": { "$ref": "#/$defs/panelClass" } },
+              "ideal": { "type": "array", "items": { "$ref": "#/$defs/panelClass" } },
+              "presets": { "type": "array", "items": { "type": "string" } },
+              "animated": { "type": "boolean" },
+              "shots": { "type": "object", "required": ["en"], "additionalProperties": { "$ref": "#/$defs/sitePath" }, "description": "A picture by language" },
+              "shotSize": { "$ref": "#/$defs/size" }
+            }
+          }
+        },
+        "interludes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["type", "name"],
+            "properties": { "type": { "type": "string" }, "name": { "$ref": "#/$defs/localized" }, "description": { "$ref": "#/$defs/localized" }, "icon": { "type": "string" }, "poster": { "$ref": "#/$defs/sitePath" }, "video": { "$ref": "#/$defs/sitePath" } }
+          }
+        },
+        "cover": { "$ref": "#/$defs/sitePath" },
+        "templates": {
+          "type": "array",
+          "items": { "type": "object", "required": ["id", "name"], "properties": { "id": { "type": "string" }, "name": { "$ref": "#/$defs/localized" }, "layouts": { "type": "array", "items": { "enum": ["wide", "square", "tall"] } } } }
+        },
+        "popularity": {
+          "type": "object",
+          "properties": {
+            "weekly": { "type": "integer", "minimum": 0, "description": "Median of 4 weekly npm download sums, rounded down to a step (10, 50, 100, 500, 1000…)" },
+            "stars": { "type": "integer", "minimum": 0 }
+          },
+          "additionalProperties": false
+        },
+        "health": {
+          "type": "object",
+          "required": ["manifest"],
+          "properties": {
+            "lastRelease": { "type": "string", "format": "date-time" },
+            "archived": { "type": "boolean" },
+            "openIssues": { "type": "integer" },
+            "manifest": { "enum": ["ok", "repository", "missing", "invalid"] },
+            "problems": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "hidden": { "type": "boolean", "description": "Out of the store (an id that is another plugin's, or taken out by hand)" }
+      }
+    },
+    "https": { "type": "string", "pattern": "^https://" }
+  }
+}

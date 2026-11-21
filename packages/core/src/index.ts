@@ -30,3 +30,6 @@ export * from './threads/plan.ts';
 export * from './threads/clone.ts';
 export { ThreadRunner, defaultThreadEntry, type ThreadOwner } from './threads/thread-runner.ts';
 export { loadThreadPlugins, runScreenThread } from './threads/worker-main.ts';
+export * from './store/index.ts';
+export * from './store/build.ts';
+export * from './store/tar.ts';

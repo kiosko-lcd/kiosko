@@ -34,6 +34,11 @@
       "source": "./src/testing.ts",
       "types": "./dist/testing.d.ts",
       "default": "./dist/testing.js"
+    },
+    "./semver": {
+      "source": "./src/semver.ts",
+      "types": "./dist/semver.d.ts",
+      "default": "./dist/semver.js"
     }
   },
   "files": [

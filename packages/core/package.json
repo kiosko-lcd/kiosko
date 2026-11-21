@@ -24,6 +24,11 @@
       "source": "./src/config/tools.ts",
       "types": "./dist/config/tools.d.ts",
       "default": "./dist/config/tools.js"
+    },
+    "./store": {
+      "source": "./src/store/index.ts",
+      "types": "./dist/store/index.d.ts",
+      "default": "./dist/store/index.js"
     }
   },
   "dependencies": {
