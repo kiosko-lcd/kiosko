@@ -8,7 +8,7 @@ import { localize } from '@kiosko/sdk/i18n';
 import type { Config, Page, Screen, Tile, WidgetInstance } from '@kiosko/core/model';
 import { CLIENT_ID, api, connectEvents, type AppState, type FrameEvent, type PluginInfo, type Status, type WidgetInfo } from './api.ts';
 
-export type View = 'editor' | 'screens' | 'plugins' | 'settings' | 'logs';
+export type View = 'editor' | 'screens' | 'plugins' | 'play' | 'settings' | 'logs';
 
 export const app = signal<AppState | null>(null);
 export const config = signal<Config | null>(null);
@@ -34,7 +34,7 @@ export const liveMode = signal(false);
 
 function readView(): View {
   const h = location.hash.replace('#/', '').split('/')[0];
-  return (['editor', 'screens', 'plugins', 'settings', 'logs'] as View[]).includes(h as View) ? (h as View) : 'editor';
+  return (['editor', 'screens', 'plugins', 'play', 'settings', 'logs'] as View[]).includes(h as View) ? (h as View) : 'editor';
 }
 function readUiTheme(): 'dark' | 'light' {
   try {

@@ -410,8 +410,32 @@ export interface InterludePlayer {
   draw: (g: Graphics, i: number) => void | Promise<void>;
 }
 
+/** A button of the Play page's pad: a game controller's, the keyboard's arrows and keys, or the phone's touch pad. */
+export type PadKey = 'up' | 'down' | 'left' | 'right' | 'a' | 'b' | 'x' | 'y' | 'l' | 'r' | 'start' | 'select';
+export const PAD_KEYS: readonly PadKey[] = ['up', 'down', 'left', 'right', 'a', 'b', 'x', 'y', 'l', 'r', 'start', 'select'];
+
+/** A button pressed or let go on the Play page. */
+export interface PadEvent {
+  key: PadKey;
+  pressed: boolean;
+}
+
+/** The player's buttons, for an interlude being played (see `InterludeDefinition.input`). */
+export interface InterludeInput {
+  /** Calls `listener` for every button pressed or let go; returns what stops it. */
+  on(listener: (e: PadEvent) => void): () => void;
+}
+
 export interface InterludeContext<O> extends BaseContext {
   options: O;
+  /**
+   * Someone is playing it from the editor's Play page (only for an
+   * interlude with `input: true`): their buttons. It then lasts while they
+   * play (no `maxSeconds`; a minute without a button ends it), and `frames`
+   * may be `Infinity`. Undefined when it plays at its time slot. Kiosko
+   * 0.2.7 and later.
+   */
+  input?: InterludeInput;
   width: number;
   height: number;
   /** Deterministic per slot: the same quarter hour plays the same story. */
@@ -430,6 +454,12 @@ export interface InterludeDefinition<OF extends ObjectField<any> = ObjectField<a
   sources?: string[];
   /** Frames per second it was designed for. USB panels top out around 12-24 fps. */
   fps: number;
+  /**
+   * It can be played: the editor's Play page offers it, and when started
+   * from there `ctx.input` brings the player's buttons. Kiosko 0.2.7 and
+   * later.
+   */
+  input?: boolean;
   /** Builds the animation. May be slow (it runs before playing, not during). */
   prepare: (ctx: InterludeContext<Infer<OF>>) => Promise<InterludePlayer | null>;
   /** Don't interrupt now (someone waits for a permission, a meeting is about to start). */

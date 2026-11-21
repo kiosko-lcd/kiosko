@@ -6,6 +6,7 @@ import { UI_LANGUAGES, t, tr, uiLanguage } from './i18n.ts';
 import { app, boot, config, go, online, pageId, saveError, saving, screen, screenId, selectedTile, status, toast, view, type View } from './store.ts';
 import { Screens } from './views/Screens.tsx';
 import { LanguageMenu, Logs, Plugins, Settings } from './views/Others.tsx';
+import { Play } from './views/Play.tsx';
 import { startTour, touring } from './demo/tour.ts';
 import { DemoBanner, demoBootError } from './demo/ui.tsx';
 
@@ -15,6 +16,8 @@ const NAV: { id: View; icon: string }[] = [
   { id: 'plugins', icon: 'blocks' },
   { id: 'settings', icon: 'settings-2' },
   { id: 'logs', icon: 'activity' },
+  // Last, and only when a plugin has an interlude to play.
+  { id: 'play', icon: 'gamepad-2' },
 ];
 
 function Logo() {
@@ -84,10 +87,13 @@ function TopBar() {
   );
 }
 
+/** A plugin has an interlude that can be played: the Play page is offered. */
+const canPlay = () => (app.value?.catalog ?? []).some((p) => p.enabled && p.interludes.some((i) => i.input));
+
 function Rail() {
   return (
     <nav class="rail" aria-label={tr('nav.main')}>
-      {NAV.map((n) => (
+      {NAV.filter((n) => n.id !== 'play' || canPlay()).map((n) => (
         <button class={`rail-btn ${view.value === n.id ? 'on' : ''}`} data-view={n.id} onClick={() => go(n.id)} title={tr(`nav.${n.id}`)} aria-current={view.value === n.id}>
           <Icon name={n.icon} size={20} />
           {n.id === 'plugins' && (app.value?.updates?.plugins.filter((u) => u.version).length ?? 0) > 0 && (
@@ -122,6 +128,7 @@ function App() {
         {v === 'editor' && <Editor />}
         {v === 'screens' && <Screens />}
         {v === 'plugins' && <Plugins />}
+        {v === 'play' && <Play />}
         {v === 'settings' && <Settings />}
         {v === 'logs' && <Logs />}
       </div>

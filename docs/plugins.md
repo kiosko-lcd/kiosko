@@ -462,6 +462,34 @@ export const fireworks = defineInterlude({
 Screens schedule interludes against the wall clock (every 15 min = at :00,
 :15, :30, :45), once per slot, capped at `maxSeconds`.
 
+### Interludes you can play
+
+An interlude with `input: true` is offered on the editor's **Play** page
+(Kiosko 0.2.7 and later): someone picks a screen and plays it with the
+keyboard, a game controller or a phone's touch pad. Started from there,
+`prepare` gets `ctx.input`, and the interlude lasts while they play: no
+`maxSeconds`, `frames` may be `Infinity`, and a minute without a button
+ends it. At its time slot it plays as any other, without `ctx.input`.
+
+```js
+defineInterlude({
+  id: 'game',
+  name: 'A game',
+  fps: 30,
+  input: true,
+  async prepare(ctx) {
+    const game = startGame({ demo: !ctx.input });
+    ctx.input?.on(({ key, pressed }) => game.key(key, pressed)); // 'up' 'down' 'left' 'right' 'a' 'b' 'x' 'y' 'l' 'r' 'start' 'select'
+    return { frames: ctx.input ? Infinity : 30 * 60, draw: (g, i) => game.paint(g) };
+  },
+});
+```
+
+The buttons are a game controller's (`PadKey`): the page maps the keyboard
+(arrows or W S, A D, Space or Ctrl, E, Shift, Esc, Enter, Tab) and a
+controller in the standard mapping to them. `kiosko-plugin-doom` is the
+example.
+
 ## Testing your plugin
 
 `@kiosko/sdk/testing` paints widgets the way Kiosko does, with their demo data

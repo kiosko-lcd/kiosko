@@ -10,7 +10,7 @@
  * time and, with `trcc serve`, a copy on disk.
  */
 import { EventEmitter } from 'node:events';
-import { themeById, validate, type Theme } from '@kiosko/sdk';
+import { PAD_KEYS, themeById, validate, type PadEvent, type Theme } from '@kiosko/sdk';
 import type { Canvas } from '@napi-rs/canvas';
 import { AnimationScheduler, MAX_CONCURRENT, type PlayablePlan } from './animation.ts';
 import { composePage, composeWidget, rotateCanvas, type Animatable, type ComposeResult, type TileCache } from './compositor.ts';
@@ -45,6 +45,8 @@ export interface FrameInfo {
 }
 
 const TICK_MS = 250;
+/** An interlude being played ends after this long without a button pressed. */
+export const PLAY_IDLE_MS = 60_000;
 
 /**
  * The editor's picture of a frame, encoded only if the editor asks for it.
@@ -99,11 +101,14 @@ class ScreenRunner {
   private busy = false;
   pinned: string | null = null;
   private playedSlot = new Map<string, number>();
-  interlude: { slotId: string; type: string; stopAt: number } | null = null;
+  interlude: { slotId: string; type: string; stopAt: number; play: boolean } | null = null;
+  /** The buttons of whoever plays the interlude now (Play page). */
+  private pad: { send(e: PadEvent): void } | null = null;
   /** Switched off from outside (Home Assistant, the API): black until switched on. Not saved. */
   off = false;
   /** An interlude asked for now (the editor, Home Assistant): played as soon as the screen is free. */
   private wanted: string | null = null;
+  private wantedPlay = false;
   /** When `fit` last told the log that frames were shrunk, to say it now and then, not every frame. */
   private fitLoggedAt = 0;
   /** Instance ids on the current page, to know if a data change concerns us. */
@@ -178,8 +183,10 @@ class ScreenRunner {
     try {
       // One asked for goes first; otherwise the one due, if any.
       const asked = this.wanted;
+      const play = this.wantedPlay;
       this.wanted = null;
-      if (!this.off && (await this.maybeInterlude(now, asked ?? undefined))) return;
+      this.wantedPlay = false;
+      if (!this.off && (await this.maybeInterlude(now, asked ?? undefined, play))) return;
       const page = this.currentPage(now);
       if (page?.id !== this.page?.id) {
         this.page = page;
@@ -257,8 +264,12 @@ class ScreenRunner {
     await this.device.send(out);
   }
 
-  /** Plays an interlude if one is due. Returns true while it played (no normal paint this tick). */
-  private async maybeInterlude(now: number, force?: string): Promise<boolean> {
+  /**
+   * Plays an interlude if one is due. Returns true while it played (no normal paint this tick).
+   * `play`: someone plays it from the Play page (an interlude with `input`): it gets their
+   * buttons and lasts while they press them, not `maxSeconds`.
+   */
+  private async maybeInterlude(now: number, force?: string, play = false): Promise<boolean> {
     const due = this.screen.interludes.find((s) => {
       if (force) return s.id === force;
       if (!s.enabled || s.everyMs < 60_000) return false;
@@ -278,17 +289,40 @@ class ScreenRunner {
     }
     const [plugin] = due.type.split('/');
     const seed = Math.floor(now / Math.max(60_000, due.everyMs));
-    const player = await def.prepare({ ...baseContext(this.rt.config, plugin!, this.rt.log, now), options, width: this.screen.width, height: this.screen.height, seed, theme: this.rt.theme(), canvas: CANVAS, sources });
-    if (!player || player.frames <= 0) return false;
+    const playing = play && !!def.input;
+    const listeners = new Set<(e: PadEvent) => void>();
+    let lastPress = Date.now();
+    const input = playing ? { on: (l: (e: PadEvent) => void) => (listeners.add(l), () => void listeners.delete(l)) } : undefined;
+    const player = await def.prepare({ ...baseContext(this.rt.config, plugin!, this.rt.log, now), options, width: this.screen.width, height: this.screen.height, seed, theme: this.rt.theme(), canvas: CANVAS, sources, ...(input ? { input } : {}) });
+    if (!player || !(player.frames > 0)) return false;
     const fps = Math.max(1, Math.min(def.fps, this.screen.maxFps));
-    const frames = Math.min(player.frames, Math.round(due.maxSeconds * fps));
-    this.interlude = { slotId: due.id, type: due.type, stopAt: now + (frames / fps) * 1000 };
-    this.rt.log(`screen:${this.screen.name}`, `playing ${due.type}: ${frames} frames at ${fps} fps`);
+    const frames = playing ? player.frames : Math.min(player.frames, Math.round(due.maxSeconds * fps));
+    this.interlude = { slotId: due.id, type: due.type, stopAt: playing ? Infinity : now + (frames / fps) * 1000, play: playing };
+    if (playing) {
+      lastPress = Date.now();
+      this.pad = {
+        send: (e) => {
+          lastPress = Date.now();
+          for (const l of listeners) {
+            try {
+              l(e);
+            } catch (err) {
+              this.rt.log(due.type, `input failed: ${err instanceof Error ? err.message : String(err)}`);
+            }
+          }
+        },
+      };
+    }
+    this.rt.log(`screen:${this.screen.name}`, playing ? `${due.type} being played (ends after ${this.rt.playIdleMs / 1000} s without a button)` : `playing ${due.type}: ${frames} frames at ${fps} fps`);
     const kind = encodeFor(this.screen.device, this.screen.jpegQuality || 85);
     const canvas = CANVAS.createCanvas(this.screen.width, this.screen.height);
     const g = canvas.getContext('2d');
     let start = Date.now();
     for (let i = 0; i < frames && this.interlude; i++) {
+      if (playing && Date.now() - lastPress > this.rt.playIdleMs) {
+        this.rt.log(`screen:${this.screen.name}`, `${due.type}: nobody playing, back to the pages`);
+        break;
+      }
       g.save();
       try {
         await player.draw(g, i);
@@ -319,6 +353,7 @@ class ScreenRunner {
       }
     }
     this.interlude = null;
+    this.pad = null;
     this.last = null;
     this.dirty = true;
     return true;
@@ -450,14 +485,16 @@ class ScreenRunner {
    * after the paint or animation under way (asked in the middle of one, it
    * used to be dropped without a word).
    */
-  async playNow(slotId: string): Promise<void> {
+  async playNow(slotId: string, play = false): Promise<void> {
     if (this.off) return;
     this.wanted = slotId;
+    this.wantedPlay = play;
     if (this.busy) return;
     this.busy = true;
     try {
       this.wanted = null;
-      await this.maybeInterlude(Date.now(), slotId);
+      this.wantedPlay = false;
+      await this.maybeInterlude(Date.now(), slotId, play);
     } finally {
       this.busy = false;
     }
@@ -465,6 +502,14 @@ class ScreenRunner {
 
   stopInterlude(): void {
     this.interlude = null;
+    this.pad = null;
+  }
+
+  /** A button from the Play page, for the interlude being played; false when none is. */
+  press(e: PadEvent): boolean {
+    if (!this.pad || !PAD_KEYS.includes(e.key)) return false;
+    this.pad.send({ key: e.key, pressed: !!e.pressed });
+    return true;
   }
 
   close(): void {
@@ -533,6 +578,8 @@ export class Runtime extends EventEmitter {
   readonly logs: LogEntry[] = [];
   /** How many animations play together on a screen (see animation.ts). */
   maxConcurrent: number = MAX_CONCURRENT;
+  /** An interlude being played from the Play page ends after this long without a button. */
+  playIdleMs: number = PLAY_IDLE_MS;
   /** Random numbers for the animations; tests replace it with a seeded one. */
   rnd: () => number = Math.random;
 
@@ -673,8 +720,14 @@ export class Runtime extends EventEmitter {
     r.dirty = true;
   }
 
-  playInterlude(screenId: string, slotId: string): void {
-    void this.runners.get(screenId)?.playNow(slotId);
+  /** `play`: someone plays it from the Play page (see `maybeInterlude`). */
+  playInterlude(screenId: string, slotId: string, play = false): void {
+    void this.runners.get(screenId)?.playNow(slotId, play);
+  }
+
+  /** A button for the interlude being played on a screen; false when none is. */
+  press(screenId: string, e: PadEvent): boolean {
+    return this.runners.get(screenId)?.press(e) ?? false;
   }
 
   stopInterlude(screenId: string): void {
@@ -703,6 +756,8 @@ export class Runtime extends EventEmitter {
         page: r.page?.id ?? null,
         pinned: r.pinned,
         interlude: r.interlude?.type ?? null,
+        /** The interlude is being played from the Play page. */
+        playing: r.interlude?.play ?? false,
         animation: r.animating,
         device: r.device.status as DeviceStatus,
         lastFrameAt: r.lastInfo?.at ?? null,
