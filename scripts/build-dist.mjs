@@ -1,6 +1,7 @@
 // Builds the publishable npm package in dist/kiosko:
 //
 //   cli.js            the daemon, the server and every built-in plugin, bundled
+//   screen-thread.js  a screen's own thread (the same, without the server)
 //   sdk.js, kit.js…   what third-party plugins import (see core/sdk-resolver.ts)
 //   web/              the editor
 //   package.json      `kiosko` binary; only native/data packages stay as dependencies
@@ -39,7 +40,8 @@ const common = {
   logLevel: 'warning',
 };
 
-await build({ ...common, entryPoints: { cli: join(root, 'packages/server/src/cli.ts') }, outdir: out, banner: common.banner });
+// The screens' threads (see core's threads/) start from screen-thread.js, next to cli.js.
+await build({ ...common, entryPoints: { cli: join(root, 'packages/server/src/cli.ts'), 'screen-thread': join(root, 'packages/server/src/screen-thread.ts') }, outdir: out, banner: common.banner });
 await build({
   ...common,
   entryPoints: {
