@@ -69,6 +69,8 @@ for (const a of document.querySelectorAll<HTMLAnchorElement>('.lang a[data-lang]
     } catch {
       /* private mode: the English page goes by the browser's language again */
     }
+    // The same choice for the edge (worker/choose.ts), which sees cookies, not localStorage.
+    document.cookie = `kiosko_lang=${encodeURIComponent(a.dataset.lang!)}; Path=/; Max-Age=31536000; SameSite=Lax; Secure`;
   });
 }
 

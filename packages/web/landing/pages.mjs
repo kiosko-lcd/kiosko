@@ -73,6 +73,8 @@ function redirect() {
       if (/[?&]card\\b/.test(location.search)) return;
       var paths = ${JSON.stringify(paths)}, go = null;
       try { go = localStorage.getItem(${JSON.stringify(LANG_KEY)}); } catch (e) {}
+      // A choice made before the cookie existed: the edge (worker/choose.ts) only sees cookies.
+      if (go && !/(^|; )kiosko_lang=/.test(document.cookie)) document.cookie = 'kiosko_lang=' + encodeURIComponent(go) + '; Path=/; Max-Age=31536000; SameSite=Lax; Secure';
       function key(tag) {
         try {
           var l = new Intl.Locale(String(tag).replace(/_/g, '-').replace(/[.@].*$/, '')).maximize();
