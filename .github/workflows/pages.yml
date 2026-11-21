@@ -76,9 +76,11 @@ jobs:
         with:
           name: demo-check
           path: ${{ runner.temp }}/demo-check
+      # Hidden files too: /.well-known/security.txt (where to report a vulnerability).
       - uses: actions/upload-pages-artifact@v5
         with:
           path: site
+          include-hidden-files: true
   deploy:
     needs: build
     # A manual run on another branch builds and checks the site but never publishes it.
