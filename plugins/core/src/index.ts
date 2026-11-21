@@ -82,17 +82,37 @@ export const clock = defineWidget({
     const at = wallClock(now, options.timeZone);
     const clock = options.timeFormat === 'inherit' ? fmt : createFormatters({ locale, timeFormat: options.timeFormat, now });
     const text = clock.time(at, { seconds: options.showSeconds, ampm: false });
+    // On a 12-hour clock, AM/PM small beside the digits (before them in Chinese: 下午 4:50), or
+    // 4:50 would be the morning and the afternoon alike.
+    const full = clock.hour12 ? clock.time(at, { seconds: options.showSeconds }) : text;
+    const mark = full === text ? '' : full.replace(text, '').trim();
+    const markFirst = !!mark && full.startsWith(mark);
     const dateText = options.showDate ? new Date(at).toLocaleDateString(locale, DATE_FORMATS[options.dateFormat]) : '';
     const dateH = options.showDate ? Math.min(box.h * 0.2, 40) : 0;
-    const size = fit(g, text, theme.fonts.monoBold, box.w * 0.96, (box.h - dateH * 1.3) * 0.95);
+    const size = fit(g, text, theme.fonts.monoBold, box.w * (mark ? 0.76 : 0.96), (box.h - dateH * 1.3) * 0.95);
     const color = options.color === 'accent' ? theme.colors.accent : options.color === 'dim' ? theme.colors.inkDim : theme.colors.ink;
-    const x = options.align === 'left' ? box.x : options.align === 'right' ? box.x + box.w : box.x + box.w / 2;
     const block = size * 0.78 + (dateH ? dateH * 1.4 : 0);
     const base = box.y + (box.h - block) / 2 + size * 0.78;
-    g.textAlign = options.align;
+    g.font = `${size}px "${theme.fonts.monoBold}"`;
+    const digitsW = g.measureText(text).width;
+    const markSize = Math.max(8, Math.round(size * 0.26));
+    g.font = `${markSize}px "${theme.fonts.sansBold}"`;
+    const markW = mark ? g.measureText(mark).width + size * 0.08 : 0;
+    const total = digitsW + markW;
+    const left = options.align === 'left' ? box.x : options.align === 'right' ? box.x + box.w - total : box.x + (box.w - total) / 2;
+    const digitsX = markFirst ? left + markW : left;
+    g.textAlign = 'left';
     g.fillStyle = color;
     g.font = `${size}px "${theme.fonts.monoBold}"`;
-    g.fillText(text, x, base);
+    g.fillText(text, digitsX, base);
+    if (mark) {
+      // Its top level with the digits' top.
+      g.fillStyle = theme.colors.inkDim;
+      g.font = `${markSize}px "${theme.fonts.sansBold}"`;
+      g.fillText(mark, markFirst ? left : left + digitsW + size * 0.08, base - size * 0.78 + markSize * 0.92);
+    }
+    const x = options.align === 'left' ? box.x : options.align === 'right' ? box.x + box.w : box.x + box.w / 2;
+    g.textAlign = options.align;
     if (dateH) {
       const ds = Math.min(dateH, fit(g, dateText, theme.fonts.sans, box.w * 0.96, dateH));
       g.font = `${ds}px "${theme.fonts.sans}"`;

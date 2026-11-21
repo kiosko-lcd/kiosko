@@ -95,6 +95,19 @@ test('clock: follows the config time format unless it has its own', () => {
   assert.equal(draw('12h', '24h'), '9:05:00');
 });
 
+test('clock: on a 12-hour clock it says which half of the day, before the time in Chinese', () => {
+  const now = new Date(2026, 10, 10, 16, 50).getTime();
+  const draw = (locale: string) => {
+    const r = recorder(clock, { timeFormat: 'inherit', showDate: false }, { now, timeFormat: '12h', locale });
+    clock.render(r.g, r.ctx as never);
+    return r;
+  };
+  const tw = draw('zh-TW');
+  assert.deepEqual(tw.texts, ['4:50', '下午']);
+  const en = draw('en-US');
+  assert.deepEqual(en.texts, ['4:50', 'PM']);
+});
+
 test('clock: another time zone, and the date in three formats', () => {
   const now = Date.UTC(2026, 10, 10, 21, 5);
   const draw = (options: Record<string, unknown>) => {
