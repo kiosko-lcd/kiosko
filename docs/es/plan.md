@@ -928,6 +928,8 @@ Lo que cambia en el camino:
       lluvias fuertes (颱風警報, 豪雨特報), que van con horas, son donde más
       luce. Ni en la web ni en el plugin se promete «alerta temprana», y la
       tesela dice que no es un sistema de avisos oficial.
+    - *Avisos CAP, terremotos y tsunamis*: estudio y diseño en
+      [estudio-cap.md](estudio-cap.md).
 28. **Doom en el panel** («¿pero corre Doom?»). *Hecho* el juego de verdad
     en modo demo: [`kiosko-plugin-doom`](https://github.com/kiosko-lcd/kiosko-plugin-doom),
     plugin **opcional** (no viene con Kiosko; la página de Plugins lo ofrece),
