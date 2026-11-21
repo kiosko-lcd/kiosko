@@ -145,6 +145,12 @@ test('Home Assistant sees Kiosko\'s alerts: the highest in a sensor, and one but
     rt.postAlert({ id: 'smoke', level: 'critical', title: 'Smoke', dismissible: false });
     await until(() => seen.get('kiosko/desk/alerts/top') === 'Smoke');
     assert.deepEqual({ ...JSON.parse(seen.get('kiosko/desk/alerts/attributes')!), since: 0 }, { level: 'critical', text: '', id: 'smoke', count: 2, since: 0 });
+    // Who published it and the instruction, when the alert has them.
+    rt.postAlert({ id: 'tsunami', level: 'critical', title: 'Tsunami warning', source: 'NWS', detail: 'Move away from the coast' });
+    await until(() => seen.get('kiosko/desk/alerts/top') === 'Tsunami warning');
+    assert.deepEqual({ ...JSON.parse(seen.get('kiosko/desk/alerts/attributes')!), since: 0 }, { level: 'critical', text: '', source: 'NWS', detail: 'Move away from the coast', id: 'tsunami', count: 3, since: 0 });
+    rt.removeAlert('tsunami');
+    await until(() => seen.get('kiosko/desk/alerts/top') === 'Smoke');
 
     // The button: every alert that can be is seen; the one that can't stays.
     ha.publish('kiosko/desk/alerts/ack/press', 'PRESS');

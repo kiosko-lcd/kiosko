@@ -20,7 +20,7 @@ alerts (see [plugins.md](plugins.md#alerts)):
 
 | Entity | What it does |
 |---|---|
-| `sensor` **Alert** | The title of the highest alert, or `—`; its `level`, `text`, `id`, `since` and how many there are (`count`) as attributes. |
+| `sensor` **Alert** | The title of the highest alert, or `—`; its `level`, `text`, `source` and `detail` (when it has them), `id`, `since` and how many there are (`count`) as attributes. |
 | `button` **Acknowledge alerts** | Marks every alert that can be dismissed as seen. |
 
 One button for all of them, not one per alert: alerts come and go, and an

@@ -237,7 +237,7 @@ export class HomeAssistantBridge {
     const top = alerts[0];
     const alertStates: [string, string][] = [
       [`${this.base}/alerts/top`, top ? top.title.slice(0, 250) : '—'],
-      [`${this.base}/alerts/attributes`, JSON.stringify(top ? { level: top.level, text: top.text, id: top.id, count: alerts.length, since: new Date(top.since).toISOString() } : { level: 'none', count: 0 })],
+      [`${this.base}/alerts/attributes`, JSON.stringify(top ? { level: top.level, text: top.text, ...(top.source ? { source: top.source } : {}), ...(top.detail ? { detail: top.detail } : {}), id: top.id, count: alerts.length, since: new Date(top.since).toISOString() } : { level: 'none', count: 0 })],
     ];
     for (const [topic, value] of alertStates) {
       if (this.last.get(topic) === value) continue;
