@@ -1,0 +1,10 @@
+# The front page's language at Cloudflare's edge (index.ts). Only `/` goes
+# through it; the rest of kioskolcd.dev is GitHub Pages as before.
+name = "kiosko-lang"
+main = "index.ts"
+compatibility_date = "2026-11-01"
+workers_dev = false
+routes = [
+  { pattern = "kioskolcd.dev/", zone_name = "kioskolcd.dev" },
+  { pattern = "kioskolcd.dev/index.html", zone_name = "kioskolcd.dev" },
+]

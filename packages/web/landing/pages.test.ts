@@ -100,10 +100,13 @@ test('a first visit to / goes to the visitor’s language, for every language th
   const { runInNewContext } = await import('node:vm');
   const page = renderPage(template, texts, 'en', fill) as string;
   const script = /<script>\s*\(function \(\) \{[\s\S]*?location\.replace[\s\S]*?<\/script>/.exec(page)![0].replace(/<\/?script>/g, '');
+  let cookie = '';
   const go = (languages: string[], saved: string | null = null) => {
     let went: string | null = null;
+    cookie = '';
     runInNewContext(script, {
-      Intl, String, Object, window: {},
+      Intl, String, Object, encodeURIComponent, window: {},
+      document: { get cookie() { return cookie; }, set cookie(c: string) { cookie = c; } },
       location: { search: '', hash: '', replace: (u: string) => (went = u) },
       localStorage: { getItem: () => saved },
       navigator: { languages, language: languages[0] },
@@ -121,4 +124,7 @@ test('a first visit to / goes to the visitor’s language, for every language th
   assert.equal(go(['en-GB', 'zh-TW']), null, 'the first one that fits wins');
   assert.equal(go(['fr-FR', 'zh-TW']), 'zh-Hant/');
   assert.equal(go(['zh-TW'], 'en'), null, 'a choice made in the menu is kept');
+  assert.match(cookie, /^kiosko_lang=en; Path=\//, 'and handed to the edge (worker/choose.ts) as a cookie');
+  go(['es']);
+  assert.equal(cookie, '', 'no choice, no cookie');
 });
