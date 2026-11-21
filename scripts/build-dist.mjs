@@ -4,6 +4,8 @@
 //   screen-thread.js  a screen's own thread (the same, without the server)
 //   sdk.js, kit.js…   what third-party plugins import (see core/sdk-resolver.ts)
 //   web/              the editor
+//   assets/           the plugin store's catalogue at release time (refresh it first:
+//                     node --conditions=source scripts/store/build-index.ts --out tmp/store --snapshot packages/server/assets/store-index.json)
 //   package.json      `kiosko` binary; only native/data packages stay as dependencies
 //
 //   node scripts/build-dist.mjs && cd dist/kiosko && npm pack
@@ -70,7 +72,7 @@ const pkg = {
   license: 'MIT',
   bin: { kiosko: './cli.js' },
   exports: { './sdk': './sdk.js' },
-  files: ['*.js', '*.LEGAL.txt', 'web', 'README.md', 'LICENSE', 'examples'],
+  files: ['*.js', '*.LEGAL.txt', 'web', 'assets', 'README.md', 'LICENSE', 'examples'],
   engines: { node: '>=22.18' },
   keywords: ['lcd', 'thermalright', 'trofeo-vision', 'dashboard', 'widgets', 'claude-code', 'aio', 'usb-display'],
   repository: { type: 'git', url: 'git+https://github.com/kiosko-lcd/kiosko.git' },
@@ -81,5 +83,9 @@ const pkg = {
 };
 writeFileSync(join(out, 'package.json'), `${JSON.stringify(pkg, null, 2)}\n`);
 for (const f of ['README.md', 'LICENSE']) cpSync(join(root, f), join(out, f));
+// The plugin store's catalogue as it was at release (the store works offline from the first start) and its schema.
+mkdirSync(join(out, 'assets'), { recursive: true });
+cpSync(join(root, 'packages/server/assets/store-index.json'), join(out, 'assets/store-index.json'));
+cpSync(join(root, 'packages/core/schema/store-index.json'), join(out, 'assets/store-index.schema.json'));
 cpSync(join(root, 'examples'), join(out, 'examples'), { recursive: true });
 console.log(`built ${out} (kiosko ${version})`);

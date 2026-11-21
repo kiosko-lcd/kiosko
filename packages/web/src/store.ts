@@ -17,6 +17,8 @@ export const status = signal<Status | null>(null);
 export const alerts = signal<AlertInfo[]>([]);
 export const online = signal(true);
 export const view = signal<View>(readView());
+/** The address after `#/` (`plugins/store/weather`), for views with pages of their own. */
+export const route = signal(location.hash.replace(/^#\/?/, ''));
 export const screenId = signal<string | null>(null);
 export const pageId = signal<string | null>(null);
 export const selectedTile = signal<string | null>(null);
@@ -198,7 +200,10 @@ export function draftTile(d: Config, tid = selectedTile.value): Tile | undefined
 
 export async function boot(): Promise<void> {
   document.documentElement.dataset.theme = uiTheme.value;
-  addEventListener('hashchange', () => (view.value = readView()));
+  addEventListener('hashchange', () => {
+    view.value = readView();
+    route.value = location.hash.replace(/^#\/?/, '');
+  });
   const s = await api.state();
   rev = s.rev;
   batch(() => {

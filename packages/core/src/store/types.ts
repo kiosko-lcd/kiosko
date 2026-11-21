@@ -6,7 +6,15 @@
  * kiosko-manifest.json; what the store says (tier, badges, popularity,
  * what fits where) is worked out when the index is built.
  */
-import type { Permissions, Platform } from '@kiosko/sdk';
+
+// Kept here (the same shapes as the SDK's) so the editor imports this file without the SDK's Node parts.
+export type Platform = 'linux' | 'darwin' | 'win32';
+export interface Permissions {
+  network?: string[];
+  exec?: string[];
+  files?: string[];
+  devices?: string[];
+}
 
 /** A text by language tag; `en` is always there. */
 export type Texts = { en: string } & Record<string, string>;

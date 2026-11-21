@@ -8,6 +8,8 @@ import { pickLocale } from '@kiosko/sdk/i18n';
 import { UI_LANGUAGES, clock, count, dateTime, errorText, fmtMs, t, tr, uiLanguage, weekOrder } from '../i18n.ts';
 import { app, config, edit, logs, notify, setUiTheme, status, uiTheme } from '../store.ts';
 import { DemoNote } from '../demo/ui.tsx';
+import { StoreSheet, StoreView } from './Store.tsx';
+import { route } from '../store.ts';
 
 /** Runs a plugin action, shows how it went and takes the new state. */
 async function pluginAction(run: () => Promise<AppState | { state: AppState; problem: string | null }>, done: string): Promise<void> {
@@ -121,7 +123,63 @@ function Updates() {
   );
 }
 
+/**
+ * The Plugins page: what is installed, the store (the same catalogue as
+ * kioskolcd.dev/store/), and updates. `#/plugins/store/<id>` opens a
+ * plugin's page in the store.
+ */
 export function Plugins() {
+  const a = app.value!;
+  const parts = route.value.split('/');
+  const tab = parts[1] === 'store' ? 'store' : parts[1] === 'updates' ? 'updates' : 'installed';
+  const updates = KIOSKO_DEMO ? 0 : (a.updates?.plugins.filter((p) => p.version).length ?? 0);
+  const tabs = [
+    ['installed', tr('plugins.tabInstalled'), a.catalog.length],
+    ['store', tr('plugins.tabStore'), null],
+    ['updates', tr('plugins.tabUpdates'), updates || null],
+  ] as const;
+  return (
+    <div class="page-view">
+      <header class="view-head">
+        <div>
+          <h1>{tr('plugins.title')}</h1>
+          <p class="muted">{tr('plugins.subtitle')}</p>
+        </div>
+      </header>
+      {a.restartNeeded && (
+        <div class="banner warn">
+          <Icon name="rotate-ccw" size={16} /> {tr('plugins.restart')}
+        </div>
+      )}
+      <nav class="tabs" role="tablist">
+        {tabs.map(([id, label, n]) => (
+          <a role="tab" class={`tab ${tab === id ? 'on' : ''}`} aria-selected={tab === id} href={id === 'installed' ? '#/plugins' : `#/plugins/${id}`}>
+            {label}
+            {n !== null && <span class="tab-count">{n}</span>}
+          </a>
+        ))}
+      </nav>
+      {tab === 'store' ? parts[2] ? <StoreSheet id={decodeURIComponent(parts[2])} /> : <StoreView /> : tab === 'updates' ? <UpdatesTab /> : <InstalledPlugins />}
+    </div>
+  );
+}
+
+function UpdatesTab() {
+  const u = app.value!.updates;
+  const any = !!u && (u.kiosko || u.plugins.length > 0);
+  return (
+    <>
+      <Updates />
+      {!any && (
+        <p class="muted">
+          {tr('updates.none')} {u ? t('updates.checked', { at: dateTime(u.checkedAt) }) : ''}
+        </p>
+      )}
+    </>
+  );
+}
+
+function InstalledPlugins() {
   const a = app.value!;
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
@@ -149,19 +207,7 @@ export default definePlugin({
   })],
 });`;
   return (
-    <div class="page-view">
-      <header class="view-head">
-        <div>
-          <h1>{tr('plugins.title')}</h1>
-          <p class="muted">{tr('plugins.subtitle')}</p>
-        </div>
-      </header>
-      {a.restartNeeded && (
-        <div class="banner warn">
-          <Icon name="rotate-ccw" size={16} /> {tr('plugins.restart')}
-        </div>
-      )}
-      <Updates />
+    <>
       {(status.value?.problems.length ?? 0) > 0 && (
         <div class="banner error">
           <b>{tr('plugins.problems')}</b>
@@ -172,35 +218,6 @@ export default definePlugin({
           ))}
         </div>
       )}
-      {(() => {
-        const missing = (a.official ?? []).filter((o) => !a.catalog.some((p) => p.id === o.id));
-        if (!missing.length) return null;
-        return (
-          <section class="card official">
-            <h3>
-              <Icon name="badge-check" size={16} /> {tr('plugins.official')}
-            </h3>
-            <p class="muted small">{tr('plugins.officialHint')}</p>
-            <div class="official-list">
-              {missing.map((o) => (
-                <div class="official-item">
-                  <span>
-                    <span class="mono">{o.npm}</span>{' '}
-                    {o.bundled === false && (
-                      <span class="pill" title={tr('plugins.optionalHint')}>
-                        {tr('plugins.optionalShort')}
-                      </span>
-                    )}
-                  </span>
-                  <button class="btn small primary" disabled={busy || KIOSKO_DEMO} onClick={() => install(o.npm)}>
-                    <Icon name="download" size={13} /> {tr('common.add')}
-                  </button>
-                </div>
-              ))}
-            </div>
-          </section>
-        );
-      })()}
       {(a.refused ?? []).length > 0 && (
         <section class="card refused">
           <h3>
@@ -341,7 +358,7 @@ export default definePlugin({
           </div>
         </section>
       </div>
-    </div>
+    </>
   );
 }
 
