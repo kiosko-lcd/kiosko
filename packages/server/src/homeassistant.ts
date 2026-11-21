@@ -7,6 +7,16 @@
  * - a switch, "Display": off = black until switched on again (not saved);
  * - a button per interlude: plays it now.
  *
+ * And Kiosko itself is one more device, for its alerts (which are not a
+ * screen's): a sensor, "Alert", with the highest one's title (its level,
+ * text, id and how many there are as attributes), and a button,
+ * "Acknowledge alerts", that marks every one that can be as seen. One
+ * button for all rather than one per alert: alerts come and go by the
+ * minute, and an entity per alert would fill Home Assistant's registry with
+ * entities nobody can put on a dashboard or in an automation beforehand. To
+ * acknowledge a single one, an automation can call the API
+ * (`POST /api/alerts/<id>/ack`, e.g. with a `rest_command`).
+ *
  * So an automation can show the camera page when the doorbell rings, or turn
  * the panels off when nobody is home. Everything is announced again on every
  * (re)connection and config change; what disappeared from the config is
@@ -42,6 +52,8 @@ const NAMES = {
   shown: { en: 'Page shown', es: 'Página en pantalla', de: 'Angezeigte Seite', 'zh-Hant': '目前頁面', 'zh-Hans': '当前页面' },
   display: { en: 'Display', es: 'Pantalla', de: 'Anzeige', 'zh-Hant': '螢幕', 'zh-Hans': '屏幕' },
   interlude: { en: 'Play', es: 'Reproducir', de: 'Abspielen', 'zh-Hant': '播放', 'zh-Hans': '播放' },
+  alert: { en: 'Alert', es: 'Alerta', de: 'Alarm', 'zh-Hant': '警報', 'zh-Hans': '警报' },
+  ack: { en: 'Acknowledge alerts', es: 'Marcar alertas como vistas', de: 'Alarme bestätigen', 'zh-Hant': '確認警報', 'zh-Hans': '确认警报' },
 };
 
 /** A safe piece of a topic or an id: letters, digits, _ and -. */
@@ -70,6 +82,7 @@ export class HomeAssistantBridge {
   private readonly onFrame = () => this.publishStates();
   private readonly onConfig = (cfg: Config) => this.apply(cfg);
   private readonly onScreen = () => this.publishStates();
+  private readonly onAlerts = () => this.publishStates();
 
   private readonly runtime: Runtime;
   private readonly version: string;
@@ -82,6 +95,7 @@ export class HomeAssistantBridge {
     runtime.on('frame', this.onFrame);
     runtime.on('config', this.onConfig);
     runtime.on('screen', this.onScreen);
+    runtime.on('alerts', this.onAlerts);
     this.apply(runtime.config);
   }
 
@@ -94,6 +108,7 @@ export class HomeAssistantBridge {
     this.runtime.off('frame', this.onFrame);
     this.runtime.off('config', this.onConfig);
     this.runtime.off('screen', this.onScreen);
+    this.runtime.off('alerts', this.onAlerts);
     this.disconnect();
   }
 
@@ -134,7 +149,7 @@ export class HomeAssistantBridge {
       if (this.client !== c) return;
       this.last.clear();
       c.publish(`${base}/status`, 'online', true);
-      c.subscribe([`${base}/+/page/set`, `${base}/+/display/set`, `${base}/+/interlude/+/press`, `${this.link!.discoveryPrefix}/status`]);
+      c.subscribe([`${base}/+/page/set`, `${base}/+/display/set`, `${base}/+/interlude/+/press`, `${base}/alerts/ack/press`, `${this.link!.discoveryPrefix}/status`]);
       this.announce();
     });
     c.on('message', (topic, payload) => this.client === c && this.onMessage(topic, payload));
@@ -164,6 +179,16 @@ export class HomeAssistantBridge {
       c.publish(topic, JSON.stringify(body), true);
     };
     const availability = { availability_topic: `${this.base}/status` };
+    // Kiosko itself: its alerts.
+    const hub = { identifiers: [`kiosko_${node}`], name: 'Kiosko', manufacturer: 'Kiosko', model: 'Kiosko', sw_version: this.version };
+    put('sensor', 'alert', {
+      name: this.loc(NAMES.alert), unique_id: `kiosko_${node}_alert`, icon: 'mdi:alert-octagon-outline',
+      state_topic: `${this.base}/alerts/top`, json_attributes_topic: `${this.base}/alerts/attributes`, device: hub, ...availability,
+    });
+    put('button', 'alerts_ack', {
+      name: this.loc(NAMES.ack), unique_id: `kiosko_${node}_alerts_ack`, icon: 'mdi:check-all',
+      command_topic: `${this.base}/alerts/ack/press`, payload_press: 'PRESS', device: hub, ...availability,
+    });
     for (const screen of cfg.screens) {
       const sid = slug(screen.id);
       const device = {
@@ -208,6 +233,17 @@ export class HomeAssistantBridge {
     const c = this.client;
     if (!c?.connected || !this.link) return;
     const status = this.runtime.status();
+    const alerts = this.runtime.listAlerts().filter((a) => !a.snoozedUntil);
+    const top = alerts[0];
+    const alertStates: [string, string][] = [
+      [`${this.base}/alerts/top`, top ? top.title.slice(0, 250) : '—'],
+      [`${this.base}/alerts/attributes`, JSON.stringify(top ? { level: top.level, text: top.text, id: top.id, count: alerts.length, since: new Date(top.since).toISOString() } : { level: 'none', count: 0 })],
+    ];
+    for (const [topic, value] of alertStates) {
+      if (this.last.get(topic) === value) continue;
+      this.last.set(topic, value);
+      c.publish(topic, value, true);
+    }
     for (const screen of this.runtime.config.screens) {
       const sid = slug(screen.id);
       const st = status.screens.find((x) => x.id === screen.id);
@@ -230,6 +266,10 @@ export class HomeAssistantBridge {
     // Home Assistant restarted: it forgets non-retained state, so announce again.
     if (topic === `${this.link.discoveryPrefix}/status`) {
       if (payload === 'online') this.announce();
+      return;
+    }
+    if (topic === `${this.base}/alerts/ack/press`) {
+      this.runtime.ackAllAlerts();
       return;
     }
     const m = new RegExp(`^${this.base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/([^/]+)/(page/set|display/set|interlude/([^/]+)/press)$`).exec(topic);

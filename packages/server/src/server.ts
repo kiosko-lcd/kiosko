@@ -16,7 +16,8 @@ import { CATEGORIES } from '@kiosko/sdk';
 import { OFFICIAL_PLUGINS } from './builtin.ts';
 import { installPlugin, reloadPlugin, removePlugin } from './plugins-manage.ts';
 import { HomeAssistantBridge } from './homeassistant.ts';
-import { PANEL_PRESETS, checkUpdates, discoverTrcc, discoverUsb, normalize, paths, resolveLocale, saveConfig, type Config, type FrameInfo, type Runtime, type Screen, type UpdateCheck } from '@kiosko/core';
+import { ALERT_LEVELS, type AlertLevel } from '@kiosko/sdk';
+import { AlertError, DEFAULT_SNOOZE_MS, PANEL_PRESETS, checkUpdates, discoverTrcc, discoverUsb, normalize, paths, resolveLocale, saveConfig, type Config, type FrameInfo, type Runtime, type Screen, type UpdateCheck } from '@kiosko/core';
 
 const require = createRequire(import.meta.url);
 
@@ -114,7 +115,8 @@ export function startServer(o: ServerOptions) {
     const line = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
     for (const c of clients) c.write(line);
   };
-  runtime.on('frame', (f: FrameInfo) => send('frame', { screenId: f.screenId, pageId: f.pageId, at: f.at, interlude: f.interlude, sleeping: f.sleeping, tiles: f.tiles }));
+  runtime.on('frame', (f: FrameInfo) => send('frame', { screenId: f.screenId, pageId: f.pageId, at: f.at, interlude: f.interlude, alert: f.alert ?? null, sleeping: f.sleeping, tiles: f.tiles }));
+  runtime.on('alerts', (alerts: unknown) => send('alerts', alerts));
   runtime.on('log', (e) => send('log', e));
   runtime.on('config', () => thumbs.clear());
   // Home Assistant, over MQTT: connects only when the config has it switched on.
@@ -138,6 +140,7 @@ export function startServer(o: ServerOptions) {
       themes: THEMES,
       presets: PANEL_PRESETS,
       status: fullStatus(),
+      alerts: runtime.listAlerts(),
       paths: { config: o.configPath, plugins: paths.plugins, home: paths.home },
       restartNeeded,
       official: OFFICIAL_PLUGINS,
@@ -240,6 +243,42 @@ export function startServer(o: ServerOptions) {
       let taken = false;
       for (const e of events.slice(0, 32)) taken = runtime.press(decodeURIComponent(mm[1]!), e as never) || taken;
       return json(res, 200, { ok: true, playing: taken });
+    }
+    // Alerts: the active ones, one from outside, seen, snoozed, taken away, a screen's test.
+    if (p === '/api/alerts' && m === 'GET') return json(res, 200, { alerts: runtime.listAlerts() });
+    if (p === '/api/alerts' && m === 'POST') {
+      try {
+        return json(res, 200, { ok: true, alert: runtime.postAlert(await body(req, 64 * 1024)) });
+      } catch (err) {
+        if (err instanceof AlertError || err instanceof SyntaxError) return json(res, 400, { error: err.message, code: 'badAlert' });
+        throw err;
+      }
+    }
+    mm = /^\/api\/alerts\/([^/]+)(?:\/(ack|snooze))?$/.exec(p);
+    if (mm && (m === 'POST' || m === 'DELETE')) {
+      const id = decodeURIComponent(mm[1]!);
+      const what = mm[2];
+      if (m === 'DELETE' && !what) return runtime.removeAlert(id) ? json(res, 200, { ok: true }) : json(res, 404, { error: 'no such alert from outside', code: 'unknownAlert', params: { id } });
+      if (m === 'POST' && what) {
+        let r;
+        if (what === 'ack') r = runtime.ackAlert(id);
+        else {
+          const b = (await body(req, 4096)) as { minutes?: number };
+          const minutes = Number(b.minutes);
+          r = runtime.snoozeAlert(id, Number.isFinite(minutes) && minutes > 0 ? Math.min(1440, minutes) * 60_000 : DEFAULT_SNOOZE_MS);
+        }
+        if (r === 'unknown') return json(res, 404, { error: 'no such alert', code: 'unknownAlert', params: { id } });
+        if (r === 'notDismissible') return json(res, 409, { error: 'this alert cannot be dismissed', code: 'notDismissible', params: { id } });
+        return json(res, 200, { ok: true, alerts: runtime.listAlerts() });
+      }
+    }
+    mm = /^\/api\/screens\/([^/]+)\/test-alert$/.exec(p);
+    if (mm && m === 'POST') {
+      const b = (await body(req, 4096)) as { level?: string };
+      const level: AlertLevel = ALERT_LEVELS.includes(b.level as AlertLevel) ? (b.level as AlertLevel) : 'critical';
+      const a = runtime.testAlert(decodeURIComponent(mm[1]!), level);
+      if (!a) return json(res, 404, { error: 'unknown screen', code: 'unknownScreen' });
+      return json(res, 200, { ok: true, alert: a });
     }
     mm = /^\/api\/widgets\/([^/]+)\/refresh$/.exec(p);
     if (mm && m === 'POST') {
