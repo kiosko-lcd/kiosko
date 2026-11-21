@@ -90,6 +90,8 @@ class Host implements RunnerHost {
   /** Pictures already made from the bytes they came as (see clone.ts). */
   readonly pictures = new Map<number, Image | Canvas>();
   runner: ScreenRunner | null = null;
+  /** Called after each frame: the state may have changed with it (an interlude starting). */
+  afterFrame: () => void = () => undefined;
   readonly device: RelayDevice;
   private readonly post: (m: FromThread) => void;
 
@@ -124,6 +126,7 @@ class Host implements RunnerHost {
   frame(info: FrameInfo): void {
     const { image: _, ...rest } = info;
     this.post({ t: 'frame', info: rest });
+    this.afterFrame();
   }
   pageChanged(): void {
     this.visible();
@@ -191,6 +194,7 @@ export async function runScreenThread(builtins: PluginDefinition[] = []): Promis
     post({ t: 'state', state });
   };
 
+  host.afterFrame = tellState;
   let timer: NodeJS.Timeout | null = null;
   const close = () => {
     if (timer) clearInterval(timer);
