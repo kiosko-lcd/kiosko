@@ -165,7 +165,7 @@ can run in PowerShell.
    silently, with the tasks "start when I sign in" and "add `kiosko` to PATH":
 
    ```powershell
-   .\Kiosko-Setup-0.2.6-x64.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /TASKS=service,path
+   .\Kiosko-Setup-0.2.7-x64.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /TASKS=service,path
    ```
 
    Open a new terminal afterwards so `kiosko` is on the `PATH` (or use
@@ -383,6 +383,9 @@ Some official plugins are **optional**: they don't come with Kiosko, and the
 | [doom](https://github.com/kiosko-lcd/kiosko-plugin-doom) | the game's own demos as an interlude, on Freedoom or your IWAD (GPL, engine in a process of its own) |
 | [video](https://github.com/kiosko-lcd/kiosko-plugin-video) | your own videos as an interlude, a clip or a folder of them, decoded by ffmpeg (yours, or one downloaded once) to the panel's size |
 | [fractals](https://github.com/kiosko-lcd/kiosko-plugin-fractals) | generative interludes in your theme's colours: a fractal flame that develops like a photo, a morphing Julia set, a Mandelbrot dive, a fern meadow and growing coral |
+| [gaming](https://github.com/kiosko-lcd/kiosko-plugin-gaming) | game FPS, 1 % low and frame times (MangoHud, PresentMon) and the cooling: fans, pumps and coolant (liquidctl, lm-sensors, LibreHardwareMonitor) |
+| [logs](https://github.com/kiosko-lcd/kiosko-plugin-logs) | live logs: journald, log files, Docker, macOS, Windows, Kubernetes and Loki; errors as they happen, repeats folded, secrets masked |
+| [hazards](https://github.com/kiosko-lcd/kiosko-plugin-hazards) | official warnings (NWS, tsunami.gov, CWA, AEMET, Meteoalarm, GDACS) as full-screen alerts on every panel; informational, not a substitute for official alerts |
 
 Every official widget, painted with its sample data: run `kiosko gallery`
 (published to GitHub Pages by the `Gallery` workflow, together with the
