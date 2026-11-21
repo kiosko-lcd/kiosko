@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createCanvas } from '@napi-rs/canvas';
+import { createCanvas, loadImage } from '@napi-rs/canvas';
 import { loadImageScaled, scaledSize } from './scaled-images.ts';
 
 test('scaledSize: cover is at least the box, contain at most; never larger than the image', () => {
@@ -40,6 +40,14 @@ test('loadImageScaled: a big photo comes back shrunk, from a buffer or a file; a
 
 test('loadImageScaled: the JS thread stays free while a big photo is scaled', async () => {
   const bytes = photo(4000, 6000);
+  // What it saves, on this machine: the full-size photo prepared on this thread, as a widget's
+  // first paint of it would. CI runners are slow and uneven, so the bar is relative to this, not
+  // a number of ms.
+  const t0 = performance.now();
+  createCanvas(600, 900).getContext('2d').drawImage(await loadImage(bytes), 0, 0, 600, 900);
+  const onThisThread = performance.now() - t0;
+  // The worker starts once, on first use: that is not scaling.
+  await loadImageScaled(photo(1200, 800), { width: 300, height: 200 });
   let worst = 0;
   let last = performance.now();
   const iv = setInterval(() => {
@@ -49,5 +57,5 @@ test('loadImageScaled: the JS thread stays free while a big photo is scaled', as
   }, 5);
   await loadImageScaled(bytes, { width: 600, height: 462 });
   clearInterval(iv);
-  assert.ok(worst < 60, `the thread was held ${worst.toFixed(0)} ms at once`);
+  assert.ok(worst < Math.max(40, onThisThread / 2), `the thread was held ${worst.toFixed(0)} ms at once; on this thread it would have been ${onThisThread.toFixed(0)} ms`);
 });

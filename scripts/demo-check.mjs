@@ -57,7 +57,10 @@ function watchErrors(page) {
   const errors = [];
   page.on('console', (m) => m.type() === 'error' && errors.push(`console: ${m.text()}`));
   page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
-  page.on('requestfailed', (r) => errors.push(`requestfailed: ${r.url()} ${r.failure()?.errorText}`));
+  // A load cancelled (the page moved on, a picture replaced before it arrived) is not a failure:
+  // WebKit reports it as one, and only now and then, as it depends on timing.
+  const cancelled = /^(Load request cancelled|cancelled|net::ERR_ABORTED|NS_BINDING_ABORTED)$/i;
+  page.on('requestfailed', (r) => cancelled.test(r.failure()?.errorText ?? '') || errors.push(`requestfailed: ${r.url()} ${r.failure()?.errorText}`));
   page.on('response', (r) => r.status() >= 400 && errors.push(`http ${r.status()}: ${r.url()}`));
   return errors;
 }
