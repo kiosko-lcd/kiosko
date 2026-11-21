@@ -9,11 +9,11 @@
  * - **Optional** ones are only offered on the Plugins page, for whoever wants
  *   them: never installed by default. For plugins that are heavy, niche, or
  *   under another licence (`doom` is GPL and runs its engine in a process of
- *   its own).
+ *   its own; `video` needs ffmpeg; `fractals` spends CPU while it plays).
  */
 export const BUNDLED_PLUGIN_IDS = ['agents', 'cats', 'system', 'vitals', 'usage', 'weather', 'calendar', 'news', 'mirror', 'gitlab', 'github', 'calls', 'timesheet', 'llm', 'gpu', 'homeassistant'] as const;
 
-export const OPTIONAL_PLUGIN_IDS = ['doom'] as const;
+export const OPTIONAL_PLUGIN_IDS = ['doom', 'video', 'fractals'] as const;
 
 export interface OfficialPlugin {
   id: string;

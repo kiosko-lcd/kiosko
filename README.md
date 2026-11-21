@@ -381,6 +381,8 @@ Some official plugins are **optional**: they don't come with Kiosko, and the
 | Plugin | Gives you |
 |---|---|
 | [doom](https://github.com/kiosko-lcd/kiosko-plugin-doom) | the game's own demos as an interlude, on Freedoom or your IWAD (GPL, engine in a process of its own) |
+| [video](https://github.com/kiosko-lcd/kiosko-plugin-video) | your own videos as an interlude, a clip or a folder of them, decoded by ffmpeg (yours, or one downloaded once) to the panel's size |
+| [fractals](https://github.com/kiosko-lcd/kiosko-plugin-fractals) | generative interludes in your theme's colours: a fractal flame that develops like a photo, a morphing Julia set, a Mandelbrot dive, a fern meadow and growing coral |
 
 Every official widget, painted with its sample data: run `kiosko gallery`
 (published to GitHub Pages by the `Gallery` workflow, together with the
