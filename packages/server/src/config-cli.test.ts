@@ -81,6 +81,16 @@ const EXPECTED_RISKS: Record<string, Record<string, unknown>> = {
   'homeassistant/states': { url: 'network' },
   'doom/attract': { wad: 'path' },
   'video/clip': { source: 'path', bin: 'exec' },
+  'gaming/frames': { mangohudFolder: 'path', presentmon: 'exec', presentmonCsv: 'path' },
+  'gaming/cooling': { liquidctl: 'exec', lmSensors: 'exec', lhmUrl: 'network' },
+  'logs/journal': { bin: 'exec' },
+  'logs/file': { paths: 'path', 'paths[]': 'path' },
+  'logs/docker': { socket: 'path' },
+  'logs/macos': { bin: 'exec' },
+  'logs/windows': { bin: 'exec' },
+  'logs/kubernetes': { context: 'network', bin: 'exec' },
+  'logs/loki': { url: 'network' },
+  'hazards/alerts': { 'customFeeds[]': ['network', 'path'] },
 };
 
 test('the plugins mark every option that runs programs, contacts hosts or reads paths', () => {
