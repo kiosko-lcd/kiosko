@@ -120,12 +120,14 @@ async function packumentOf(name: string): Promise<Packument | null> {
 interface Unpacked {
   manifest: unknown | null;
   problem?: string;
-  /** docs/* pictures, by path inside the package (`docs/forecast.png`). */
+  /** docs/* pictures (and WebM clips), by path inside the package (`docs/forecast.png`). */
   pictures: Map<string, Buffer>;
 }
 
+/** A WebM clip (an interlude's `preview.video`): EBML with the `webm` doctype, told by its bytes, not its name. */
+const isClip = (b: Buffer) => b[0] === 0x1a && b[1] === 0x45 && b[2] === 0xdf && b[3] === 0xa3 && b.subarray(0, 64).includes('webm');
 const isPicture = (b: Buffer) =>
-  (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) || (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) || (b.subarray(0, 4).toString() === 'RIFF' && b.subarray(8, 12).toString() === 'WEBP');
+  (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) || (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) || (b.subarray(0, 4).toString() === 'RIFF' && b.subarray(8, 12).toString() === 'WEBP') || isClip(b);
 
 /** A version's tarball, checked against its integrity, kept in the cache by it; its manifest and pictures. */
 async function unpack(name: string, version: Record<string, any>): Promise<Unpacked> {
@@ -220,9 +222,10 @@ function repositoryManifest(id: string): unknown | null {
 }
 
 /** A third party's own pictures (from its docs/), copied to img/<id>/<version>/. */
-function copyPictures(id: string, version: string, m: PluginManifest, pictures: Map<string, Buffer>): { shots: NonNullable<Parameters<typeof entryFrom>[0]['shots']>; posters: Record<string, string>; cover?: string } {
+function copyPictures(id: string, version: string, m: PluginManifest, pictures: Map<string, Buffer>): { shots: NonNullable<Parameters<typeof entryFrom>[0]['shots']>; posters: Record<string, string>; videos: Record<string, string>; cover?: string } {
   const shots: NonNullable<Parameters<typeof entryFrom>[0]['shots']> = {};
   const posters: Record<string, string> = {};
+  const videos: Record<string, string> = {};
   const put = (file: string): string | null => {
     const b = pictures.get(file.replace(/^\.\//, ''));
     if (!b) return null;
@@ -248,14 +251,18 @@ function copyPictures(id: string, version: string, m: PluginManifest, pictures: 
     }
     if (files.en) shots[w.type] = { files, ...size };
   }
+  const clip = (file: string) => pictures.get(file.replace(/^\.\//, ''));
   for (const i of m.interludes ?? []) {
-    const rel = i.preview?.poster && put(i.preview.poster);
+    const rel = i.preview?.poster && !isClip(clip(i.preview.poster) ?? Buffer.alloc(0)) && put(i.preview.poster);
     if (rel) posters[i.type] = rel;
+    // Its clip only with its still (for where it doesn't play), and only if it is one.
+    const video = rel && i.preview?.video && isClip(clip(i.preview.video) ?? Buffer.alloc(0)) && put(i.preview.video);
+    if (video) videos[i.type] = video;
   }
-  // Nothing of its widgets to show: the first picture of its docs/ (doom's recording's first frame, say).
-  const first = Object.keys(shots).length || Object.keys(posters).length ? undefined : [...pictures.keys()].sort()[0];
+  // Nothing of its widgets to show: the first picture of its docs/ (doom's recording's first frame, say); never a clip.
+  const first = Object.keys(shots).length || Object.keys(posters).length ? undefined : [...pictures.keys()].filter((k) => !isClip(pictures.get(k)!)).sort()[0];
   const cover = first ? put(first) : null;
-  return { shots, posters, ...(cover ? { cover } : {}) };
+  return { shots, posters, videos, ...(cover ? { cover } : {}) };
 }
 
 async function main(): Promise<void> {
@@ -297,7 +304,7 @@ async function main(): Promise<void> {
       }
       if (manifest) problems.push(...manifestProblems(manifest, { id, version: source === 'repository' ? manifest.version : latest, schema: manifestSchema }));
       // Official plugins' widgets are painted by the gallery, in every language; anything else comes from the package.
-      const pictures = manifest ? copyPictures(id, latest, o ? { ...manifest, widgets: manifest.widgets.filter((w) => !shotsOfGallery[w.type]) } : manifest, now.pictures) : { shots: {}, posters: {} };
+      const pictures = manifest ? copyPictures(id, latest, o ? { ...manifest, widgets: manifest.widgets.filter((w) => !shotsOfGallery[w.type]) } : manifest, now.pictures) : { shots: {}, posters: {}, videos: {} };
       const repo = githubRepo(String((manifest?.repository ?? (p.versions![latest]!.repository as { url?: string } | undefined)?.url ?? '') as string).replace(/^git\+/, '').replace(/\.git$/, ''));
       const e = entryFrom({
         packument: p,
@@ -310,6 +317,7 @@ async function main(): Promise<void> {
         github: token && repo ? await github(repo, token) : null,
         shots: o ? { ...pictures.shots, ...shotsOfGallery } : pictures.shots,
         posters: pictures.posters,
+        videos: pictures.videos,
         ...(pictures.cover ? { cover: pictures.cover } : {}),
         withdrawn: overrides.withdrawn,
       });

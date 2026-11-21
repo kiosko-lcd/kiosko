@@ -85,3 +85,37 @@ test('store pages: the list and each plugin, in every language, with the links b
     rmSync(out, { recursive: true, force: true });
   }
 });
+
+test('an interlude with a clip: its page plays it (silent, its still as poster); without a clip, its still', () => {
+  const out = mkdtempSync(join(tmpdir(), 'kiosko-store-clip-'));
+  try {
+    const interlude = (type: string) => ({ type, name: { en: type }, fps: 15 });
+    const e = entryFrom({
+      packument: packument('kiosko-plugin-fractals', ['0.2.1']),
+      manifest: manifest('fractals', '0.2.1', { widgets: [], interludes: [interlude('fractals/flame'), interlude('fractals/coral')] } as never),
+      official: { bundled: false },
+      posters: { 'fractals/flame': 'store/v1/img/fractals/0.2.1/flame.jpg', 'fractals/coral': 'store/v1/img/fractals/0.2.1/coral.jpg' },
+      // A clip without its still is not shown: here coral has no clip, and a clip for an unknown type is ignored.
+      videos: { 'fractals/flame': 'store/v1/img/fractals/0.2.1/flame.webm', 'fractals/nope': 'x.webm' },
+    })!;
+    assert.deepEqual(e.plugin.interludes.map((i) => [i.type, i.video ?? null]), [['fractals/flame', 'store/v1/img/fractals/0.2.1/flame.webm'], ['fractals/coral', null]]);
+    const index = buildIndex([e.plugin], { generatedAt: '2026-11-21T03:17:00Z' });
+    buildStorePages({ out, index, details: { fractals: { riskyOptions: e.file, sources: e.sources } }, texts, css: 'c.css', js: 'j.js', presets: PANEL_PRESETS });
+    const page = readFileSync(join(out, 'es/store/fractals/index.html'), 'utf8');
+    const clips = [...page.matchAll(/<video class="clip"[^>]*>/g)].map((m) => m[0]);
+    // On the big panel only (the list keeps the stills): never autoplaying (store.ts plays it on screen), never loading before then.
+    assert.equal(clips.length, 1);
+    for (const c of clips) {
+      assert.match(c, /src="\.\.\/\.\.\/\.\.\/store\/v1\/img\/fractals\/0\.2\.1\/flame\.webm"/);
+      assert.match(c, /poster="\.\.\/\.\.\/\.\.\/store\/v1\/img\/fractals\/0\.2\.1\/flame\.jpg"/);
+      assert.match(c, / muted loop playsinline preload="none"/);
+      assert.doesNotMatch(c, /autoplay/);
+    }
+    assert.ok(page.includes('<img src="../../../store/v1/img/fractals/0.2.1/coral.jpg"'), 'coral: its still');
+    // Each interlude with a still has its place on the big panel, chosen by a thumbnail.
+    assert.equal([...page.matchAll(/<button type="button" data-shot="\d"/g)].length, 2);
+    assert.match(page, /<figure class="" id="shot-1"><div class="glass"><img src="[^"]*coral\.jpg"/);
+  } finally {
+    rmSync(out, { recursive: true, force: true });
+  }
+});

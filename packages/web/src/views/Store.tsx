@@ -420,6 +420,9 @@ function StoreGallery({ p, st, lang }: { p: StorePlugin; st: StoreState; lang: s
   const [failed, setFailed] = useState<Set<number>>(new Set());
   const shots = p.widgets.filter((w) => w.shots).map((w, i) => ({ i, name: textIn(w.name, lang), description: textIn(w.description, lang), src: siteUrl(st, w.shots![lang] ?? w.shots!.en!) })).filter((x) => !failed.has(x.i));
   const cover = !p.widgets.some((w) => w.shots) ? bestPicture(p, lang)?.src : null;
+  // Only interludes: the first one's clip, silent and looping (its still with reduced motion, or if it fails).
+  const lead = cover ? p.interludes.find((i) => i.video && i.poster) : undefined;
+  const still = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
   if (!shots.length && !cover) return null;
   const fail = (i: number) => setFailed((f) => new Set(f).add(i));
   const main = shots.find((x) => x.i === on) ?? shots[0];
@@ -427,9 +430,15 @@ function StoreGallery({ p, st, lang }: { p: StorePlugin; st: StoreState; lang: s
     <div class="store-gallery">
       <figure class="store-stage">
         <span class="store-slab">
-          {main ? <img key={main.src} src={main.src} alt={main.name} onError={() => fail(main.i)} /> : <img src={siteUrl(st, cover!)} alt={textIn(p.name, lang)} onError={() => fail(-1)} />}
+          {main ? (
+            <img key={main.src} src={main.src} alt={main.name} onError={() => fail(main.i)} />
+          ) : lead && !still && !failed.has(-2) ? (
+            <video src={siteUrl(st, lead.video!)} poster={siteUrl(st, lead.poster!)} aria-label={textIn(lead.name, lang)} muted loop playsInline autoplay onError={() => fail(-2)} />
+          ) : (
+            <img src={siteUrl(st, lead?.poster ?? cover!)} alt={textIn(p.name, lang)} onError={() => fail(-1)} />
+          )}
         </span>
-        {main && <figcaption class="small"><b>{main.name}</b> <span class="muted">{main.description}</span></figcaption>}
+        {main ? <figcaption class="small"><b>{main.name}</b> <span class="muted">{main.description}</span></figcaption> : lead && <figcaption class="small"><b>{textIn(lead.name, lang)}</b> <span class="muted">{textIn(lead.description, lang)}</span></figcaption>}
       </figure>
       {shots.length > 1 && (
         <div class="store-thumbs">

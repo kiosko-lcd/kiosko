@@ -371,11 +371,20 @@ export function storePluginPage({ index, detail, plugin: p, texts, lang, css, js
   const shotsJson = (w) => esc(JSON.stringify(Object.fromEntries(Object.entries(w.shots).map(([k, v]) => [k, root + v]))));
   const img = (w, alt, extra = '') => `<img src="${root}${esc(w.shots[lang] ?? w.shots.en)}" data-shots="${shotsJson(w)}" alt="${esc(alt)}" decoding="async"${w.shotSize ? ` width="${w.shotSize.w}" height="${w.shotSize.h}"` : ''}${extra} />`;
   const cover = !withShots.length && (p.cover ?? p.interludes.find((i) => i.poster)?.poster);
+  // An interlude's clip where it has one, on the big panel: silent, looping, played by store.ts only while on screen
+  // (and never with reduced motion); its still is the poster, which is all that shows without a script. The list
+  // below keeps the stills: they show each one fully developed.
+  const clip = (i, alt, cls = '') => `<video class="clip${cls}" src="${root}${esc(i.video)}" poster="${root}${esc(i.poster)}" muted loop playsinline preload="none" aria-label="${esc(alt)}"></video>`;
+  // Only interludes: each one with a still goes on the big panel (its clip where it has one), the others as thumbnails.
+  const scenes = withShots.length ? [] : p.interludes.filter((i) => i.poster);
   // The pictures: one big panel and, with a script, the others as thumbnails that bring theirs onto it (without one, all of them, one under the other).
   const stage = withShots.length
     ? `<div class="stage-panel"><div class="slab">${withShots.map((w, i) => `<figure class="${i === 0 ? 'on' : ''}" id="shot-${i}"><div class="glass">${img(w, say(w.name, lang))}</div><figcaption><b>${esc(say(w.name, lang))}</b> <span>${esc(say(w.description, lang))}</span></figcaption></figure>`).join('')}</div></div>
       ${withShots.length > 1 ? `<div class="thumbs">${withShots.map((w, i) => `<button type="button" data-shot="${i}" aria-controls="shot-${i}" aria-pressed="${i === 0}"><span class="thumb">${img(w, '', ' loading="lazy"')}</span><span>${esc(say(w.name, lang))}</span></button>`).join('')}</div>` : ''}`
-    : cover
+    : scenes.length
+      ? `<div class="stage-panel"><div class="slab">${scenes.map((i, n) => `<figure class="${n === 0 ? 'on' : ''}" id="shot-${n}"><div class="glass">${i.video ? clip(i, say(i.name, lang)) : `<img src="${root}${esc(i.poster)}" alt="${esc(say(i.name, lang))}" decoding="async" />`}</div><figcaption><b>${esc(say(i.name, lang))}</b> <span>${esc(say(i.description, lang))}</span></figcaption></figure>`).join('')}</div></div>
+      ${scenes.length > 1 ? `<div class="thumbs">${scenes.map((i, n) => `<button type="button" data-shot="${n}" aria-controls="shot-${n}" aria-pressed="${n === 0}"><span class="thumb"><img src="${root}${esc(i.poster)}" alt="" loading="lazy" decoding="async" /></span><span>${esc(say(i.name, lang))}</span></button>`).join('')}</div>` : ''}`
+      : cover
       ? `<div class="stage-panel"><div class="slab"><figure class="on"><div class="glass"><img src="${root}${esc(cover)}" alt="${esc(name)}" decoding="async" /></div></figure></div></div>`
       : '';
   const shots = stage

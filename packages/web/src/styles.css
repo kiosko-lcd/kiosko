@@ -612,7 +612,7 @@ label.check { display: inline-flex; align-items: center; gap: 6px; font-size: 13
 .store-stage figcaption { text-align: center; color: #e7ecf4; max-width: 70ch; }
 .store-stage figcaption .muted { color: #a3adbf; }
 .store-slab { display: block; max-width: 100%; padding: 1.2%; border-radius: 9px; background: linear-gradient(180deg, #f1f2f5, #d9dce2); box-shadow: 0 24px 70px rgba(124, 92, 246, 0.25), 0 10px 30px rgba(0, 0, 0, 0.55); }
-.store-slab img { display: block; max-width: 100%; max-height: min(300px, 42vh); width: auto; height: auto; border: 3px solid #050506; border-radius: 3px; background: #000; animation: store-show 0.3s ease; }
+.store-slab img, .store-slab video { display: block; max-width: 100%; max-height: min(300px, 42vh); width: auto; height: auto; border: 3px solid #050506; border-radius: 3px; background: #000; animation: store-show 0.3s ease; }
 @keyframes store-show { from { opacity: 0; } }
 .store-thumbs { display: flex; gap: 8px; overflow-x: auto; justify-content: safe center; padding: 2px; }
 .store-thumbs button { flex: none; display: grid; gap: 5px; width: 150px; padding: 6px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); color: var(--text-2); font: 600 12px var(--font); text-align: left; cursor: pointer; }
@@ -671,6 +671,6 @@ ul.plain .pill { margin-left: 6px; }
   .store-cats .chip { flex: none; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .store-row, .store-bezel, .store-slab img { transition: none; animation: none; }
+  .store-row, .store-bezel, .store-slab img, .store-slab video { transition: none; animation: none; }
   .store-row:hover { transform: none; }
 }

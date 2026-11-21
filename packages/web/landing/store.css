@@ -85,6 +85,7 @@ svg.ic { flex: none; vertical-align: -0.15em; }
 .slab { position: relative; padding: 1.2% 1.2% 2.6%; border-radius: 10px; background: linear-gradient(180deg, #f1f2f5, #d9dce2); box-shadow: 0 40px 110px rgba(124, 92, 246, 0.26), 0 12px 40px rgba(0, 0, 0, 0.6), inset 0 1px 0 #fff; }
 .glass { position: relative; border: 3px solid #050506; border-radius: 3px; background: #000; overflow: hidden; }
 .glass img { display: block; width: 100%; height: auto; }
+.glass video { display: block; width: 100%; height: auto; aspect-ratio: 1920 / 462; object-fit: cover; background: #000; }
 .glass::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(115deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0) 38%); }
 .hero-panel { width: min(1040px, 100%); perspective: 1800px; }
 .hero-panel .slab { transform: rotateX(10deg); transform-origin: 50% 100%; animation: float 9s ease-in-out infinite; }
@@ -246,6 +247,7 @@ html.js .stage-panel figure.on { animation: show 0.35s var(--ease); }
 .thumbs button[aria-pressed='true'] { color: var(--ink); border-color: color-mix(in srgb, var(--accent) 70%, transparent); background: color-mix(in srgb, var(--accent) 12%, var(--panel)); }
 .thumb { display: grid; place-items: center; width: 100%; height: 72px; border-radius: 7px; background: #000; overflow: hidden; }
 .thumb img { max-width: 100%; max-height: 100%; width: auto; height: auto; display: block; }
+.thumb video { display: block; width: 100%; height: 100%; object-fit: cover; background: #000; }
 html:not(.js) .thumbs { display: none; }
 
 .columns { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 380px); gap: 32px; margin-top: 10px; }

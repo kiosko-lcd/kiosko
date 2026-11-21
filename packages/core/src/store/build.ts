@@ -164,6 +164,8 @@ export interface EntryInput {
   shots?: Record<string, { files: Record<string, string>; w: number; h: number }>;
   /** Pictures of interludes by type (path from the site's root). */
   posters?: Record<string, string>;
+  /** Short WebM clips of interludes by type (path from the site's root); each has its poster too. */
+  videos?: Record<string, string>;
   /** A picture for its card when it has none of its widgets (from the site's root). */
   cover?: string;
   withdrawn?: readonly WithdrawnEntry[];
@@ -271,6 +273,7 @@ export function entryFrom(i: EntryInput): { plugin: StorePlugin; file: StorePlug
       ...(x.description ? { description: texts(x.description)! } : {}),
       ...(x.icon ? { icon: x.icon } : {}),
       ...(i.posters?.[x.type] ? { poster: i.posters[x.type] } : {}),
+      ...(i.posters?.[x.type] && i.videos?.[x.type] ? { video: i.videos[x.type] } : {}),
     })),
     templates: (m?.templates ?? []).map((t) => ({ id: t.id, name: texts(t.name)!, layouts: t.layouts ?? ['wide'] })),
     ...(i.cover ? { cover: i.cover } : {}),

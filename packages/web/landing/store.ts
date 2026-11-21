@@ -3,7 +3,8 @@
  * cards already in the list page, keeps the choice in the address (a link
  * to "square panels, Spanish" works), and on a plugin's page brings a
  * picture onto the big panel, switches the pictures to another language and
- * copies the install command. Nothing is sent anywhere.
+ * copies the install command; interludes' clips play while they are on
+ * screen. Nothing is sent anywhere.
  */
 const texts = JSON.parse(document.getElementById('store-texts')?.textContent ?? '{}') as Record<string, string>;
 const lang = texts.lang ?? document.documentElement.lang;
@@ -148,4 +149,20 @@ for (const b of document.querySelectorAll<HTMLButtonElement>('button.copy[data-c
       if (label) label.textContent = idle;
     }, 1800);
   });
+}
+
+// Interludes' clips: played while on screen, paused when not, never with reduced motion (the still stays).
+const clips = [...document.querySelectorAll<HTMLVideoElement>('video.clip')];
+if (clips.length && 'IntersectionObserver' in window && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+  const seen = new IntersectionObserver(
+    (entries) => {
+      for (const e of entries) {
+        const v = e.target as HTMLVideoElement;
+        if (e.isIntersecting) void v.play().catch(() => undefined);
+        else v.pause();
+      }
+    },
+    { threshold: 0.4 },
+  );
+  for (const v of clips) seen.observe(v);
 }
