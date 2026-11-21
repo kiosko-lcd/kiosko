@@ -53,6 +53,31 @@ function myScreens() {
 /** A picture of the site (a path from its root), from where the catalogue lives. */
 const siteUrl = (st: StoreState, path: string) => new URL(path, new URL('../../', st.url)).href;
 
+/** The picture that shows a plugin best on a panel: its widest widget's (panels are wide), else its cover or an interlude's poster. */
+function bestPicture(p: StorePlugin, lang: string): { src: string; size?: { w: number; h: number } } | null {
+  const withShots = p.widgets.filter((w) => w.shots);
+  const w = withShots.find((x) => x.shotSize && x.shotSize.w / x.shotSize.h >= 2.4) ?? withShots[0];
+  const shot = w?.shots?.[lang] ?? w?.shots?.en;
+  if (shot) return { src: shot, size: w!.shotSize };
+  const cover = p.cover ?? p.interludes.find((i) => i.poster)?.poster;
+  return cover ? { src: cover } : null;
+}
+
+/** A plugin's picture on a small screen, as on the site's cards; without one (or offline), its drawing. */
+function StoreScreen({ p, st, lang }: { p: StorePlugin; st: StoreState; lang: string }) {
+  const [failed, setFailed] = useState(false);
+  const pic = bestPicture(p, lang);
+  const sized = !!pic?.size && !failed;
+  return (
+    <span class="store-screen" aria-hidden="true">
+      {/* With its size known, the screen has its shape before the picture arrives. */}
+      <span class={`store-bezel ${sized ? 'sized' : ''}`} style={sized ? { '--ar': String(pic!.size!.w / pic!.size!.h) } : undefined}>
+        {pic && !failed ? <img src={siteUrl(st, pic.src)} alt="" loading="lazy" decoding="async" width={pic.size?.w} height={pic.size?.h} onError={() => setFailed(true)} /> : <span class="store-poster"><Icon name={p.icon ?? 'puzzle'} size={30} /></span>}
+      </span>
+    </span>
+  );
+}
+
 const regionName = (code: string) => {
   try {
     return new Intl.DisplayNames([uiLanguage()], { type: 'region' }).of(code) ?? code;
@@ -165,15 +190,17 @@ export function StoreView() {
     <div class="store-view">
       <div class="store-bar">
         <input class="input" type="search" placeholder={tr('store.search')} value={q} onInput={(e) => setQ((e.target as HTMLInputElement).value)} aria-label={tr('store.search')} />
-        <select class="input" value={cat} onChange={(e) => setCat((e.target as HTMLSelectElement).value)} aria-label={tr('store.allCategories')}>
-          <option value="">{tr('store.allCategories')}</option>
-          {categories.map((c) => (
-            <option value={c.id}>{textIn(c.label, lang)}</option>
-          ))}
-        </select>
         <label class="check"><input type="checkbox" checked={fitsMine} onChange={(e) => setFitsMine((e.target as HTMLInputElement).checked)} /> {tr('store.fitsMine')}</label>
         <label class="check"><input type="checkbox" checked={mine} onChange={(e) => setMine((e.target as HTMLInputElement).checked)} /> {tr('store.myRegion')}</label>
       </div>
+      {categories.length > 0 && (
+        <div class="store-cats" role="group" aria-label={tr('store.allCategories')}>
+          <button type="button" class={`chip ${cat ? '' : 'on'}`} aria-pressed={!cat} onClick={() => setCat('')}>{tr('store.allCategories')}</button>
+          {categories.map((c) => (
+            <button type="button" class={`chip ${cat === c.id ? 'on' : ''}`} aria-pressed={cat === c.id} onClick={() => setCat(cat === c.id ? '' : c.id)}>{textIn(c.label, lang)}</button>
+          ))}
+        </div>
+      )}
       <div class="store-meta muted small">
         {screens.length > 0 && (
           <span>
@@ -203,9 +230,10 @@ export function StoreView() {
           const market = marketFor(p, where);
           return (
             <article class={`card store-row ${p.tier}`} onClick={() => (location.hash = `#/plugins/store/${p.id}`)}>
-              <span class="plugin-icon"><Icon name={p.icon ?? 'puzzle'} size={20} /></span>
+              <StoreScreen p={p} st={st} lang={lang} />
               <div class="store-row-main">
                 <div class="store-row-title">
+                  <span class="plugin-icon small"><Icon name={p.icon ?? 'puzzle'} size={15} /></span>
                   <a href={`#/plugins/store/${p.id}`} onClick={(e) => e.stopPropagation()}><b>{textIn(p.name, lang)}</b></a>
                   <TierPill p={p} />
                   <span class="muted mono small">v{p.latest}</span>
@@ -297,16 +325,7 @@ export function StoreSheet({ id }: { id: string }) {
       )}
       {market === 'elsewhere' && <div class="banner info">{t('store.elsewhere', { regions: list((p.markets?.only ?? []).map(regionName)) })}{p.markets?.note ? `: ${textIn(p.markets.note, lang)}` : ''}</div>}
       {market === 'missing' && <div class="banner info">{tr('store.missingHere')}</div>}
-      {p.widgets.some((w) => w.shots) && (
-        <div class="store-shots">
-          {p.widgets.filter((w) => w.shots).map((w) => (
-            <figure>
-              <img src={siteUrl(st, w.shots![lang] ?? w.shots!.en)} alt={textIn(w.name, lang)} loading="lazy" onError={(e) => ((e.target as HTMLImageElement).closest('figure')!.hidden = true)} />
-              <figcaption class="muted small">{textIn(w.name, lang)}</figcaption>
-            </figure>
-          ))}
-        </div>
-      )}
+      <StoreGallery p={p} st={st} lang={lang} />
       <div class="grid-2 gap-lg">
         <section class="card">
           {p.widgets.length > 0 && (
@@ -391,6 +410,37 @@ export function StoreSheet({ id }: { id: string }) {
         </section>
       </div>
       {installing && <InstallDialog p={p} st={st} risky={risky.length || p.riskyOptions} onClose={() => setInstalling(false)} />}
+    </div>
+  );
+}
+
+/** A plugin's pictures: one big, on a panel, and the others as thumbnails that bring theirs onto it. */
+function StoreGallery({ p, st, lang }: { p: StorePlugin; st: StoreState; lang: string }) {
+  const [on, setOn] = useState(0);
+  const [failed, setFailed] = useState<Set<number>>(new Set());
+  const shots = p.widgets.filter((w) => w.shots).map((w, i) => ({ i, name: textIn(w.name, lang), description: textIn(w.description, lang), src: siteUrl(st, w.shots![lang] ?? w.shots!.en!) })).filter((x) => !failed.has(x.i));
+  const cover = !p.widgets.some((w) => w.shots) ? bestPicture(p, lang)?.src : null;
+  if (!shots.length && !cover) return null;
+  const fail = (i: number) => setFailed((f) => new Set(f).add(i));
+  const main = shots.find((x) => x.i === on) ?? shots[0];
+  return (
+    <div class="store-gallery">
+      <figure class="store-stage">
+        <span class="store-slab">
+          {main ? <img key={main.src} src={main.src} alt={main.name} onError={() => fail(main.i)} /> : <img src={siteUrl(st, cover!)} alt={textIn(p.name, lang)} onError={() => fail(-1)} />}
+        </span>
+        {main && <figcaption class="small"><b>{main.name}</b> <span class="muted">{main.description}</span></figcaption>}
+      </figure>
+      {shots.length > 1 && (
+        <div class="store-thumbs">
+          {shots.map((x) => (
+            <button type="button" aria-pressed={x === main} onClick={() => setOn(x.i)}>
+              <span class="store-thumb"><img src={x.src} alt="" loading="lazy" /></span>
+              <span>{x.name}</span>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
