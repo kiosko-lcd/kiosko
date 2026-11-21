@@ -149,6 +149,45 @@ export interface Screen {
   textScale?: number;
   /** The panel's diagonal in inches, when it isn't a known model (for its pixel size). */
   diagonalIn?: number;
+  /** How alerts take this panel over (see `ScreenAlerts`). Missing = every level, at any hour. */
+  alerts?: ScreenAlerts;
+}
+
+/** An alert's level (`AlertLevel` in the SDK), and `off` for none. */
+export type AlertThreshold = 'info' | 'warn' | 'critical' | 'off';
+export const ALERT_THRESHOLDS: readonly AlertThreshold[] = ['info', 'warn', 'critical', 'off'];
+
+/**
+ * Per screen: from which level an alert takes the whole panel over (the
+ * rest stay in their tile and in the editor's band) and the hours when only
+ * `critical` ones do (night, a meeting room). A switched-off screen (Home
+ * Assistant, the API) also lets only `critical` through.
+ */
+export interface ScreenAlerts {
+  /** The least level shown full-screen here; `off`: none. */
+  minLevel: AlertThreshold;
+  /** Quiet hours, `HH:MM` local time; `start` after `end` goes across midnight (22:00–07:00). */
+  quiet?: { start: string; end: string };
+}
+
+/** What a screen does with alerts, with the defaults filled in. */
+export function screenAlerts(s: Pick<Screen, 'alerts'>): ScreenAlerts {
+  return { minLevel: s.alerts?.minLevel ?? 'info', ...(s.alerts?.quiet ? { quiet: s.alerts.quiet } : {}) };
+}
+
+const minutesOf = (hhmm: string) => {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm);
+  return m ? Number(m[1]) * 60 + Number(m[2]) : NaN;
+};
+
+/** Whether local time `now` falls in the quiet hours (start included, end not). */
+export function inQuietHours(quiet: ScreenAlerts['quiet'], now: number): boolean {
+  if (!quiet) return false;
+  const a = minutesOf(quiet.start), b = minutesOf(quiet.end);
+  if (!Number.isFinite(a) || !Number.isFinite(b) || a === b) return false;
+  const d = new Date(now);
+  const t = d.getHours() * 60 + d.getMinutes();
+  return a < b ? t >= a && t < b : t >= a || t < b;
 }
 
 export type ReadingDistance = 'near' | 'normal' | 'far';

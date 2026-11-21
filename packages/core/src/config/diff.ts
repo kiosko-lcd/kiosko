@@ -114,7 +114,7 @@ export function diffConfigs(before: Config, after: Config): DiffLine[] {
     if (b.name !== a.name) what.push(`renamed from ${q(b.name)}`);
     if (b.width !== a.width || b.height !== a.height) what.push(`size ${b.width}×${b.height} → ${a.width}×${a.height}`);
     if (!same(b.device, a.device)) what.push(`device ${deviceText(b.device)} → ${deviceText(a.device)}`);
-    for (const k of ['enabled', 'rotate', 'pinnedPage', 'pixelShift', 'sleepWhenIdle', 'jpegQuality', 'maxFps'] as const) if (!same(b[k], a[k])) what.push(`${k} ${short(b[k])} → ${short(a[k])}`);
+    for (const k of ['enabled', 'rotate', 'pinnedPage', 'pixelShift', 'sleepWhenIdle', 'jpegQuality', 'maxFps', 'alerts'] as const) if (!same(b[k], a[k])) what.push(`${k} ${short(b[k])} → ${short(a[k])}`);
     const sub: DiffLine[] = [];
     diffPages(b, a, 1, sub);
     const xs = match(b.interludes, a.interludes, (x) => x.type);

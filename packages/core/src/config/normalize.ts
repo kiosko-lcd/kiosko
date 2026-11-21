@@ -6,7 +6,7 @@
 import { TIME_FORMATS } from '@kiosko/sdk/format';
 import { DEFAULT_WORKDAY } from '@kiosko/sdk/workday';
 import { suggestGrid } from '../layout/grid.ts';
-import { CONFIG_VERSION, DEFAULT_CONFIG, DEFAULT_MAX_BYTES, TEXT_SCALE, type Config, type Screen } from './model.ts';
+import { ALERT_THRESHOLDS, CONFIG_VERSION, DEFAULT_CONFIG, DEFAULT_MAX_BYTES, TEXT_SCALE, type Config, type Screen, type ScreenAlerts } from './model.ts';
 
 /**
  * Fills gaps of a config written by hand or by an older version. Never throws.
@@ -76,5 +76,19 @@ function normalizeScreen(s: Partial<Screen>, i: number): Screen {
     ...(s.readingDistance === 'near' || s.readingDistance === 'far' ? { readingDistance: s.readingDistance } : {}),
     ...(typeof s.textScale === 'number' && Number.isFinite(s.textScale) && s.textScale !== 1 ? { textScale: Math.min(TEXT_SCALE.max, Math.max(TEXT_SCALE.min, s.textScale)) } : {}),
     ...(typeof s.diagonalIn === 'number' && s.diagonalIn > 0 ? { diagonalIn: s.diagonalIn } : {}),
+    ...normalizeAlerts(s.alerts),
   };
+}
+
+const HHMM = /^([01][0-9]|2[0-3]):[0-5][0-9]$/;
+
+/** A screen's alert settings; left out when they are the defaults (every level, no quiet hours). */
+export function normalizeAlerts(raw: unknown): { alerts?: ScreenAlerts } {
+  if (!raw || typeof raw !== 'object') return {};
+  const a = raw as Partial<ScreenAlerts>;
+  const minLevel = ALERT_THRESHOLDS.includes(a.minLevel as never) ? a.minLevel! : 'info';
+  const q = a.quiet;
+  const quiet = q && typeof q === 'object' && HHMM.test(String(q.start)) && HHMM.test(String(q.end)) && q.start !== q.end ? { start: q.start, end: q.end } : undefined;
+  if (minLevel === 'info' && !quiet) return {};
+  return { alerts: { minLevel, ...(quiet ? { quiet } : {}) } };
 }

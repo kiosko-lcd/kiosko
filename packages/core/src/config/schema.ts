@@ -391,6 +391,21 @@ export function configSchema(plugins: readonly PluginDefinition[]): S {
           readingDistance: { enum: ['near', 'normal', 'far'], default: 'normal', description: 'How far the readers sit (40, 60, 90 cm): with the pixel size it sets the smallest Chinese, Japanese or Korean text painted.' },
           textScale: { type: 'number', minimum: 0.75, maximum: 2, default: 1, description: "Every widget's text size times this." },
           diagonalIn: { type: 'number', minimum: 0.5, maximum: 60, description: "The panel's diagonal in inches, when it isn't a known model." },
+          alerts: {
+            type: 'object',
+            additionalProperties: false,
+            description: 'How alerts (smoke, a leak, the doorbell, CI broken…) take this panel over: full-screen, with a flashing frame. Missing: every level, at any hour.',
+            properties: {
+              minLevel: { enum: ['info', 'warn', 'critical', 'off'], default: 'info', description: 'The least level shown full-screen here; off: none (they stay in the editor\'s band).' },
+              quiet: {
+                type: 'object',
+                additionalProperties: false,
+                required: ['start', 'end'],
+                description: 'Hours when only critical alerts take the panel over, local time; start after end goes across midnight.',
+                properties: { start: { $ref: '#/$defs/time' }, end: { $ref: '#/$defs/time' } },
+              },
+            },
+          },
         },
       },
     },
