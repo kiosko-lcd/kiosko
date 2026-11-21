@@ -54,3 +54,15 @@ test('checkUpdates: every plugin and Kiosko, with the abbreviated metadata; a pa
   assert.ok(asked.every((a) => a.accept === 'application/vnd.npm.install-v1+json'));
   assert.ok(asked.some((a) => a.url === 'https://reg.test/@acme%2Fkiosko-plugin-x'), 'scoped names keep their @');
 });
+
+test('npmRegistry: where npm installs from (npmmirror in mainland China), else registry.npmjs.org', async () => {
+  const { npmRegistry, REGISTRY } = await import('./plugin-updates.ts');
+  const { mkdtempSync, writeFileSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const home = mkdtempSync(join(tmpdir(), 'kiosko-npmrc-'));
+  assert.equal(npmRegistry({}, home), REGISTRY);
+  writeFileSync(join(home, '.npmrc'), 'fund=false\nregistry = "https://registry.npmmirror.com/"\n');
+  assert.equal(npmRegistry({}, home), 'https://registry.npmmirror.com');
+  assert.equal(npmRegistry({ npm_config_registry: 'https://r.example/' }, home), 'https://r.example');
+});

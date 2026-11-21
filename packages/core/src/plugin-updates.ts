@@ -10,9 +10,32 @@
  * and conditional requests, once a day: a handful of small requests.
  */
 import { SDK_VERSION, compareVersions, createHttp, parseVersion, type HttpClient } from '@kiosko/sdk';
+import { readFileSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 import { incompatibility, packageMeta } from './plugin-meta.ts';
 
 export const REGISTRY = 'https://registry.npmjs.org';
+
+/**
+ * The registry npm installs from here: `npm_config_registry`, else the
+ * `registry=` of the user's .npmrc, else npm's own. Asking that one keeps the
+ * check where installs go: in mainland China, npmmirror (registry.npmjs.org
+ * is slow or times out there). Project and global .npmrc files are not read.
+ */
+export function npmRegistry(env: Record<string, string | undefined> = process.env, home = homedir()): string {
+  const fromEnv = env.npm_config_registry ?? env.NPM_CONFIG_REGISTRY;
+  if (fromEnv?.trim()) return fromEnv.trim().replace(/\/+$/, '');
+  try {
+    const rc = readFileSync(env.npm_config_userconfig ?? env.NPM_CONFIG_USERCONFIG ?? join(home, '.npmrc'), 'utf8');
+    const line = rc.split(/\r?\n/).map((l) => l.trim()).find((l) => /^registry\s*=/.test(l));
+    const url = line?.slice(line.indexOf('=') + 1).trim().replace(/^["']|["']$/g, '');
+    if (url && /^https?:\/\//.test(url)) return url.replace(/\/+$/, '');
+  } catch {
+    /* no .npmrc */
+  }
+  return REGISTRY;
+}
 
 export interface InstalledPlugin {
   id: string;
@@ -76,7 +99,7 @@ export async function checkUpdates(
 ): Promise<UpdateCheck> {
   const http = o.http ?? createHttp({ agent: 'kiosko-updates' });
   const env = { sdk: o.sdk ?? SDK_VERSION, platform: o.platform ?? process.platform };
-  const base = o.registry ?? REGISTRY;
+  const base = o.registry ?? npmRegistry();
   const headers = { Accept: 'application/vnd.npm.install-v1+json' };
   const errors: UpdateCheck['errors'] = [];
   const read = async (pkg: string): Promise<Packument | null> => {
