@@ -330,7 +330,7 @@ export function storeListPage({ index, texts, lang, css, js, presets, pages = []
     </section>
     <footer class="store-foot">
       <div class="yours">${icon('package-plus', 28)}<p>${text(texts, lang, 'store-write-yours')}</p><a class="button" href="${docs}">docs/plugins.md</a></div>
-      <p class="fine">${dataLink} ${esc(updated)}.</p>
+      <p class="fine"><a href="${root}gallery/${l.path}">${t('every-widget-full-size')}</a> · ${dataLink} ${esc(updated)}.</p>
     </footer>
   </main>${tail({ root, js, scriptTexts: scriptTexts(texts, lang) })}`;
 }

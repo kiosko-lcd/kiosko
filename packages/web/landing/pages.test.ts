@@ -61,6 +61,8 @@ const fill = {
   DOOM_POSTER: 'demo/assets/doom.jpg?v=1',
   PLUGINS: (lang: string, root: string) => `<p data-lang="${lang}" data-root="${root}"></p>`,
   PLUGIN_COUNT: '17',
+  STORE_COUNT: '22',
+  STORE_WIDGETS: '49',
   WIDGET_COUNT: '49',
   VERSION: '0.2.5',
 };

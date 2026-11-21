@@ -24,7 +24,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildDemo } from '../demo/build.mjs';
 import { LANGS, esc, loadTexts, plural, renderPage, sitemap } from './pages.mjs';
-import { buildStorePages } from './store.mjs';
+import { FEATURED, buildStorePages, offeredIn } from './store.mjs';
 import { buildDocPages } from './docs.mjs';
 import { languageById } from '../../sdk/src/languages.ts';
 
@@ -34,17 +34,25 @@ const root = resolve(here, '../../..');
 /** The plugins the site offers in `lang`: not those whose service is missing where it is read. */
 const offered = (data, lang) => data.plugins.filter((p) => !languageById(lang)?.plugins?.without.includes(p.id));
 
-/** The plugins as cards, in `lang`: what each is, and a couple of its widgets as painted for the gallery. */
+/** How many plugins the front page shows: a taste of them; all of them are in the store. */
+export const TEASER = 8;
+
+/**
+ * A few plugins as cards, in `lang`: what each is, and a couple of its widgets as painted for the gallery.
+ * The ones the language's market puts first (languages.ts: local models in mainland China), then the
+ * store's picks (FEATURED, the same editorial order), then the rest; only plugins with widgets to show,
+ * and not what ships inside Kiosko itself.
+ */
 function pluginCards(data, texts, lang, prefix) {
   const say = (t) => esc(t[lang] ?? t.en);
-  // What ships inside Kiosko itself goes last: the others are what there is to discover.
-  const builtin = (p) => (p.id === 'legacy' ? 2 : p.id === 'core' ? 1 : 0);
-  // Where a plugin's service is not offered, it isn't either (languages.ts): local models lead instead.
-  const market = languageById(lang)?.plugins;
-  const first = (p) => { const i = market?.first.indexOf(p.id) ?? -1; return i < 0 ? Infinity : i; };
+  const order = [...(languageById(lang)?.plugins?.first ?? []), ...FEATURED];
+  const rank = (p) => { const i = order.indexOf(p.id); return i < 0 ? Infinity : i; };
   return offered(data, lang)
-    .sort((a, b) => builtin(a) - builtin(b) || first(a) - first(b))
-    .map((p) => {
+    .filter((p) => p.id !== 'core' && p.id !== 'legacy' && p.widgets.length)
+    .map((p, i) => ({ p, i }))
+    .sort((a, b) => rank(a.p) - rank(b.p) || a.i - b.i)
+    .slice(0, TEASER)
+    .map(({ p }) => {
       const shots = p.widgets
         .slice(0, 2)
         .map((w) => `<img src="${prefix}gallery/${esc(w.file[lang] ?? w.file.en)}" width="${w.width}" height="${w.height}" loading="lazy" alt="${say(w.name)}" />`)
@@ -128,6 +136,9 @@ export async function buildSite({ out, editorOptions }) {
     DOOM_POSTER: `demo/assets/doom.jpg?v=${hash('doom.jpg')}`,
     PLUGINS: (lang, prefix) => pluginCards(gallery, texts, lang, prefix),
     PLUGIN_COUNT: (lang) => String(offered(gallery, lang).length),
+    // What the store offers in that language: the button says how many it will find there.
+    STORE_COUNT: (lang) => String(offeredIn(store, lang).length),
+    STORE_WIDGETS: (lang) => String(offeredIn(store, lang).reduce((n, p) => n + p.widgets.length, 0)),
     WIDGET_COUNT: (lang) => String(offered(gallery, lang).reduce((n, p) => n + p.widgets.length, 0)),
     VERSION: esc(version),
   };
