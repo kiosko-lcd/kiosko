@@ -4,7 +4,7 @@ import { createECDH, randomBytes } from 'node:crypto';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { G, N, decodePoint, encodePoint, mul, onCurve, pointAdd, pointNeg, scalarFrom } from './p256.ts';
-import { SPAKE_M, SPAKE_N, SpakeA, open, seal, sessionKeys, spakeRespond } from './crypto.ts';
+import { SpakeA, spakePoints, open, seal, sessionKeys, spakeRespond } from './crypto.ts';
 import { vectorsHeader } from './vectors.ts';
 
 test('p256: x·G and x·P agree with Node’s own ECDH', () => {
@@ -25,7 +25,7 @@ test('p256: group laws and point checks', () => {
   assert.equal(mul(N, G), null);
   assert.deepEqual(pointAdd(p, pointNeg(p)), null);
   assert.deepEqual(pointAdd(p, p), mul(24690n, G));
-  assert.ok(onCurve(SPAKE_M) && onCurve(SPAKE_N));
+  assert.ok(onCurve(spakePoints().M) && onCurve(spakePoints().N));
   const bad = encodePoint(p);
   bad[40] = bad[40]! ^ 1;
   assert.throws(() => decodePoint(bad), /not a point/);

@@ -15,9 +15,18 @@ export const KEY_LEN = 32;
 export const TAG_LEN = 16;
 export const ID_A = 'kiosko';
 
-/** RFC 9382's M and N for P-256. */
-export const SPAKE_M = decodePoint(Buffer.from('02886e2f97ace46e55ba9dd7242579f2993b64e16ef3dcab95afd497333d8fa12f', 'hex'));
-export const SPAKE_N = decodePoint(Buffer.from('03d8bbd6c639c62937b04d997f38c3770719c629d7014d49a24b4f98baa1292b49', 'hex'));
+/**
+ * RFC 9382's M and N for P-256, decoded when first needed: core is also bundled
+ * into the browser demo, where nothing Node-only may run at import.
+ */
+let mn: { M: Point; N: Point } | null = null;
+export function spakePoints(): { M: Point; N: Point } {
+  mn ??= {
+    M: decodePoint(Buffer.from('02886e2f97ace46e55ba9dd7242579f2993b64e16ef3dcab95afd497333d8fa12f', 'hex')),
+    N: decodePoint(Buffer.from('03d8bbd6c639c62937b04d997f38c3770719c629d7014d49a24b4f98baa1292b49', 'hex')),
+  };
+  return mn;
+}
 
 export const LABEL_AUTH_K = 'KSv1 auth kiosko';
 export const LABEL_AUTH_D = 'KSv1 auth screen';
@@ -135,11 +144,11 @@ export class SpakeA {
     this.uid = uid;
     this.w = spakeW(uid, code);
     this.x = x ?? randomScalar();
-    this.X = encodePoint(pointAdd(mul(this.x, G), mul(this.w, SPAKE_M)));
+    this.X = encodePoint(pointAdd(mul(this.x, G), mul(this.w, spakePoints().M)));
   }
   finish(Yb: Buffer): SpakeKeys & { K: Buffer } {
     const Y = decodePoint(Yb);
-    const K = mul(this.x, pointAdd(Y, pointNeg(mul(this.w, SPAKE_N))));
+    const K = mul(this.x, pointAdd(Y, pointNeg(mul(this.w, spakePoints().N))));
     if (!K) throw new Error('bad Y');
     const Kb = encodePoint(K);
     return { ...spakeKeys(transcript(this.uid, this.X, encodePoint(Y), Kb, this.w)), K: Kb };
@@ -151,8 +160,8 @@ export function spakeRespond(uid: string, code: string, Xb: Buffer, y?: bigint):
   const w = spakeW(uid, code);
   const X = decodePoint(Xb);
   const yy = y ?? randomScalar();
-  const Y = encodePoint(pointAdd(mul(yy, G), mul(w, SPAKE_N)));
-  const K: Point = mul(yy, pointAdd(X, pointNeg(mul(w, SPAKE_M))));
+  const Y = encodePoint(pointAdd(mul(yy, G), mul(w, spakePoints().N)));
+  const K: Point = mul(yy, pointAdd(X, pointNeg(mul(w, spakePoints().M))));
   if (!K) throw new Error('bad X');
   const Kb = encodePoint(K);
   return { ...spakeKeys(transcript(uid, encodePoint(X), Y, Kb, w)), Y, K: Kb };
