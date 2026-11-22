@@ -1,0 +1,7 @@
+build/
+build-*/
+.home/
+managed_components/
+sdkconfig
+sdkconfig.old
+backup/

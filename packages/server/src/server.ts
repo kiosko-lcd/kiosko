@@ -22,8 +22,9 @@ import { StoreCatalog } from './store.ts';
 import { SDK_VERSION } from '@kiosko/sdk';
 import { installableRelease, releaseProblem, type StorePlugin } from '@kiosko/core';
 import { HomeAssistantBridge } from './homeassistant.ts';
+import { remoteApi } from './remote-api.ts';
 import { ALERT_LEVELS, type AlertLevel } from '@kiosko/sdk';
-import { AlertError, DEFAULT_SNOOZE_MS, PANEL_PRESETS, checkUpdates, discoverTrcc, discoverUsb, normalize, npmRegistry, paths, resolveLocale, saveConfig, type Config, type FrameInfo, type Runtime, type Screen, type UpdateCheck } from '@kiosko/core';
+import { AlertError, DEFAULT_SNOOZE_MS, PANEL_PRESETS, checkUpdates, discoverRemote, discoverTrcc, discoverUsb, normalize, npmRegistry, paths, resolveLocale, saveConfig, type Config, type FrameInfo, type Runtime, type Screen, type UpdateCheck } from '@kiosko/core';
 import { currentInstall, updateBlocker, updateInstructions, type InstallInfo } from './install-kind.ts';
 import { KioskoUpdater, UpdateError, readMarker, realRun, restartHow, writeMarker, type Handover, type UpdaterDeps } from './self-update.ts';
 
@@ -73,13 +74,17 @@ export interface ServerOptions {
   discover?: (url: string, tokenFile?: string) => Promise<Discovered>;
 }
 
-/** The panels "Detect panels" finds: those `trcc serve` drives, and the LY ones on USB. */
+/** The panels "Detect panels" finds: those `trcc serve` drives, the LY ones on USB, the remote screens on the LAN. */
 export interface Discovered {
   trcc: Awaited<ReturnType<typeof discoverTrcc>>;
   usb: Awaited<ReturnType<typeof discoverUsb>>;
+  remote?: Awaited<ReturnType<typeof discoverRemote>>;
 }
 
-export const realDiscover = async (url: string, tokenFile?: string): Promise<Discovered> => ({ trcc: await discoverTrcc(url, tokenFile), usb: await discoverUsb() });
+export const realDiscover = async (url: string, tokenFile?: string): Promise<Discovered> => {
+  const [trcc, usb, remote] = await Promise.all([discoverTrcc(url, tokenFile), discoverUsb(), discoverRemote()]);
+  return { trcc, usb, remote };
+};
 
 function webRoot(): string {
   // The published bundle carries the editor next to the CLI.
@@ -304,6 +309,19 @@ export function startServer(o: ServerOptions) {
     };
   }
 
+  const remote = remoteApi({
+    runtime,
+    json,
+    body,
+    commit: (cfg) => {
+      const c = normalize(cfg);
+      saveConfig(c, o.configPath);
+      rev++;
+      runtime.apply(c);
+      send('config', { rev, by: null });
+    },
+  });
+
   function findScreen(cfg: Config, id: string): Screen | undefined {
     return cfg.screens.find((s) => s.id === id);
   }
@@ -440,6 +458,8 @@ export function startServer(o: ServerOptions) {
       runtime.refreshWidget(decodeURIComponent(mm[1]!));
       return json(res, 200, { ok: true });
     }
+
+    if ((p.startsWith('/api/remote/') || /^\/api\/screens\/[^/]+\/remote\//.test(p)) && (await remote(req, res, p, m))) return;
 
     if (p === '/api/devices/discover' && m === 'GET') {
       const url0 = url.searchParams.get('url') ?? 'http://127.0.0.1:8099';

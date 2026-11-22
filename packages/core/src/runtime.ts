@@ -18,7 +18,8 @@ import { composePage, composeWidget, type ComposeResult } from './compositor.ts'
 import { isWorking, widgetsOf, type Config, type Page, type Screen, type WidgetInstance } from './config/model.ts';
 import { backgroundSources } from './config/sources.ts';
 import { FetchHost, SourceHub } from './data.ts';
-import { openDevice, type Device, type DeviceStatus } from './devices.ts';
+import { ledFor, openDevice, type Device, type DeviceStatus } from './devices.ts';
+import { posixTz } from './remote/tz.ts';
 import { resolveLocale, type LogFn } from './env.ts';
 import type { Registry } from './registry.ts';
 import { PLAY_IDLE_MS, ScreenRunner, TICK_MS, type FrameInfo, type Runner, type RunnerHost } from './screen-runner.ts';
@@ -188,7 +189,7 @@ export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
     this.refreshWanted();
   }
   openDevice(screen: Screen, log: (m: string) => void): Device {
-    return openDevice(screen.device, log, screen.rotate);
+    return openDevice(screen.device, log, screen.rotate, { settings: () => ({ lang: resolveLocale(this.config).slice(0, 5), tz: posixTz() }) });
   }
 
   private onData(change: { source?: string; instance?: string }): void {
@@ -268,6 +269,8 @@ export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
       this.runners.get(s.id)?.reconfigure(s);
     }
     this.placeRunners();
+    // A device kept across the change (same connection) still has to hear a new rotation.
+    for (const s of config.screens) this.runners.get(s.id)?.device.setRotation?.(s.rotate);
     this.refreshWanted();
     this.emit('config', config);
   }
@@ -306,6 +309,11 @@ export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
       if (old.alert) r.setAlert(old.alert, Date.now());
     }
     return r;
+  }
+
+  /** The device a screen sends to now (its remote screen, for pairing, updates, logs). */
+  deviceOf(screenId: string): Device | undefined {
+    return this.runners.get(screenId)?.device;
   }
 
   threadFailed(screenId: string, reason: string): void {
@@ -422,7 +430,12 @@ export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
   refreshAlerts(now = Date.now()): void {
     this.alerts.prune(now);
     const list = this.alerts.list(now);
-    for (const r of this.runners.values()) r.setAlert(r.screen.enabled ? this.alerts.forScreen(r.screen, now, r.off) : null, now);
+    for (const r of this.runners.values()) {
+      const shown = r.screen.enabled ? this.alerts.forScreen(r.screen, now, r.off) : null;
+      r.setAlert(shown, now);
+      // Screens with a light of their own (remote screens) show the alert there too.
+      r.device.setLed?.(...ledFor(shown?.top.level ?? null));
+    }
     const sig = JSON.stringify(list);
     if (sig === this.alertsSig) return;
     this.alertsSig = sig;

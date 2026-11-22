@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+# ESP-IDF in Docker; nothing to install on the machine.
+#   ./idf build | flash | monitor | flash monitor | menuconfig ...  -> idf.py
+#   ./idf esptool <args>                                            -> esptool.py (port filled in)
+#   ./idf shell                                                     -> bash in the container
+#   ./idf backup FILE        -> reads the whole flash (8 MB) into FILE and checks it
+# Port: the first /dev/serial/by-id/usb-Espressif_*; force another with ESPPORT=/dev/...
+# Serial access needs your user to be able to open it (group dialout, or a udev rule).
+#
+# Docker may be a snap that can only mount $HOME, or rootless: either way the
+# project is not bind-mounted. It lives in a named volume (which keeps build/
+# and the caches between runs) and is synced through the client with tar:
+# sources in before, results out after.
+set -euo pipefail
+cd "$(dirname "$(readlink -f "$0")")"
+
+IMAGE="kiosko-esp32-idf:$(sha256sum Dockerfile | cut -c1-12)"
+VOLUME="${KS_IDF_VOLUME:-kiosko-esp32-screen-work}"
+docker image inspect "$IMAGE" >/dev/null 2>&1 || docker build --network host -t "$IMAGE" .
+
+# What the container makes and comes back to the host.
+OUTPUTS=(sdkconfig dependencies.lock 'build*/*.bin' 'build*/*.elf' 'build*/*.map'
+         'build*/bootloader/*.bin' 'build*/partition_table/*.bin' 'build*/flasher_args.json')
+
+# 1. Sources -> volume (everything replaced but build*/, caches and managed components).
+tar c --exclude='./build*' --exclude=./backup --exclude=./.home --exclude=./managed_components . |
+  docker run --rm -i --entrypoint "" -v "$VOLUME":/project -w /project "$IMAGE" sh -c '
+    find . -mindepth 1 -maxdepth 1 ! -name "build*" ! -name .home ! -name managed_components \
+      -exec rm -rf {} + && tar x' >/dev/null 2>&1
+
+args=(--rm -v "$VOLUME":/project -w /project -e HOME=/project/.home)
+PORT="${ESPPORT:-$(ls /dev/serial/by-id/usb-Espressif_* 2>/dev/null | head -1 || true)}"
+if [ -n "$PORT" ] && [ -e "$PORT" ] && [ ! -r "$PORT" ]; then
+  echo "note: $PORT is there but this user cannot open it (add yourself to group dialout, or a udev rule); USB steps will fail" >&2
+elif [ -n "$PORT" ] && [ -e "$PORT" ]; then
+  # All of /dev plus a cgroup rule for ttyACM (major 166): the USB-Serial/JTAG
+  # enumerates again on every reset, so a fixed --device would go stale.
+  args+=(-v /dev:/dev --device-cgroup-rule='c 166:* rmw' -e ESPPORT="$PORT")
+fi
+tty=(); [ -t 0 ] && [ -t 1 ] && tty=(-it)
+
+# 2. The command.
+status=0
+case "${1:-}" in
+  shell)   shift; docker run "${args[@]}" "${tty[@]}" "$IMAGE" bash "$@" || status=$? ;;
+  esptool) shift; docker run "${args[@]}" "${tty[@]}" "$IMAGE" esptool.py ${PORT:+--port "$PORT"} "$@" || status=$? ;;
+  backup)
+    out="${2:?usage: ./idf backup FILE}"
+    docker run "${args[@]}" --entrypoint "" "$IMAGE" sh -c \
+      '. $IDF_PATH/export.sh >/dev/null 2>&1; esptool.py --port "$ESPPORT" -b 921600 read_flash 0 0x800000 /tmp/f.bin >&2 &&
+       esptool.py --port "$ESPPORT" -b 921600 verify_flash 0 /tmp/f.bin >&2 && cat /tmp/f.bin' > "$out" || status=$?
+    [ $status = 0 ] && sha256sum "$out" > "$out.sha256" && echo "saved and verified: $out" ;;
+  *)       docker run "${args[@]}" "${tty[@]}" "$IMAGE" idf.py "$@" || status=$? ;;
+esac
+
+# 3. Results -> host.
+docker run --rm --entrypoint "" -v "$VOLUME":/project -w /project "$IMAGE" \
+  sh -c 'tar c $(ls -d '"${OUTPUTS[*]}"' 2>/dev/null) 2>/dev/null' 2>/dev/null | tar x 2>/dev/null || true
+exit $status

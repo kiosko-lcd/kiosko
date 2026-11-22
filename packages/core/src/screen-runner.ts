@@ -12,7 +12,7 @@ import { alertIntensity, alertStepMs, paintAlert } from './alert-paint.ts';
 import type { ShownAlert } from './alerts.ts';
 import { AnimationScheduler, type PlayablePlan } from './animation.ts';
 import { composePage, rotateCanvas, type Animatable, type ComposeResult, type TileCache } from './compositor.ts';
-import { legibleCjkPx, whenMatches, type Config, type Page, type Screen } from './config/model.ts';
+import { legibleCjkPx, paintTurn, whenMatches, type Config, type Page, type Screen } from './config/model.ts';
 import { encodeFor, type Device } from './devices.ts';
 import { CANVAS, baseContext, kit, resolveLocale, type LogFn } from './env.ts';
 import { offersSetup } from './config/starter.ts';
@@ -356,7 +356,7 @@ export class ScreenRunner implements Runner {
         log: this.rt.log,
         demo: this.rt.demoMode,
         cache: this.tiles,
-        rotate: screen.rotate,
+        rotate: paintTurn(screen),
       });
       canvas = result.canvas;
       this.animatable = result.animatable;
@@ -370,7 +370,8 @@ export class ScreenRunner implements Runner {
       // Pages and work hours change by the clock: check at least every minute.
     } else {
       // Black: already the panel's way round (it looks the same either way).
-      const swap = screen.rotate === 90 || screen.rotate === 270;
+      const turn = paintTurn(screen);
+      const swap = turn === 90 || turn === 270;
       canvas = CANVAS.createCanvas(swap ? screen.height : screen.width, swap ? screen.width : screen.height);
       this.animatable = [];
       this.nextAt = now + 60_000;
@@ -387,7 +388,7 @@ export class ScreenRunner implements Runner {
     const kind = encodeFor(screen.device, screen.jpegQuality);
     // Painted the panel's way round already (composePage's `rotate`): no turning here.
     const out = await this.fit(canvas, kind, screen.jpegQuality, screen, performance.now() - t0);
-    this.lastInfo = { screenId: screen.id, pageId: page?.id ?? null, at: now, image: lazyJpeg(canvas, screen.rotate), tiles: result?.tiles ?? [], interlude: null, sleeping };
+    this.lastInfo = { screenId: screen.id, pageId: page?.id ?? null, at: now, image: lazyJpeg(canvas, paintTurn(screen)), tiles: result?.tiles ?? [], interlude: null, sleeping };
     this.rt.frame(this.lastInfo);
     if (this.last?.equals(out)) return;
     this.last = out;
@@ -417,7 +418,7 @@ export class ScreenRunner implements Runner {
     const canvas = CANVAS.createCanvas(screen.width, screen.height);
     paintAlert(canvas.getContext('2d'), screen.width, screen.height, shown, { intensity, fonts: this.rt.theme().fonts, minPx, sinceText, shift });
     const kind = encodeFor(screen.device, screen.jpegQuality || 85);
-    const turned = rotateCanvas(canvas, screen.rotate);
+    const turned = rotateCanvas(canvas, paintTurn(screen));
     const out = await this.fit(turned, kind, screen.jpegQuality || 85, screen, performance.now() - t0);
     this.lastInfo = { screenId: screen.id, pageId: this.page?.id ?? null, at: now, image: lazyJpeg(canvas), tiles: [], interlude: null, alert: a.id, sleeping: false };
     this.rt.frame(this.lastInfo);
@@ -487,7 +488,7 @@ export class ScreenRunner implements Runner {
       g.save();
       paintBoot(g, screen.width, screen.height, ms, look);
       g.restore();
-      const out = await this.fit(rotateCanvas(canvas, screen.rotate), kind, screen.jpegQuality || 85, screen, performance.now() - t0);
+      const out = await this.fit(rotateCanvas(canvas, paintTurn(screen)), kind, screen.jpegQuality || 85, screen, performance.now() - t0);
       await this.send(out);
       if (i % 4 === 0) {
         const snap = CANVAS.createCanvas(canvas.width, canvas.height);
@@ -513,7 +514,7 @@ export class ScreenRunner implements Runner {
     const canvas = CANVAS.createCanvas(screen.width, screen.height);
     paintCard(canvas.getContext('2d'), screen.width, screen.height, look);
     const kind = encodeFor(screen.device, screen.jpegQuality || 85);
-    const out = await this.fit(rotateCanvas(canvas, screen.rotate), kind, screen.jpegQuality || 85, screen, performance.now() - t0);
+    const out = await this.fit(rotateCanvas(canvas, paintTurn(screen)), kind, screen.jpegQuality || 85, screen, performance.now() - t0);
     this.lastInfo = { screenId: screen.id, pageId: this.page?.id ?? null, at: now, image: lazyJpeg(canvas), tiles: [], interlude: 'kiosko/welcome', sleeping: false };
     this.rt.frame(this.lastInfo);
     this.last = out;
@@ -593,7 +594,7 @@ export class ScreenRunner implements Runner {
         g.restore();
       }
       // Encoded off the JS thread: meanwhile the other screens paint and play.
-      const turned = rotateCanvas(canvas, this.screen.rotate);
+      const turned = rotateCanvas(canvas, paintTurn(this.screen));
       const out = await this.fit(turned, kind, this.screen.jpegQuality || 85, this.screen, performance.now() - t0);
       await this.send(out);
       if (i % 3 === 0) {
@@ -707,7 +708,7 @@ export class ScreenRunner implements Runner {
         demo: this.rt.demoMode,
         cache: this.tiles,
         animate,
-        rotate: screen.rotate,
+        rotate: paintTurn(screen),
       });
       // Encoding goes on in the thread pool while the next frame is painted.
       sent.push({ out: this.fit(result.canvas, kind, screen.jpegQuality || 85, screen, performance.now() - t0), snap: s % 3 === 1 ? result.canvas : null });
@@ -727,7 +728,7 @@ export class ScreenRunner implements Runner {
       await this.send(outs[k]!);
       const snap = sent[k]!.snap;
       if (snap) {
-        this.lastInfo = { screenId: screen.id, pageId: page.id, at: Date.now(), image: lazyJpeg(snap, screen.rotate), tiles: [], interlude: null, animation: items.map((x) => x.animatable.type).join(', '), sleeping: false };
+        this.lastInfo = { screenId: screen.id, pageId: page.id, at: Date.now(), image: lazyJpeg(snap, paintTurn(screen)), tiles: [], interlude: null, animation: items.map((x) => x.animatable.type).join(', '), sleeping: false };
         this.rt.frame(this.lastInfo);
       }
       if (hold && k === holdAt) {

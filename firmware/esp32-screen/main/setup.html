@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kiosko screen setup</title>
+<style>
+:root{color-scheme:light dark;--bg:#f6f7f9;--fg:#1d2330;--mut:#667085;--card:#fff;--acc:#2e6bd6}
+@media(prefers-color-scheme:dark){:root{--bg:#10141c;--fg:#e6e9ef;--mut:#98a2b3;--card:#1a202b}}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.45 system-ui,sans-serif}
+main{max-width:460px;margin:20px auto;padding:0 16px}
+h1{font-size:21px;margin:0 0 4px}p{color:var(--mut);margin:0 0 14px}
+form,section{background:var(--card);padding:16px;border-radius:12px;margin-bottom:16px}
+label{display:block;font-weight:600;margin:10px 0 4px}small{color:var(--mut);font-weight:400}
+input,select{width:100%;box-sizing:border-box;padding:9px;font:inherit;border-radius:8px;border:1px solid #8884;background:transparent;color:inherit}
+button{margin-top:14px;padding:10px 16px;font:inherit;border:0;border-radius:8px;background:var(--acc);color:#fff}
+#msg{min-height:1.4em}
+</style></head><body><main>
+<h1>Kiosko screen setup</h1>
+<p>Connect this screen to your Wi-Fi. Afterwards, pair it from Kiosko: Screens &rarr; Detect panels.</p>
+<form id="f">
+<label for="ssid">Wi-Fi network</label>
+<input id="ssid" list="nets" maxlength="32" required autocomplete="off"><datalist id="nets"></datalist>
+<label for="pass">Password <small>(empty: keep the saved one, or an open network)</small></label>
+<input id="pass" type="password" maxlength="64" autocomplete="off">
+<label for="id">Name of this screen <small>(a-z, 0-9, -; it becomes kiosko-&lt;name&gt;.local)</small></label>
+<input id="id" maxlength="24" pattern="[a-z0-9]([a-z0-9-]*[a-z0-9])?" required>
+<label for="tz">Time zone for the idle clock <small>(POSIX; Kiosko sets it once paired)</small></label>
+<input id="tz" maxlength="47" placeholder="CET-1CEST,M3.5.0,M10.5.0/3">
+<button>Save and restart</button>
+<div id="msg"></div>
+</form>
+<section><label for="fw">Firmware update <small>(a .bin built for this board)</small></label>
+<input id="fw" type="file" accept=".bin"><button id="up" type="button">Upload</button><div id="umsg"></div></section>
+</main><script>
+const $=id=>document.getElementById(id);
+fetch('/status.json').then(r=>r.json()).then(s=>{$('id').value=s.id;if(s.ssid)$('ssid').value=s.ssid;});
+fetch('/setup/scan').then(r=>r.json()).then(l=>{for(const n of l){const o=document.createElement('option');o.value=n.ssid;o.label=n.ssid+' ('+n.rssi+' dBm'+(n.open?', open':'')+')';$('nets').appendChild(o);}}).catch(()=>{});
+$('f').onsubmit=async e=>{e.preventDefault();$('msg').textContent='Saving…';
+const b={ssid:$('ssid').value,pass:$('pass').value,id:$('id').value};if($('tz').value)b.tz=$('tz').value;
+const r=await fetch('/setup/save',{method:'POST',body:JSON.stringify(b)});const j=await r.json().catch(()=>({}));
+$('msg').textContent=r.ok?'Saved. The screen restarts and joins the network.':(j.error||'Error');};
+$('up').onclick=async()=>{const f=$('fw').files[0];if(!f)return;$('umsg').textContent='Uploading… (do not unplug)';
+const r=await fetch('/setup/ota',{method:'POST',body:f});const j=await r.json().catch(()=>({}));
+$('umsg').textContent=r.ok?'Done: restarting into the new firmware.':(j.error||'Error');};
+</script></body></html>

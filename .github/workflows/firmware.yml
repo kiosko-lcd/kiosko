@@ -1,0 +1,70 @@
+name: Screen firmware
+
+# Builds the Kiosko screen firmware (firmware/esp32-screen) in the pinned
+# ESP-IDF image, checks its protocol code against Kiosko's test vectors, and
+# keeps two images with their SHA-256: the app (for an OTA from Kiosko or the
+# screen's setup page) and a full image to flash at 0x0 over USB on a new
+# board. On a `v*` tag the release job attaches them to the GitHub release.
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+  pull_request:
+    paths:
+      - 'firmware/**'
+      - 'packages/core/src/remote/**'
+      - '.github/workflows/firmware.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  esp32-screen:
+    runs-on: ubuntu-latest
+    container: espressif/idf:v5.5.5
+    defaults:
+      run:
+        shell: bash
+        working-directory: firmware/esp32-screen
+    steps:
+      - uses: actions/checkout@v7
+      - name: Protocol code against the driver's test vectors (host build)
+        run: |
+          M=$IDF_PATH/components/mbedtls/mbedtls
+          gcc -O1 -I$M/include -I$M/library -o /tmp/test_proto test/test_proto.c main/ks_proto.c $M/library/*.c
+          /tmp/test_proto
+      - name: Build
+        run: |
+          git config --global --add safe.directory '*'
+          . "$IDF_PATH/export.sh" >/dev/null
+          idf.py build
+          # A test-only build (fixed pairing code) must never be what gets released.
+          if strings build/kiosko_screen.bin | grep -q 'TEST BUILD'; then echo 'a test-only build'; exit 1; fi
+          v=$(tr -d ' \n' < version.txt)
+          board=waveshare-esp32c6-lcd-1.47
+          mkdir -p out
+          cp build/kiosko_screen.bin "out/kiosko-screen-$v-$board.bin"
+          (cd build && esptool.py --chip esp32c6 merge_bin -o "../out/kiosko-screen-$v-$board-full.bin" --flash_mode dio --flash_size 8MB @flash_args)
+          (cd out && for f in *.bin; do sha256sum "$f" > "$f.sha256"; done && cat *.sha256)
+      - uses: actions/upload-artifact@v7
+        with:
+          name: kiosko-screen-firmware
+          path: firmware/esp32-screen/out/*
+
+  release:
+    needs: esp32-screen
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # to attach the images to the release
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          name: kiosko-screen-firmware
+          path: out
+      - name: Attach to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" -R "$GITHUB_REPOSITORY" --title "Kiosko ${GITHUB_REF_NAME#v}" --generate-notes
+          gh release upload "$GITHUB_REF_NAME" -R "$GITHUB_REPOSITORY" out/* --clobber

@@ -5,11 +5,13 @@ import { ALERT_THRESHOLDS, TEXT_SCALE, detectedPicture, screenAlerts, type Scree
 import { api } from '../api.ts';
 import { DurationInput, SchemaForm, Toggle } from '../forms/SchemaForm.tsx';
 import { Icon } from '../icons.tsx';
-import { clock, count, deviceText, errorText, labelled, listOf, t, tr } from '../i18n.ts';
+import { clock, count, deviceText, errorText, labelled, listOf, remoteGuideUrl, t, tr } from '../i18n.ts';
 import { app, config, draftScreen, edit, go, lastFrame, notify, pageId, screenId, status } from '../store.ts';
 import { DemoFrame, dt, exportScreen } from '../demo/ui.tsx';
 import { threadText } from './Others.tsx';
 import { openWizard } from '../wizard/Wizard.tsx';
+import { RemoteFoundItem, RemoteSettings } from './Remote.tsx';
+import type { RemoteFound } from '../api.ts';
 
 export function Screens() {
   const cfg = config.value!;
@@ -57,6 +59,8 @@ function AddScreen({ onAdd }: { onAdd: (p?: { width: number; height: number; nam
   const [open, setOpen] = useState(false);
   const [found, setFound] = useState<{ key: string; width: number; height: number }[] | null>(null);
   const [usbFound, setUsbFound] = useState<{ serial: string; key: string; width: number; height: number; rotate?: number; location: string; error?: string }[]>([]);
+  const [remoteFound, setRemoteFound] = useState<RemoteFound[]>([]);
+  const cfg = config.value!;
   return (
     <div class="add-screen">
       <button class="btn primary" onClick={() => setOpen(!open)}>
@@ -96,10 +100,22 @@ function AddScreen({ onAdd }: { onAdd: (p?: { width: number; height: number; nam
             const r = await api.discover();
             setFound(r.trcc);
             setUsbFound(r.usb ?? []);
+            setRemoteFound(r.remote ?? []);
           }}>
-            <Icon name="radar" size={16} /> <span>{tr('screens.detect')}</span> <small>USB · trcc</small>
+            <Icon name="radar" size={16} /> <span>{tr('screens.detect')}</span> <small>USB · trcc · Wi-Fi</small>
           </button>}
-          {found && !found.length && !usbFound.length && <div class="muted small pad">{tr('screens.noneDetected')}</div>}
+          {found && !found.length && !usbFound.length && !remoteFound.length && (
+            <div class="muted small pad">
+              {tr('screens.noneDetected')} <a href={remoteGuideUrl()} target="_blank" rel="noreferrer">{tr('remote.guide')}</a>
+            </div>
+          )}
+          {remoteFound.map((f) => (
+            <RemoteFoundItem f={f} used={cfg.screens.find((s) => s.device.driver === 'remote' && s.device.uid === f.uid)} onPaired={(id) => {
+              // The server made the screen (or keyed an existing one): show it.
+              screenId.value = id;
+              setOpen(false);
+            }} />
+          ))}
           {usbFound.map((f) => (
             <button class="menu-item" title={f.error ?? f.location} onClick={() => {
               onAdd({ width: f.width || 1920, height: f.height || 462, name: f.key, device: { driver: 'usb', ...(f.serial ? { serial: f.serial } : {}) }, ...(f.rotate !== undefined ? { rotate: f.rotate } : {}) });
@@ -222,7 +238,11 @@ function ScreenCard({ s }: { s: Screen }) {
           <p class="muted small">{portrait ? tr('screens.portraitHelp').replace('{w}', String(s.width)).replace('{h}', String(s.height)) : tr('screens.flippedHelp')}</p>
           <label class="field-label">{tr('screens.driver')}</label>
           <div class="segmented">
-            {(['virtual', 'usb', 'trcc', 'file'] as const).map((d) => (
+            {(dev.driver === 'remote' ? (['virtual', 'usb', 'trcc', 'file', 'remote'] as const) : (['virtual', 'usb', 'trcc', 'file'] as const)).map((d) => d === 'remote' ? (
+              <button class="on">
+                <Icon name="wifi" size={13} /> {tr('driver.remote')}
+              </button>
+            ) : (
               <button class={dev.driver === d ? 'on' : ''} onClick={() => setDevice(d === 'trcc' ? { driver: 'trcc', url: 'http://127.0.0.1:8099' } : d === 'usb' ? { driver: 'usb' } : d === 'file' ? { driver: 'file', dir: '~/.config/kiosko/frames/' + s.id } : { driver: 'virtual' })}>
                 <Icon name={d === 'virtual' ? 'monitor' : d === 'trcc' ? 'usb' : 'file-image'} size={13} /> {tr(`driver.${d}`)}
               </button>
@@ -245,6 +265,7 @@ function ScreenCard({ s }: { s: Screen }) {
               <p class="muted small">{tr('screens.usbHelp')}</p>
             </div>
           )}
+          {dev.driver === 'remote' && <RemoteSettings s={s} link={st?.device.remote} setDevice={setDevice} />}
           {dev.driver === 'file' && (
             <div class="sub-form">
               <label class="field-label">{tr('screens.dir')}</label>

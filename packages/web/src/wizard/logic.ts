@@ -33,7 +33,7 @@ export interface PanelChoice {
   /** Stood on its side (taller than wide). */
   portrait: boolean;
   device: DeviceConfig;
-  from: 'usb' | 'trcc' | 'model' | 'try';
+  from: 'usb' | 'trcc' | 'remote' | 'model' | 'try';
   /** A model's id (PANEL_PRESETS), when picked from them or recognised by its size. */
   preset?: string;
   /** What tells it apart (a serial, where it is plugged), shown next to it. */
@@ -71,7 +71,7 @@ export function freshState(): WizardState {
 }
 
 const ROTATIONS: readonly number[] = [0, 90, 180, 270];
-const DRIVERS = ['virtual', 'usb', 'trcc', 'file'];
+const DRIVERS = ['virtual', 'usb', 'trcc', 'file', 'remote'];
 
 /** The progress kept in the browser, if it is one this wizard wrote (anything else starts afresh). */
 export function readState(raw: string | null): WizardState | null {
@@ -264,7 +264,7 @@ export function fromStarter(cfg: Pick<Config, 'screens' | 'setup'>): PanelChoice
     .map((s) => {
       // The panel upright at its angle: its picture's size, and the way it stands.
       const portrait = s.height > s.width;
-      return { id: `screen:${s.id}`, name: s.name, width: s.width, height: s.height, baseRotate: s.rotate, portrait, device: s.device, from: s.device.driver === 'trcc' ? 'trcc' : 'usb', ...(s.device.driver === 'usb' && s.device.serial ? { detail: s.device.serial } : s.device.driver === 'trcc' && s.device.deviceKey ? { detail: s.device.deviceKey } : {}), template: CURRENT, screen: s.id } satisfies PanelChoice;
+      return { id: `screen:${s.id}`, name: s.name, width: s.width, height: s.height, baseRotate: s.rotate, portrait, device: s.device, from: s.device.driver === 'trcc' ? 'trcc' : s.device.driver === 'remote' ? 'remote' : 'usb', ...(s.device.driver === 'usb' && s.device.serial ? { detail: s.device.serial } : s.device.driver === 'trcc' && s.device.deviceKey ? { detail: s.device.deviceKey } : s.device.driver === 'remote' ? { detail: s.device.id ?? s.device.uid } : {}), template: CURRENT, screen: s.id } satisfies PanelChoice;
     });
 }
 
@@ -283,8 +283,22 @@ export function applySetup(cfg: Config, s: WizardState, ctx: BuildContext): Conf
   return next;
 }
 
-/** The panels already on screens of this config (by serial or trcc key): offered as set up, not again. */
+/** The panels already on screens of this config (by serial, trcc key or remote screen uid): offered as set up, not again. */
 export function alreadyThere(cfg: Pick<Config, 'screens'>, p: Pick<PanelChoice, 'device'>): Screen | undefined {
   const d = p.device;
-  return cfg.screens.find((s) => (d.driver === 'usb' && s.device.driver === 'usb' && !!d.serial && s.device.serial === d.serial) || (d.driver === 'trcc' && s.device.driver === 'trcc' && !!d.deviceKey && s.device.deviceKey === d.deviceKey));
+  return cfg.screens.find(
+    (s) =>
+      (d.driver === 'usb' && s.device.driver === 'usb' && !!d.serial && s.device.serial === d.serial) ||
+      (d.driver === 'trcc' && s.device.driver === 'trcc' && !!d.deviceKey && s.device.deviceKey === d.deviceKey) ||
+      (d.driver === 'remote' && s.device.driver === 'remote' && s.device.uid === d.uid),
+  );
+}
+
+/**
+ * A remote screen just paired (pairing put it in the config, key and all): as
+ * a choice, so the wizard sets it up like the others; it keeps its pages.
+ */
+export function fromRemote(s: Screen): PanelChoice {
+  const id = s.device.driver === 'remote' ? (s.device.id ?? s.device.uid) : s.name;
+  return { id: `screen:${s.id}`, name: s.name, width: s.width, height: s.height, baseRotate: s.rotate, portrait: s.height > s.width, device: s.device, from: 'remote', detail: id, template: CURRENT, screen: s.id };
 }
