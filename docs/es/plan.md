@@ -1233,6 +1233,56 @@ Lo que cambia en el camino:
       complicado; mientras los plugins sean gratis, no afecta.
     - *Decisión (2026-11-22)*: por ahora basta el 71 %.
 
+59. **Pantallas remotas ESP32: lo que falta tras la primera versión.** La base
+    (firmware de referencia en `firmware/esp32-screen/` para la Waveshare
+    ESP32-C6-LCD-1.47, protocolo con descubrimiento mDNS, emparejamiento con
+    código en pantalla, sesión autenticada, resincronización y rotación, y el
+    controlador `remote` de Kiosko) está en marcha (2026-11-22). Pendiente:
+    - *Instalar sin ser desarrollador*: instalador desde el navegador en
+      kioskolcd.dev (ESP Web Tools, WebSerial en Chrome y Edge: conectar la
+      placa y pulsar) y binarios ya compilados en cada release de GitHub.
+    - *Actualizar el firmware desde el editor*: cuando una versión de Kiosko
+      trae firmware nuevo, ofrecerlo a cada placa emparejada por la OTA
+      autenticada.
+    - *Más placas*: Cheap Yellow Display (320×240, táctil), LilyGO T-Display
+      S3, M5Stack, pantallas redondas de 240×240 (GC9A01); hoy solo queda
+      preparada la capa de placa.
+    - *Entrada desde el dispositivo*: el botón (BOOT u otros) para cambiar de
+      página o descartar una alerta; el táctil donde lo haya. El protocolo
+      hoy solo va de Kiosko a la pantalla.
+    - *Brillo y modo noche*: bajar o apagar la retroiluminación por horario o
+      cuando Kiosko pausa esa pantalla.
+    - *Imágenes más rápidas*: enviar solo la región que cambió (Kiosko sabe
+      qué tesela cambia) o imagen en bruto con compresión ligera en pantallas
+      pequeñas, en vez de JPEG (decodificar cuesta ~95 ms y limita a ~6–8
+      fps).
+    - *Modo cable*: el mismo protocolo por USB serie, sin Wi-Fi, para redes
+      sin mDNS (VLAN, redes de invitados) o sin red.
+    - *Dos Kiosko para una placa*: decidir quién la tiene (propiedad,
+      bloqueo) para que no se peleen.
+    - *Endurecer el hardware*: cifrado de la flash y arranque seguro del
+      ESP32 protegen la clave si alguien se lleva la placa; son
+      **irreversibles**: decisión del dueño.
+    - *Probar en Windows y macOS*: el descubrimiento por la red (cortafuegos,
+      sin Bonjour en Windows).
+    - *Guía de uso* en los 5 idiomas, en la web.
+60. **Cualquier navegador como pantalla.** Una tableta o un móvil viejo que
+    muestra una pantalla de Kiosko a pantalla completa por la red local, con
+    el mismo emparejamiento que las ESP32 (código en pantalla, sesión
+    autenticada) y sin abrir el editor a la red: una página de solo
+    visualización que pide el fotograma o lo recibe por WebSocket, ajusta la
+    orientación y evita que se apague la pantalla (Wake Lock). Sin hardware
+    ni firmware: probablemente la pantalla con más usuarios potenciales.
+61. **Otras pantallas USB populares.**
+    - **Turing Smart Screen** y sus clones (3,5″ y más; muy habituales en
+      cajas de PC, el mayor mercado tras Thermalright), serie USB.
+    - Marcos de fotos **AX206** (libusb).
+    - La pantalla de las bombas **NZXT Kraken**, a través de liquidctl (que
+      ya usa `gaming`).
+    - *Ojo a las licencias*: las implementaciones de referencia suelen ser
+      GPL (como pasó con `usb-ly`, ver `temas.md`): escribirlas desde una
+      especificación propia del protocolo (sala limpia), con capturas USB.
+
 ### Decisiones abiertas para ti
 
 - **Nombre**: `Kiosko` es provisional (el paquete npm está como
