@@ -69,6 +69,11 @@ export function editorUrl(cfg: Pick<Config, 'server'>): string {
   return `http://${host.includes(':') ? `[${host}]` : host}:${cfg.server.port}`;
 }
 
+/** The address the card gives: where Kiosko really listens when the server says so (`--port`), else the config's. */
+export function cardUrl(listening: string | undefined, cfg: Pick<Config, 'server'>): string {
+  return listening ?? editorUrl(cfg);
+}
+
 export interface WelcomeLook {
   theme: Theme;
   locale: string;

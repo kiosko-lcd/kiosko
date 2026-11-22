@@ -33,6 +33,7 @@ export interface ThreadOwner {
   readonly playIdleMs: number;
   readonly welcome: boolean;
   readonly startedAt: number;
+  readonly editorUrl?: string | undefined;
   log: LogFn;
   dataOf(instanceId: string): unknown;
   sourceData(type: string): unknown;
@@ -114,6 +115,7 @@ export class ThreadRunner implements Runner {
       playIdleMs: this.owner.playIdleMs,
       welcome: this.owner.welcome,
       startedAt: this.owner.startedAt,
+      ...(this.owner.editorUrl ? { editorUrl: this.owner.editorUrl } : {}),
       pinned: this.pinned,
       off: this.off,
     };

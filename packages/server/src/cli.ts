@@ -117,7 +117,10 @@ async function main(): Promise<void> {
       const cfg = await config(reg, path);
       const host = opt('--host') ?? cfg.server.host;
       const port = Number(opt('--port') ?? cfg.server.port);
-      const rt = new Runtime(reg, cfg, { demo: flag('--demo'), welcome: true, ...THREADS });
+      // The address it really listens on (--host/--port win over the config), for the first run's card on the panels.
+      const shown = host === '0.0.0.0' || host === '::' || !host ? '127.0.0.1' : host;
+      const editorAt = `http://${shown.includes(':') ? `[${shown}]` : shown}:${port}`;
+      const rt = new Runtime(reg, cfg, { demo: flag('--demo'), welcome: true, editorUrl: editorAt, ...THREADS });
       if (flag('--demo')) console.log('demo mode: every widget shows sample data, nothing is read');
       rt.start();
       const srv = startServer({ runtime: rt, host, port, configPath: path, version: VERSION });

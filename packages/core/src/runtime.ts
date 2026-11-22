@@ -135,13 +135,16 @@ export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
   readonly demoMode: boolean;
   /** The boot animation and the first run's card on the panels (welcome.ts): the server's `start` asks for them; tests and the browser demo don't. */
   readonly welcome: boolean;
+  /** Where the editor really listens (`kiosko start` with its --host/--port), for the first run's card; else the config's. */
+  readonly editorUrl: string | undefined;
   /** When this runtime was made: the boot animation plays only soon after. */
   readonly startedAt = Date.now();
-  constructor(registry: Registry, config: Config, o: { demo?: boolean; threadEntry?: URL; welcome?: boolean } = {}) {
+  constructor(registry: Registry, config: Config, o: { demo?: boolean; threadEntry?: URL; welcome?: boolean; editorUrl?: string } = {}) {
     super();
     this.registry = registry;
     this.demoMode = !!o.demo;
     this.welcome = !!o.welcome && !o.demo;
+    this.editorUrl = o.editorUrl;
     this.threadEntry = o.threadEntry;
     this.setMaxListeners(100);
     this.config = config;

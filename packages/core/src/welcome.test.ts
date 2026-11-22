@@ -7,7 +7,7 @@ import { normalize } from './config/store.ts';
 import { registerFonts } from './fonts.ts';
 import { Registry } from './registry.ts';
 import { Runtime, type FrameInfo } from './runtime.ts';
-import { BOOT_MS, BOOT_WINDOW_MS, CARD_EVERY_MS, editorUrl, paintBoot, paintCard, shapeOf, welcomeDue, welcomeTexts } from './welcome.ts';
+import { BOOT_MS, BOOT_WINDOW_MS, CARD_EVERY_MS, cardUrl, editorUrl, paintBoot, paintCard, shapeOf, welcomeDue, welcomeTexts } from './welcome.ts';
 
 process.env.KIOSKO_QUIET = '1';
 
@@ -41,6 +41,10 @@ test('the card speaks the panel’s language and gives the editor’s address as
   assert.equal(welcomeTexts('fr').running, 'Kiosko is running', 'English where Kiosko has no words');
   assert.equal(editorUrl({ server: { host: '127.0.0.1', port: 7420 } }), 'http://127.0.0.1:7420');
   assert.equal(editorUrl({ server: { host: '0.0.0.0', port: 7421 } }), 'http://127.0.0.1:7421');
+  // Started with --port: the card gives where it really listens, not the config's port.
+  assert.equal(cardUrl('http://127.0.0.1:7499', { server: { host: '127.0.0.1', port: 7420 } }), 'http://127.0.0.1:7499');
+  assert.equal(cardUrl(undefined, { server: { host: '127.0.0.1', port: 7420 } }), 'http://127.0.0.1:7420');
+  assert.equal(new Runtime(new Registry(), first, { editorUrl: 'http://127.0.0.1:7499' }).editorUrl, 'http://127.0.0.1:7499');
   assert.equal(editorUrl({ server: { host: '::1', port: 7420 } }), 'http://[::1]:7420');
 });
 

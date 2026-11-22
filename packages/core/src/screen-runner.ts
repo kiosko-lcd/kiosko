@@ -16,7 +16,7 @@ import { legibleCjkPx, whenMatches, type Config, type Page, type Screen } from '
 import { encodeFor, type Device } from './devices.ts';
 import { CANVAS, baseContext, kit, resolveLocale, type LogFn } from './env.ts';
 import { offersSetup } from './config/starter.ts';
-import { BOOT_FPS, BOOT_MS, CARD_EVERY_MS, CARD_MS, FIRST_CARD_MS, editorUrl, paintBoot, paintCard, welcomeDue } from './welcome.ts';
+import { BOOT_FPS, BOOT_MS, CARD_EVERY_MS, CARD_MS, FIRST_CARD_MS, cardUrl, paintBoot, paintCard, welcomeDue } from './welcome.ts';
 import { registerFonts, setFontLocale } from './fonts.ts';
 import { FrameStats, type ScreenFrameStats } from './frame-stats.ts';
 import { pickPage } from './layout/stack.ts';
@@ -112,6 +112,8 @@ export interface RunnerHost {
   readonly playIdleMs: number;
   /** Whether screens show the boot animation and the first run's card (welcome.ts); off in tests and the demo. */
   readonly welcome: boolean;
+  /** The editor's real address, when known (see Runtime.editorUrl). */
+  readonly editorUrl?: string | undefined;
   /** When Kiosko started: the boot animation only plays soon after. */
   readonly startedAt: number;
   log: LogFn;
@@ -463,7 +465,7 @@ export class ScreenRunner implements Runner {
 
   private welcomeLook() {
     const cfg = this.rt.config;
-    return { theme: this.rt.theme(), locale: resolveLocale(cfg), url: editorUrl(cfg) };
+    return { theme: this.rt.theme(), locale: resolveLocale(cfg), url: cardUrl(this.rt.editorUrl, cfg) };
   }
 
   /** The boot animation, at the screen's fps (at most BOOT_FPS): a slower panel plays fewer frames, never longer. */
