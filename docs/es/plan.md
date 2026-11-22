@@ -1233,6 +1233,26 @@ Lo que cambia en el camino:
       complicado; mientras los plugins sean gratis, no afecta.
     - *Decisión (2026-11-22)*: por ahora basta el 71 %.
 
+58. **Firmar el instalador de Windows (y, si llega, la app de Mac).** Sin
+    firma, Windows avisa de «editor desconocido» al instalar y el
+    actualizador (#63) solo puede comprobar el `.sha256` de la misma release.
+    Opciones (precios de noviembre de 2026, orientativos):
+    | Opción | Precio | Notas |
+    |---|---|---|
+    | **SignPath Foundation** | gratis (código abierto) | certificado a nombre de SignPath Foundation; exige licencia OSI (MIT vale), compilación automática desde el repo (ya en Actions), 2FA de todo el equipo, nada propietario, y la línea «Free code signing provided by SignPath.io» en las versiones |
+    | Microsoft Artifact Signing | ~10 $/mes (último precio conocido) | en la nube; particulares solo en EE. UU. y Canadá, empresas también en la UE con ~3 años de historia |
+    | Certificado OV (Sectigo, SSL.com…) | ~200–400 $/año | clave en token o nube; desde 2026 dura ~15 meses |
+    | Certificado EV | ~250–700 $/año | desde 2024 ya no quita de golpe el aviso de SmartScreen |
+    - *Propuesta*: solicitar SignPath Foundation y firmar en el workflow del
+      instalador; el actualizador comprobaría entonces también la firma.
+    - *Antes*: resolver la licencia de `packages/usb-ly` (deriva de
+      thermalright-trcc-linux, GPLv3; ver `temas.md`), porque SignPath exige
+      que no haya nada propietario ni dudoso.
+    - *Mac*: el Apple Developer Program (99 $/año, Developer ID y
+      notarización) solo hace falta con una app de escritorio para Mac; hoy
+      Kiosko se instala con npm y no lo necesita.
+    - *Fuentes*: signpath.org, about.signpath.io/product/open-source, la
+      página de precios de Azure Artifact Signing, sectigo.com y ssl.com.
 59. **Pantallas remotas ESP32: lo que falta tras la primera versión.** La base
     (firmware de referencia en `firmware/esp32-screen/` para la Waveshare
     ESP32-C6-LCD-1.47, protocolo con descubrimiento mDNS, emparejamiento con
