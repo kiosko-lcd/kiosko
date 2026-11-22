@@ -1,6 +1,6 @@
 {
   "name": "@kiosko/server",
-  "version": "0.2.9",
+  "version": "0.2.10",
   "description": "Kiosko daemon: drives the panels and serves the visual editor.",
   "type": "module",
   "license": "MIT",
@@ -14,8 +14,8 @@
     }
   },
   "dependencies": {
-    "@kiosko/core": "0.2.9",
-    "@kiosko/sdk": "0.2.9",
-    "@kiosko/web": "0.2.9"
+    "@kiosko/core": "0.2.10",
+    "@kiosko/sdk": "0.2.10",
+    "@kiosko/web": "0.2.10"
   }
 }
