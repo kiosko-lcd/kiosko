@@ -7,8 +7,11 @@
  * a foreign web page can't send without a CORS preflight, which we never
  * grant) and the Host header must be the one we listen on (DNS rebinding).
  */
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { spawn } from 'node:child_process';
+import { randomBytes } from 'node:crypto';
+import { existsSync, openSync, readFileSync, statSync } from 'node:fs';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+import { tmpdir } from 'node:os';
 import { createRequire } from 'node:module';
 import { dirname, extname, join, normalize as normPath, resolve } from 'node:path';
 import { THEMES } from '@kiosko/sdk';
@@ -20,7 +23,9 @@ import { SDK_VERSION } from '@kiosko/sdk';
 import { installableRelease, releaseProblem, type StorePlugin } from '@kiosko/core';
 import { HomeAssistantBridge } from './homeassistant.ts';
 import { ALERT_LEVELS, type AlertLevel } from '@kiosko/sdk';
-import { AlertError, DEFAULT_SNOOZE_MS, PANEL_PRESETS, checkUpdates, discoverTrcc, discoverUsb, normalize, paths, resolveLocale, saveConfig, type Config, type FrameInfo, type Runtime, type Screen, type UpdateCheck } from '@kiosko/core';
+import { AlertError, DEFAULT_SNOOZE_MS, PANEL_PRESETS, checkUpdates, discoverTrcc, discoverUsb, normalize, npmRegistry, paths, resolveLocale, saveConfig, type Config, type FrameInfo, type Runtime, type Screen, type UpdateCheck } from '@kiosko/core';
+import { currentInstall, updateBlocker, updateInstructions, type InstallInfo } from './install-kind.ts';
+import { KioskoUpdater, UpdateError, readMarker, realRun, restartHow, writeMarker, type Handover, type UpdaterDeps } from './self-update.ts';
 
 const require = createRequire(import.meta.url);
 
@@ -55,6 +60,12 @@ export interface ServerOptions {
   homeassistant?: boolean;
   /** The plugin store's catalogue (tests). Default: the copy that comes with Kiosko, the one kept in its folder, then the site's. */
   store?: StoreCatalog;
+  /** How this Kiosko was installed (tests). Default: read from its own command line. */
+  install?: InstallInfo;
+  /** What "Update Kiosko" uses to touch the system (tests: fakes). Default: the real npm, service manager, downloads. */
+  selfUpdate?: Partial<UpdaterDeps>;
+  /** Kiosko's folder (tests). Default: paths.home. */
+  home?: string;
 }
 
 function webRoot(): string {
@@ -117,6 +128,96 @@ export function startServer(o: ServerOptions) {
   const store = o.store ?? new StoreCatalog({ cacheDir: join(paths.home, 'store') });
   const storeTimers = checking ? [setTimeout(() => void store.refresh(), 15_000), setInterval(() => void store.refresh(), 24 * 3600_000)] : [];
   for (const t of storeTimers) t.unref?.();
+  // Updating Kiosko itself (self-update.ts): how it was installed decides how, or whether, the editor can.
+  const home = o.home ?? paths.home;
+  const install = o.install ?? currentInstall();
+  const registryUrl = o.selfUpdate?.registry ?? npmRegistry();
+  const blocker = updateBlocker(install, { demo: runtime.demoMode });
+  const instance = randomBytes(8).toString('hex');
+  const how = o.selfUpdate?.restartHow ?? restartHow(install, { tty: !!process.stdout.isTTY, pid: process.pid });
+  const probeHost = o.host === '0.0.0.0' || o.host === '::' ? '127.0.0.1' : o.host.includes(':') ? `[${o.host}]` : o.host;
+  const handover: Handover = {
+    instance,
+    logFile: join(home, 'kiosko.log'),
+    release: async () => {
+      runtime.stop();
+      for (const c of clients) c.end();
+      clients.clear();
+      await new Promise<void>((ok) => {
+        server.close(() => ok());
+        server.closeAllConnections();
+        setTimeout(ok, 3000).unref();
+      });
+    },
+    reclaim: async () => {
+      await new Promise<void>((ok, fail) => {
+        server.once('error', fail);
+        server.listen(o.port, o.host, () => {
+          server.off('error', fail);
+          ok();
+        });
+      });
+      runtime.start();
+    },
+    spawn: () => {
+      const out = openSync(join(home, 'kiosko.log'), 'a');
+      // The same arguments, but no second browser tab (--open): the editor reconnects by itself.
+      const args = process.argv.slice(2).filter((a) => a !== '--open');
+      const child = spawn(process.execPath, [...process.execArgv, install.cli, ...args], { detached: true, stdio: ['ignore', out, out], env: process.env, cwd: process.cwd(), windowsHide: true });
+      const exited = new Promise((ok) => {
+        child.once('exit', ok);
+        child.once('error', ok);
+      });
+      child.unref();
+      return { exited, kill: () => void child.kill() };
+    },
+    probe: async () => {
+      const r = await fetch(`http://${probeHost}:${o.port}/api/version`, { signal: AbortSignal.timeout(1500) });
+      return r.ok ? ((await r.json()) as { version: string; instance: string }) : null;
+    },
+    exit: () => {
+      close();
+      runtime.stop();
+      setTimeout(() => process.exit(0), 100);
+    },
+  };
+  const updater = new KioskoUpdater({
+    install,
+    current: o.version,
+    registry: registryUrl,
+    node: process.execPath,
+    run: realRun,
+    fetch: (u, i) => fetch(u, i),
+    loaded: () => ({ ids: runtime.registry.list().map((p) => p.def.id), problems: runtime.registry.problems.map((p) => p.message) }),
+    log: (m) => runtime.log('kiosko-update', m),
+    changed: (st) => send('kiosko-update', st),
+    tmpDir: tmpdir(),
+    restartHow: how,
+    handover,
+    mark: (m) => writeMarker(home, m),
+    launch: (script) => spawn('cmd.exe', ['/d', '/c', script], { detached: true, stdio: 'ignore', windowsHide: true }).unref(),
+    serviceTask: async () => (await realRun('schtasks', ['/Query', '/TN', 'Kiosko'], { timeoutMs: 15_000 })).code === 0,
+    port: o.port,
+    home,
+    ...o.selfUpdate,
+  });
+  // How the last update went, from the note it left before the restart.
+  if (!runtime.demoMode) {
+    const m = readMarker(home, o.version);
+    if (m) {
+      // The steps the previous Kiosko took, then how it ended.
+      for (const l of m.lines) runtime.log('kiosko-update', `(before the restart) ${l}`);
+      runtime.log('kiosko-update', m.message);
+    }
+  }
+  const kioskoUpdateState = () => ({
+    install: { kind: install.kind, service: install.service, dir: install.dir, perUser: install.perUser ?? false, platform: install.platform },
+    canUpdate: blocker === null,
+    blocker,
+    restart: how,
+    instructions: updates?.kiosko ? updateInstructions(install, updates.kiosko.latest, registryUrl) : null,
+    status: updater.status,
+  });
   /** Installs a plugin's release named in the catalogue, checked against its integrity; what it needs from the store first. */
   const installFromStore = async (p: StorePlugin, version: string) => {
     const index = store.current().index!;
@@ -163,6 +264,7 @@ export function startServer(o: ServerOptions) {
       catalog: runtime.registry.catalog(locale),
       refused: runtime.registry.refused,
       updates: updates && { checkedAt: updates.checkedAt, plugins: updates.plugins, kiosko: updates.kiosko ?? null },
+      kioskoUpdate: kioskoUpdateState(),
       categories: CATEGORIES,
       themes: THEMES,
       presets: PANEL_PRESETS,
@@ -316,6 +418,36 @@ export function startServer(o: ServerOptions) {
     if (p === '/api/devices/discover' && m === 'GET') {
       const url0 = url.searchParams.get('url') ?? 'http://127.0.0.1:8099';
       return json(res, 200, { trcc: await discoverTrcc(url0, url.searchParams.get('tokenFile') ?? undefined), usb: await discoverUsb() });
+    }
+
+    // Who answers here: the update's handover tells the new Kiosko from the old one by it.
+    if (p === '/api/version' && m === 'GET') return json(res, 200, { version: o.version, instance });
+
+    // Updating Kiosko itself: how it was installed, what to do, and the button's steps.
+    if (p === '/api/kiosko/update' && m === 'GET') return json(res, 200, kioskoUpdateState());
+    if (p === '/api/kiosko/update' && m === 'POST') {
+      const b = (await body(req, 4096)) as { version?: string };
+      if (runtime.demoMode) return json(res, 409, { error: 'not in demo mode', code: 'demo' });
+      if (blocker) return json(res, 409, { error: `this Kiosko can't update itself (${blocker}): follow the instructions`, code: 'cantUpdateKiosko', params: { why: blocker } });
+      const latest = updates?.kiosko?.latest;
+      if (!latest || b.version !== latest) return json(res, 409, { error: `no update of Kiosko to ${String(b.version)}`, code: 'noKioskoUpdate', params: { version: String(b.version) } });
+      if (updater.busy) return json(res, 409, { error: 'an update is already under way', code: 'updateBusy' });
+      // Runs on its own; the steps come as events (and GET /api/kiosko/update).
+      updater.start(latest).catch((err) => runtime.log('kiosko-update', String(err instanceof Error ? err.message : err)));
+      return json(res, 202, kioskoUpdateState());
+    }
+    if (p === '/api/kiosko/update/confirm' && m === 'POST') {
+      const b = (await body(req, 4096)) as { version?: string };
+      try {
+        await updater.confirm(String(b.version));
+        return json(res, 200, kioskoUpdateState());
+      } catch (err) {
+        return json(res, 409, { error: err instanceof Error ? err.message : String(err), code: err instanceof UpdateError ? err.code : 'failed' });
+      }
+    }
+    if (p === '/api/kiosko/update/cancel' && m === 'POST') {
+      updater.discard();
+      return json(res, 200, kioskoUpdateState());
     }
 
     if (p === '/api/logs' && m === 'GET') return json(res, 200, runtime.logs.slice(-200));
@@ -504,20 +636,18 @@ export function startServer(o: ServerOptions) {
   });
 
   server.listen(o.port, o.host);
-  return {
-    server,
-    close() {
-      clearInterval(statusTimer);
-      bridge?.stop();
-      for (const t of updateTimers) clearTimeout(t);
-      for (const t of storeTimers) clearTimeout(t);
-      // The runtime outlives the server (tests, a restart of the editor only): stop hearing it.
-      runtime.off('frame', onFrame);
-      runtime.off('alerts', onAlerts);
-      runtime.off('log', onLog);
-      for (const c of clients) c.end();
-      clients.clear();
-      server.close();
-    },
-  };
+  function close() {
+    clearInterval(statusTimer);
+    bridge?.stop();
+    for (const t of updateTimers) clearTimeout(t);
+    for (const t of storeTimers) clearTimeout(t);
+    // The runtime outlives the server (tests, a restart of the editor only): stop hearing it.
+    runtime.off('frame', onFrame);
+    runtime.off('alerts', onAlerts);
+    runtime.off('log', onLog);
+    for (const c of clients) c.end();
+    clients.clear();
+    server.close();
+  }
+  return { server, close, updater };
 }

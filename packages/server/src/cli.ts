@@ -43,6 +43,7 @@ const USAGE = `Kiosko ${VERSION}: a widget mosaic for USB LCD panels
   kiosko gallery [--out gallery] [--locale en | --all-languages] [--theme midnight] [--pages config.json]
   kiosko plugins [list|add <id>…|link <folder>…|remove <id>…]
   kiosko service install|uninstall|print   (start with your session)
+  kiosko self-check [--json]                 load the plugins as start would and say what loads (the updater's dry run)
   kiosko version`;
 const argv = process.argv.slice(2);
 // Flags alone mean `start` (`kiosko --demo --open`), except the ones that are commands of their own.
@@ -269,6 +270,20 @@ async function main(): Promise<void> {
       process.env.KIOSKO_QUIET ??= '1';
       process.exitCode = await configCommand(argv.slice(1), { registry, configPath: path });
       return;
+    }
+    case 'self-check': {
+      // The editor's "Update Kiosko" runs this from the new install before restarting into it:
+      // the plugins load (nothing starts, no panel is touched), and it says which did.
+      process.env.KIOSKO_QUIET ??= '1';
+      const reg = await registry();
+      const report = { kiosko: 'self-check', version: VERSION, node: process.version, plugins: reg.list().map((p) => ({ id: p.def.id, version: p.def.version })), problems: reg.problems, refused: reg.refused };
+      if (flag('--json')) console.log(JSON.stringify(report));
+      else {
+        console.log(`Kiosko ${VERSION}, Node ${process.version}: ${report.plugins.length} plugins load (${report.plugins.map((p) => p.id).join(', ')})`);
+        for (const pr of report.problems) console.log(`  ✗ ${pr.origin}: ${pr.message}`);
+      }
+      // A plugin's timers must not keep the dry run alive.
+      process.exit(0);
     }
     case 'help':
     case '--help':
