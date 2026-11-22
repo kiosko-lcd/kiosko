@@ -1148,6 +1148,47 @@ Lo que cambia en el camino:
     - *Cómo*: un widget nuevo en `kiosko-plugin-calendar`; sin nada nuevo
       que configurar, con la jornada de `workday` para saber qué es «libre».
 
+43. **Visitas de tu web** (`kiosko-plugin-analytics`):
+    - *Qué*: visitantes ahora mismo, páginas más vistas hoy, de dónde llegan y el pico del día.
+    - *De dónde*: **Plausible**, **Umami**, **Matomo**, **GA4** (API de datos) y **Cloudflare Web Analytics** (GraphQL), todos con clave de solo lectura.
+    - *A tener en cuenta*: sin datos personales en pantalla: solo cifras y rutas.
+44. **Tus paquetes** (`kiosko-plugin-package-stats`):
+    - *Qué*: descargas por semana de tus paquetes y su tendencia, estrellas e issues nuevas de tus repositorios, y cuántos dependen de ti.
+    - *De dónde*: API de descargas de **npm**, **pypistats**, **crates.io** y **GitHub** (sin clave para lo público).
+    - *A tener en cuenta*: npm da las descargas con un día de retraso: decirlo.
+45. **Lo que vendes** (`kiosko-plugin-sales`):
+    - *Qué*: ventas e ingresos de hoy, ingreso recurrente mensual (MRR), bajas, y las reseñas nuevas de tu app con su nota.
+    - *De dónde*: **Stripe**, **Lemon Squeezy**, **Paddle**, **Shopify**; **App Store Connect** y **Google Play Console** para las reseñas.
+    - *A tener en cuenta*: claves restringidas de solo lectura; importes en la moneda de cada cuenta, sin convertir.
+46. **Lo que consume tu equipo** (`kiosko-plugin-power`):
+    - *Qué*: vatios del PC ahora (CPU, GPU y total), kWh del día y su coste: cuánto cuesta una tarde de juego o una noche entrenando un modelo.
+    - *De dónde*: **RAPL** (CPU, Linux), **NVML** (GPU NVIDIA) y un enchufe inteligente (**Shelly**, **Tasmota**) para el total real; el precio, a mano o del punto 20.
+    - *A tener en cuenta*: RAPL y NVML miden solo partes; el total fiable es el del enchufe.
+47. **Lo nuevo en IA** (`kiosko-plugin-ai-radar`):
+    - *Qué*: modelos en tendencia en Hugging Face con su tamaño y si caben en tu GPU (con `gpu`), artículos nuevos de arXiv de tus temas y modelos nuevos en Ollama.
+    - *De dónde*: API de **Hugging Face**, **arXiv** y la biblioteca de **Ollama**; en China, **ModelScope**.
+    - *A tener en cuenta*: «cabe en tu GPU» es una estimación por tamaño y cuantización: decirlo.
+48. **Radioaficionados** (`kiosko-plugin-radio`):
+    - *Qué*: condiciones de propagación por banda, flujo solar e índice K, estaciones DX anunciadas y los mensajes APRS cerca de ti.
+    - *De dónde*: **hamqsl** (N0NBH), un **DX cluster** (telnet), **APRS-IS** (con tu indicativo) y tu receptor **SDR**.
+    - *A tener en cuenta*: público pequeño pero fiel, y muy de pantallas siempre encendidas.
+49. **La casa** (`kiosko-plugin-family`):
+    - *Qué*: a quién le toca cada tarea esta semana, el horario de los niños y las extraescolares de hoy, y la lista de la compra compartida; para un panel en la cocina o la entrada.
+    - *De dónde*: propio, editable desde el móvil (como la página Jugar); o **Grocy** o **Todoist**.
+    - *A tener en cuenta*: nombres de menores en pantalla: solo lo que el usuario escriba.
+50. **Episodios nuevos** (`kiosko-plugin-podcasts`):
+    - *Qué*: los episodios nuevos de tus podcasts con su duración, y lo que dejaste a medias.
+    - *De dónde*: feeds **RSS** de podcast (OPML para importar), o **Pocket Casts** o **Audiobookshelf**.
+    - *A tener en cuenta*: solo títulos y portadas, nada que descargar.
+51. **Tus cifras de creador** (`kiosko-plugin-creator`):
+    - *Qué*: suscriptores y visualizaciones de tu canal de YouTube, suscriptores de tu boletín y aperturas del último envío, y seguidores en las plataformas que uses.
+    - *De dónde*: **YouTube Data API**, **Buttondown**, **Substack** (lo que deja leer), **Ghost** y **Beehiiv**.
+    - *A tener en cuenta*: encaja con `streaming` (punto 32): lo de directo allí, lo acumulado aquí.
+52. **El mundo en vivo** (`kiosko-plugin-pulse`):
+    - *Qué*: un interludio que dibuja el pulso de internet en tiempo real: cada edición de Wikipedia, cada evento público de GitHub, como luces que aparecen y se apagan con su idioma o su lenguaje.
+    - *De dónde*: **EventStreams** de Wikimedia (flujo público) y los eventos públicos de **GitHub**.
+    - *A tener en cuenta*: solo dibujo de lo que llega, sin guardar nada; con un límite de eventos por segundo.
+
 ### Decisiones abiertas para ti
 
 - **Nombre**: `Kiosko` es provisional (el paquete npm está como
