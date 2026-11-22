@@ -566,7 +566,7 @@ export interface InterludeDefinition<OF extends ObjectField<any> = ObjectField<a
  * package.json, `"kiosko": { "sdk": "^0.2.0" }`, so it can be refused before
  * it runs); the registry compares them with `satisfies`.
  */
-export const SDK_VERSION = '0.2.9';
+export const SDK_VERSION = '0.2.10';
 
 /**
  * What a plugin does on the machine, declared for the person who installs

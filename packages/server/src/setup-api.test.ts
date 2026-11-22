@@ -21,7 +21,8 @@ test('the setup wizard’s API: detection with fakes, and its config saved like 
   reg.add(core);
   const first = starterConfig(reg, { locale: 'es-ES' });
   const rt = new Runtime(reg, first);
-  const port = 20_000 + Math.floor(Math.random() * 30_000);
+  // Below 40 000: Windows reserves blocks of its dynamic range (49 152 and up: Hyper-V, WSL), and listening there fails with EACCES.
+  const port = 20_000 + Math.floor(Math.random() * 20_000);
   const asked: string[] = [];
   const fake: Discovered = { trcc: [], usb: [{ serial: 'A1', key: 'A1', width: 1920, height: 462, location: '1-4' }, { serial: 'B2', key: 'B2', width: 0, height: 0, location: '1-5', error: 'LIBUSB_ERROR_ACCESS' }] };
   const configPath = join(dir, 'config.json');

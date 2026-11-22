@@ -31,7 +31,8 @@ test('remote screens: pair from the editor, the key goes to the config, the scre
   const rt = new Runtime(reg, starterConfig(reg, { locale: 'en' }));
   const fake = new FakeScreen({ code: '135790', rot: 90 });
   const fport = await fake.listen();
-  const port = 20_000 + Math.floor(Math.random() * 30_000);
+  // Below 40 000: Windows reserves blocks of its dynamic range (49 152 and up: Hyper-V, WSL), and listening there fails with EACCES.
+  const port = 20_000 + Math.floor(Math.random() * 20_000);
   const configPath = join(dir, 'config.json');
   const srv = startServer({ runtime: rt, host: '127.0.0.1', port, configPath, webDir: dir, version: '0', checkUpdates: false, homeassistant: false });
   rt.start();

@@ -16,7 +16,8 @@ const npmInstall: InstallInfo = { kind: 'npm-global', dir: `${PREFIX}/lib/node_m
 function serve(o: { install?: InstallInfo; demo?: boolean; latest?: string | null; run?: Run }) {
   const dir = mkdtempSync(join(tmpdir(), 'kiosko-self-api-'));
   const rt = new Runtime(new Registry(), normalize({ screens: [] }), { demo: !!o.demo });
-  const port = 20_000 + Math.floor(Math.random() * 30_000);
+  // Below 40 000: Windows reserves blocks of its dynamic range (49 152 and up: Hyper-V, WSL), and listening there fails with EACCES.
+  const port = 20_000 + Math.floor(Math.random() * 20_000);
   const check: UpdateCheck = { checkedAt: 1, plugins: [], errors: [], ...(o.latest ? { kiosko: { current: '0.2.8', latest: o.latest, versions: [o.latest] } } : {}) };
   const calls: string[] = [];
   const run: Run = o.run ?? (async (cmd, args) => {

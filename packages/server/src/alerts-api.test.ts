@@ -14,7 +14,8 @@ test('the alerts API: post, list, snooze, ack, take away, a screen\'s test; the 
   const dir = mkdtempSync(join(tmpdir(), 'kiosko-alerts-'));
   const rt = new Runtime(new Registry(), normalize({ screens: [{ id: 'desk', name: 'Desk', width: 64, height: 32, device: { driver: 'virtual' }, pages: [page] }, { id: 'hall', name: 'Hall', width: 64, height: 32, device: { driver: 'virtual' }, pages: [page] }] }));
   rt.start();
-  const port = 20_000 + Math.floor(Math.random() * 30_000);
+  // Below 40 000: Windows reserves blocks of its dynamic range (49 152 and up: Hyper-V, WSL), and listening there fails with EACCES.
+  const port = 20_000 + Math.floor(Math.random() * 20_000);
   const srv = startServer({ runtime: rt, host: '127.0.0.1', port, configPath: join(dir, 'config.json'), webDir: dir, version: '0', checkUpdates: false, homeassistant: false });
   const base = `http://127.0.0.1:${port}`;
   const call = async (method: string, path: string, body?: unknown, headers: Record<string, string> = { 'x-kiosko': '1' }) => {
