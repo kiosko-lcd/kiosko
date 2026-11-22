@@ -20,7 +20,7 @@ function serve(o: { install?: InstallInfo; demo?: boolean; latest?: string | nul
   const check: UpdateCheck = { checkedAt: 1, plugins: [], errors: [], ...(o.latest ? { kiosko: { current: '0.2.8', latest: o.latest, versions: [o.latest] } } : {}) };
   const calls: string[] = [];
   const run: Run = o.run ?? (async (cmd, args) => {
-    calls.push(`${cmd.split('/').at(-1)} ${args.join(' ')}`);
+    calls.push(`${cmd.split(/[\\/]/).at(-1)!.replace(/\.cmd$/i, '')} ${args.join(' ')}`);
     if (args[0] === 'prefix') return { code: 0, stdout: PREFIX, stderr: '' };
     if (args[1] === '--version') return { code: 0, stdout: '0.2.9', stderr: '' };
     return { code: 0, stdout: '', stderr: '' };
