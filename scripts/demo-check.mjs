@@ -215,11 +215,14 @@ async function pageLanguage(browser) {
   check('opened from a page in Chinese, the sample and the editor speak it (browser in English)', names.some((n) => n.includes('總覽')) && lang.startsWith('zh'), `pages ${names.map((n) => n.slice(0, 8)).join(', ')}; html lang ${lang}`);
   check('no errors with ?lang=', errors.length === 0, errors.join(' | '));
   await ctx.close();
-  // Mainland China: no Claude or Gemini, so no agents, cats or usage in the library; local models are there.
+  // Mainland China (languages.ts): nothing of what is left out there in the library, and local models in it.
+  // Since agents 0.3 reads the agents used there (Qwen Code, Kimi CLI…), nothing is left out today.
+  const { LANGUAGES: langs } = await import(new URL('../packages/sdk/src/languages.ts', import.meta.url).href);
+  const without = langs.find((l) => l.id === 'zh-Hans')?.plugins?.without ?? [];
   const cn = await openDemo(browser, { query: '?lang=zh-CN' });
   await cn.page.waitForSelector('.lib-item');
   const types = await cn.page.$$eval('.lib-item', (l) => l.map((e) => e.getAttribute('data-type') ?? ''));
-  check('opened from the Simplified Chinese page: local models, and no agents, cats or usage', !types.some((t) => /^(agents|cats|usage)\//.test(t)) && types.some((t) => t.startsWith('llm/')), `${types.length} widgets: ${types.filter((t) => /^(agents|cats|usage|llm)\//.test(t)).join(', ')}`);
+  check(`opened from the Simplified Chinese page: local models${without.length ? `, and no ${without.join(', ')}` : ''}`, !types.some((t) => without.includes(t.split('/')[0])) && types.some((t) => t.startsWith('llm/')), `${types.length} widgets: ${types.filter((t) => /^(agents|cats|usage|llm)\//.test(t)).join(', ')}`);
   await cn.ctx.close();
 }
 
@@ -550,9 +553,11 @@ async function frontPage(browser, name) {
     if (card) links.push(new URL(new URL(card).pathname, location.origin).href);
     const missing = [];
     for (const url of [...pictures, ...links]) if (!(await ok(url))) missing.push(url);
-    return { cards: cards.length, pictures: pictures.length, links, missing, catalogue: (await (await fetch('gallery/gallery.json')).json()).plugins.length };
+    const store = document.querySelector('#plugins .cta a[href$="store/"]');
+    return { cards: cards.length, pictures: pictures.length, links, missing, catalogue: (await (await fetch('gallery/gallery.json')).json()).plugins.length, store: store?.textContent ?? '' };
   });
-  check(`${name} front page: every plugin has its card and pictures`, listed.cards > 0 && listed.cards === listed.catalogue && listed.pictures >= listed.cards, `${listed.cards} cards of ${listed.catalogue} plugins, ${listed.pictures} pictures`);
+  // A taste of the plugins (build.mjs: TEASER), each with its pictures, and the way to the store for the rest.
+  check(`${name} front page: a few plugins with their pictures, and the way to the store`, listed.cards > 0 && listed.cards <= 8 && listed.cards <= listed.catalogue && listed.pictures >= listed.cards && /\d/.test(listed.store), `${listed.cards} cards of ${listed.catalogue} plugins, ${listed.pictures} pictures; store button "${listed.store}"`);
   check(`${name} front page: its links and its share picture lead somewhere`, listed.links.length >= 4 && listed.links.some((l) => l.endsWith('/card.jpg')) && listed.missing.length === 0, listed.missing.length ? `missing: ${listed.missing.slice(0, 4).join(', ')}` : `${listed.links.length} links`);
 
   // The editor's section: the real editor in a frame, composing a page by itself and keeping nothing.
