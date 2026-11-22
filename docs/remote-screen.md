@@ -91,7 +91,7 @@ The screen rejects messages over its `max` (98 304 bytes on the C6), and over
 | 10 | FRAME | K→S | `u32 BE frame number`, then a baseline JPEG |
 | 11 | ACK | S→K | `{"n","ok","rx":ms,"dec":ms,"err"?}` |
 | 12 | SET | K→S | `{"rot"?,"id"?,"tz"?,"lang"?,"idle"?,"bright"?}`; answered with STATE |
-| 13 | STATE | S→K | `{"uid","id","model","w","h","rot","fw","max","last","up","heap","rssi","ip","part","resend"?,"bright"?,"tempC"?}` |
+| 13 | STATE | S→K | `{"uid","id","model","w","h","rot","fw","max","last","up","heap","rssi","ip","part","resend"?,"bright"?,"tempC"?,"heapMin"?,"heapLargest"?}` |
 | 14 | LED | K→S | `{"rgb":"rrggbb","blink":ms}` (`000000` = off) |
 | 15/16 | PING/PONG | both | `{}` |
 | 17 | UNPAIR | K→S | `{}`; the screen forgets the key, answers UNPAIR and closes |
@@ -193,6 +193,8 @@ and don't read `tempC`, and firmware 0.1.1 ignores a `bright` in `SET`.
   its own (70 % by default, or what its setup page set).
 - **`STATE bright`**: the brightness it has. Kiosko only offers the control
   for screens that say it.
+- **`STATE heapMin`, `heapLargest`** (0.1.3): the lowest free heap since
+  boot and the largest free block, in bytes, for diagnosis.
 - **`STATE tempC`**: the chip's own temperature sensor, °C with one
   decimal. It reads it every 5 s and sends `STATE` every 30 s on its own, so
   Kiosko sees it change. `status.json` has it too.
