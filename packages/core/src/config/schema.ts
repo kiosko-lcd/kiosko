@@ -299,6 +299,21 @@ export function configSchema(plugins: readonly PluginDefinition[]): S {
             },
           },
           {
+            title: 'Kiosko remote screen',
+            description: 'A screen on the network running Kiosko\'s screen firmware (firmware/esp32-screen: the Waveshare ESP32-C6-LCD-1.47 and others). Kiosko finds it by mDNS, pairs with it once with the code it shows, and sends it frames over an authenticated, encrypted session; the screen turns the picture to the screen\'s rotation itself. See docs/remote-screen.md.',
+            type: 'object',
+            additionalProperties: false,
+            required: ['driver', 'uid'],
+            properties: {
+              driver: { const: 'remote' },
+              uid: { type: 'string', pattern: '^[0-9a-f]{12}$', description: 'The screen\'s unique id (12 hex digits, from its MAC), as it announces itself. It never changes, even when the screen is renamed.' },
+              id: { type: 'string', description: 'The name the screen had when it was added (it may be renamed on the screen\'s setup page); shown until the screen says its own.' },
+              key: { type: 'string', pattern: '^[0-9a-f]{64}$', description: 'The pairing key (64 hex digits), set by pairing in the editor. Empty: not paired yet.', 'x-secret': true },
+              host: { type: 'string', description: 'Address to use instead of finding it by mDNS (another subnet, a network without multicast).', 'x-risk': 'network' },
+              port: { type: 'integer', minimum: 1, maximum: 65535, default: 7428 },
+            },
+          },
+          {
             title: 'Frame file',
             description: 'Writes frame.jpg atomically into a folder; an external sender takes it to the panel.',
             type: 'object',

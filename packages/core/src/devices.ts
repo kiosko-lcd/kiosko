@@ -6,6 +6,8 @@
  *   usb      straight over USB from Node, via @loksly/usb-ly (LY panels)
  *   file     writes `frame.jpg` atomically for an external sender (e.g. a USB
  *            sender bound to a serial number, for several identical panels)
+ *   remote   a Kiosko remote screen on the network (remote/device.ts,
+ *            docs/remote-screen.md)
  */
 import { mkdirSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -13,6 +15,8 @@ import { LyPanel, MAX_FRAME_BYTES, findPanels, loadUsb, modelFor } from '@loksly
 import { connectPanel, detectPanel, pinFrame, sendFrame, serverAlive, type TrccOptions } from '@loksly/trcc-client';
 import type { DeviceConfig } from './config/model.ts';
 import { expandPath } from './paths.ts';
+import { RemoteDevice, type RemoteDeps, type RemoteStatus } from './remote/device.ts';
+import { browser } from './remote/mdns.ts';
 
 export interface DeviceStatus {
   driver: DeviceConfig['driver'];
@@ -31,6 +35,8 @@ export interface DeviceStatus {
   detected?: { width: number; height: number; rotate?: number };
   framesSent: number;
   lastSentAt: number | null;
+  /** A remote screen's link: online, where, its firmware, fps and round trip. */
+  remote?: RemoteStatus;
 }
 
 /** An error that also says what it is, for the editor (see `DeviceStatus.code`). */
@@ -51,15 +57,17 @@ function statusOfError(err: unknown): Pick<DeviceStatus, 'message' | 'code' | 'p
 
 export interface Device {
   readonly status: DeviceStatus;
-  /** JPEG or PNG, already rotated for the panel. */
+  /** JPEG or PNG, already rotated for the panel (unless the panel turns it: `deviceRotates`). */
   send(frame: Buffer): Promise<void>;
   close(): void;
+  /** Panels with a light of their own (remote screens): "rrggbb" ("000000" off), blinking every `blinkMs`. */
+  setLed?(rgb: string, blinkMs?: number): void;
 }
 
 export function encodeFor(device: DeviceConfig, jpegQuality: number): 'png' | 'jpeg' {
   if (device.driver === 'file') return device.format ?? 'jpeg';
-  // The LY firmware only takes JPEG.
-  if (device.driver === 'usb') return 'jpeg';
+  // The LY firmware only takes JPEG; so does a remote screen (baseline, decoded in its ROM).
+  if (device.driver === 'usb' || device.driver === 'remote') return 'jpeg';
   return jpegQuality > 0 ? 'jpeg' : 'png';
 }
 
@@ -321,8 +329,10 @@ export async function discoverUsb(): Promise<{ serial: string; key: string; widt
   }
 }
 
-export function openDevice(cfg: DeviceConfig, log: (m: string) => void, rotate?: number): Device {
+export function openDevice(cfg: DeviceConfig, log: (m: string) => void, rotate?: number, remote?: RemoteDeps): Device {
   switch (cfg.driver) {
+    case 'remote':
+      return new RemoteDevice(cfg, log, rotate ?? 0, remote);
     case 'trcc':
       return new TrccDevice(cfg, log);
     case 'usb':
@@ -344,4 +354,22 @@ export async function discoverTrcc(url = 'http://127.0.0.1:8099', tokenFile?: st
   } catch {
     return [];
   }
+}
+
+/** The remote screens on the LAN right now (mDNS), for "Detect panels" and `kiosko doctor`. Never throws. */
+export async function discoverRemote(ms = 1500): Promise<{ uid: string; id: string; model: string; width: number; height: number; rotate: number; fw: string; paired: boolean; address: string; port: number; hostname: string }[]> {
+  try {
+    const found = await browser().browse(ms);
+    return found.map((f) => ({ uid: f.uid, id: f.id, model: f.model, width: f.w, height: f.h, rotate: f.rot, fw: f.fw, paired: f.paired, address: f.address, port: f.port, hostname: f.hostname }));
+  } catch {
+    return [];
+  }
+}
+
+/** The LED of a screen that has one, for the alert that has the screen: red blinking, amber, blue, or off. */
+export function ledFor(level: 'info' | 'warn' | 'critical' | null): [rgb: string, blinkMs: number] {
+  if (level === 'critical') return ['ff0000', 400];
+  if (level === 'warn') return ['ffa000', 1000];
+  if (level === 'info') return ['0060ff', 0];
+  return ['000000', 0];
 }

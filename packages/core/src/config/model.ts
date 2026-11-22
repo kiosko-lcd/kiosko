@@ -34,7 +34,23 @@ export type DeviceConfig =
   /** Straight over USB from Node (LY panels, Trofeo Vision…): no trcc, no Python. */
   | { driver: 'usb'; serial?: string; keepalive?: number }
   /** Writes `frame.jpg` atomically to `dir`; a sender (e.g. by USB serial) takes it to the panel. */
-  | { driver: 'file'; dir: string; format?: 'jpeg' | 'png'; quality?: number };
+  | { driver: 'file'; dir: string; format?: 'jpeg' | 'png'; quality?: number }
+  /**
+   * A Kiosko remote screen on the network (firmware/esp32-screen, docs/remote-screen.md):
+   * found by `uid` over mDNS (or at `host`), paired with `key` (secret), turned by the
+   * screen itself to the screen's `rotate`.
+   */
+  | { driver: 'remote'; uid: string; id?: string; key?: string; host?: string; port?: number };
+
+/** Whether the panel turns the picture itself (Kiosko then paints it the page's way round). */
+export function deviceRotates(d: DeviceConfig): boolean {
+  return d.driver === 'remote';
+}
+
+/** The angle Kiosko turns the picture by before sending it: the screen's, unless the panel turns it. */
+export function paintTurn(s: Pick<Screen, 'rotate' | 'device'>): Rotation {
+  return deviceRotates(s.device) ? 0 : s.rotate;
+}
 
 /** When a widget or page shows: always, only in work hours, or only outside them. */
 export type When = 'always' | 'work' | 'off';

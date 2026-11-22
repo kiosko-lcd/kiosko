@@ -36,3 +36,4 @@ export * from './store/index.ts';
 export * from './store/build.ts';
 export * from './store/tar.ts';
 export * from './welcome.ts';
+export * from './remote/index.ts';
