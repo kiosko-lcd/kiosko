@@ -9,16 +9,18 @@
  *   kiosko config schema|validate|import …   (see config-cli.ts)
  *   kiosko doctor
  *   kiosko usb [list|test]
+ *   kiosko remote [list|pair|ota|logs|unpair]   (see remote-cli.ts)
  */
 import { spawn } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { Registry, Runtime, cjkFontStatus, installSdkResolver, scriptFontStatus, systemLocale, listUsb, loadConfig, paths, resolveLocale, saveConfig, type Config } from '@kiosko/core';
+import { Registry, Runtime, cjkFontStatus, discoverRemote, installSdkResolver, scriptFontStatus, systemLocale, listUsb, loadConfig, paths, resolveLocale, saveConfig, type Config } from '@kiosko/core';
 import { hanScript } from '@kiosko/sdk';
 import { BUILTIN_PLUGINS, OFFICIAL_PLUGINS } from './builtin.ts';
 import { configCommand } from './config-cli.ts';
 import { editorCommand } from './editor-cli.ts';
 import { pluginsCommand } from './plugins-cli.ts';
+import { remoteCommand } from './remote-cli.ts';
 import { writePreview } from './preview.ts';
 import { buildGallery } from './gallery.ts';
 import { importAimonitor } from './import-aimonitor.ts';
@@ -40,6 +42,9 @@ const USAGE = `Kiosko ${VERSION}: a widget mosaic for USB LCD panels
   kiosko usb [list]                          the LY panels libusb sees, with their serial numbers
   kiosko usb test [--serial S] [--seconds 10] [--size 1920x462] [--rotate 180]
                                              drive a panel with the sample screen (experimental)
+  kiosko remote [list]                       Kiosko remote screens on the network (mDNS)
+  kiosko remote pair <uid|host> [--screen id]   pair one (type the code it shows)
+  kiosko remote ota|logs|unpair <screen> [firmware.bin]
   kiosko gallery [--out gallery] [--locale en | --all-languages] [--theme midnight] [--pages config.json]
   kiosko plugins [list|add <id>…|link <folder>…|remove <id>…]
   kiosko service install|uninstall|print   (start with your session)
@@ -242,10 +247,22 @@ async function main(): Promise<void> {
       if (!usb.ok) console.log(`usb     not available: ${usb.error}`);
       else if (!usb.panels.length) console.log('usb     no LY panel (0416:5408/5409) plugged in');
       for (const p of usb.panels) console.log(`usb     LY panel ${p.pid.toString(16)} at ${p.location}, serial ${p.serial ?? '(unreadable)'}${p.error ? `  ✗ ${p.error}` : ''}`);
+      const remote = await discoverRemote(2000);
+      if (!remote.length) console.log('remote  no Kiosko remote screen answered on this network (mDNS)');
+      for (const r of remote) {
+        const used = cfg.screens.find((s) => s.device.driver === 'remote' && s.device.uid === r.uid);
+        console.log(`remote  ${r.id} (${r.model} ${r.width}×${r.height}, fw ${r.fw}, uid ${r.uid}) at ${r.address}, ${r.paired ? 'paired' : 'not paired'}${used ? `, screen "${used.name}"` : ''}`);
+      }
+      for (const s of cfg.screens) if (s.device.driver === 'remote' && !s.device.key) console.log(`remote  ✗ screen "${s.name}" is not paired: Screens → Detect panels → Pair`);
       for (const s of cfg.screens) {
         const missing = s.pages.flatMap((p) => p.tiles.flatMap((t) => t.widgets.filter((w) => !reg.widget(w.type)).map((w) => w.type)));
         console.log(`screen  ${s.name} ${s.width}×${s.height} ${s.device.driver}${missing.length ? `  ✗ unknown widgets: ${[...new Set(missing)].join(', ')}` : ''}`);
       }
+      return;
+    }
+    case 'remote': {
+      process.env.KIOSKO_QUIET ??= '1';
+      process.exitCode = await remoteCommand(argv.slice(1), { configPath: path, port: Number(opt('--port')) || 7420, registry });
       return;
     }
     case 'service': {
