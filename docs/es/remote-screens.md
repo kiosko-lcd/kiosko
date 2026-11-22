@@ -101,6 +101,16 @@ editor, y la pantalla la gira ella misma, sin coste. Si sale boca abajo, pulsa
 *Girar 180°*. Manda lo que diga Kiosko: la pantalla lo recibe cada vez que se
 conecta.
 
+## Brillo y temperatura
+
+Con el firmware 0.1.2 o posterior, la tarjeta de la pantalla tiene un control
+de **Brillo** (0–100 %). La pantalla lo conserva, también sin Kiosko. Sin
+fijar, usa el suyo: 70 %, o el que elegiste en su página de configuración.
+Con menos brillo se calienta menos.
+
+La línea de estado de la tarjeta muestra también la **temperatura del chip**.
+Marca más que la habitación: unos 35–45 °C es lo normal en este chip.
+
 ## Varias pantallas
 
 Empareja cada una. Cada pantalla tiene su tarjeta, sus páginas y su

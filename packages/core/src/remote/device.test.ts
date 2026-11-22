@@ -163,6 +163,31 @@ test('resync: an announcement of the screen cuts the pause short', async (t) => 
   await fake.close();
 });
 
+test('brightness and temperature: pushed and read where the firmware has them, absent where not', async (t) => {
+  const cleanup = after(t);
+  const key = randomBytes(32);
+  // Firmware 0.1.2: it says its temperature and brightness, and takes the config's brightness.
+  const fake = cleanup(new FakeScreen({ key, tempC: 41.5, bright: 70 }));
+  const port = await fake.listen();
+  const d = cleanup(new RemoteDevice({ driver: 'remote', uid: fake.uid, key: key.toString('hex'), host: '127.0.0.1', port, brightness: 40 }, () => undefined, 0, { browser: noMdns() }));
+  await until(() => d.status.remote.bright === 40);
+  assert.equal(fake.sets[0]!.bright, 40);
+  assert.equal(fake.bright, 40);
+  assert.equal(d.status.remote.tempC, 41.5);
+  d.close();
+  await fake.close();
+  // An older firmware, and no brightness in the config: nothing is pushed, nothing is shown.
+  const old = cleanup(new FakeScreen({ key }));
+  const port2 = await old.listen();
+  const d2 = cleanup(new RemoteDevice({ driver: 'remote', uid: old.uid, key: key.toString('hex'), host: '127.0.0.1', port: port2 }, () => undefined, 0, { browser: noMdns() }));
+  await until(() => old.sets.length > 0 && d2.status.remote.online);
+  assert.equal('bright' in old.sets[0]!, false);
+  assert.equal(d2.status.remote.tempC, null);
+  assert.equal(d2.status.remote.bright, null);
+  d2.close();
+  await old.close();
+});
+
 test('ops: OTA, logs and unpairing, with the driver standing aside', async (t) => {
   const cleanup = after(t);
   const key = randomBytes(32);

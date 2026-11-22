@@ -98,6 +98,16 @@ Set it on the screen's card in Kiosko: *Landscape* or *Portrait*, and *Turn 180�
 screen turns it by itself, at no cost. If it comes out upside down, press
 *Turn 180°*. Kiosko's setting wins: the screen takes it every time it connects.
 
+## Brightness and temperature
+
+With screen firmware 0.1.2 or later, the screen's card has a **Brightness**
+slider (0–100 %). The screen keeps it, even without Kiosko. Unset, it uses
+its own: 70 %, or what you chose on its setup page. A lower brightness runs
+cooler.
+
+The card's status line also shows the **chip's temperature**. It reads warmer
+than the room: around 35–45 °C is normal for this chip.
+
 ## Several screens
 
 Pair each one. Every screen gets its own card, pages and orientation. Give

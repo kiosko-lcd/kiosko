@@ -23,6 +23,7 @@ typedef struct {
     char peer[48];           // who it is paired with, as Kiosko said (shown, not trusted)
     uint16_t rot;            // 0/90/180/270: the screen's own, when no Kiosko says otherwise
     uint16_t idle;           // seconds without Kiosko before the idle page
+    uint8_t bright;          // backlight, 0..100 (perceived); Kiosko or the setup page set it
     bool paired;
     uint8_t key[32];         // the pairing key (NVS; see the docs about NVS encryption)
 } settings_t;
@@ -39,20 +40,27 @@ void settings_forget_wifi(void);
 bool settings_id_ok(const char *id);
 
 // ---- display.c ----------------------------------------------------------------
-// Full-screen framebuffer (RGB565 big-endian) under app_gfx_lock.
+// No framebuffer (the heap is too short for one): the panel is painted in bands of 16 rows.
 extern SemaphoreHandle_t app_gfx_lock;
-extern uint16_t *app_fb;
 void display_init(void);
 void display_set_rotation(int deg);
 int display_rotation(void);
 int display_width(void);
 int display_height(void);
-void display_flush(void);               // sends app_fb and waits for the DMA
-void display_flush_start(void);         // sends app_fb, returns at once
-void display_flush_wait(void);
-// Decodes a baseline JPEG into app_fb (centred, black around if smaller) and starts the flush.
+// Paints the whole screen: `fn` runs once per band and draws with fb_* (which clip to the
+// band); each band goes to the panel as it is done. Returns once all of them are sent.
+void display_paint(void (*fn)(void *ctx), void *ctx);
+void display_clear(uint16_t color);
+void display_flush_wait(void);          // waits for the bands still on their way
+// Decodes a baseline JPEG straight to the panel (centred, black around if smaller); the
+// last band may still be on its way when it returns.
 esp_err_t display_jpeg(const uint8_t *jpeg, size_t len, uint32_t *decode_ms);
+// Backlight 0..100 (perceived brightness; 0 = off), as shown now. It does not save:
+// app_settings.bright is the saved one (a future night dimming changes only this).
+void display_set_brightness(int pct);
+int display_brightness(void);
 typedef enum { TXT_TINY, TXT_SMALL, TXT_BIG, TXT_HUGE } txt_size_t;
+// Inside display_paint only.
 void fb_clear(uint16_t color);
 void fb_rect(int x, int y, int w, int h, uint16_t color);
 int fb_text_center(int y, txt_size_t size, uint16_t color, const char *utf8); // returns y below
@@ -76,6 +84,18 @@ const char *net_ap_ssid(void);
 const char *net_ap_pass(void);   // WPA2 password of the setup network, shown on the screen
 bool net_time_ok(void);
 void net_announce(void);         // (re)publishes the mDNS service and its TXT
+void net_set_low_latency(bool on); // Wi-Fi power save off (true) or modem sleep (false)
+
+// ---- power.c: power management, adaptive Wi-Fi power save, the chip's temperature --
+void power_init(void);
+void power_busy_begin(void);     // CPU at full speed, no light sleep (a frame); nests
+void power_busy_end(void);
+void power_frame_seen(void);     // a frame arrived: power save goes off while they come fast
+void power_hold_fast(bool on);   // power save off for as long as held (an OTA)
+bool power_fast(void);
+float power_temp_c(void);        // the chip's own sensor, °C; NAN if none
+int power_sleep_pct(void);       // % of the time since boot in light sleep; -1 if unknown
+size_t power_profile(char *out, size_t max); // esp_pm's time per mode and its locks, as text
 
 // ---- web.c: the read-only status page, and the setup page on the AP only -------
 void web_start(void);
@@ -109,6 +129,9 @@ extern volatile bool app_server_up;
 void app_session_ok(void);       // an authenticated Kiosko session is up
 bool app_showing_frames(void);
 void app_frames_started(void);
+
+// Logs the heap (free, lowest since boot, largest block) at a moment worth knowing.
+void app_heap_note(const char *when);
 
 // ---- logbuf.c ---------------------------------------------------------------------
 void logbuf_init(void);

@@ -2,6 +2,7 @@
 // /status.json, with nothing secret and nothing that changes state. On the
 // setup network (the screen's own WPA2 AP, whose password is on the glass):
 // the setup page (Wi-Fi, name, time zone) and a firmware upload.
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/param.h>
@@ -94,8 +95,20 @@ static esp_err_t h_status(httpd_req_t *req)
     cJSON_AddNumberToObject(j, "rssi", net_rssi());
     cJSON_AddNumberToObject(j, "uptime", (double)(now / 1000000));
     cJSON_AddNumberToObject(j, "heap", heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
+    cJSON_AddNumberToObject(j, "heapMin", heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL));
+    cJSON_AddNumberToObject(j, "heapLargest", heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL));
     cJSON_AddStringToObject(j, "partition", esp_ota_get_running_partition()->label);
+    // "pending" while a new firmware is on trial (it rolls back unless it proves itself), then "valid".
+    esp_ota_img_states_t st;
+    if (esp_ota_get_state_partition(esp_ota_get_running_partition(), &st) == ESP_OK)
+        cJSON_AddStringToObject(j, "otaState", st == ESP_OTA_IMG_PENDING_VERIFY ? "pending" : st == ESP_OTA_IMG_VALID ? "valid" : "other");
     cJSON_AddBoolToObject(j, "timeOk", net_time_ok());
+    float t = power_temp_c();
+    if (!isnan(t)) cJSON_AddNumberToObject(j, "tempC", roundf(t * 10) / 10);
+    cJSON_AddNumberToObject(j, "bright", app_settings.bright);
+    cJSON_AddStringToObject(j, "wifiPs", power_fast() ? "off" : "modem");
+    int sl = power_sleep_pct();
+    if (sl >= 0) cJSON_AddNumberToObject(j, "sleepPct", sl);
     if (on_ap(req)) cJSON_AddStringToObject(j, "ssid", app_settings.ssid); // the setup page fills it in
     return send_json(req, j);
 }
@@ -144,11 +157,12 @@ static esp_err_t h_save(httpd_req_t *req)
     cJSON *j = cJSON_Parse(buf);
     if (!j) return send_error(req, "400 Bad Request", "JSON expected");
     const cJSON *ssid = cJSON_GetObjectItem(j, "ssid"), *pass = cJSON_GetObjectItem(j, "pass"),
-                *id = cJSON_GetObjectItem(j, "id"), *tz = cJSON_GetObjectItem(j, "tz");
+                *id = cJSON_GetObjectItem(j, "id"), *tz = cJSON_GetObjectItem(j, "tz"), *bright = cJSON_GetObjectItem(j, "bright");
     if (!cJSON_IsString(ssid) || !ssid->valuestring[0] || strlen(ssid->valuestring) > 32 ||
         (pass && (!cJSON_IsString(pass) || strlen(pass->valuestring) > 64 || (pass->valuestring[0] && strlen(pass->valuestring) < 8))) ||
         (id && (!cJSON_IsString(id) || !settings_id_ok(id->valuestring))) ||
-        (tz && (!cJSON_IsString(tz) || strlen(tz->valuestring) >= sizeof(app_settings.tz)))) {
+        (tz && (!cJSON_IsString(tz) || strlen(tz->valuestring) >= sizeof(app_settings.tz))) ||
+        (bright && (!cJSON_IsNumber(bright) || bright->valuedouble < 0 || bright->valuedouble > 100))) {
         cJSON_Delete(j);
         return send_error(req, "400 Bad Request", "check the fields: network 1-32 characters, password empty or 8-64, name a-z 0-9 -");
     }
@@ -159,6 +173,7 @@ static esp_err_t h_save(httpd_req_t *req)
     else if (!same) app_settings.pass[0] = 0;
     if (id) strlcpy(app_settings.id, id->valuestring, sizeof(app_settings.id));
     if (tz && tz->valuestring[0]) strlcpy(app_settings.tz, tz->valuestring, sizeof(app_settings.tz));
+    if (bright) app_settings.bright = (uint8_t)(bright->valuedouble + 0.5);
     cJSON_Delete(j);
     settings_save();
     ESP_LOGI(TAG, "setup saved; restarting");

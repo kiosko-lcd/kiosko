@@ -104,6 +104,16 @@ siehst, und der Bildschirm dreht sie selbst, ohne Aufwand. Steht sie auf dem
 Kopf, drücke *Um 180° drehen*. Es gilt Kioskos Einstellung: der Bildschirm bekommt
 sie bei jeder Verbindung.
 
+## Helligkeit und Temperatur
+
+Ab Bildschirm-Firmware 0.1.2 hat die Karte des Bildschirms einen Regler für
+die **Helligkeit** (0–100 %). Der Bildschirm behält sie, auch ohne Kiosko.
+Nicht gesetzt, nimmt er seine eigene: 70 % oder die auf seiner
+Einrichtungsseite gewählte. Weniger Helligkeit heißt weniger Wärme.
+
+Die Statuszeile der Karte zeigt auch die **Temperatur des Chips**. Sie liegt
+über der Raumtemperatur: etwa 35–45 °C sind für diesen Chip normal.
+
 ## Mehrere Bildschirme
 
 Koppel jeden einzeln. Jeder bekommt eigene Karte, Seiten und Ausrichtung. Gib

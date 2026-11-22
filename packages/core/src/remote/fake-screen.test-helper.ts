@@ -17,6 +17,9 @@ export interface FakeOptions {
   decodeMs?: number;
   max?: number;
   rot?: number;
+  /** Firmware 0.1.2 on: its chip's temperature and its brightness, in STATE. Unset: an older one. */
+  tempC?: number;
+  bright?: number;
 }
 
 export class FakeScreen {
@@ -27,6 +30,8 @@ export class FakeScreen {
   decodeMs: number;
   rot: number;
   max: number;
+  tempC: number | undefined;
+  bright: number | undefined;
   readonly frames: { num: number; jpeg: Buffer; at: number }[] = [];
   readonly sets: Record<string, unknown>[] = [];
   readonly leds: Record<string, unknown>[] = [];
@@ -49,6 +54,8 @@ export class FakeScreen {
     this.decodeMs = o.decodeMs ?? 0;
     this.rot = o.rot ?? 0;
     this.max = o.max ?? 98_000;
+    this.tempC = o.tempC;
+    this.bright = o.bright;
     this.server = createServer((s) => void this.handle(s));
   }
 
@@ -122,8 +129,13 @@ export class FakeScreen {
     w.write(seal(s.tx, type, Buffer.isBuffer(obj) ? obj : Buffer.from(JSON.stringify(obj))));
   }
 
+  /** What firmware 0.1.2 adds to STATE (an older one says neither). */
+  private extra(): Record<string, number> {
+    return { ...(this.tempC !== undefined ? { tempC: this.tempC } : {}), ...(this.bright !== undefined ? { bright: this.bright } : {}) };
+  }
+
   private async session(w: Wire, s: Session): Promise<void> {
-    this.sealed(w, s, T.STATE, { id: this.id, rot: this.rot, w: 172, h: 320, fw: '0.0.0', last: this.frames.at(-1)?.num ?? 0 });
+    this.sealed(w, s, T.STATE, { id: this.id, rot: this.rot, w: 172, h: 320, fw: '0.0.0', last: this.frames.at(-1)?.num ?? 0, ...this.extra() });
     let decoding = 0;
     let ota: { size: number; sha: string; parts: Buffer[]; off: number } | null = null;
     for (;;) {
@@ -143,7 +155,8 @@ export class FakeScreen {
         const j = JSON.parse(m.payload.toString());
         this.sets.push(j);
         if (typeof j.rot === 'number') this.rot = j.rot;
-        this.sealed(w, s, T.STATE, { id: this.id, rot: this.rot });
+        if (typeof j.bright === 'number' && this.bright !== undefined) this.bright = j.bright;
+        this.sealed(w, s, T.STATE, { id: this.id, rot: this.rot, ...this.extra() });
       } else if (m.type === T.LED) this.leds.push(JSON.parse(m.payload.toString()));
       else if (m.type === T.PING) this.sealed(w, s, T.PONG, {});
       else if (m.type === T.UNPAIR) {

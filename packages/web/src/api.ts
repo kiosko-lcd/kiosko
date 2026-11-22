@@ -225,6 +225,10 @@ export interface RemoteLink {
   lastFrameAt: number | null;
   dropped: number;
   since: number | null;
+  /** The chip's temperature, °C (screen firmware 0.1.2 on). */
+  tempC?: number | null;
+  /** Its backlight, 0-100 (screen firmware 0.1.2 on; null: an older one). */
+  bright?: number | null;
 }
 
 export interface Status {
