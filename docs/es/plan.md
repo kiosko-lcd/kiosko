@@ -1206,6 +1206,33 @@ Lo que cambia en el camino:
     - *De dónde*: **UPower** y **BlueZ** (Linux), PowerShell y `Win32_Battery` (Windows), `ioreg` y `pmset` (macOS); el móvil, con **KDE Connect**.
     - *A tener en cuenta*: cada sistema da distintos dispositivos; lo que no se pueda leer, se omite sin pedir nada.
 
+57. **Más idiomas, por alcance.** Con inglés, chino (simplificado y
+    tradicional), español y alemán, Kiosko llega a ~71 % de los usuarios de
+    Steam (encuesta de octubre de 2026, el mejor indicador público de quién
+    monta PCs). Estimación rápida del siguiente paso (cuota en Steam × cuánto
+    necesita su idioma, a ojo, por nivel de inglés; puede fallar por mucho):
+    | Idioma | Steam | Necesita su idioma | Índice | Coste |
+    |---|---|---|---|---|
+    | Ruso | 10,1 % | ~0,8 | 8,1 | bajo (cirílico ya soportado) |
+    | Portugués (Brasil) | 4,5 % (+0,4 % Portugal) | ~0,8 | 3,8 | muy bajo |
+    | Japonés | 2,5 % | ~0,9 (EF: 96.º de 123) | 2,2 | medio (fuentes japonesas en el panel) |
+    | Francés | 2,4 % | ~0,65 | 1,6 | muy bajo |
+    | Turco | 1,4 % | ~0,8 | 1,1 | bajo |
+    | Coreano | 1,4 % | ~0,75 | 1,0 | medio (hangul) |
+    | Polaco | 1,7 % | ~0,5 | 0,9 | muy bajo |
+    - *Orden*: ruso y portugués de Brasil a la vez (~+15 %, a ~86 %); luego
+      japonés y francés (~+5 %); luego turco, coreano y polaco (~+4 %).
+    - *Cómo*: el mismo camino que el chino ([estudio](estudio-chino.md)):
+      glosario, web, tienda, editor, los plugins oficiales, guías e
+      instalador (Inno Setup trae ruso, portugués de Brasil, japonés,
+      francés, coreano y polaco).
+    - *Fuera por ahora*: árabe, hebreo y persa (el panel aún no dibuja bien
+      de derecha a izquierda); hindi (los entusiastas del PC en India leen
+      inglés).
+    - *A tener en cuenta*: con una tienda de pago, cobrar en Rusia hoy es
+      complicado; mientras los plugins sean gratis, no afecta.
+    - *Decisión (2026-11-22)*: por ahora basta el 71 %.
+
 ### Decisiones abiertas para ti
 
 - **Nombre**: `Kiosko` es provisional (el paquete npm está como
