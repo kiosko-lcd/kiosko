@@ -68,6 +68,7 @@ export function count(key: PluralKey, n: number): string {
 const GUIDES: Record<string, ReadonlySet<string>> = {
   install: new Set(['zh-Hant', 'zh-Hans']),
   usb: new Set(['en', 'es', 'de', 'zh-Hant', 'zh-Hans']),
+  'remote-screens': new Set(['en', 'es', 'de', 'zh-Hant', 'zh-Hans']),
 };
 const onSite = (lang: string, guide: string) => `https://kioskolcd.dev/${lang === 'en' ? '' : `${lang}/`}docs/${guide}/`;
 
@@ -84,6 +85,12 @@ export function docsUrl(): string {
 export function usbGuideUrl(): string {
   const lang = uiLanguage();
   return GUIDES.usb!.has(lang) ? onSite(lang, 'usb') : 'https://github.com/kiosko-lcd/kiosko/blob/main/docs/usb.md';
+}
+
+/** The guide to Wi-Fi screens (ESP32: firmware, pairing, troubleshooting), on the site, else on GitHub. */
+export function remoteGuideUrl(): string {
+  const lang = uiLanguage();
+  return GUIDES['remote-screens']!.has(lang) ? onSite(lang, 'remote-screens') : 'https://github.com/kiosko-lcd/kiosko/blob/main/docs/remote-screens.md';
 }
 
 /** Whether the editor writes in Chinese, Japanese or Korean: full-width punctuation, no spaces around it. */

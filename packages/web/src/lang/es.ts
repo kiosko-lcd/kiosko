@@ -398,6 +398,7 @@ export const es: Dictionary = {
   'remote.firmware': 'Actualizar firmware…',
   'remote.updating': 'Actualizando… no desenchufes la pantalla.',
   'remote.updated': 'Actualizada: la pantalla se reinicia con él, y vuelve sola al anterior si este Kiosko no puede hablar con ella.',
+  'remote.guide': 'Guía de pantallas Wi-Fi',
   'remote.logs': 'Su registro',
   'wiz.remote': 'Wi-Fi',
   'wiz.remotePair': 'Emparéjala para añadirla: mostrará un código.',

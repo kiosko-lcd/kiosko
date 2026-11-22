@@ -3,7 +3,8 @@
 An open reference firmware that makes a small ESP32 display into a
 **Kiosko remote screen**. It announces itself on the Wi-Fi, pairs with one
 Kiosko using a code shown on its glass, and shows the frames Kiosko sends it
-over an authenticated, encrypted session. The protocol is described in
+over an authenticated, encrypted session. To set one up, see the
+[user guide](../../docs/remote-screens.md); the protocol is in
 [docs/remote-screen.md](../../docs/remote-screen.md).
 
 Boards (`main/boards/`, chosen in `menuconfig → Kiosko screen → Board`):

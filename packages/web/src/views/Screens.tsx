@@ -5,7 +5,7 @@ import { ALERT_THRESHOLDS, TEXT_SCALE, detectedPicture, screenAlerts, type Scree
 import { api } from '../api.ts';
 import { DurationInput, SchemaForm, Toggle } from '../forms/SchemaForm.tsx';
 import { Icon } from '../icons.tsx';
-import { clock, count, deviceText, errorText, labelled, listOf, t, tr } from '../i18n.ts';
+import { clock, count, deviceText, errorText, labelled, listOf, remoteGuideUrl, t, tr } from '../i18n.ts';
 import { app, config, draftScreen, edit, go, lastFrame, notify, pageId, screenId, status } from '../store.ts';
 import { DemoFrame, dt, exportScreen } from '../demo/ui.tsx';
 import { threadText } from './Others.tsx';
@@ -104,7 +104,11 @@ function AddScreen({ onAdd }: { onAdd: (p?: { width: number; height: number; nam
           }}>
             <Icon name="radar" size={16} /> <span>{tr('screens.detect')}</span> <small>USB · trcc · Wi-Fi</small>
           </button>}
-          {found && !found.length && !usbFound.length && !remoteFound.length && <div class="muted small pad">{tr('screens.noneDetected')}</div>}
+          {found && !found.length && !usbFound.length && !remoteFound.length && (
+            <div class="muted small pad">
+              {tr('screens.noneDetected')} <a href={remoteGuideUrl()} target="_blank" rel="noreferrer">{tr('remote.guide')}</a>
+            </div>
+          )}
           {remoteFound.map((f) => (
             <RemoteFoundItem f={f} used={cfg.screens.find((s) => s.device.driver === 'remote' && s.device.uid === f.uid)} onPaired={(id) => {
               // The server made the screen (or keyed an existing one): show it.

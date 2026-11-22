@@ -398,6 +398,7 @@ export const de: Dictionary = {
   'remote.firmware': 'Firmware aktualisieren…',
   'remote.updating': 'Aktualisiere… Bildschirm nicht trennen.',
   'remote.updated': 'Aktualisiert: der Bildschirm startet damit neu und kehrt von selbst zurück, wenn dieses Kiosko ihn nicht erreicht.',
+  'remote.guide': 'Anleitung WLAN-Bildschirme',
   'remote.logs': 'Sein Protokoll',
   'wiz.remote': 'WLAN',
   'wiz.remotePair': 'Zum Hinzufügen koppeln: er zeigt einen Code.',

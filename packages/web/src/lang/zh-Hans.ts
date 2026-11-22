@@ -398,6 +398,7 @@ export const zhHans: Dictionary = {
   'remote.firmware': '更新固件…',
   'remote.updating': '正在更新…请勿断开屏幕电源。',
   'remote.updated': '已更新：屏幕将以新固件重启；若此 Kiosko 无法与其连接，会自动回滚。',
+  'remote.guide': 'Wi-Fi 屏幕指南',
   'remote.logs': '它的日志',
   'wiz.remote': 'Wi-Fi',
   'wiz.remotePair': '配对后即可添加：屏幕会显示代码。',

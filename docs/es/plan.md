@@ -1257,12 +1257,21 @@ Lo que cambia en el camino:
     (firmware de referencia en `firmware/esp32-screen/` para la Waveshare
     ESP32-C6-LCD-1.47, protocolo con descubrimiento mDNS, emparejamiento con
     código en pantalla, sesión autenticada, resincronización y rotación, y el
-    controlador `remote` de Kiosko) está en marcha (2026-11-22). Pendiente:
+    controlador `remote` de Kiosko) está hecha (2026-11-22, #70) y probada
+    en la placa real: anuncio por mDNS, emparejamiento con el código de la
+    pantalla, fotogramas a ~8–10 fps (decodificar ~60–75 ms), giro 0/90 desde
+    Kiosko, resincronización tras un reinicio en ~1 s y OTA autenticada con
+    vuelta atrás. También hecho: la **guía de uso** en los 5 idiomas
+    (`docs/remote-screens.md`, publicada en kioskolcd.dev y enlazada desde el
+    editor), una tarjeta en la portada, *Actualizar firmware…* en la tarjeta
+    de cada pantalla (se elige el `.bin` a mano) y los **binarios compilados
+    en cada release** (`.github/workflows/firmware.yml`: la aplicación para la
+    OTA y la imagen completa para USB, con su SHA-256). Pendiente:
     - *Instalar sin ser desarrollador*: instalador desde el navegador en
       kioskolcd.dev (ESP Web Tools, WebSerial en Chrome y Edge: conectar la
-      placa y pulsar) y binarios ya compilados en cada release de GitHub.
-    - *Actualizar el firmware desde el editor*: cuando una versión de Kiosko
-      trae firmware nuevo, ofrecerlo a cada placa emparejada por la OTA
+      placa y pulsar), con la imagen completa de la release.
+    - *Actualizar el firmware sin buscar el fichero*: cuando una versión de
+      Kiosko trae firmware nuevo, ofrecerlo a cada placa emparejada por la OTA
       autenticada.
     - *Más placas*: Cheap Yellow Display (320×240, táctil), LilyGO T-Display
       S3, M5Stack, pantallas redondas de 240×240 (GC9A01); hoy solo queda
@@ -1285,7 +1294,6 @@ Lo que cambia en el camino:
       **irreversibles**: decisión del dueño.
     - *Probar en Windows y macOS*: el descubrimiento por la red (cortafuegos,
       sin Bonjour en Windows).
-    - *Guía de uso* en los 5 idiomas, en la web.
 60. **Cualquier navegador como pantalla.** Una tableta o un móvil viejo que
     muestra una pantalla de Kiosko a pantalla completa por la red local, con
     el mismo emparejamiento que las ESP32 (código en pantalla, sesión

@@ -22,6 +22,8 @@ kiosko remote unpair "Desk"
 kiosko doctor                           # also lists the remote screens it hears
 ```
 
+How to set one up, step by step: [remote-screens.md](remote-screens.md).
+
 This document is the protocol, version 1. The firmware
 (`firmware/esp32-screen/main/ks_proto.c`, `session.c`) and the driver
 (`packages/core/src/remote/`) implement it together. They share test vectors:

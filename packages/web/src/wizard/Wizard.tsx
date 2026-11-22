@@ -12,7 +12,7 @@ import { offersSetup } from '@kiosko/core/starter';
 import { installableRelease, marketFor, type StorePlugin } from '@kiosko/core/store';
 import { api } from '../api.ts';
 import { Icon } from '../icons.tsx';
-import { UI_LANGUAGES, aside, errorText, t, tr, uiLanguage, usbGuideUrl } from '../i18n.ts';
+import { UI_LANGUAGES, aside, errorText, remoteGuideUrl, t, tr, uiLanguage, usbGuideUrl } from '../i18n.ts';
 import { app, commit, config, edit, go, lastFrame, notify, pageId, screenId, toast, widgets } from '../store.ts';
 import { InstallDialog, loadStore, store, where } from '../views/Store.tsx';
 import { appIcon, textIn } from '../../store-kit/render.ts';
@@ -338,7 +338,11 @@ function RemoteChoice({ r, chosen, onPaired }: { r: NonNullable<Found['remote']>
             {r.width}×{r.height} · {tr('wiz.remote')} · {r.model}
             {there ? ` · ${t('wiz.already', { name: there.name })}` : ''}
           </small>
-          {!there && !pairing && <small class="muted">{tr('wiz.remotePair')}</small>}
+          {!there && !pairing && (
+            <small class="muted">
+              {tr('wiz.remotePair')} <a href={remoteGuideUrl()} target="_blank" rel="noreferrer">{tr('remote.guide')}</a>
+            </small>
+          )}
         </span>
         {!there && !pairing && (
           <button class="btn small primary" onClick={() => setPairing(true)}>

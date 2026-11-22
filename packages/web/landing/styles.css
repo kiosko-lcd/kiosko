@@ -238,3 +238,9 @@ html.card h1 { font-size: 62px; }
   .hint i { animation: none; }
   .stage canvas, .still, .plugin, .button { transition: none; }
 }
+
+/* A compact card in the hardware step: Kiosko's firmware on ESP32 Wi-Fi screens. */
+.wifi-card { pointer-events: auto; display: grid; gap: 6px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 14px; background: rgba(13, 17, 24, 0.78); backdrop-filter: blur(6px); }
+.wifi-card p { margin: 0; color: var(--dim); font-size: 14.5px; text-wrap: pretty; }
+.wifi-card .wifi-head { color: var(--ink); font-size: 15.5px; }
+.wifi-card .badge { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 11.5px; letter-spacing: 0.02em; color: var(--bg); background: var(--accent); vertical-align: 1px; }

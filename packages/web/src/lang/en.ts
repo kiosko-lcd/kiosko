@@ -396,6 +396,7 @@ export const en = {
   'remote.firmware': 'Update firmware…',
   'remote.updating': 'Updating… do not unplug the screen.',
   'remote.updated': 'Updated: the screen restarts into it, and goes back by itself if this Kiosko cannot talk to it.',
+  'remote.guide': 'Wi-Fi screens guide',
   'remote.logs': 'Its log',
   'wiz.remote': 'Wi-Fi',
   'wiz.remotePair': 'Pair it to add it: it shows a code.',

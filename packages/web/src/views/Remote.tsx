@@ -9,7 +9,7 @@ import type { DeviceConfig, Screen } from '@kiosko/core/model';
 import { api, type RemoteFound, type RemoteLink } from '../api.ts';
 import { ApiError } from '../errors.ts';
 import { Icon } from '../icons.tsx';
-import { clock, errorText, t, tr } from '../i18n.ts';
+import { clock, errorText, remoteGuideUrl, t, tr } from '../i18n.ts';
 import { followServerConfig, notify } from '../store.ts';
 
 type RemoteDevice = Extract<DeviceConfig, { driver: 'remote' }>;
@@ -84,7 +84,11 @@ export function PairBox({ uid, name, host, screenId, onDone, onCancel }: { uid: 
           </button>
         </form>
       )}
-      {error && <p class="small wiz-warn" role="alert"><Icon name="triangle-alert" size={13} /> {error}</p>}
+      {error && (
+        <p class="small wiz-warn" role="alert">
+          <Icon name="triangle-alert" size={13} /> {error} <a href={remoteGuideUrl()} target="_blank" rel="noreferrer">{tr('remote.guide')}</a>
+        </p>
+      )}
       <div class="row">
         {!pairId && !busy && (
           <button class="btn ghost small" onClick={() => void start()}>
@@ -190,6 +194,9 @@ export function RemoteSettings({ s, link, setDevice }: { s: Screen; link?: Remot
             <Icon name="scroll-text" size={13} /> {tr('remote.logs')}
           </button>
         )}
+        <a class="btn ghost small" href={remoteGuideUrl()} target="_blank" rel="noreferrer">
+          <Icon name="book-open" size={13} /> {tr('remote.guide')}
+        </a>
         <input ref={file} type="file" accept=".bin" hidden onChange={(e) => {
           const f = (e.target as HTMLInputElement).files?.[0];
           (e.target as HTMLInputElement).value = '';

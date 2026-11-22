@@ -398,6 +398,7 @@ export const zhHant: Dictionary = {
   'remote.firmware': '更新韌體…',
   'remote.updating': '更新中…請勿拔除螢幕電源。',
   'remote.updated': '已更新：螢幕會以新韌體重新啟動；若這個 Kiosko 無法與它連線，會自動回復。',
+  'remote.guide': 'Wi-Fi 螢幕指南',
   'remote.logs': '它的記錄',
   'wiz.remote': 'Wi-Fi',
   'wiz.remotePair': '配對後即可加入：螢幕會顯示代碼。',
