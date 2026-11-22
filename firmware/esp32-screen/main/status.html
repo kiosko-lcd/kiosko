@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kiosko screen</title>
+<style>
+:root{color-scheme:light dark;--bg:#f6f7f9;--fg:#1d2330;--mut:#667085;--card:#fff;--ok:#12805c;--off:#b42318}
+@media(prefers-color-scheme:dark){:root{--bg:#10141c;--fg:#e6e9ef;--mut:#98a2b3;--card:#1a202b}}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.45 system-ui,sans-serif}
+main{max-width:520px;margin:24px auto;padding:0 16px}
+h1{font-size:20px;margin:0 0 4px}p{color:var(--mut);margin:0 0 16px}
+dl{display:grid;grid-template-columns:auto 1fr;gap:6px 16px;background:var(--card);padding:16px;border-radius:12px;margin:0}
+dt{color:var(--mut)}dd{margin:0;font-variant-numeric:tabular-nums}
+.ok{color:var(--ok)}.off{color:var(--off)}
+</style></head><body><main>
+<h1 id="title">Kiosko screen</h1>
+<p>Read-only status. Pair and control this screen from Kiosko (Screens &rarr; Detect panels).</p>
+<dl id="d"></dl>
+</main><script>
+const rows=[['Kiosko','kiosko',v=>v?'<span class="ok">connected</span>':'<span class="off">waiting</span>'],['Paired','paired',v=>v?'yes':'no'],
+['Name (id)','id'],['Unique id','uid'],['Model','model'],['Firmware','fw',(v,s)=>v+' ('+s.partition+')'],['Size','w',(v,s)=>v+'×'+s.h+' at '+s.rot+'°'],
+['Frames','frames'],['fps','fps'],['Last frame','lastFrameAgoMs',v=>v<0?'—':v<1500?'now':Math.round(v/1000)+' s ago'],['JPEG decode','decodeMs',v=>v+' ms'],
+['IP','ip'],['Signal','rssi',v=>v+' dBm'],['Up','uptime',v=>Math.floor(v/3600)+' h '+Math.floor(v%3600/60)+' min'],['Free RAM','heap',v=>Math.round(v/1024)+' KB']];
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+async function tick(){try{const s=await (await fetch('/status.json',{cache:'no-store'})).json();
+document.getElementById('title').textContent='Kiosko screen · '+s.id;
+document.getElementById('d').innerHTML=rows.map(([l,k,f])=>'<dt>'+l+'</dt><dd>'+(f?f(s[k],s):esc(s[k]))+'</dd>').join('');}catch(e){}}
+tick();setInterval(tick,2000);
+</script></body></html>

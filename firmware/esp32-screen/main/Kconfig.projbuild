@@ -1,0 +1,31 @@
+menu "Kiosko screen"
+    choice KS_BOARD
+        prompt "Board"
+        default KS_BOARD_WAVESHARE_C6_LCD147
+        config KS_BOARD_WAVESHARE_C6_LCD147
+            bool "Waveshare ESP32-C6-LCD-1.47 (ST7789 172x320)"
+    endchoice
+
+    config KS_WIFI_COUNTRY
+        string "Wi-Fi country code (sets the channels: ES, DE, US, CN...; 01 = world-safe)"
+        default "ES"
+
+    config KS_RX_MAX
+        int "Largest message from Kiosko, in bytes (a JPEG frame and its header)"
+        default 98304
+
+    config KS_IDLE_SECONDS
+        int "Seconds without Kiosko before the screen shows its own idle page"
+        default 15
+
+    config KS_TEST_PAIR_CODE
+        string "TEST ONLY: a fixed pairing code (empty = random, as it must be)"
+        default ""
+        help
+            For automated end-to-end tests that cannot read the screen. Never set it in a
+            build anyone uses: anyone on the network who knows it can pair.
+
+    config KS_TEST_CRASH_AFTER
+        int "TEST ONLY: crash this many seconds after boot (0 = never), to try the OTA rollback"
+        default 0
+endmenu
