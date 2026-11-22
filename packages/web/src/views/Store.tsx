@@ -20,7 +20,7 @@ import { Icon } from '../icons.tsx';
 import { dateTime, errorText, fullWidth, listOf, t, tr, uiLanguage } from '../i18n.ts';
 import { app, config, locale, notify, route, status } from '../store.ts';
 import { DemoNote } from '../demo/ui.tsx';
-import { CATEGORY, OS, PERMS, card, categoryChip, esc, featuredIn, feature, icon, offeredIn, plural, pluginPage, say, textIn, type Kit } from '../../store-kit/render.ts';
+import { OS, PERMS, appIcon, card, categoryChip, esc, featuredIn, feature, icon, offeredIn, plural, pluginPage, say, textIn, type Kit } from '../../store-kit/render.ts';
 import { wireStore } from '../../store-kit/client.ts';
 import en from '../../landing/i18n/en.json';
 import es from '../../landing/i18n/es.json';
@@ -383,8 +383,8 @@ function InstallDialog({ p, st, risky = p.riskyOptions, onClose }: { p: StorePlu
   const sep = fullWidth() ? '：' : ': ';
   return (
     <dialog ref={ref} class="store-dialog" aria-labelledby="install-h" onClose={onClose} onClick={(e) => e.target === ref.current && ref.current?.close()}>
-      <header class="store-dialog-head" style={{ '--tint': CATEGORY[p.categories[0] ?? '']?.[1] ?? '#8b7bff' }}>
-        <span dangerouslySetInnerHTML={{ __html: `<span class="ks-app-icon">${icon(p.icon && !p.icon.trim().startsWith('<') ? p.icon : (CATEGORY[p.categories[0] ?? '']?.[0] ?? 'puzzle'), 20)}</span>` }} />
+      <header class="store-dialog-head">
+        <span dangerouslySetInnerHTML={{ __html: appIcon(p, 20) }} />
         <div>
           <h3 id="install-h">{t('store.dialogTitle', { name: textIn(p.name, lang), v: release.version })}</h3>
           <p class="muted small">{t('store.by', { who })}</p>
