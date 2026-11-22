@@ -156,11 +156,14 @@ export function Play() {
 
   return (
     <div class="page-view play">
+      {/* A page like the others: its title and what it is for, then what to do. */}
+      <header class="view-head">
+        <div>
+          <h1>{tr('play.title')}</h1>
+          <p class="muted">{tr('play.hint')}</p>
+        </div>
+      </header>
       <section class="card">
-        <h3>
-          <Icon name="gamepad-2" size={16} /> {tr('play.title')}
-        </h3>
-        <p class="muted small">{tr('play.hint')}</p>
         {KIOSKO_DEMO ? (
           <p class="muted">{tr('play.demo')}</p>
         ) : !playable.size ? (

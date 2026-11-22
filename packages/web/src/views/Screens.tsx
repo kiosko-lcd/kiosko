@@ -274,7 +274,7 @@ function ScreenCard({ s }: { s: Screen }) {
               </button>
             ))}
           </div>
-          <span class="muted small">{tr('screens.readingHint')}</span>
+          <p class="muted small field-hint">{tr('screens.readingHint')}</p>
           <label class="field-label">{tr('screens.textScale')}</label>
           <div class="slider-row">
             <input type="range" min={TEXT_SCALE.min} max={TEXT_SCALE.max} step={TEXT_SCALE.step} value={s.textScale ?? 1} onInput={(e) => set((x) => {

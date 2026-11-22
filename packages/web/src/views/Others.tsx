@@ -238,16 +238,17 @@ export default definePlugin({
               <span class="plugin-icon">
                 <Icon name={p.icon ?? 'puzzle'} size={20} />
               </span>
+              {/* Its name gets the width (German ones are long); what it is goes under it. */}
               <div class="plugin-title">
                 <b>{p.name}</b>
-                <small class="muted mono">
-                  {p.id} · v{p.version}
+                <small class="muted">
+                  <span class="mono">{p.id} · v{p.version}</span>
+                  {p.builtin && <span class="pill">{tr('plugins.builtin')}</span>}
+                  {!p.builtin && (a.official ?? []).some((o) => o.id === p.id) && <span class="pill official-pill">{tr('plugins.officialShort')}</span>}
+                  {a.updates?.plugins.find((x) => x.id === p.id && x.version) && <span class="pill update-pill" title={tr('updates.title')}>v{a.updates.plugins.find((x) => x.id === p.id)!.version}</span>}
                 </small>
               </div>
               <div class="tb-spacer" />
-              {a.updates?.plugins.find((x) => x.id === p.id && x.version) && <span class="pill update-pill" title={tr('updates.title')}>v{a.updates.plugins.find((x) => x.id === p.id)!.version}</span>}
-              {p.builtin && <span class="pill">{tr('plugins.builtin')}</span>}
-              {!p.builtin && (a.official ?? []).some((o) => o.id === p.id) && <span class="pill official-pill">{tr('plugins.officialShort')}</span>}
               <Toggle checked={p.enabled} onChange={async (v) => {
                 app.value = await api.setPluginEnabled(p.id, v);
                 config.value = app.value.config;
