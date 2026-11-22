@@ -100,15 +100,25 @@ export function renderMarkdown(md, link = (h) => h) {
   return { title, html: html.join('\n') };
 }
 
-/** The languages a guide exists in (docs/<id>/<guide>.md), with the folder that holds it. */
-export function guideLangs(docsDir, guide) {
-  return LANGS.filter((l) => l.id !== 'en' && existsSync(join(docsDir, l.id, `${guide}.md`)));
+/** A guide's file in a language: English at docs/<guide>.md, the others at docs/<id>/<guide>.md. */
+function guideFile(docsDir, langId, guide) {
+  return langId === 'en' ? join(docsDir, `${guide}.md`) : join(docsDir, langId, `${guide}.md`);
 }
 
-/** Where a language's guide lives on the site, from the site's root (`zh-Hans/docs/install/`); null if it has none. */
+/** The guide's address on GitHub, for the page's footer and for links the site doesn't publish. */
+function repoFile(langId, guide) {
+  return langId === 'en' ? `${REPO_BLOB}${guide}.md` : `${REPO_BLOB}${langId}/${guide}.md`;
+}
+
+/** The languages a guide exists in (docs/<guide>.md for English, docs/<id>/<guide>.md for the rest). */
+export function guideLangs(docsDir, guide) {
+  return LANGS.filter((l) => existsSync(guideFile(docsDir, l.id, guide)));
+}
+
+/** Where a language's guide lives on the site, from the site's root (`zh-Hans/docs/install/`, `docs/usb/`); null if it has none. */
 export function guidePath(docsDir, langId, guide) {
   const l = LANGS.find((x) => x.id === langId);
-  return l && l.id !== 'en' && existsSync(join(docsDir, l.id, `${guide}.md`)) ? `${l.path}docs/${guide}/` : null;
+  return l && existsSync(guideFile(docsDir, l.id, guide)) ? `${l.path}docs/${guide}/` : null;
 }
 
 /**
@@ -126,18 +136,18 @@ export function buildDocPages({ out, docsDir, texts, css }) {
         if (/^(https?:|mailto:|#)/.test(href)) return href;
         const [file, hash = ''] = href.split('#');
         const name = file.replace(/^\.\//, '').replace(/\.md$/, '');
-        if (GUIDES.includes(name) && existsSync(join(docsDir, l.id, `${name}.md`))) return `../${name}/${hash ? `#${hash}` : ''}`;
+        if (GUIDES.includes(name) && existsSync(guideFile(docsDir, l.id, name))) return `../${name}/${hash ? `#${hash}` : ''}`;
         // Anything else of the repository: on GitHub.
-        return new URL(href, `${REPO_BLOB}${l.id}/`).href;
+        return new URL(href, l.id === 'en' ? REPO_BLOB : `${REPO_BLOB}${l.id}/`).href;
       };
-      const { title, html } = renderMarkdown(readFileSync(join(docsDir, l.id, `${guide}.md`), 'utf8'), link);
+      const { title, html } = renderMarkdown(readFileSync(guideFile(docsDir, l.id, guide), 'utf8'), link);
       const description = html.match(/<p>(.*?)<\/p>/)?.[1]?.replace(/<[^>]+>/g, '').slice(0, 160) ?? title;
       const page = `${pageHead({ lang: l.id, texts, title: `${title} · Kiosko`, description, path, root, css, langs })}
   <main class="doc">
     <article class="guide">
 ${html}
     </article>
-    <p class="fine"><a href="${REPO_BLOB}${l.id}/${guide}.md">GitHub</a> · <a href="${SITE}${l.path}">kioskolcd.dev</a></p>
+    <p class="fine"><a href="${repoFile(l.id, guide)}">GitHub</a> · <a href="${SITE}${l.path}">kioskolcd.dev</a></p>
   </main>
 </body>
 </html>
