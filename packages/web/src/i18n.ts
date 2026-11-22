@@ -75,6 +75,12 @@ export function docsUrl(): string {
   return GUIDES.has(lang) ? `https://kioskolcd.dev/${lang}/docs/install/` : 'https://github.com/kiosko-lcd/kiosko#readme';
 }
 
+/** The guide to connecting a panel over USB (udev, WinUSB), on the site in the languages it has there, else on GitHub. */
+export function usbGuideUrl(): string {
+  const lang = uiLanguage();
+  return GUIDES.has(lang) ? `https://kioskolcd.dev/${lang}/docs/usb/` : 'https://github.com/kiosko-lcd/kiosko/blob/main/docs/usb.md';
+}
+
 /** Whether the editor writes in Chinese, Japanese or Korean: full-width punctuation, no spaces around it. */
 export function fullWidth(): boolean {
   return /^(zh|ja|ko)\b/.test(uiLanguage());

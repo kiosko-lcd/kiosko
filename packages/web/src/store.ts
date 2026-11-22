@@ -153,6 +153,8 @@ export function edit(mutate: (draft: Config) => void, coalesce?: string): void {
   const before = JSON.stringify(cur);
   const draft = JSON.parse(before) as Config;
   mutate(draft);
+  // The first run's config, changed by hand: that is setting it up oneself (the panels' welcome card goes).
+  if (cur.setup === 'pending' && draft.setup === 'pending') draft.setup = 'skipped';
   const after = JSON.stringify(draft);
   if (after === before) return;
   const now = Date.now();
@@ -165,6 +167,21 @@ export function edit(mutate: (draft: Config) => void, coalesce?: string): void {
   future.length = 0;
   canUndo.value = past.length > 0;
   canRedo.value = false;
+  config.value = draft;
+  scheduleSave();
+}
+
+/**
+ * A change that isn't one of the person's edits (the setup wizard marking itself skipped): saved
+ * like any other, with nothing to undo.
+ */
+export function commit(mutate: (draft: Config) => void): void {
+  const cur = config.value;
+  if (!cur) return;
+  const before = JSON.stringify(cur);
+  const draft = JSON.parse(before) as Config;
+  mutate(draft);
+  if (JSON.stringify(draft) === before) return;
   config.value = draft;
   scheduleSave();
 }

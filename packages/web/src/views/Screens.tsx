@@ -9,6 +9,7 @@ import { clock, count, deviceText, errorText, labelled, listOf, t, tr } from '..
 import { app, config, draftScreen, edit, go, lastFrame, notify, pageId, screenId, status } from '../store.ts';
 import { DemoFrame, dt, exportScreen } from '../demo/ui.tsx';
 import { threadText } from './Others.tsx';
+import { openWizard } from '../wizard/Wizard.tsx';
 
 export function Screens() {
   const cfg = config.value!;
@@ -34,6 +35,15 @@ export function Screens() {
           <AddScreen onAdd={add} />
         </div>
       </header>
+      {cfg.screens.every((s) => s.device.driver === 'virtual') && (
+        <div class="banner connect-banner">
+          <Icon name="usb" size={16} />
+          <span>{tr('wiz.connectBanner')}</span>
+          <button class="ks-button small" onClick={() => openWizard('panel')}>
+            <Icon name="radar" size={14} /> {tr('wiz.connectPanel')}
+          </button>
+        </div>
+      )}
       <div class="cards-col">
         {cfg.screens.map((s) => (
           <ScreenCard s={s} key={s.id} />

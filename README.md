@@ -121,8 +121,16 @@ options you chose when you installed; the wizard otherwise); the installer
 stops Kiosko and starts it again. Every step goes to **Activity**, and the
 editor reconnects to the new version by itself.
 
-A first run creates a virtual screen with a few widgets, so there's something
-to play with before any hardware is connected. Then go to **Screens → Add
+A first run looks for the panels connected (USB and `trcc serve`) and makes a
+screen for each, with what works on any machine with nothing to set up (the
+time and date, the computer's vitals; your AI agents and the cats room only if
+agents are in use here), so the panels light up at once; with none found, a
+virtual screen to play with. Each panel plays a short animation of the Kiosko
+mark when Kiosko starts (Settings can turn it off) and, until the setup is
+done, a card saying how to open the editor. The editor then opens on a
+**setup wizard** (language, your panels, what to show with live previews, place
+and theme) that starts from those screens; skip it and set things up yourself,
+or run it again from **Settings → Setup**. By hand, go to **Screens → Add
 screen**, pick your panel model and its connection:
 
 | Connection | When |

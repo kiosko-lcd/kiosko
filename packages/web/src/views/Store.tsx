@@ -31,7 +31,8 @@ import zhHans from '../../landing/i18n/zh-Hans.json';
 /** The store's words: the site's, so both stores say the same (a language without them reads English). */
 const WORDS: Kit['texts'] = { en, es, de, 'zh-Hant': zhHant, 'zh-Hans': zhHans };
 
-const store = signal<StoreState | null>(null);
+/** The catalogue as this Kiosko sees it, once loaded (the setup wizard offers plugins from it too). */
+export const store = signal<StoreState | null>(null);
 const loading = signal(false);
 
 export async function loadStore(refresh = false): Promise<void> {
@@ -57,7 +58,7 @@ function myScreens() {
   return (config.value?.screens ?? []).filter((s) => s.enabled !== false).map((s) => ({ id: s.id, name: s.name, width: s.width, height: s.height }));
 }
 
-const where = () => ({ region: regionOf(locale.value), lang: uiLanguage() });
+export const where = () => ({ region: regionOf(locale.value), lang: uiLanguage() });
 
 /** The store's parts as the editor shows them: in its language, the pictures from the site, links to its own pages. */
 function kitOf(st: StoreState): Kit {
@@ -82,7 +83,7 @@ const regionName = (code: string) => regionNameIn(code, uiLanguage());
 const what = (v: string) => (v === 'user' ? tr('perm.user') : v === 'lan' ? tr('perm.lan') : v);
 
 /** Whether it runs here, and why not. */
-function problemOf(p: StorePlugin, st: StoreState): string | null {
+export function problemOf(p: StorePlugin, st: StoreState): string | null {
   const latest = p.releases[0];
   if (installableRelease(p, env(st))) return null;
   const why = latest && releaseProblem({ sdk: latest.sdk, platforms: latest.platforms ?? p.platforms }, env(st));
@@ -348,7 +349,7 @@ export function StoreSheet({ id }: { id: string }) {
  * what else comes with it and where it fits. An unreviewed one needs the
  * "I understand" box ticked first.
  */
-function InstallDialog({ p, st, risky = p.riskyOptions, onClose }: { p: StorePlugin; st: StoreState; risky?: number; onClose: () => void }) {
+export function InstallDialog({ p, st, risky = p.riskyOptions, onClose }: { p: StorePlugin; st: StoreState; risky?: number; onClose: () => void }) {
   const ref = useRef<HTMLDialogElement>(null);
   const [ok, setOk] = useState(p.tier !== 'found');
   const [busy, setBusy] = useState(false);

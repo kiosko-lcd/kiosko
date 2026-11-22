@@ -11,6 +11,7 @@ import { AlertBand } from './views/AlertBand.tsx';
 import { startTour, touring } from './demo/tour.ts';
 import { DemoBanner, demoBootError } from './demo/ui.tsx';
 import { KioskoNotice, kioskoCount, watchKioskoUpdates } from './views/KioskoUpdate.tsx';
+import { Wizard, offerWizard, wizardOpen } from './wizard/Wizard.tsx';
 
 const NAV: { id: View; icon: string }[] = [
   { id: 'editor', icon: 'layout-dashboard' },
@@ -149,6 +150,7 @@ function App() {
           <Icon name="wifi-off" size={15} /> {tr('offline')}
         </div>
       )}
+      {wizardOpen.value && <Wizard />}
       {toast.value && (
         <div class={`toast ${toast.value.kind}`} role="status">
           <Icon name={toast.value.kind === 'error' ? 'circle-alert' : toast.value.kind === 'ok' ? 'circle-check' : 'info'} size={16} /> {toast.value.text}
@@ -173,6 +175,7 @@ boot()
   .then(() => {
     // The site's front page shows the editor driving itself (demo/tour.ts).
     if (KIOSKO_DEMO && touring()) startTour();
+    else offerWizard();
     watchKioskoUpdates();
   })
   .catch((err) => {
