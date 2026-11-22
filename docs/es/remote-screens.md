@@ -109,7 +109,7 @@ fijar, usa el suyo: 70 %, o el que elegiste en su página de configuración.
 Con menos brillo se calienta menos.
 
 La línea de estado de la tarjeta muestra también la **temperatura del chip**.
-Marca más que la habitación: unos 40–50 °C es lo normal en este chip.
+Marca más que la habitación: unos 35–45 °C es lo normal en este chip.
 
 ## Varias pantallas
 

@@ -112,7 +112,7 @@ Nicht gesetzt, nimmt er seine eigene: 70 % oder die auf seiner
 Einrichtungsseite gewählte. Weniger Helligkeit heißt weniger Wärme.
 
 Die Statuszeile der Karte zeigt auch die **Temperatur des Chips**. Sie liegt
-über der Raumtemperatur: etwa 40–50 °C sind für diesen Chip normal.
+über der Raumtemperatur: etwa 35–45 °C sind für diesen Chip normal.
 
 ## Mehrere Bildschirme
 

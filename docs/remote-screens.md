@@ -106,7 +106,7 @@ its own: 70 %, or what you chose on its setup page. A lower brightness runs
 cooler.
 
 The card's status line also shows the **chip's temperature**. It reads warmer
-than the room: around 40–50 °C is normal for this chip.
+than the room: around 35–45 °C is normal for this chip.
 
 ## Several screens
 
