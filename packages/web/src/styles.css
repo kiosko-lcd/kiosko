@@ -674,3 +674,38 @@ ul.plain .pill { margin-left: 6px; }
   .store-row, .store-bezel, .store-slab img, .store-slab video { transition: none; animation: none; }
   .store-row:hover { transform: none; }
 }
+
+/* A newer Kiosko: the notice in the top bar, the card in Plugins → Updates, the update dialog. */
+.kiosko-notice { display: inline-flex; align-items: center; gap: 2px; border-radius: 999px; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); font-size: 12px; font-weight: 600; white-space: nowrap; }
+.kiosko-notice a, .kiosko-notice.working { display: inline-flex; align-items: center; gap: 6px; padding: 3px 4px 3px 10px; color: var(--text); text-decoration: none; }
+.kiosko-notice.working { padding-right: 10px; }
+.kiosko-notice-x { border: 0; background: none; color: var(--text-3); padding: 3px 7px 3px 3px; cursor: pointer; display: inline-flex; border-radius: 999px; }
+.kiosko-notice-x:hover { color: var(--text); }
+@media (max-width: 720px) { .kiosko-notice span { display: none; } }
+.spin { animation: kupd-spin 1s linear infinite; }
+@keyframes kupd-spin { to { transform: rotate(360deg); } }
+.kupd-card { margin-bottom: 14px; }
+.kupd-card > p { margin: 6px 0; }
+.kupd-how p { margin: 8px 0 6px; }
+.kupd-links { display: flex; gap: 8px; flex-wrap: wrap; }
+.kupd-command { display: flex; align-items: center; gap: 8px; background: var(--bg-2); border: 1px solid var(--line); border-radius: 10px; padding: 6px 6px 6px 12px; margin: 6px 0; }
+.kupd-command code { flex: 1; min-width: 0; overflow-x: auto; white-space: nowrap; font-size: 12.5px; }
+.kupd-unlocks { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+.release-notes { margin-top: 10px; }
+.release-notes summary { cursor: pointer; font-weight: 600; }
+.release-notes .release { border-top: 1px solid var(--line); margin-top: 10px; padding-top: 8px; }
+.release-notes h4 { margin: 0 0 4px; font-size: 14px; }
+.release-notes h5 { margin: 8px 0 4px; font-size: 13px; }
+.release-notes-body { font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
+.release-notes-body ul { margin: 4px 0; padding-left: 20px; }
+.release-notes-body p { margin: 4px 0; }
+.release-notes-body code { font-size: 12px; background: var(--bg-2); padding: 0 4px; border-radius: 4px; }
+.kupd-progress { margin: 10px 0; }
+.kupd-steps { list-style: none; padding: 0; margin: 0 0 8px; display: grid; gap: 6px; }
+.kupd-steps li { display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; align-items: center; font-size: 13px; }
+.kupd-steps li small { grid-column: 2; overflow-wrap: anywhere; font-size: 11.5px; }
+.kupd-steps li.ok .icon { color: var(--ok); }
+.kupd-steps li.bad .icon { color: var(--bad); }
+.kupd-progress .banner p { margin: 2px 0; }
+.kupd-progress details p { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 11.5px; }
+.kupd-dialog .banner.info { flex-direction: column; align-items: flex-start; }

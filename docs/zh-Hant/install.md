@@ -107,6 +107,17 @@ kiosko doctor
 
 另外，在 Windows 上為面板換成 WinUSB 驅動程式之後，TRCC 就看不到這個面板了；想改回來用 TRCC，可以在「裝置管理員」中還原原本的驅動程式。詳見 [透過 USB 連接面板](usb.md)。
 
+## 更新 Kiosko
+
+Kiosko 每天會向 npm（你設定的來源）詢問一次是否有新版本。有新版本時，編輯器頂端會顯示提示（點 × 關閉後，直到下一個版本才會再出現），**外掛 → 更新** 會列出新功能（GitHub 的發行說明；連不上 GitHub 時只列出 npm 上的版本號）、因此可以更新的外掛，以及適合你安裝方式的更新方法：
+
+- **npm（Linux、macOS）**：點 **將 Kiosko 更新至 …**。Kiosko 會用你的 npm 與來源安裝該版本，確認新版本能啟動並載入你的外掛，然後重新啟動；任何一步失敗都會裝回原本的版本。也可以手動執行 `npm install -g kiosko@<版本>`，再重新啟動 Kiosko。
+- **Windows 安裝程式**：點同一個按鈕，Kiosko 會從 GitHub 下載該版本的 `Kiosko-Setup-<版本>-x64.exe`，以發行版本公布的 `.sha256` 驗證，你確認後才執行。
+- **Windows 上的 npm**：先停止 Kiosko，再執行上面的 npm 指令，然後重新啟動。
+- **原始碼**：`git pull && npm install && npm run web:build`，然後重新啟動。
+
+每一步都會記錄在 **活動紀錄** 中。
+
 ## 疑難排解與求助
 
 - 先執行 `kiosko doctor`：它會列出 Kiosko 的版本、設定檔、已載入的外掛、中文字型、Kiosko 看得到的 USB 面板（含序號），以及每個螢幕的狀態。

@@ -10,6 +10,7 @@ import { Play } from './views/Play.tsx';
 import { AlertBand } from './views/AlertBand.tsx';
 import { startTour, touring } from './demo/tour.ts';
 import { DemoBanner, demoBootError } from './demo/ui.tsx';
+import { KioskoNotice, kioskoCount, watchKioskoUpdates } from './views/KioskoUpdate.tsx';
 
 const NAV: { id: View; icon: string }[] = [
   { id: 'editor', icon: 'layout-dashboard' },
@@ -79,6 +80,7 @@ function TopBar() {
       )}
       <div class="tb-spacer" />
       {!KIOSKO_DEMO && app.value?.demo && <span class="demo-pill" title="kiosko start --demo">DEMO</span>}
+      <KioskoNotice />
       <SaveState />
       <LanguageMenu />
       <a class="icon-btn" href={docsUrl()} target="_blank" rel="noreferrer" title={tr('docs')}>
@@ -91,14 +93,17 @@ function TopBar() {
 /** A plugin has an interlude that can be played: the Play page is offered. */
 const canPlay = () => (app.value?.catalog ?? []).some((p) => p.enabled && p.interludes.some((i) => i.input));
 
+/** Plugin updates that can be installed, and Kiosko's own. */
+const updateCount = () => (KIOSKO_DEMO ? 0 : (app.value?.updates?.plugins.filter((u) => u.version).length ?? 0) + kioskoCount());
+
 function Rail() {
   return (
     <nav class="rail" aria-label={tr('nav.main')}>
       {NAV.filter((n) => n.id !== 'play' || canPlay()).map((n) => (
         <button class={`rail-btn ${view.value === n.id ? 'on' : ''}`} data-view={n.id} onClick={() => go(n.id)} title={tr(`nav.${n.id}`)} aria-current={view.value === n.id}>
           <Icon name={n.icon} size={20} />
-          {n.id === 'plugins' && (app.value?.updates?.plugins.filter((u) => u.version).length ?? 0) > 0 && (
-            <b class="rail-badge" title={tr('updates.badge')}>{app.value!.updates!.plugins.filter((u) => u.version).length}</b>
+          {n.id === 'plugins' && updateCount() > 0 && (
+            <b class="rail-badge" title={tr('updates.badge')}>{updateCount()}</b>
           )}
           <span>{tr(`nav.${n.id}`)}</span>
         </button>
@@ -166,6 +171,7 @@ boot()
   .then(() => {
     // The site's front page shows the editor driving itself (demo/tour.ts).
     if (KIOSKO_DEMO && touring()) startTour();
+    watchKioskoUpdates();
   })
   .catch((err) => {
     document.getElementById('app')!.innerHTML = KIOSKO_DEMO ? demoBootError(err) : `<div class="boot-error"><h1>Kiosko</h1><p>${t('bootError', { error: String(err) })}</p></div>`;

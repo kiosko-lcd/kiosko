@@ -10,6 +10,7 @@ import { app, config, edit, logs, notify, setUiTheme, status, uiTheme } from '..
 import { DemoNote } from '../demo/ui.tsx';
 import { StoreSheet, StoreView } from './Store.tsx';
 import { route } from '../store.ts';
+import { KioskoCard, kioskoCount } from './KioskoUpdate.tsx';
 
 /** Runs a plugin action, shows how it went and takes the new state. */
 async function pluginAction(run: () => Promise<AppState | { state: AppState; problem: string | null }>, done: string): Promise<void> {
@@ -78,11 +79,7 @@ function Updates() {
   };
   return (
     <>
-      {u.kiosko && (
-        <div class="banner info">
-          <Icon name="sparkles" size={16} /> {tr('updates.kiosko').replace('{latest}', u.kiosko.latest).replace('{current}', u.kiosko.current)}
-        </div>
-      )}
+      <KioskoCard />
       {(ready.length > 0 || blocked.length > 0) && (
         <section class="card updates">
           <div class="card-head">
@@ -113,7 +110,7 @@ function Updates() {
             <div class="update-item muted">
               <b>{nameOf(p.id)}</b>
               <span class="mono">{p.current} · {p.latest}</span>
-              <span class="small">{p.blocked}</span>
+              <span class="small">{p.unlockedBy ? t('updates.needsKiosko', { v: p.unlockedBy }) : p.blocked}</span>
             </div>
           ))}
           <p class="muted small">{t('updates.checked', { at: dateTime(u.checkedAt) })}</p>
@@ -132,7 +129,7 @@ export function Plugins() {
   const a = app.value!;
   const parts = route.value.split('/');
   const tab = parts[1] === 'store' ? 'store' : parts[1] === 'updates' ? 'updates' : 'installed';
-  const updates = KIOSKO_DEMO ? 0 : (a.updates?.plugins.filter((p) => p.version).length ?? 0);
+  const updates = KIOSKO_DEMO ? 0 : (a.updates?.plugins.filter((p) => p.version).length ?? 0) + kioskoCount();
   const tabs = [
     ['installed', tr('plugins.tabInstalled'), a.catalog.length],
     ['store', tr('plugins.tabStore'), null],
