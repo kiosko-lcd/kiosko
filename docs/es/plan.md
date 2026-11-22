@@ -1253,6 +1253,93 @@ Lo que cambia en el camino:
       Kiosko se instala con npm y no lo necesita.
     - *Fuentes*: signpath.org, about.signpath.io/product/open-source, la
       página de precios de Azure Artifact Signing, sectigo.com y ssl.com.
+59. **Pantallas remotas ESP32: lo que falta tras la primera versión.** La base
+    (firmware de referencia en `firmware/esp32-screen/` para la Waveshare
+    ESP32-C6-LCD-1.47, protocolo con descubrimiento mDNS, emparejamiento con
+    código en pantalla, sesión autenticada, resincronización y rotación, y el
+    controlador `remote` de Kiosko) está en marcha (2026-11-22). Pendiente:
+    - *Instalar sin ser desarrollador*: instalador desde el navegador en
+      kioskolcd.dev (ESP Web Tools, WebSerial en Chrome y Edge: conectar la
+      placa y pulsar) y binarios ya compilados en cada release de GitHub.
+    - *Actualizar el firmware desde el editor*: cuando una versión de Kiosko
+      trae firmware nuevo, ofrecerlo a cada placa emparejada por la OTA
+      autenticada.
+    - *Más placas*: Cheap Yellow Display (320×240, táctil), LilyGO T-Display
+      S3, M5Stack, pantallas redondas de 240×240 (GC9A01); hoy solo queda
+      preparada la capa de placa.
+    - *Entrada desde el dispositivo*: el botón (BOOT u otros) para cambiar de
+      página o descartar una alerta; el táctil donde lo haya. El protocolo
+      hoy solo va de Kiosko a la pantalla.
+    - *Brillo y modo noche*: bajar o apagar la retroiluminación por horario o
+      cuando Kiosko pausa esa pantalla.
+    - *Imágenes más rápidas*: enviar solo la región que cambió (Kiosko sabe
+      qué tesela cambia) o imagen en bruto con compresión ligera en pantallas
+      pequeñas, en vez de JPEG (decodificar cuesta ~95 ms y limita a ~6–8
+      fps).
+    - *Modo cable*: el mismo protocolo por USB serie, sin Wi-Fi, para redes
+      sin mDNS (VLAN, redes de invitados) o sin red.
+    - *Dos Kiosko para una placa*: decidir quién la tiene (propiedad,
+      bloqueo) para que no se peleen.
+    - *Endurecer el hardware*: cifrado de la flash y arranque seguro del
+      ESP32 protegen la clave si alguien se lleva la placa; son
+      **irreversibles**: decisión del dueño.
+    - *Probar en Windows y macOS*: el descubrimiento por la red (cortafuegos,
+      sin Bonjour en Windows).
+    - *Guía de uso* en los 5 idiomas, en la web.
+60. **Cualquier navegador como pantalla.** Una tableta o un móvil viejo que
+    muestra una pantalla de Kiosko a pantalla completa por la red local, con
+    el mismo emparejamiento que las ESP32 (código en pantalla, sesión
+    autenticada) y sin abrir el editor a la red: una página de solo
+    visualización que pide el fotograma o lo recibe por WebSocket, ajusta la
+    orientación y evita que se apague la pantalla (Wake Lock). Sin hardware
+    ni firmware: probablemente la pantalla con más usuarios potenciales.
+61. **Otras pantallas USB populares.**
+    - **Turing Smart Screen** y sus clones (3,5″ y más; muy habituales en
+      cajas de PC, el mayor mercado tras Thermalright), serie USB.
+    - Marcos de fotos **AX206** (libusb).
+    - La pantalla de las bombas **NZXT Kraken**, a través de liquidctl (que
+      ya usa `gaming`).
+    - *Ojo a las licencias*: las implementaciones de referencia suelen ser
+      GPL (como pasó con `usb-ly`, ver `temas.md`): escribirlas desde una
+      especificación propia del protocolo (sala limpia), con capturas USB.
+
+62. **Pantallas de tinta electrónica (e-ink) por Wi-Fi.** Ideales para
+    paneles que cambian despacio (agenda, tiempo, resumen de agentes,
+    GitLab): sin brillo, legibles con luz de día, y las de batería aguantan
+    semanas. Pero piden otro modelo que los LCD. *Pendiente de hablar cómo
+    darles soporte (2026-11-22).*
+    - *Diferencias*:
+      - **La pantalla pide, Kiosko no empuja.** Las de batería despiertan,
+        piden una imagen, refrescan y duermen minutos; el protocolo de las
+        ESP32 (conexión permanente) no les sirve: necesitan algo que
+        consultar.
+      - **Refresco lento** (1–3 s, con parpadeo y fantasmas): sin
+        animaciones ni interludios; un reloj solo puede mostrar la hora del
+        último refresco.
+      - **Pocos colores**: 1 bit, 4 grises o 6–7 colores (Spectra 6,
+        ACeP). Hace falta un modo de pintar para tinta: tema de alto
+        contraste, cuantización a la paleta y tramado (Floyd–Steinberg o
+        Atkinson), letra más grande.
+      - **Política de refresco** por página (cada 15 min, cada hora, nada de
+        noche): es el presupuesto de batería del dispositivo.
+    - *Vía más rápida*: un servidor compatible con **TRMNL** (7,5″ 800×480,
+      firmware abierto y modo «trae tu propio servidor»: el dispositivo llama
+      a un endpoint con su token y recibe la URL de la imagen y cuánto
+      dormir). Daría soporte inmediato a TRMNL y a las placas que corren su
+      firmware (comprobar la lista actual).
+    - *Otro hardware*: **Inkplate** (Soldered, ESP32), **LilyGO T5** y
+      placas e-paper de Waveshare con ESP32, **Pimoroni Inky Impression**
+      (Raspberry Pi, color), Kindle antiguos con jailbreak (salvapantallas en
+      línea). Más adelante, una variante e-ink del firmware propio (punto
+      59): modo «pedir», sueño profundo, mismo emparejamiento.
+    - *Seguridad*: lo que piden las pantallas escucha en la red local: no el
+      editor (solo `127.0.0.1`), sino un servidor pequeño, de solo lectura,
+      en su propio puerto, con un token por dispositivo y nada más que la
+      imagen de cada uno.
+    - *Orden propuesto*: (1) modo de pintar para tinta (paletas, tramado,
+      tema, política de refresco, tamaños comunes como 800×480); (2)
+      endpoint compatible con TRMNL; (3) Inkplate y la variante e-ink del
+      firmware propio.
 
 ### Decisiones abiertas para ti
 
