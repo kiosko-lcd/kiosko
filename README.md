@@ -139,6 +139,7 @@ screen**, pick your panel model and its connection:
 | **USB** | LY panels (0416:5408 / 5409) straight from Kiosko: Linux, macOS, Windows. Experimental; [needs a udev rule or the WinUSB driver](docs/usb.md). |
 | **trcc serve** | Linux with [thermalright-trcc-linux](https://github.com/Lexonight1/thermalright-trcc-linux) running `trcc serve`. |
 | **Frame file** | Kiosko writes `frame.jpg` atomically; an external sender (e.g. one bound to a USB serial number, for several identical panels) pushes it to the glass. |
+| **Remote screen** | A small Wi-Fi display running [Kiosko's screen firmware](firmware/esp32-screen) (Waveshare ESP32-C6-LCD-1.47 for now): found on the network, paired once with the code it shows, frames over an encrypted session. Experimental; see [docs/remote-screen.md](docs/remote-screen.md). |
 
 **Home Assistant**: Kiosko can show up there as a device per screen (over
 MQTT), with its page to choose, a switch to turn it off and a button per
