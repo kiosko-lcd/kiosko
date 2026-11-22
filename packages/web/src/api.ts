@@ -194,8 +194,41 @@ export interface ThemeInfo {
   radius: number;
 }
 
+/** A Kiosko remote screen heard on the LAN (mDNS). */
+export interface RemoteFound {
+  uid: string;
+  id: string;
+  model: string;
+  width: number;
+  height: number;
+  rotate: number;
+  fw: string;
+  paired: boolean;
+  address: string;
+  port: number;
+  hostname: string;
+}
+
+/** A remote screen's link, as its driver sees it. */
+export interface RemoteLink {
+  online: boolean;
+  id: string;
+  host: string | null;
+  fw: string;
+  model: string;
+  w: number;
+  h: number;
+  rot: number;
+  fps: number;
+  rttMs: number | null;
+  decodeMs: number | null;
+  lastFrameAt: number | null;
+  dropped: number;
+  since: number | null;
+}
+
 export interface Status {
-  screens: { id: string; name: string; page: string | null; pinned: string | null; interlude: string | null; playing?: boolean; device: { driver: string; ok: boolean; message: string; code?: string; params?: Record<string, string | number>; framesSent: number; lastSentAt: number | null; detected?: { width: number; height: number; rotate?: number } }; lastFrameAt: number | null; sleeping: boolean; alert?: string | null; frames?: ScreenFrames; thread?: ScreenThread }[];
+  screens: { id: string; name: string; page: string | null; pinned: string | null; interlude: string | null; playing?: boolean; device: { driver: string; ok: boolean; message: string; code?: string; params?: Record<string, string | number>; framesSent: number; lastSentAt: number | null; detected?: { width: number; height: number; rotate?: number }; remote?: RemoteLink }; lastFrameAt: number | null; sleeping: boolean; alert?: string | null; frames?: ScreenFrames; thread?: ScreenThread }[];
   /** Painting in threads: the setting, the cores, the main thread's heap and the whole process' memory. */
   threads?: { mode: 'auto' | 'always' | 'never'; cores: number; heapBytes: number; rssBytes: number };
   /** How busy the main thread is (0–1). */
@@ -318,7 +351,15 @@ export const api = {
   /** How an alert looks on that screen, for a while. */
   testAlert: (screenId: string, level: AlertInfo['level']) => fetch(`/api/screens/${encodeURIComponent(screenId)}/test-alert`, { method: 'POST', headers: H, body: JSON.stringify({ level }) }).then((r) => ok<{ ok: true; alert: AlertInfo }>(r)),
   refreshWidget: (id: string) => fetch(`/api/widgets/${encodeURIComponent(id)}/refresh`, { method: 'POST', headers: H, body: '{}' }).then((r) => ok(r)),
-  discover: (url?: string) => fetch(`/api/devices/discover${url ? `?url=${encodeURIComponent(url)}` : ''}`).then((r) => ok<{ trcc: { key: string; width: number; height: number }[]; usb: { serial: string; key: string; width: number; height: number; rotate?: number; location: string; error?: string }[] }>(r)),
+  discover: (url?: string) => fetch(`/api/devices/discover${url ? `?url=${encodeURIComponent(url)}` : ''}`).then((r) => ok<{ trcc: { key: string; width: number; height: number }[]; usb: { serial: string; key: string; width: number; height: number; rotate?: number; location: string; error?: string }[]; remote?: RemoteFound[] }>(r)),
+  /** Remote screens: the screen shows a code… */
+  pairStart: (uid: string, host?: string) => fetch('/api/remote/pair', { method: 'POST', headers: H, body: JSON.stringify({ uid, ...(host ? { host } : {}) }) }).then((r) => ok<{ pairId: string; ttl: number; screen: { uid: string; id: string; model: string; w: number; h: number; rot: number; fw: string } }>(r)),
+  /** …which is typed here: the key goes into that screen's config (or a new screen's). */
+  pairFinish: (pairId: string, code: string, screenId?: string) => fetch(`/api/remote/pair/${pairId}`, { method: 'POST', headers: H, body: JSON.stringify({ code, ...(screenId ? { screenId } : {}) }) }).then((r) => ok<{ ok: true; screenId: string }>(r)),
+  pairCancel: (pairId: string) => fetch(`/api/remote/pair/${pairId}`, { method: 'DELETE', headers: H }).then((r) => ok(r)),
+  unpairRemote: (screenId: string) => fetch(`/api/screens/${encodeURIComponent(screenId)}/remote/unpair`, { method: 'POST', headers: H }).then((r) => ok<{ ok: true; told: boolean }>(r)),
+  remoteOta: (screenId: string, image: Blob) => fetch(`/api/screens/${encodeURIComponent(screenId)}/remote/ota`, { method: 'POST', headers: { 'x-kiosko': '1', 'content-type': 'application/octet-stream' }, body: image }).then((r) => ok<{ ok: true }>(r)),
+  remoteLogs: (screenId: string) => fetch(`/api/screens/${encodeURIComponent(screenId)}/remote/logs`).then((r) => ok<{ text: string }>(r)),
   logs: () => fetch('/api/logs').then((r) => ok<{ at: number; scope: string; message: string }[]>(r)),
   /** Values a source offers for an option, from its live data (or its demo data before there is any). */
   choices: (source: string, list: string) => fetch(`/api/choices?source=${encodeURIComponent(source)}&list=${encodeURIComponent(list)}`).then((r) => ok<{ choices: { value: string; label?: string; group?: string }[]; from: 'live' | 'demo' | 'none'; error?: string }>(r)),

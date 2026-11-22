@@ -284,6 +284,15 @@ export async function boot(): Promise<void> {
   api.logs().then((l) => (logs.value = l)).catch(() => undefined);
 }
 
+/** Takes the config the server has now (it changed it itself: a remote screen paired), when nothing is pending here. */
+export async function followServerConfig(): Promise<void> {
+  if (saving.value === 'pending' || saving.value === 'saving') return;
+  const st = await api.state();
+  rev = st.rev;
+  app.value = st;
+  config.value = st.config;
+}
+
 /** Reloads the catalogue (after enabling a plugin), keeping local edits. */
 export async function reloadState(): Promise<void> {
   const s = await api.state();

@@ -17,6 +17,7 @@ import { app, commit, config, edit, go, lastFrame, notify, pageId, screenId, toa
 import { InstallDialog, loadStore, store, where } from '../views/Store.tsx';
 import { appIcon, textIn } from '../../store-kit/render.ts';
 import { DemoFrame } from '../demo/ui.tsx';
+import { PairBox } from '../views/Remote.tsx';
 import {
   CURRENT,
   STARTER,
@@ -28,6 +29,7 @@ import {
   canGoOn,
   freshState,
   fromModel,
+  fromRemote,
   fromStarter,
   fromTrcc,
   fromUsb,
@@ -318,6 +320,43 @@ async function detect(): Promise<void> {
   }
 }
 
+/**
+ * A remote screen heard on the LAN: it joins once paired (pairing puts it in
+ * the config, key and all; the wizard then sets it up like the others).
+ */
+function RemoteChoice({ r, chosen, onPaired }: { r: NonNullable<Found['remote']>[number]; chosen: boolean; onPaired: (s: import('@kiosko/core/model').Screen) => void }) {
+  const [pairing, setPairing] = useState(false);
+  const cfg = config.value!;
+  const there = cfg.screens.find((x) => x.device.driver === 'remote' && x.device.uid === r.uid && !!x.device.key);
+  return (
+    <li>
+      <div class={`wiz-found-item ${chosen || there ? 'on' : ''}`}>
+        <Icon name="wifi" size={18} />
+        <span class="wiz-found-text">
+          <b>{r.id}</b>
+          <small class="muted">
+            {r.width}×{r.height} · {tr('wiz.remote')} · {r.model}
+            {there ? ` · ${t('wiz.already', { name: there.name })}` : ''}
+          </small>
+          {!there && !pairing && <small class="muted">{tr('wiz.remotePair')}</small>}
+        </span>
+        {!there && !pairing && (
+          <button class="btn small primary" onClick={() => setPairing(true)}>
+            {tr('remote.pair')}
+          </button>
+        )}
+      </div>
+      {pairing && (
+        <PairBox uid={r.uid} name={r.id} onCancel={() => setPairing(false)} onDone={(id) => {
+          setPairing(false);
+          const sc = config.value?.screens.find((x) => x.id === id);
+          if (sc) onPaired(sc);
+        }} />
+      )}
+    </li>
+  );
+}
+
 /** A model's name for a size, else its size. */
 function modelName(w: number, h: number): string {
   return presetOf(app.value?.presets ?? [], w, h)?.name ?? `${w}×${h}`;
@@ -331,7 +370,7 @@ function Panels() {
   const [model, setModel] = useState(presets[0]?.id ?? '');
   // Looked for at once the first time, unless panels are already connected (detecting opens them).
   useEffect(() => {
-    if (!found.value && !cfg.screens.some((x) => x.device.driver === 'usb' || x.device.driver === 'trcc')) void detect();
+    if (!found.value && !cfg.screens.some((x) => x.device.driver === 'usb' || x.device.driver === 'trcc' || x.device.driver === 'remote')) void detect();
   }, []);
   const taken = () => state.value.panels.map((p) => p.name);
   const add = (p: PanelChoice) => set((x) => ({ ...x, panels: [...x.panels.filter((y) => y.id !== p.id && !(p.from === 'try' && y.from === 'try')), p] }));
@@ -339,7 +378,8 @@ function Panels() {
   const update = (id: string, fn: (p: PanelChoice) => PanelChoice) => set((x) => ({ ...x, panels: x.panels.map((y) => (y.id === id ? fn(y) : y)) }));
   const f = found.value;
   const list = f ? [...f.usb.map((u) => fromUsb(u, uniqueName(modelName(u.width || 1920, u.height || 462), taken()))), ...f.trcc.map((x) => fromTrcc(x, TRCC_URL, uniqueName(modelName(x.width, x.height), taken())))] : [];
-  const none = f && !list.length;
+  const remote = f?.remote ?? [];
+  const none = f && !list.length && !remote.length;
   const errors = f?.usb.filter((u) => u.error) ?? [];
   return (
     <>
@@ -349,7 +389,7 @@ function Panels() {
           <Icon name={detecting.value ? 'loader' : 'radar'} size={16} class={detecting.value ? 'spin' : ''} /> {f ? tr('wiz.detectAgain') : tr('screens.detect')}
         </button>
         <span class="muted small" role="status" aria-live="polite">
-          {detecting.value ? tr('wiz.detecting') : f ? (list.length ? t('wiz.foundN', { n: list.length }) : tr('wiz.foundNone')) : ''}
+          {detecting.value ? tr('wiz.detecting') : f ? (list.length + remote.length ? t('wiz.foundN', { n: list.length + remote.length }) : tr('wiz.foundNone')) : ''}
           {KIOSKO_DEMO && f ? ` · ${tr('wiz.simulated')}` : ''}
         </span>
       </div>
@@ -379,6 +419,13 @@ function Panels() {
           })}
         </ul>
       )}
+      {remote.length > 0 && (
+        <ul class="wiz-found">
+          {remote.map((r) => (
+            <RemoteChoice r={r} chosen={s.panels.some((x) => x.device.driver === 'remote' && x.device.uid === r.uid)} onPaired={(sc) => (addsTo(config.value!) ? undefined : add(fromRemote(sc)))} />
+          ))}
+        </ul>
+      )}
       {s.panels.length > 0 && (
         <section class="wiz-chosen" aria-label={tr('wiz.yourPanels')}>
           <h3>{tr('wiz.yourPanels')}</h3>
@@ -398,7 +445,7 @@ function Panels() {
                 ))}
               </div>
               <small class="muted wiz-size">
-                {pictureOf(p).width}×{pictureOf(p).height} · {p.from === 'usb' || p.from === 'trcc' ? tr('wiz.connected') : tr('wiz.virtual')}
+                {pictureOf(p).width}×{pictureOf(p).height} · {p.from === 'usb' || p.from === 'trcc' || p.from === 'remote' ? tr('wiz.connected') : tr('wiz.virtual')}
               </small>
               <button class="icon-btn" title={tr('wiz.remove')} aria-label={`${tr('wiz.remove')}: ${p.name}`} onClick={() => remove(p.id)}>
                 <Icon name="x" size={15} />
