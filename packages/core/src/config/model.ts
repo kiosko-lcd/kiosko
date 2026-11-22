@@ -253,6 +253,16 @@ export interface HomeAssistantLink {
   nodeId: string;
 }
 
+/**
+ * The names the first run gives its screen and page (server/src/starter.ts), in each language Kiosko
+ * speaks (a test checks). They are written before anyone opens the editor, in the system's language;
+ * the editor puts them in its own while nobody has renamed them (web/src/store.ts).
+ */
+export const STARTER_NAMES = {
+  screen: { en: 'My panel', es: 'Mi panel', de: 'Mein Panel', 'zh-Hant': '我的面板', 'zh-Hans': '我的屏幕' } as Record<string, string>,
+  page: { en: 'Home', es: 'Inicio', de: 'Start', 'zh-Hant': '首頁', 'zh-Hans': '首页' } as Record<string, string>,
+};
+
 let counter = 0;
 /** Short unique id. Not crypto: only needs to be unique inside one config. */
 export function newId(prefix = 'id'): string {

@@ -254,14 +254,27 @@ export function startServer(o: ServerOptions) {
 
   const allowedHosts = new Set([`127.0.0.1:${o.port}`, `localhost:${o.port}`, `[::1]:${o.port}`, `${o.host}:${o.port}`]);
 
-  function state() {
+  /**
+   * The language the editor speaks to whoever asks: the config's, or with "auto" their browser's (its
+   * first Accept-Language, which is the browser's language: web/src/store.ts `locale` takes the same).
+   * The catalogue (the library's widget names, the plugins' descriptions, the choices of an option) is
+   * text of the editor, so it comes in this language; the panel and what it paints go by resolveLocale.
+   */
+  function uiLocale(req: IncomingMessage | undefined): string {
+    const l = runtime.config.locale;
+    if (l && l !== 'auto') return l;
+    const first = String(req?.headers['accept-language'] ?? '').split(',')[0]?.split(';')[0]?.trim();
+    return first && first !== '*' ? first : resolveLocale(runtime.config);
+  }
+
+  function state(req?: IncomingMessage) {
     const locale = resolveLocale(runtime.config);
     return {
       version: o.version,
       rev,
       locale,
       config: runtime.config,
-      catalog: runtime.registry.catalog(locale),
+      catalog: runtime.registry.catalog(uiLocale(req)),
       refused: runtime.registry.refused,
       updates: updates && { checkedAt: updates.checkedAt, plugins: updates.plugins, kiosko: updates.kiosko ?? null },
       kioskoUpdate: kioskoUpdateState(),
@@ -287,7 +300,7 @@ export function startServer(o: ServerOptions) {
     const m = req.method ?? 'GET';
     if (m !== 'GET' && req.headers['x-kiosko'] !== '1') return json(res, 403, { error: 'missing X-Kiosko header' });
 
-    if (p === '/api/state' && m === 'GET') return json(res, 200, state());
+    if (p === '/api/state' && m === 'GET') return json(res, 200, state(req));
 
     if (p === '/api/config' && m === 'PUT') {
       const b = (await body(req)) as { config?: unknown; baseRev?: number };
@@ -456,7 +469,7 @@ export function startServer(o: ServerOptions) {
     if (p === '/api/choices' && m === 'GET') {
       const source = url.searchParams.get('source') ?? '';
       const list = url.searchParams.get('list') ?? '';
-      return json(res, 200, runtime.registry.choices(source, list, runtime.hub.data(source), resolveLocale(runtime.config)));
+      return json(res, 200, runtime.registry.choices(source, list, runtime.hub.data(source), uiLocale(req)));
     }
 
     if (p === '/api/plugins/install' && m === 'POST') {
@@ -468,7 +481,7 @@ export function startServer(o: ServerOptions) {
         if (r.restart) restartNeeded = true;
         rev++;
         send('config', { rev, by: null });
-        return json(res, 200, { ok: true, output: r.output, ids: r.ids, problem: r.problem ?? null, rolledBack: !!r.rolledBack, addedPermissions: r.addedPermissions ?? null, restartNeeded, state: state() });
+        return json(res, 200, { ok: true, output: r.output, ids: r.ids, problem: r.problem ?? null, rolledBack: !!r.rolledBack, addedPermissions: r.addedPermissions ?? null, restartNeeded, state: state(req) });
       } catch (err) {
         return json(res, /valid npm/.test(String(err)) ? 400 : 500, { error: err instanceof Error ? err.message : String(err) });
       }
@@ -516,7 +529,7 @@ export function startServer(o: ServerOptions) {
         rev++;
         send('config', { rev, by: null });
         const problem = results.map((r) => r.problem).filter(Boolean).join('; ') || null;
-        return json(res, 200, { ok: !problem, ids: results.flatMap((r) => r.ids), problem, rolledBack: results.some((r) => r.rolledBack), addedPermissions: results.at(-1)?.addedPermissions ?? null, version: release.version, restartNeeded, state: state() });
+        return json(res, 200, { ok: !problem, ids: results.flatMap((r) => r.ids), problem, rolledBack: results.some((r) => r.rolledBack), addedPermissions: results.at(-1)?.addedPermissions ?? null, version: release.version, restartNeeded, state: state(req) });
       } catch (err) {
         return json(res, err instanceof IntegrityError ? 409 : 500, { error: err instanceof Error ? err.message : String(err), ...(err instanceof IntegrityError ? { code: 'integrity', params: { id } } : {}) });
       }
@@ -530,7 +543,7 @@ export function startServer(o: ServerOptions) {
         if (!r.removed) return json(res, 409, { error: `can't remove "${id}": ${r.reason}`, code: 'cantRemove', params: { id, why: r.reason } });
         rev++;
         send('config', { rev, by: null });
-        return json(res, 200, state());
+        return json(res, 200, state(req));
       } catch (err) {
         return json(res, 500, { error: err instanceof Error ? err.message : String(err) });
       }
@@ -559,7 +572,7 @@ export function startServer(o: ServerOptions) {
         if (r.restart) restartNeeded = true;
         rev++;
         send('config', { rev, by: null });
-        return json(res, 200, { ok: !r.problem, ids: r.ids, problem: r.problem ?? null, rolledBack: !!r.rolledBack, addedPermissions: r.addedPermissions ?? null, version: u.version, state: state() });
+        return json(res, 200, { ok: !r.problem, ids: r.ids, problem: r.problem ?? null, rolledBack: !!r.rolledBack, addedPermissions: r.addedPermissions ?? null, version: u.version, state: state(req) });
       } catch (err) {
         return json(res, 500, { error: err instanceof Error ? err.message : String(err) });
       }
@@ -572,7 +585,7 @@ export function startServer(o: ServerOptions) {
       if (problem) return json(res, 409, { error: problem, code: 'reloadFailed', params: { id, why: problem } });
       rev++;
       send('config', { rev, by: null });
-      return json(res, 200, state());
+      return json(res, 200, state(req));
     }
 
     mm = /^\/api\/plugins\/([^/]+)\/enabled$/.exec(p);
@@ -587,7 +600,7 @@ export function startServer(o: ServerOptions) {
       rev++;
       runtime.apply(cfg);
       send('config', { rev, by: null });
-      return json(res, 200, state());
+      return json(res, 200, state(req));
     }
 
     if (p === '/api/screens/export' && m === 'GET') {

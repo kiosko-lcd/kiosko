@@ -4,8 +4,8 @@
  * the server shortly after (debounced), so there's no "Save" button to forget.
  */
 import { batch, computed, signal } from '@preact/signals';
-import { localize } from '@kiosko/sdk/i18n';
-import type { Config, Page, Screen, Tile, WidgetInstance } from '@kiosko/core/model';
+import { localize, pickLocale } from '@kiosko/sdk/i18n';
+import { STARTER_NAMES, type Config, type Page, type Screen, type Tile, type WidgetInstance } from '@kiosko/core/model';
 import { CLIENT_ID, api, connectEvents, type AlertInfo, type AppState, type FrameEvent, type KioskoUpdateStatus, type PluginInfo, type Status, type WidgetInfo } from './api.ts';
 
 export type View = 'editor' | 'screens' | 'plugins' | 'play' | 'settings' | 'logs';
@@ -202,6 +202,30 @@ export function draftTile(d: Config, tid = selectedTile.value): Tile | undefined
 
 // ---------- Boot ----------
 
+/**
+ * The first run names its screen and page in the system's language (server/src/starter.ts), before
+ * anyone opens the editor; they are the editor's labels (the panel never paints them), so they are
+ * put in the editor's language, as long as nobody renamed them. Only a name that is exactly the
+ * starter's in the system's language changes: another browser in another language leaves it be.
+ */
+function starterNamesInUiLanguage(): void {
+  const cfg = config.value;
+  const langs = Object.keys(STARTER_NAMES.page);
+  const from = pickLocale(langs, app.value?.locale ?? 'en');
+  const to = pickLocale(langs, locale.value) ?? 'en';
+  if (!cfg || !from || from === to) return;
+  const renamed = (name: string, names: Record<string, string>) => (name === names[from] ? (names[to] ?? name) : name);
+  const draft = JSON.parse(JSON.stringify(cfg)) as Config;
+  for (const sc of draft.screens) {
+    sc.name = renamed(sc.name, STARTER_NAMES.screen);
+    for (const pg of sc.pages) pg.name = renamed(pg.name, STARTER_NAMES.page);
+  }
+  if (JSON.stringify(draft) === JSON.stringify(cfg)) return;
+  // Not an edit of theirs: nothing to undo.
+  config.value = draft;
+  scheduleSave();
+}
+
 export async function boot(): Promise<void> {
   document.documentElement.dataset.theme = uiTheme.value;
   addEventListener('hashchange', () => {
@@ -220,6 +244,7 @@ export async function boot(): Promise<void> {
     screenId.value = s.config.screens[0]?.id ?? null;
     pageId.value = s.config.screens[0]?.pages[0]?.id ?? null;
   });
+  starterNamesInUiLanguage();
   connectEvents({
     config: (e) => {
       if (e.by === CLIENT_ID || e.rev <= rev) return;

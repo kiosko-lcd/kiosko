@@ -15,7 +15,7 @@ import { lintPlugin } from '@kiosko/core';
 import corePlugin from '../../../plugins/core/src/index.ts';
 import legacyPlugin from '../../../plugins/legacy/src/index.ts';
 import { DICTIONARIES } from '../src/lang/index.ts';
-import { SAMPLE_PAGE_NAMES } from '@kiosko/core';
+import { SAMPLE_PAGE_NAMES, STARTER_NAMES } from '@kiosko/core';
 import { i18nGaps } from '../../../scripts/i18n-gaps.ts';
 import { TEXTS as DEMO } from '../src/demo/texts.ts';
 import { TEXTS as PANEL3D } from '../panel3d/texts.ts';
@@ -64,6 +64,7 @@ test('the sample config, the installer and the editor’s week have every langua
   const missing: string[] = [];
   for (const id of ids) {
     for (const [page, names] of Object.entries(SAMPLE_PAGE_NAMES)) if (!names[id]) missing.push(`packages/core/src/config/sample.ts: PAGE_NAMES['${page}']['${id}']`);
+    for (const [what, names] of Object.entries(STARTER_NAMES)) if (!names[id]) missing.push(`packages/core/src/config/model.ts: STARTER_NAMES.${what}['${id}']`);
     const notes = id === 'en' ? 'notes.txt' : `notes.${id}.txt`;
     if (!existsSync(join(root, 'installer', notes))) missing.push(`installer/${notes} (UTF-8 with BOM)`);
     if (!new RegExp(`InfoAfterFile:\\s*"${notes.replace(/\./g, '\\.')}"`).test(readFileSync(join(root, 'installer/kiosko.iss'), 'utf8'))) missing.push(`installer/kiosko.iss: a [Languages] entry with InfoAfterFile: "${notes}"`);

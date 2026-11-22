@@ -14,6 +14,8 @@ export function Screens() {
   const cfg = config.value!;
   const add = (preset?: { width: number; height: number; name: string; device?: DeviceConfig; rotate?: number }) => {
     const s = newScreen(preset?.name ?? 'Panel', preset?.width ?? 1920, preset?.height ?? 462, preset?.device);
+    // Its first page, named as the editor names a new one (newScreen's is English).
+    s.pages[0]!.name = `${tr('inspector.page')} 1`;
     // The angle the panel's firmware asks for: at it, the panel is upright and the picture is the size it reports.
     if (preset?.rotate === 90 || preset?.rotate === 180 || preset?.rotate === 270) s.rotate = preset.rotate;
     edit((d) => d.screens.push(s));
