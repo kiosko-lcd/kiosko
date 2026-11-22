@@ -4,13 +4,13 @@
  * widgets whose plugin is present are used.
  */
 import { LANGUAGE_IDS, languageById, localize, pickLocale, type Localized } from '@kiosko/sdk';
-import { newPage, newScreen, newTile, newWidget, normalize, rescale, suggestGrid, transposePage, type Config, type Registry, type Tile } from '@kiosko/core';
+import { STARTER_NAMES, newPage, newScreen, newTile, newWidget, normalize, rescale, suggestGrid, transposePage, type Config, type Registry, type Tile } from '@kiosko/core';
 
 export function starterConfig(registry: Registry, o: { width?: number; height?: number; locale?: string } = {}): Config {
   const width = o.width ?? 1920;
   const height = o.height ?? 462;
   const L = (t: Localized) => localize(t, o.locale ?? 'en');
-  const screen = newScreen(L({ en: 'My panel', es: 'Mi panel', de: 'Mein Panel', 'zh-Hant': '我的面板', 'zh-Hans': '我的屏幕' }), width, height);
+  const screen = newScreen(L(STARTER_NAMES.screen as Localized), width, height);
   // Where the language is read, the services some plugins need may not be offered (mainland China:
   // no Claude nor Gemini, languages.ts): the first page leaves out the plugins not offered there and
   // the widgets that have a stand-in there (Claude's usage bar), and shows what works with nothing to
@@ -18,7 +18,7 @@ export function starterConfig(registry: Registry, o: { width?: number; height?: 
   const market = languageById(pickLocale(LANGUAGE_IDS, o.locale ?? 'en') ?? 'en')?.plugins;
   const offered = (t: string) => !market?.without.includes(t.split('/')[0]!) && !market?.instead[t];
   const has = (t: string) => offered(t) && !!registry.widget(t);
-  const page = newPage(L({ en: 'Home', es: 'Inicio', de: 'Start', 'zh-Hant': '首頁', 'zh-Hans': '首页' }), width, height);
+  const page = newPage(L(STARTER_NAMES.page as Localized), width, height);
   page.grid = { cols: 24, rows: 6, gap: 10, padding: 10 };
   page.gravity = 'left';
   const tiles: Tile[] = [];

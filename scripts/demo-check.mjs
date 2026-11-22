@@ -692,8 +692,8 @@ async function storePages(browser, name) {
   await page.goto(`${home}es/store/`);
   const list = await page.evaluate(async () => {
     const index = await (await fetch('../../store/v1/index.json')).json();
-    const cards = [...document.querySelectorAll('article.card')];
-    const pictures = [...document.querySelectorAll('article.card img')];
+    const cards = [...document.querySelectorAll('article.ks-card')];
+    const pictures = [...document.querySelectorAll('article.ks-card img')];
     // They load lazily: brought into view one by one, as a visitor scrolling would (a lazy picture far away never decodes).
     for (const i of pictures) {
       i.scrollIntoView({ block: 'center' });
@@ -705,11 +705,11 @@ async function storePages(browser, name) {
   check(`${name} store: a card for every plugin, with its picture`, list.cards > 0 && list.cards === list.offered && list.broken.length === 0, `${list.cards} cards of ${list.offered}${list.broken.length ? `, broken: ${list.broken.slice(0, 3).join(', ')}` : ''}`);
   await page.fill('input.search', 'tiempo');
   await page.waitForTimeout(200);
-  const searched = await page.evaluate(() => ({ shown: [...document.querySelectorAll('article.card')].filter((c) => !c.hidden).map((c) => c.dataset.id), url: location.search }));
+  const searched = await page.evaluate(() => ({ shown: [...document.querySelectorAll('article.ks-card')].filter((c) => !c.hidden).map((c) => c.dataset.id), url: location.search }));
   check(`${name} store: search filters the cards and keeps it in the address`, searched.shown.includes('weather') && searched.shown.length < list.cards && searched.url.includes('q=tiempo'), JSON.stringify(searched));
   await page.fill('input.search', '');
   await page.selectOption('select[name="panel"]', 'class:portrait');
-  const portrait = await page.evaluate(() => [...document.querySelectorAll('article.card')].filter((c) => !c.hidden).length);
+  const portrait = await page.evaluate(() => [...document.querySelectorAll('article.ks-card')].filter((c) => !c.hidden).length);
   check(`${name} store: the panel filter`, portrait > 0 && portrait <= list.cards, `${portrait} for portrait panels`);
   await shot(page, `store-${name}.jpg`);
   await page.goto(`${home}es/store/weather/`);
@@ -723,11 +723,43 @@ async function storePages(browser, name) {
       i.scrollIntoView({ block: 'center' });
       await i.decode?.().catch(() => undefined);
     }
-    return { open: document.querySelector('.install a.button')?.getAttribute('href'), missing, broken: imgs.filter((i) => !i.naturalWidth).length, h1: document.querySelector('h1')?.textContent };
+    return { open: document.querySelector('.ks-install a.ks-button')?.getAttribute('href'), missing, broken: imgs.filter((i) => !i.naturalWidth).length, h1: document.querySelector('h1')?.textContent };
   });
   check(`${name} store: a plugin's page, "Open in Kiosko" and its links`, sheet.open === 'http://127.0.0.1:7420/#/plugins/store/weather' && sheet.missing.length === 0 && sheet.broken === 0, JSON.stringify(sheet));
   await shot(page, `store-weather-${name}.jpg`);
   check(`${name} store: no errors`, errors.length === 0, errors.slice(0, 3).join(' | '));
+  await ctx.close();
+}
+
+/**
+ * The editor's store (views/Store.tsx), drawn by the same parts as the site's (packages/web/store-kit):
+ * its cards with this Kiosko's state under them, the picked ones, a plugin's page with its pictures,
+ * and its category leading back to the list showing that category.
+ */
+async function editorStore(browser, name) {
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 }, deviceScaleFactor: 1 });
+  const page = await ctx.newPage();
+  const errors = watchErrors(page);
+  await page.goto(`${base}?lang=es#/plugins/store`);
+  await page.waitForSelector('.store-view article.ks-card');
+  const list = await page.evaluate(() => ({
+    cards: document.querySelectorAll('.store-view .ks-cards article.ks-card').length,
+    feet: document.querySelectorAll('.store-view article.ks-card .ks-card-foot').length,
+    featured: document.querySelectorAll('.store-view .ks-features .ks-feature').length,
+    pictures: document.querySelectorAll('.store-view article.ks-card .ks-bezel img').length,
+  }));
+  check(`${name} editor store: the site's cards, with this Kiosko's state under each, and the picked ones`, list.cards > 0 && list.feet === list.cards && list.featured === 3 && list.pictures > 0, JSON.stringify(list));
+  await shot(page, `editor-store-${name}.jpg`);
+  await page.click('.store-view .ks-cards article.ks-card[data-id="weather"] .ks-card-link');
+  await page.waitForSelector('.ks-plugin-page h1');
+  const sheet = await page.evaluate(() => ({ h1: document.querySelector('.ks-plugin-page h1')?.textContent, action: !!document.querySelector('.ks-install :is(button, .ks-state)'), crumb: document.querySelector('.ks-crumbs a:last-child')?.getAttribute('href') }));
+  check(`${name} editor store: a plugin's page, with this Kiosko's action`, sheet.h1 === 'El tiempo' && sheet.action && /^#\/plugins\/store\?cat=/.test(sheet.crumb ?? ''), JSON.stringify(sheet));
+  await shot(page, `editor-store-weather-${name}.jpg`);
+  await page.click('.ks-crumbs a:last-child');
+  await page.waitForSelector('.store-view .ks-chip[aria-pressed="true"]');
+  const cat = await page.evaluate(() => ({ chip: document.querySelector('.store-view .ks-chip[aria-pressed="true"]')?.getAttribute('data-cat'), cards: document.querySelectorAll('.store-view .ks-cards article.ks-card').length }));
+  check(`${name} editor store: a page's category leads to the list showing it`, !!cat.chip && cat.cards > 0 && cat.cards < list.cards, JSON.stringify(cat));
+  check(`${name} editor store: no errors`, errors.length === 0, errors.slice(0, 3).join(' | '));
   await ctx.close();
 }
 
@@ -739,6 +771,7 @@ try {
       if (name === 'chromium') {
         await fullCheck(browser);
         await pageLanguage(browser);
+        await editorStore(browser, name);
         if (measure) {
           for (const [label, q] of [['worker', ''], ['page', '?render=page']]) {
             const m = await longTasks(browser, q);

@@ -1,4 +1,5 @@
 /* Kiosko editor. Dark first, light as an option; system fonts on every OS. */
+@import '../store-kit/kit.css';
 :root {
   --bg: #0a0d13;
   --bg-2: #0e121a;
@@ -36,6 +37,8 @@
   --text-2: #475569;
   --text-3: #8a94a6;
   --accent-soft: rgba(139, 92, 246, 0.12);
+  /* The cyan of the dark theme is 1.8:1 on white: links and icons take a deeper one (5:1). */
+  --accent-2: #0e7490;
   --shadow: 0 10px 30px -14px rgba(15, 23, 42, 0.25), 0 2px 6px -2px rgba(15, 23, 42, 0.08);
   color-scheme: light;
 }
@@ -70,7 +73,7 @@ a { color: var(--accent-2); }
 .screen-tab small { color: var(--text-3); font-weight: 450; }
 .screen-tab.on { border-color: transparent; background: var(--accent-soft); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 55%, transparent); }
 .rail { grid-row: 2; display: flex; flex-direction: column; gap: 4px; padding: 10px 8px; border-right: 1px solid var(--line); background: var(--bg-2); }
-.rail-btn { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 10px 2px 8px; border: 0; background: none; border-radius: 12px; color: var(--text-3); cursor: pointer; font-size: 10.5px; font-weight: 600; letter-spacing: 0.01em; transition: background 0.15s, color 0.15s; }
+.rail-btn { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 10px 2px 8px; max-width: 100%; text-align: center; line-height: 1.15; overflow-wrap: break-word; hyphens: auto; border: 0; background: none; border-radius: 12px; color: var(--text-3); cursor: pointer; font-size: 10.5px; font-weight: 600; letter-spacing: 0.01em; transition: background 0.15s, color 0.15s; }
 .rail-btn:hover { color: var(--text); background: var(--panel); }
 .rail-btn.on { color: var(--text); background: var(--accent-soft); }
 .rail-btn.on .icon { color: var(--accent); }
@@ -311,7 +314,9 @@ select.input { cursor: pointer; }
 .plugin-meta > * { display: inline-flex; gap: 4px; align-items: center; }
 .plugin-meta a { color: var(--text-2); }
 .plugin-perms { display: flex; flex-wrap: wrap; gap: 6px; }
-.perm-chip { display: inline-flex; gap: 4px; align-items: center; font-size: 11.5px; padding: 2px 8px; border-radius: 6px; background: color-mix(in srgb, var(--warn, #f59e0b) 10%, transparent); border: 1px solid color-mix(in srgb, var(--warn, #f59e0b) 30%, transparent); color: var(--text-2); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* What a plugin says it does: stated calmly, as in the store (its icon says the kind); the whole list is in the tooltip. */
+.perm-chip { display: inline-block; font-size: 11.5px; padding: 2px 8px; border-radius: 6px; background: var(--panel-2); border: 1px solid var(--line-2); color: var(--text-2); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.perm-chip .icon { color: var(--accent-2); margin-right: 2px; }
 .plugin-needs { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-2); }
 .plugin-needs > .icon { color: var(--warn, #f59e0b); }
 .plugin-actions { display: flex; gap: 6px; justify-content: flex-end; margin-top: auto; }
@@ -414,7 +419,9 @@ span.day { display: inline-grid; place-items: center; cursor: default; flex: non
 .card-head .title-input { flex: 1; min-width: 160px; width: auto; }
 .plugin-card .card-head { flex-wrap: nowrap; }
 .plugin-title { min-width: 0; }
-.plugin-title b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+.plugin-title b { display: block; overflow-wrap: break-word; hyphens: auto; line-height: 1.25; }
+.plugin-title small { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; margin-top: 2px; }
+.plugin-title small .pill { margin-left: 0; }
 
 /* Page filmstrip */
 .pages-bar { align-items: flex-end; }
@@ -585,94 +592,60 @@ html:lang(zh) :is(.lib-hint, .field-help) { font-size: 12.5px; line-height: 1.5;
 .good { color: var(--ok); }
 .warn { color: var(--warn); }
 .bad { color: var(--bad); }
-.pill.warn-pill { background: color-mix(in srgb, var(--warn) 18%, transparent); border-color: transparent; color: var(--warn); }
-.store-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 8px; }
-.store-bar input[type='search'] { flex: 1 1 260px; }
-.store-bar select { flex: 0 1 220px; }
 label.check { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-2); cursor: pointer; }
-.store-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-bottom: 12px; }
-.store-meta span { display: inline-flex; align-items: center; gap: 5px; }
-.store-list { display: grid; gap: 10px; }
-.store-row { display: grid; grid-template-columns: 220px minmax(0, 1fr) auto; gap: 18px; align-items: center; margin: 0; padding: 10px 16px 10px 10px; cursor: pointer; transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s; }
-.store-row:hover { border-color: color-mix(in srgb, var(--accent) 40%, transparent); transform: translateY(-1px); box-shadow: var(--shadow), 0 10px 30px -14px rgba(139, 92, 246, 0.45); }
-.store-cats { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 10px; }
-.store-cats .chip { font-size: 12.5px; padding: 5px 12px; }
-.store-cats .chip.on { background: var(--grad); color: #fff; }
-/* A plugin's picture on a little screen, as on the site's cards. */
-.store-screen { display: grid; place-items: center; height: 112px; border-radius: 10px; padding: 10px; background: radial-gradient(80% 90% at 50% 55%, rgba(139, 92, 246, 0.22), transparent 75%), #07090e; overflow: hidden; }
-.store-bezel { display: block; max-width: 100%; padding: 3px; border-radius: 6px; background: linear-gradient(180deg, #2a303d, #141820); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 8px 20px rgba(0, 0, 0, 0.5); transition: transform 0.3s; }
-.store-row:hover .store-bezel { transform: scale(1.04); }
-.store-bezel img { display: block; max-width: 100%; max-height: 86px; width: auto; height: auto; border-radius: 3px; background: #000; }
-.store-bezel.sized { width: min(100%, calc(86px * var(--ar) + 6px)); }
-.store-bezel.sized img { width: 100%; max-height: none; aspect-ratio: var(--ar); }
-.store-poster { display: grid; place-items: center; width: 180px; max-width: 100%; aspect-ratio: 1920 / 462; border-radius: 3px; color: #fff; background: radial-gradient(120% 140% at 20% 0%, #5b3fd1, #07080c 70%); }
-.plugin-icon.small { width: 24px; height: 24px; border-radius: 7px; }
-.store-gallery { display: grid; gap: 10px; }
-.store-stage { margin: 0; display: grid; justify-items: center; gap: 12px; padding: clamp(14px, 3vw, 36px); border-radius: var(--radius); border: 1px solid var(--line); background: radial-gradient(60% 70% at 50% 50%, rgba(139, 92, 246, 0.2), transparent 75%), #07090e; }
-.store-stage figcaption { text-align: center; color: #e7ecf4; max-width: 70ch; }
-.store-stage figcaption .muted { color: #a3adbf; }
-.store-slab { display: block; max-width: 100%; padding: 1.2%; border-radius: 9px; background: linear-gradient(180deg, #f1f2f5, #d9dce2); box-shadow: 0 24px 70px rgba(124, 92, 246, 0.25), 0 10px 30px rgba(0, 0, 0, 0.55); }
-.store-slab img, .store-slab video { display: block; max-width: 100%; max-height: min(300px, 42vh); width: auto; height: auto; border: 3px solid #050506; border-radius: 3px; background: #000; animation: store-show 0.3s ease; }
-@keyframes store-show { from { opacity: 0; } }
-.store-thumbs { display: flex; gap: 8px; overflow-x: auto; justify-content: safe center; padding: 2px; }
-.store-thumbs button { flex: none; display: grid; gap: 5px; width: 150px; padding: 6px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); color: var(--text-2); font: 600 12px var(--font); text-align: left; cursor: pointer; }
-.store-thumbs button:hover { color: var(--text); border-color: var(--line-2); }
-.store-thumbs button[aria-pressed='true'] { color: var(--text); border-color: var(--accent); background: var(--accent-soft); }
-.store-thumb { display: grid; place-items: center; height: 60px; border-radius: 6px; background: #000; overflow: hidden; }
-.store-thumb img { max-width: 100%; max-height: 100%; display: block; }
-.store-row.found { border-style: dashed; }
-.store-row-title { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-.store-row-title a { color: var(--text); text-decoration: none; }
-.store-row-title .pill { margin-left: 0; }
-.store-desc { margin: 4px 0 6px; }
-.store-facts { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; }
-.store-facts > span:not(.perm-chip) { display: inline-flex; align-items: center; gap: 4px; }
-.store-row-action { align-self: center; }
-.store-installed { display: inline-flex; align-items: center; gap: 5px; color: var(--ok); font-weight: 600; font-size: 13px; white-space: nowrap; }
-.store-sheet { display: grid; gap: 14px; }
-.store-sheet > .btn { justify-self: start; }
-.store-sheet-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 16px; align-items: start; }
-.store-sheet-head h2 { margin: 0 0 4px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 22px; }
-.store-sheet-head h2 .pill { margin-left: 0; }
-.store-sheet-head p { margin: 2px 0; }
-.plugin-icon.big { width: 56px; height: 56px; border-radius: 16px; }
-.store-sheet h3 { display: flex; align-items: center; gap: 6px; margin: 14px 0 8px; }
-.store-sheet h3:first-child { margin-top: 0; }
-.store-table { width: 100%; border-collapse: collapse; }
-.store-table th, .store-table td { text-align: left; padding: 6px 8px 6px 0; border-bottom: 1px solid var(--line); }
-.store-table thead th { color: var(--text-3); font-weight: 600; }
-.store-table td.mono { color: var(--text-2); white-space: nowrap; }
 ul.plain { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
 ul.plain .pill { margin-left: 6px; }
-.store-facts-list { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 12px 0; }
-.store-facts-list dt { color: var(--text-3); }
-.store-facts-list dd { margin: 0; }
-.store-links { display: flex; flex-wrap: wrap; gap: 6px 14px; }
-.store-links a { display: inline-flex; align-items: center; gap: 4px; }
 .store-dialog { max-width: 560px; width: calc(100vw - 32px); border: 1px solid var(--line-2); border-radius: var(--radius); background: var(--elev); color: var(--text); padding: 20px 22px; box-shadow: var(--shadow); }
 .store-dialog::backdrop { background: rgba(0, 0, 0, 0.55); backdrop-filter: blur(2px); }
-.store-dialog h3 { margin: 0 0 4px; }
 .store-dialog p { margin: 8px 0; }
-.store-perm-list { list-style: none; padding: 10px 12px; margin: 8px 0; display: grid; gap: 6px; border-radius: 10px; background: var(--bg-2); border: 1px solid var(--line); }
-.store-perm-list li { line-height: 1.5; }
-.store-perm-list li .icon { vertical-align: -2px; margin-right: 4px; }
-.store-fit { margin-right: 12px; }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
 .store-dialog .banner label.check { color: var(--text); display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; align-items: start; font-size: 13px; }
 .store-dialog .banner label.check input { margin-top: 3px; }
 .store-dialog .banner label.check b { grid-column: 2; }
-@media (max-width: 700px) {
-  .store-sheet-head { grid-template-columns: auto minmax(0, 1fr); }
-  .store-sheet-action { grid-column: 2; }
-  .store-row { grid-template-columns: minmax(0, 1fr); gap: 10px; padding: 10px; }
-  .store-row-main, .store-row-action { padding: 0 6px; }
-  .store-row-action { justify-self: start; }
-  .store-cats { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
-  .store-cats .chip { flex: none; }
+.store-dialog-head { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 14px; align-items: center; margin-bottom: 6px; }
+.store-dialog h3 { margin: 0 0 2px; font-size: 17px; }
+.store-dialog .ks-perms { margin: 10px 0; padding: 12px; border-radius: 12px; background: var(--bg-2); border: 1px solid var(--line); }
+.store-dialog .ks-note { margin: 8px 0 !important; }
+
+/*
+ * The store: the site's parts (store-kit/kit.css, imported at the top), on the editor's colours.
+ * Only the bar over the list is the editor's own.
+ */
+:root {
+  --ks-bg: var(--bg);
+  --ks-panel: var(--panel);
+  --ks-panel-2: var(--panel-2);
+  --ks-ink: var(--text);
+  --ks-dim: var(--text-2);
+  --ks-faint: var(--text-3);
+  --ks-line: var(--line-2);
+  --ks-line-2: color-mix(in srgb, var(--text) 22%, transparent);
+  --ks-hover: var(--elev);
+  --ks-shadow: var(--shadow);
 }
-@media (prefers-reduced-motion: reduce) {
-  .store-row, .store-bezel, .store-slab img, .store-slab video { transition: none; animation: none; }
-  .store-row:hover { transform: none; }
+:root[data-theme='light'] {
+  --ks-ok-ink: #047857;
+  --ks-warn: #b45309;
+  --ks-warn-ink: #92400e;
+  --ks-bad: #b91c1c;
+  --ks-accent-2: #0e7490;
+}
+.store-view, .store-sheet { display: grid; gap: 18px; }
+.store-tools { display: grid; gap: 12px; }
+.store-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; font-size: 13px; }
+.store-meta > span { display: inline-flex; align-items: center; gap: 5px; }
+.store-stale { color: var(--warn); }
+.store-section > h2, .store-section-head h2 { margin: 0; font-size: 20px; letter-spacing: -0.01em; }
+.store-section > h2 { margin-bottom: 12px; }
+.store-section-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin-bottom: 12px; }
+.store-view .ks-cards { grid-template-columns: repeat(auto-fill, minmax(min(330px, 100%), 1fr)); }
+.field-hint { margin: 4px 0 0; }
+.store-loading { display: flex; align-items: center; gap: 8px; padding: 40px 0; justify-content: center; }
+.ks-plugin-page h1 { margin: 0; }
+@media (max-width: 720px) {
+  .store-cats { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 calc(-1 * clamp(16px, 4vw, 44px)); padding: 2px clamp(16px, 4vw, 44px); }
+  .store-cats::-webkit-scrollbar { display: none; }
+  .store-cats .ks-chip { flex: none; }
 }
 
 /* A newer Kiosko: the notice in the top bar, the card in Plugins → Updates, the update dialog. */

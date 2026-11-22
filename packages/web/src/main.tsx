@@ -166,6 +166,8 @@ effect(() => {
   document.documentElement.dir = UI_LANGUAGES.find((l) => l.id === lang)?.dir ?? 'ltr';
 });
 
+// The store's parts (store-kit) show what needs a script only on `html.js`, as on the site.
+document.documentElement.classList.add('js');
 render(<App />, document.getElementById('app')!);
 boot()
   .then(() => {

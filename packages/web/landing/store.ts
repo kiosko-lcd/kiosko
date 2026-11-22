@@ -6,6 +6,8 @@
  * copies the install command; interludes' clips play while they are on
  * screen. Nothing is sent anywhere.
  */
+import { wireStore } from '../store-kit/client.ts';
+
 const texts = JSON.parse(document.getElementById('store-texts')?.textContent ?? '{}') as Record<string, string>;
 const lang = texts.lang ?? document.documentElement.lang;
 
@@ -17,15 +19,15 @@ function shown(n: number): string {
 type Field = HTMLInputElement | HTMLSelectElement | RadioNodeList;
 
 const form = document.querySelector<HTMLFormElement>('form.filters');
-const box = document.querySelector<HTMLElement>('.browse .cards');
+const box = document.querySelector<HTMLElement>('.browse .ks-cards');
 
 if (form && box) {
-  const cards = [...box.querySelectorAll<HTMLElement>('article.card')];
+  const cards = [...box.querySelectorAll<HTMLElement>('article.ks-card')];
   const featured = new Map(cards.map((c, i) => [c, i]));
   // The sort is outside the form (over the results), joined to it by its `form` attribute: still one of its elements.
   const field = <T extends Field>(name: string) => form.elements.namedItem(name) as T | null;
   const names = ['q', 'cat', 'panel', 'orient', 'os', 'lang', 'license', 'tier', 'tag', 'sort'];
-  const empty = document.querySelector<HTMLElement>('.empty');
+  const empty = document.querySelector<HTMLElement>('.ks-empty');
   const clear = document.querySelector<HTMLButtonElement>('.results-bar button.clear');
   const count = document.querySelector<HTMLElement>('.results-bar .count');
 
@@ -87,7 +89,7 @@ if (form && box) {
   const more = form.querySelector<HTMLDetailsElement>('details.more');
   if (more && matchMedia('(max-width: 560px)').matches && ![...params.keys()].some((k) => !['q', 'sort', 'cat'].includes(k))) more.open = false;
   // The chosen category in sight (the chips scroll sideways on a phone).
-  form.querySelector<HTMLInputElement>('fieldset.chips input:checked:not([value=""])')?.closest('label')?.scrollIntoView({ block: 'nearest', inline: 'center' });
+  form.querySelector<HTMLInputElement>('fieldset.ks-chips input:checked:not([value=""])')?.closest('label')?.scrollIntoView({ block: 'nearest', inline: 'center' });
   // Inputs outside the form (the sort) say so through `form`; one listener for both.
   const changed = (e: Event) => {
     if ((e.target as HTMLInputElement).form === form) apply();
@@ -111,58 +113,5 @@ if (form && box) {
   apply();
 }
 
-// A plugin's page: a thumbnail brings its picture onto the big panel.
-const thumbs = [...document.querySelectorAll<HTMLButtonElement>('.thumbs button[data-shot]')];
-for (const b of thumbs) {
-  b.addEventListener('click', () => {
-    for (const x of thumbs) x.setAttribute('aria-pressed', String(x === b));
-    for (const f of document.querySelectorAll<HTMLElement>('.stage-panel figure')) f.classList.toggle('on', f.id === `shot-${b.dataset.shot}`);
-  });
-}
-
-// Its pictures in another language.
-const pick = document.querySelector<HTMLSelectElement>('select.shot-lang');
-pick?.addEventListener('change', () => {
-  for (const img of document.querySelectorAll<HTMLImageElement>('img[data-shots]')) {
-    const shots = JSON.parse(img.dataset.shots ?? '{}') as Record<string, string>;
-    img.src = shots[pick.value] ?? shots.en ?? img.src;
-  }
-});
-
-// The install command, copied.
-for (const b of document.querySelectorAll<HTMLButtonElement>('button.copy[data-copy]')) {
-  const label = b.querySelector('span');
-  const idle = label?.textContent ?? '';
-  b.addEventListener('click', async () => {
-    try {
-      await navigator.clipboard.writeText(b.dataset.copy ?? '');
-    } catch {
-      // No clipboard (an old browser, a page not served over HTTPS): select the command instead.
-      const code = b.parentElement?.querySelector('code');
-      if (code) getSelection()?.selectAllChildren(code);
-      return;
-    }
-    b.classList.add('done');
-    if (label) label.textContent = texts['store-copied'] ?? idle;
-    setTimeout(() => {
-      b.classList.remove('done');
-      if (label) label.textContent = idle;
-    }, 1800);
-  });
-}
-
-// Interludes' clips: played while on screen, paused when not, never with reduced motion (the still stays).
-const clips = [...document.querySelectorAll<HTMLVideoElement>('video.clip')];
-if (clips.length && 'IntersectionObserver' in window && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
-  const seen = new IntersectionObserver(
-    (entries) => {
-      for (const e of entries) {
-        const v = e.target as HTMLVideoElement;
-        if (e.isIntersecting) void v.play().catch(() => undefined);
-        else v.pause();
-      }
-    },
-    { threshold: 0.4 },
-  );
-  for (const v of clips) seen.observe(v);
-}
+// The cards' and a plugin page's pictures, the copy button and the clips: the same as in the editor (store-kit/client.ts).
+wireStore(document.body, { copied: texts['store-copied'] ?? '' });

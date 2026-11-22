@@ -44,12 +44,13 @@ export function Library() {
           </button>
         )}
       </div>
-      <div class="chips" role="tablist">
-        <button role="tab" class={`chip ${cat === 'all' ? 'on' : ''}`} onClick={() => setCat('all')}>
+      {/* Filters, not tabs (nothing is a tab panel): pressed or not, as in the store. */}
+      <div class="chips" role="group" aria-label={tr('library.title')}>
+        <button type="button" class={`chip ${cat === 'all' ? 'on' : ''}`} aria-pressed={cat === 'all'} onClick={() => setCat('all')}>
           {tr('library.all')}
         </button>
         {cats.map((c) => (
-          <button role="tab" class={`chip ${cat === c.id ? 'on' : ''}`} onClick={() => setCat(c.id)}>
+          <button type="button" class={`chip ${cat === c.id ? 'on' : ''}`} aria-pressed={cat === c.id} onClick={() => setCat(c.id)}>
             <Icon name={CAT_ICON[c.id] ?? 'shapes'} size={13} /> {loc(c.label)}
           </button>
         ))}

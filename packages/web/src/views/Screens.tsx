@@ -14,6 +14,8 @@ export function Screens() {
   const cfg = config.value!;
   const add = (preset?: { width: number; height: number; name: string; device?: DeviceConfig; rotate?: number }) => {
     const s = newScreen(preset?.name ?? 'Panel', preset?.width ?? 1920, preset?.height ?? 462, preset?.device);
+    // Its first page, named as the editor names a new one (newScreen's is English).
+    s.pages[0]!.name = `${tr('inspector.page')} 1`;
     // The angle the panel's firmware asks for: at it, the panel is upright and the picture is the size it reports.
     if (preset?.rotate === 90 || preset?.rotate === 180 || preset?.rotate === 270) s.rotate = preset.rotate;
     edit((d) => d.screens.push(s));
@@ -272,7 +274,7 @@ function ScreenCard({ s }: { s: Screen }) {
               </button>
             ))}
           </div>
-          <span class="muted small">{tr('screens.readingHint')}</span>
+          <p class="muted small field-hint">{tr('screens.readingHint')}</p>
           <label class="field-label">{tr('screens.textScale')}</label>
           <div class="slider-row">
             <input type="range" min={TEXT_SCALE.min} max={TEXT_SCALE.max} step={TEXT_SCALE.step} value={s.textScale ?? 1} onInput={(e) => set((x) => {
