@@ -79,5 +79,5 @@ test('the firmware’s test vectors are up to date', () => {
   const want = vectorsHeader();
   if (process.env.UPDATE_VECTORS === '1') writeFileSync(file, want);
   assert.ok(existsSync(file), 'firmware/esp32-screen/test/vectors.h is missing: UPDATE_VECTORS=1 npm test');
-  assert.equal(readFileSync(file, 'utf8'), want, 'vectors.h is stale: UPDATE_VECTORS=1 npm test');
+  assert.equal(readFileSync(file, 'utf8').replace(/\r\n/g, '\n'), want, 'vectors.h is stale: UPDATE_VECTORS=1 npm test');
 });

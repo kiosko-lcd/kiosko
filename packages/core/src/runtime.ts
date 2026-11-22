@@ -269,6 +269,8 @@ export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
       this.runners.get(s.id)?.reconfigure(s);
     }
     this.placeRunners();
+    // A device kept across the change (same connection) still has to hear a new rotation.
+    for (const s of config.screens) this.runners.get(s.id)?.device.setRotation?.(s.rotate);
     this.refreshWanted();
     this.emit('config', config);
   }

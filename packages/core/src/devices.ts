@@ -62,6 +62,8 @@ export interface Device {
   close(): void;
   /** Panels with a light of their own (remote screens): "rrggbb" ("000000" off), blinking every `blinkMs`. */
   setLed?(rgb: string, blinkMs?: number): void;
+  /** Panels that turn the picture themselves (remote screens): the screen's rotation changed. */
+  setRotation?(rotate: number): void;
 }
 
 export function encodeFor(device: DeviceConfig, jpegQuality: number): 'png' | 'jpeg' {

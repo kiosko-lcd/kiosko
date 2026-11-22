@@ -65,6 +65,13 @@ test('remote screens: pair from the editor, the key goes to the config, the scre
     assert.equal(fake.sets[0]!.rot, 90);
     const status = (await call('GET', '/api/state')).body.status.screens.find((x: any) => x.id === s.id);
     assert.equal(status.device.remote.online, true);
+    // Turned upright in Kiosko's config (the device itself unchanged): the screen turns too.
+    const cur = (await call('GET', '/api/state')).body;
+    const upright = structuredClone(cur.config);
+    const u = upright.screens.find((x: any) => x.id === s.id);
+    Object.assign(u, { width: 172, height: 320, rotate: 0 });
+    assert.equal((await call('PUT', '/api/config', { config: upright, baseRev: cur.rev })).status, 200);
+    await until(() => fake.rot === 0);
     const logs = await call('GET', `/api/screens/${s.id}/remote/logs`);
     assert.match(logs.body.text, /fake: hello/);
     const un = await call('POST', `/api/screens/${s.id}/remote/unpair`);

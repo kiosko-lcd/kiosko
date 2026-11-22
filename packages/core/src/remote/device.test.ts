@@ -100,6 +100,9 @@ test('frames: one in flight, the newest wins, the rotation goes first, nothing p
   const n = fake.frames.length;
   await new Promise((r) => setTimeout(r, 150));
   assert.equal(fake.frames.length, n);
+  // The rotation changed in Kiosko's config: pushed at once, and again on a reconnection.
+  d.setRotation(0);
+  await until(() => fake.rot === 0);
   d.setLed('ff0000', 500);
   await until(() => fake.leds.length === 1);
   assert.deepEqual(fake.leds[0], { rgb: 'ff0000', blink: 500 });

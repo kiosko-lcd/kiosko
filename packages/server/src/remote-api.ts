@@ -55,11 +55,13 @@ export function remoteScreen(registry: Registry, info: { uid: string; id: string
 
 export function remoteApi(ctx: RemoteApiContext) {
   const pending = new Map<string, { pairing: Pairing; uid: string; host: string; port: number; timer: ReturnType<typeof setTimeout> }>();
-  const locate = (uid: string, host?: string, port?: number) => {
+  /** Where a screen is: the address given, else what mDNS heard; asked for now if it heard nothing yet. */
+  const locate = async (uid: string, host?: string, port?: number) => {
     if (host) return { host, port: port ?? 7428 };
     const t = ctx.locate?.(uid);
     if (t) return t;
-    const f = remoteBrowser().get(uid);
+    const b = remoteBrowser();
+    const f = b.get(uid) ?? (uid ? (await b.browse(2500)).find((x) => x.uid === uid) : undefined);
     return f ? { host: f.address, port: f.port } : undefined;
   };
   const fail = (res: ServerResponse, err: unknown) => {
@@ -79,7 +81,7 @@ export function remoteApi(ctx: RemoteApiContext) {
     if (p === '/api/remote/pair' && m === 'POST') {
       const b = (await ctx.body(req, 4096)) as { uid?: string; host?: string; port?: number };
       const uid = String(b.uid ?? '');
-      const at = locate(uid, b.host, b.port);
+      const at = await locate(uid, b.host, b.port);
       if (!at) return ctx.json(res, 404, { error: 'that screen is not on the network', code: 'remote.offline' }), true;
       try {
         const pairing = await Pairing.start(at.host, at.port, `Kiosko on ${hostname()}`.slice(0, 40));
@@ -140,9 +142,9 @@ export function remoteApi(ctx: RemoteApiContext) {
       const r = remoteOf(id);
       if (!r) return ctx.json(res, 404, { error: 'not a remote screen', code: 'unknownScreen' }), true;
       const key = /^[0-9a-f]{64}$/.test(r.device.key ?? '') ? Buffer.from(r.device.key!, 'hex') : null;
-      const run = <R>(fn: (host: string, port: number) => Promise<R>) => {
+      const run = async <R>(fn: (host: string, port: number) => Promise<R>) => {
         if (r.driver) return r.driver.exclusive(fn);
-        const at = locate(r.device.uid, r.device.host, r.device.port);
+        const at = await locate(r.device.uid, r.device.host, r.device.port);
         if (!at) throw new ScreenError('offline', 'that screen is not on the network');
         return fn(at.host, at.port);
       };

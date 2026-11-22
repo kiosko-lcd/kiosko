@@ -80,7 +80,8 @@ export class RemoteDevice {
   readonly status: DeviceStatus & { remote: RemoteStatus };
   private readonly cfg: RemoteConfig;
   private readonly log: (m: string) => void;
-  private readonly rotate: number;
+  private rotate: number;
+  private rotDirty = false;
   private readonly deps: Required<Pick<RemoteDeps, 'retryMs' | 'maxRetryMs' | 'pingMs'>> & RemoteDeps;
   private readonly key: Buffer | null;
   private readonly mdns: NonNullable<RemoteDeps['browser']>;
@@ -165,6 +166,15 @@ export class RemoteDevice {
     this.latest = frame;
     this.latestNum = (this.latestNum + 1) >>> 0;
     this.fresh = true;
+    this.notify('frame');
+  }
+
+  /** The screen's rotation changed in Kiosko's config: the screen turns at once (and on every reconnection). */
+  setRotation(rotate: number): void {
+    const r = ROTATIONS.includes(rotate) ? rotate : 0;
+    if (r === this.rotate) return;
+    this.rotate = r;
+    this.rotDirty = true;
     this.notify('frame');
   }
 
@@ -272,6 +282,7 @@ export class RemoteDevice {
     // Kiosko's screen config is the truth: its rotation (and language, clock) go to the screen.
     const extra = this.deps.settings?.() ?? {};
     sendSealed(wire, session, T.SET, { rot: this.rotate, ...extra });
+    this.rotDirty = false;
     this.ledDirty = !!this.led;
     // Whatever it shows now is not ours (or may not be): the current frame at once.
     this.fresh = !!this.latest;
@@ -284,6 +295,11 @@ export class RemoteDevice {
     let reply: Promise<Awaited<ReturnType<typeof nextSealed>>> | null = null;
     while (!this.closed && !wire.closed && !this.paused) {
       // Send what is due: the LED, the newest frame (one at a time), a ping.
+      if (this.rotDirty) {
+        this.rotDirty = false;
+        sendSealed(wire, session, T.SET, { rot: this.rotate });
+        lastTx = Date.now();
+      }
       if (this.ledDirty && this.led) {
         this.ledDirty = false;
         sendSealed(wire, session, T.LED, this.led);
