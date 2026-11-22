@@ -1070,6 +1070,31 @@ Lo que cambia en el camino:
     que dibuja la hora. Nada externo: solo dibujo, así que vale en
     cualquier país.
 
+36. **El aire de tu habitación** (`kiosko-plugin-air`). El tiempo dice cómo
+    está fuera; esto, cómo está donde trabajas:
+    - *Qué*: CO₂ con aviso de ventilar (ámbar desde 1000 ppm, rojo desde
+      1400), temperatura y humedad de la habitación, y su historia del día.
+    - *De dónde*: sensores Bluetooth de bajo consumo leídos por sus anuncios,
+      sin emparejar: **Aranet4**, **Xiaomi LYWSD03MMC** con firmware ATC o
+      PVVX, **SwitchBot** Meter; o un sensor **ESPHome** por la red; o el que
+      ya tenga **Home Assistant**.
+    - *Alertas*: ventilar como momento (no a pantalla completa); a pantalla
+      completa solo con niveles altos de verdad.
+    - *A tener en cuenta*: el Bluetooth en Windows y macOS pide permisos y
+      va distinto que en Linux (BlueZ); empezar por Linux y ESPHome.
+37. **El planeta ahora** (`kiosko-plugin-world`):
+    - *Qué*: un mapa del mundo con la línea del día y la noche moviéndose,
+      las ciudades de tu equipo con su hora y si están en horario laboral,
+      y la Tierra entera vista por satélite, renovada cada 10 minutos.
+    - *De dónde*: la línea día/noche y las horas, calculadas en local (sin
+      red); las imágenes de disco completo de **Himawari-9** (JMA, Asia y
+      Oceanía) y **GOES** (NOAA, América), públicas.
+    - *Encaje*: como widget en paneles largos y como interludio (la Tierra
+      girando durante un día en unos segundos); sin claves, vale en
+      cualquier país.
+    - *A tener en cuenta*: las imágenes pesan; bajarlas a la resolución del
+      panel, guardarlas en caché y no pedirlas más de cada 10 minutos.
+
 ### Decisiones abiertas para ti
 
 - **Nombre**: `Kiosko` es provisional (el paquete npm está como
