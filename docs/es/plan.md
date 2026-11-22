@@ -1003,6 +1003,35 @@ Lo que cambia en el camino:
       API compatible) no se anuncia ni se documenta: en la web se ofrece lo
       que está disponible donde se lee.
 
+30. **Tu conexión** (`kiosko-plugin-network`). La red es lo primero que se
+    culpa y lo último que se mira:
+    - *Qué*: latencia y jitter a varios destinos (el router, un DNS público,
+      tus servidores) en una gráfica de minutos, pérdida de paquetes, un
+      test de velocidad de vez en cuando (nunca seguido: gasta datos), señal
+      y canal de la Wi-Fi, IP pública y si ha cambiado, y las consultas
+      bloqueadas de **Pi-hole** o **AdGuard Home**.
+    - *De dónde*: `ping` propio (ICMP sin privilegios donde el sistema lo
+      deja; si no, conexión TCP), **librespeed** o **Speedtest CLI** para la
+      velocidad, `iw`/`nmcli`/`netsh`/`airport` para la Wi-Fi, y las API de
+      Pi-hole y AdGuard.
+    - *Alertas*: sin conexión o pérdida alta durante un rato, a pantalla
+      completa (punto 27); la latencia en ámbar/rojo con umbrales.
+    - *A tener en cuenta*: Windows y macOS miden distinto; el test de
+      velocidad, desactivado por defecto y con un intervalo largo.
+31. **Amigos y servidores de juego** (`kiosko-plugin-game-servers`). Junto a
+    los FPS de `gaming` (punto 19), lo que pasa fuera de tu partida:
+    - *Qué*: qué amigos de **Steam** están conectados y a qué juegan, y los
+      jugadores de tus servidores (**Minecraft**, Valheim, CS2, ARK… y en
+      general los que responden al protocolo de consulta de Valve), con el
+      mapa, la latencia y los huecos libres.
+    - *De dónde*: la API web de Steam (clave gratuita; perfil público), el
+      Server List Ping de Minecraft y el protocolo A2S de Valve, que no
+      piden clave.
+    - *Momentos*: avisar (sin pantalla completa) cuando un amigo entra en un
+      juego o el servidor se llena o se cae.
+    - *A tener en cuenta*: la API de Steam limita peticiones por día; los
+      amigos con el perfil privado no se ven.
+
 ### Decisiones abiertas para ti
 
 - **Nombre**: `Kiosko` es provisional (el paquete npm está como
