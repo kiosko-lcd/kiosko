@@ -1003,6 +1003,73 @@ Lo que cambia en el camino:
       API compatible) no se anuncia ni se documenta: en la web se ofrece lo
       que está disponible donde se lee.
 
+30. **Tu conexión** (`kiosko-plugin-network`). La red es lo primero que se
+    culpa y lo último que se mira:
+    - *Qué*: latencia y jitter a varios destinos (el router, un DNS público,
+      tus servidores) en una gráfica de minutos, pérdida de paquetes, un
+      test de velocidad de vez en cuando (nunca seguido: gasta datos), señal
+      y canal de la Wi-Fi, IP pública y si ha cambiado, y las consultas
+      bloqueadas de **Pi-hole** o **AdGuard Home**.
+    - *De dónde*: `ping` propio (ICMP sin privilegios donde el sistema lo
+      deja; si no, conexión TCP), **librespeed** o **Speedtest CLI** para la
+      velocidad, `iw`/`nmcli`/`netsh`/`airport` para la Wi-Fi, y las API de
+      Pi-hole y AdGuard.
+    - *Alertas*: sin conexión o pérdida alta durante un rato, a pantalla
+      completa (punto 27); la latencia en ámbar/rojo con umbrales.
+    - *A tener en cuenta*: Windows y macOS miden distinto; el test de
+      velocidad, desactivado por defecto y con un intervalo largo.
+31. **Amigos y servidores de juego** (`kiosko-plugin-game-servers`). Junto a
+    los FPS de `gaming` (punto 19), lo que pasa fuera de tu partida:
+    - *Qué*: qué amigos de **Steam** están conectados y a qué juegan, y los
+      jugadores de tus servidores (**Minecraft**, Valheim, CS2, ARK… y en
+      general los que responden al protocolo de consulta de Valve), con el
+      mapa, la latencia y los huecos libres.
+    - *De dónde*: la API web de Steam (clave gratuita; perfil público), el
+      Server List Ping de Minecraft y el protocolo A2S de Valve, que no
+      piden clave.
+    - *Momentos*: avisar (sin pantalla completa) cuando un amigo entra en un
+      juego o el servidor se llena o se cae.
+    - *A tener en cuenta*: la API de Steam limita peticiones por día; los
+      amigos con el perfil privado no se ven.
+
+32. **En directo: OBS, Twitch y YouTube** (`kiosko-plugin-streaming`). Para
+    quien emite o graba, lo que no se ve desde la cámara:
+    - *Qué*: si estás en directo o grabando y desde cuándo, la escena
+      activa, espectadores, ritmo del chat, seguidores y suscripciones
+      nuevas, y un piloto «EN DIRECTO» rojo que se ve desde lejos.
+    - *De dónde*: **obs-websocket** (en OBS 28 y posteriores, local, con
+      contraseña), la API de **Twitch** (EventSub) y la de **YouTube Live**.
+    - *Con el punto 21*: empezar a emitir es una señal para cambiar de
+      página sola a la de directo.
+    - *A tener en cuenta*: nada del chat en pantalla por defecto (puede
+      salir algo que no quieres en cámara); solo cifras.
+33. **Tu coche eléctrico** (`kiosko-plugin-ev`):
+    - *Qué*: batería y autonomía, si está cargando, a qué potencia y cuándo
+      termina, si está cerrado, y la temperatura del habitáculo.
+    - *De dónde*: **Tesla Fleet API** (oficial, con registro), y para el
+      resto (Kia/Hyundai, BMW, Renault, VW…) las librerías no oficiales que
+      usa Home Assistant, que cambian a menudo; o leerlo de **Home
+      Assistant** cuando ya lo tiene (el camino más estable).
+    - *Alertas*: carga terminada, o el coche sin cerrar por la noche.
+    - *A tener en cuenta*: sin despertar el coche para preguntar (gasta
+      batería): solo lo que la API da sin despertarlo, y con poca frecuencia.
+34. **La música en el panel** (`kiosko-plugin-visualizer`): el espectro del
+    audio que suena en el equipo, como interludio o como widget, con los
+    colores del tema; en una barra de 1920×462 es de lo más vistoso.
+    - *De dónde*: captura local del audio que sale: PipeWire o PulseAudio
+      (monitor) en Linux, WASAPI en modo loopback en Windows y
+      ScreenCaptureKit en macOS (pide permiso de grabación).
+    - *Cómo*: FFT en un proceso hijo (como el vídeo y Doom), barras,
+      onda u osciloscopio, con caída suave; en silencio, se apaga.
+    - *A tener en cuenta*: solo se analiza en memoria, nunca se graba ni
+      se envía; el CPU que cuesta, dicho antes de usarlo (punto 26).
+35. **Relojes con gracia** (`kiosko-plugin-clocks`): para paneles pequeños o
+    cuadrados y para los ratos sin nada que mirar. Reloj de palabras (en
+    cada idioma: «son las tres y cuarto», 三點十五分), binario, tubos Nixie,
+    reloj de arena que se vacía con la jornada laboral y el Juego de la Vida
+    que dibuja la hora. Nada externo: solo dibujo, así que vale en
+    cualquier país.
+
 ### Decisiones abiertas para ti
 
 - **Nombre**: `Kiosko` es provisional (el paquete npm está como
