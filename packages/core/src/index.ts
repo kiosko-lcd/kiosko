@@ -18,6 +18,7 @@ export * from './plugin-meta.ts';
 export * from './plugin-lint.ts';
 export * from './licenses.ts';
 export * from './plugin-updates.ts';
+export * from './kiosko-release.ts';
 export * from './devices.ts';
 export * from './fonts.ts';
 export * from './paths.ts';

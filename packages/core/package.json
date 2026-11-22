@@ -29,6 +29,11 @@
       "source": "./src/store/index.ts",
       "types": "./dist/store/index.d.ts",
       "default": "./dist/store/index.js"
+    },
+    "./release-notes": {
+      "source": "./src/release-notes-md.ts",
+      "types": "./dist/release-notes-md.d.ts",
+      "default": "./dist/release-notes-md.js"
     }
   },
   "dependencies": {
