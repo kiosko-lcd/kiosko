@@ -23,8 +23,8 @@ import { writePreview } from './preview.ts';
 import { buildGallery } from './gallery.ts';
 import { importAimonitor } from './import-aimonitor.ts';
 import { runService, servicePlan } from './service.ts';
-import { startServer } from './server.ts';
-import { starterConfig } from './starter.ts';
+import { realDiscover, startServer } from './server.ts';
+import { agentTraces, starterConfig, starterPanels } from './starter.ts';
 
 const VERSION = '0.2.8';
 const USAGE = `Kiosko ${VERSION}: a widget mosaic for USB LCD panels
@@ -91,9 +91,12 @@ async function config(reg: Registry, path: string): Promise<Config> {
     process.exit(1);
   }
   if (exists) return cfg;
-  const starter = starterConfig(reg, { locale: Intl.DateTimeFormat().resolvedOptions().locale });
+  // A first run: a screen for each panel connected, with what works on any machine with nothing to set up.
+  const found = await realDiscover('http://127.0.0.1:8099');
+  const panels = starterPanels(found);
+  const starter = starterConfig(reg, { locale: Intl.DateTimeFormat().resolvedOptions().locale, panels, agents: agentTraces(), weather: false });
   saveConfig(starter, path);
-  console.log(`created ${path} with a starter screen`);
+  console.log(`created ${path} with ${panels.length ? `a screen for each panel found: ${panels.map((p) => `${p.name} (${p.width}×${p.height})`).join(', ')}` : 'a starter screen (no panel found)'}`);
   return starter;
 }
 
@@ -114,7 +117,10 @@ async function main(): Promise<void> {
       const cfg = await config(reg, path);
       const host = opt('--host') ?? cfg.server.host;
       const port = Number(opt('--port') ?? cfg.server.port);
-      const rt = new Runtime(reg, cfg, { demo: flag('--demo'), ...THREADS });
+      // The address it really listens on (--host/--port win over the config), for the first run's card on the panels.
+      const shown = host === '0.0.0.0' || host === '::' || !host ? '127.0.0.1' : host;
+      const editorAt = `http://${shown.includes(':') ? `[${shown}]` : shown}:${port}`;
+      const rt = new Runtime(reg, cfg, { demo: flag('--demo'), welcome: true, editorUrl: editorAt, ...THREADS });
       if (flag('--demo')) console.log('demo mode: every widget shows sample data, nothing is read');
       rt.start();
       const srv = startServer({ runtime: rt, host, port, configPath: path, version: VERSION });

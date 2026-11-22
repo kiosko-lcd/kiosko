@@ -17,6 +17,11 @@ export interface ThreadInit {
   demo: boolean;
   maxConcurrent: number;
   playIdleMs: number;
+  /** The boot animation and the first run's card (welcome.ts), and when Kiosko started. */
+  welcome: boolean;
+  startedAt: number;
+  /** The editor's real address (Runtime.editorUrl), if known. */
+  editorUrl?: string;
   pinned: string | null;
   off: boolean;
 }

@@ -6,7 +6,7 @@
 import { TIME_FORMATS } from '@kiosko/sdk/format';
 import { DEFAULT_WORKDAY } from '@kiosko/sdk/workday';
 import { suggestGrid } from '../layout/grid.ts';
-import { ALERT_THRESHOLDS, CONFIG_VERSION, DEFAULT_CONFIG, DEFAULT_MAX_BYTES, TEXT_SCALE, THREADS_MODES, type Config, type Screen, type ScreenAlerts } from './model.ts';
+import { ALERT_THRESHOLDS, CONFIG_VERSION, DEFAULT_CONFIG, DEFAULT_MAX_BYTES, TEXT_SCALE, SETUP_STATES, THREADS_MODES, type Config, type Screen, type ScreenAlerts } from './model.ts';
 
 /**
  * Fills gaps of a config written by hand or by an older version. Never throws.
@@ -14,7 +14,7 @@ import { ALERT_THRESHOLDS, CONFIG_VERSION, DEFAULT_CONFIG, DEFAULT_MAX_BYTES, TE
  * `configSchema` (schema.ts): change both together.
  */
 export function normalize(raw: unknown): Config {
-  const { $schema, threads, ...c } = (raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {}) as Partial<Config>;
+  const { $schema, threads, setup, bootAnimation, ...c } = (raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {}) as Partial<Config>;
   const screens = Array.isArray(c.screens) ? c.screens.map(normalizeScreen) : [];
   return {
     ...(typeof $schema === 'string' && $schema ? { $schema } : {}),
@@ -29,6 +29,9 @@ export function normalize(raw: unknown): Config {
     server: { ...DEFAULT_CONFIG.server, ...(c.server ?? {}) },
     ...(c.homeassistant && typeof c.homeassistant === 'object' ? { homeassistant: normalizeHa(c.homeassistant) } : {}),
     ...(THREADS_MODES.includes(threads as never) ? { threads: threads! } : {}),
+    ...(SETUP_STATES.includes(setup as never) ? { setup: setup! } : {}),
+    // On unless switched off: only `false` is written.
+    ...(bootAnimation === false ? { bootAnimation: false } : {}),
     screens,
   };
 }

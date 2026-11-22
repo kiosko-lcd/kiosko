@@ -21,10 +21,12 @@ const DOCS = new URL('../../../docs/', import.meta.url);
  * which reach where GitHub may not (mainland China). Else the English ones, on GitHub.
  */
 function docsFor(id, root) {
-  const has = (f) => id !== 'en' && existsSync(new URL(`${id}/${f}`, DOCS));
+  // English at docs/<file>, published at /docs/…; the others at docs/<id>/<file>, published at /<id>/docs/….
+  const has = (f) => existsSync(new URL(id === 'en' ? f : `${id}/${f}`, DOCS));
+  const at = id === 'en' ? root : `${root}${id}/`;
   return {
-    DOCS_USB: has('usb.md') ? `${root}${id}/docs/usb/` : `${REPO}/blob/main/docs/usb.md`,
-    DOCS_GUIDE: has('install.md') ? `${root}${id}/docs/install/` : `${REPO}#readme`,
+    DOCS_USB: has('usb.md') ? `${at}docs/usb/` : `${REPO}/blob/main/docs/usb.md`,
+    DOCS_GUIDE: has('install.md') ? `${at}docs/install/` : `${REPO}#readme`,
   };
 }
 

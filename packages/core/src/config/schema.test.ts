@@ -20,7 +20,7 @@ const branch = (union: S, tag: string) => union.oneOf.find((b: S) => (b.properti
 // The keys of each type, checked by the compiler: adding a field to model.ts
 // without listing it here fails `npm run check`; the test below then fails
 // until the schema describes it too.
-const CONFIG_KEYS = { $schema: 1, version: 1, locale: 1, timeFormat: 1, theme: 1, location: 1, workday: 1, sources: 1, plugins: 1, screens: 1, server: 1, homeassistant: 1, threads: 1 } satisfies Record<keyof Config, 1>;
+const CONFIG_KEYS = { $schema: 1, version: 1, locale: 1, timeFormat: 1, theme: 1, location: 1, workday: 1, sources: 1, plugins: 1, screens: 1, server: 1, homeassistant: 1, threads: 1, setup: 1, bootAnimation: 1 } satisfies Record<keyof Config, 1>;
 const SCREEN_KEYS = { id: 1, name: 1, enabled: 1, width: 1, height: 1, rotate: 1, device: 1, pages: 1, pinnedPage: 1, interludes: 1, pixelShift: 1, sleepWhenIdle: 1, jpegQuality: 1, maxBytes: 1, maxFps: 1, readingDistance: 1, textScale: 1, diagonalIn: 1, alerts: 1, thread: 1 } satisfies Record<keyof Screen, 1>;
 const PAGE_KEYS = { id: 1, name: 1, enabled: 1, durationMs: 1, when: 1, grid: 1, gravity: 1, background: 1, tiles: 1 } satisfies Record<keyof Page, 1>;
 const TILE_KEYS = { id: 1, x: 1, y: 1, w: 1, h: 1, locked: 1, widgets: 1, rotateMs: 1, chrome: 1 } satisfies Record<keyof Tile, 1>;
@@ -42,6 +42,8 @@ const FULL: Config = {
   server: { host: '127.0.0.1', port: 7421 },
   homeassistant: { enabled: true, broker: 'mqtt://ha.local:1883', username: 'kiosko', password: 's3cret', discoveryPrefix: 'ha', nodeId: 'desk' },
   threads: 'never',
+  setup: 'done',
+  bootAnimation: false,
   screens: [
     {
       id: 's1',
@@ -137,6 +139,16 @@ test('normalize: a screen\'s alert settings, left out when they are the defaults
   assert.equal(alertsOf({ quiet: { start: '08:00', end: '08:00' } }), undefined);
   assert.deepEqual(validateJson(schema, normalize({ screens: [{ alerts: { minLevel: 'warn', quiet: { start: '22:00', end: '07:00' } } }] })), []);
   assert.notDeepEqual(validateJson(schema, { screens: [{ alerts: { minLevel: 'loud' } }] }), []);
+});
+
+test('normalize: the first-run setup is kept when done or skipped, dropped otherwise', () => {
+  assert.equal(normalize({}).setup, undefined);
+  for (const v of ['pending', 'done', 'skipped'] as const) assert.equal(normalize({ setup: v }).setup, v);
+  assert.equal(normalize({ setup: 'later' }).setup, undefined);
+  assert.equal(normalize({}).bootAnimation, undefined, 'the boot animation: on unless switched off');
+  assert.equal(normalize({ bootAnimation: true }).bootAnimation, undefined);
+  assert.equal(normalize({ bootAnimation: false }).bootAnimation, false);
+  assert.notDeepEqual(validateJson(schema, { setup: 'later' }), []);
 });
 
 test('normalize: painting in threads, everywhere and per screen; `auto` and nonsense are as if left out', () => {

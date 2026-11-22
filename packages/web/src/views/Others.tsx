@@ -5,6 +5,7 @@ import { api, type AppState, type JsonSchema, type PluginInfo } from '../api.ts'
 import { SchemaForm, Toggle } from '../forms/SchemaForm.tsx';
 import { Icon } from '../icons.tsx';
 import { pickLocale } from '@kiosko/sdk/i18n';
+import { openWizard } from '../wizard/Wizard.tsx';
 import { UI_LANGUAGES, aside, clock, count, dateTime, errorText, fmtMs, labelled, listOf, sentences, t, tr, uiLanguage, weekOrder } from '../i18n.ts';
 import { app, config, edit, logs, notify, setUiTheme, status, uiTheme } from '../store.ts';
 import { DemoNote } from '../demo/ui.tsx';
@@ -461,6 +462,24 @@ export function Settings() {
           <WorkdayMore days={days} />
         </section>
       </div>
+      <section class="card setup-card">
+        <h3>
+          <Icon name="wand-sparkles" size={16} /> {tr('wiz.settingsTitle')}
+        </h3>
+        <p class="muted small">{tr('wiz.settingsHint')}</p>
+        <div class="row">
+          <button class="ks-button" onClick={() => openWizard()}>
+            <Icon name="sparkles" size={15} /> {tr('wiz.run')}
+          </button>
+        </div>
+        {!KIOSKO_DEMO && (
+          <div class="field field-row">
+            <Toggle checked={cfg.bootAnimation !== false} onChange={(v) => edit((d) => (v ? delete d.bootAnimation : (d.bootAnimation = false)))} />
+            <span>{tr('wiz.bootAnimation')}</span>
+          </div>
+        )}
+        {!KIOSKO_DEMO && <p class="muted small">{tr('wiz.bootAnimationHint')}</p>}
+      </section>
       {sources.length > 0 && (
         <section class="card">
           <h3>
@@ -739,7 +758,7 @@ export function Logs() {
  * the same language (en-GB stays en-GB: its clock and first day of the
  * week), and the one in use is marked even if the config says fr-CA.
  */
-function languageChoice() {
+export function languageChoice() {
   const cfg = config.value!;
   const system = app.value?.locale ?? navigator.language;
   const current = cfg.locale && cfg.locale !== 'auto' ? uiLanguage() : 'auto';

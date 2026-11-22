@@ -27,8 +27,14 @@ test('guides: anchors as GitHub makes them, so the guides\' own links land', () 
   assert.equal(slug('Linux 和 macOS：使用 npm'), 'linux-和-macos使用-npm');
 });
 
-test('guides: each Chinese page links to its own language\'s guides on the site', () => {
+test('guides: each language links to its own guides on the site, where they exist', () => {
   assert.equal(guidePath(docs, 'zh-Hans', 'install'), 'zh-Hans/docs/install/');
   assert.equal(guidePath(docs, 'zh-Hant', 'usb'), 'zh-Hant/docs/usb/');
+  // The USB guide in every language: English from docs/usb.md, at /docs/usb/.
+  assert.equal(guidePath(docs, 'en', 'usb'), 'docs/usb/');
+  assert.equal(guidePath(docs, 'es', 'usb'), 'es/docs/usb/');
+  assert.equal(guidePath(docs, 'de', 'usb'), 'de/docs/usb/');
+  // The install guide is the README in English (and not translated yet into Spanish or German).
   assert.equal(guidePath(docs, 'en', 'install'), null);
+  assert.equal(guidePath(docs, 'es', 'install'), null);
 });

@@ -64,7 +64,12 @@ export function count(key: PluralKey, n: number): string {
 }
 
 /** The languages whose install guide is on the site (docs/<id>/install.md, published by landing/docs.mjs). */
-const GUIDES = new Set(['zh-Hant', 'zh-Hans']);
+/** The guides published on kioskolcd.dev, by language (docs.mjs): English at /docs/…, the others at /<id>/docs/…. */
+const GUIDES: Record<string, ReadonlySet<string>> = {
+  install: new Set(['zh-Hant', 'zh-Hans']),
+  usb: new Set(['en', 'es', 'de', 'zh-Hant', 'zh-Hans']),
+};
+const onSite = (lang: string, guide: string) => `https://kioskolcd.dev/${lang === 'en' ? '' : `${lang}/`}docs/${guide}/`;
 
 /**
  * Where "Docs" leads: the install guide in the editor's language, on kioskolcd.dev (which reaches
@@ -72,7 +77,13 @@ const GUIDES = new Set(['zh-Hant', 'zh-Hans']);
  */
 export function docsUrl(): string {
   const lang = uiLanguage();
-  return GUIDES.has(lang) ? `https://kioskolcd.dev/${lang}/docs/install/` : 'https://github.com/kiosko-lcd/kiosko#readme';
+  return GUIDES.install!.has(lang) ? onSite(lang, 'install') : 'https://github.com/kiosko-lcd/kiosko#readme';
+}
+
+/** The guide to connecting a panel over USB (udev, WinUSB), on the site in the languages it has there, else on GitHub. */
+export function usbGuideUrl(): string {
+  const lang = uiLanguage();
+  return GUIDES.usb!.has(lang) ? onSite(lang, 'usb') : 'https://github.com/kiosko-lcd/kiosko/blob/main/docs/usb.md';
 }
 
 /** Whether the editor writes in Chinese, Japanese or Korean: full-width punctuation, no spaces around it. */

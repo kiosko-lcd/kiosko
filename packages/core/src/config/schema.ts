@@ -223,6 +223,11 @@ export function configSchema(plugins: readonly PluginDefinition[]): S {
         default: 'auto',
         description: 'Paint each screen in a thread of its own, so a slow widget on one does not slow the others: "auto" (with two or more screens on and a core to spare for each), "always", or "never" (every screen on the main thread: less memory, for a small machine). A screen\'s "thread" overrides it.',
       },
+      setup: {
+        enum: ['pending', 'done', 'skipped'],
+        description: 'The editor\'s first-run setup: "pending" as the first run writes it (the panels say how to open the editor), then "done" or "skipped", so it is not offered on its own again (Settings can always run it). Missing: offered while the config is still the first run\'s.',
+      },
+      bootAnimation: { type: 'boolean', default: true, description: 'A short animation of the Kiosko mark on every panel when Kiosko starts, before the pages.' },
       homeassistant: {
         type: 'object',
         additionalProperties: false,

@@ -15,6 +15,8 @@ import { composePage, rotateCanvas, type Animatable, type ComposeResult, type Ti
 import { legibleCjkPx, whenMatches, type Config, type Page, type Screen } from './config/model.ts';
 import { encodeFor, type Device } from './devices.ts';
 import { CANVAS, baseContext, kit, resolveLocale, type LogFn } from './env.ts';
+import { offersSetup } from './config/starter.ts';
+import { BOOT_FPS, BOOT_MS, CARD_EVERY_MS, CARD_MS, FIRST_CARD_MS, cardUrl, paintBoot, paintCard, welcomeDue } from './welcome.ts';
 import { registerFonts, setFontLocale } from './fonts.ts';
 import { FrameStats, type ScreenFrameStats } from './frame-stats.ts';
 import { pickPage } from './layout/stack.ts';
@@ -108,6 +110,12 @@ export interface RunnerHost {
   readonly maxConcurrent: number;
   /** An interlude being played from the Play page ends after this long without a button. */
   readonly playIdleMs: number;
+  /** Whether screens show the boot animation and the first run's card (welcome.ts); off in tests and the demo. */
+  readonly welcome: boolean;
+  /** The editor's real address, when known (see Runtime.editorUrl). */
+  readonly editorUrl?: string | undefined;
+  /** When Kiosko started: the boot animation only plays soon after. */
+  readonly startedAt: number;
   log: LogFn;
   rnd: () => number;
   theme(): Theme;
@@ -200,6 +208,12 @@ export class ScreenRunner implements Runner {
   private alertKey: string | null = null;
   /** Real fps, paint and encode times (see frame-stats.ts). */
   readonly stats = new FrameStats();
+  /** The start went by (the boot animation played, or wasn't due). */
+  private booted = false;
+  /** The first run's card: the last slot it was shown in, and until when it stays. */
+  private cardSlot = -1;
+  private cardUntil = 0;
+  private cardKey: string | null = null;
 
   screen: Screen;
   private readonly rt: RunnerHost;
@@ -294,6 +308,7 @@ export class ScreenRunner implements Runner {
       const play = this.wantedPlay;
       this.wanted = null;
       this.wantedPlay = false;
+      if (!this.off && !asked && (await this.maybeWelcome(now))) return;
       if (!this.off && (await this.maybeInterlude(now, asked ?? undefined, play))) return;
       const page = this.currentPage(now);
       if (page?.id !== this.page?.id) {
@@ -407,6 +422,100 @@ export class ScreenRunner implements Runner {
     this.lastInfo = { screenId: screen.id, pageId: this.page?.id ?? null, at: now, image: lazyJpeg(canvas), tiles: [], interlude: null, alert: a.id, sleeping: false };
     this.rt.frame(this.lastInfo);
     if (this.last?.equals(out)) return;
+    this.last = out;
+    await this.send(out);
+  }
+
+  /**
+   * The boot animation and the first run's card (welcome.ts), before
+   * anything else but an alert. True while one has the screen.
+   */
+  private async maybeWelcome(now: number): Promise<boolean> {
+    if (!this.rt.welcome || this.rt.demoMode) return false;
+    const cfg = this.rt.config;
+    if (this.cardUntil) {
+      if (now < this.cardUntil && offersSetup(cfg)) {
+        await this.paintWelcomeCard(now);
+        return true;
+      }
+      // Its time is over, or the setup was done: back to the pages.
+      this.cardUntil = 0;
+      this.cardKey = null;
+      this.last = null;
+      this.dirty = true;
+      return false;
+    }
+    const due = welcomeDue(cfg, { sinceStartMs: now - this.rt.startedAt, now, booted: this.booted, cardSlot: this.cardSlot });
+    const first = !this.booted;
+    this.booted = true;
+    if (!due) return false;
+    if (due === 'boot') {
+      await this.playBoot();
+      if (!offersSetup(cfg)) {
+        this.last = null;
+        this.dirty = true;
+        return true;
+      }
+    }
+    this.cardSlot = Math.floor(Date.now() / CARD_EVERY_MS);
+    this.cardUntil = Date.now() + (first ? FIRST_CARD_MS : CARD_MS);
+    await this.paintWelcomeCard(Date.now());
+    return true;
+  }
+
+  private welcomeLook() {
+    const cfg = this.rt.config;
+    return { theme: this.rt.theme(), locale: resolveLocale(cfg), url: cardUrl(this.rt.editorUrl, cfg) };
+  }
+
+  /** The boot animation, at the screen's fps (at most BOOT_FPS): a slower panel plays fewer frames, never longer. */
+  private async playBoot(): Promise<void> {
+    const { screen } = this;
+    const look = this.welcomeLook();
+    registerFonts();
+    setFontLocale(look.locale);
+    const fps = Math.max(1, Math.min(BOOT_FPS, screen.maxFps));
+    const frames = Math.max(1, Math.round((BOOT_MS / 1000) * fps));
+    const kind = encodeFor(screen.device, screen.jpegQuality || 85);
+    const canvas = CANVAS.createCanvas(screen.width, screen.height);
+    const g = canvas.getContext('2d');
+    const start = Date.now();
+    for (let i = 0; i < frames && !this.alert && !this.closed; i++) {
+      const ms = Math.min(BOOT_MS, Date.now() - start);
+      if (ms >= BOOT_MS) break;
+      const t0 = performance.now();
+      g.save();
+      paintBoot(g, screen.width, screen.height, ms, look);
+      g.restore();
+      const out = await this.fit(rotateCanvas(canvas, screen.rotate), kind, screen.jpegQuality || 85, screen, performance.now() - t0);
+      await this.send(out);
+      if (i % 4 === 0) {
+        const snap = CANVAS.createCanvas(canvas.width, canvas.height);
+        snap.getContext('2d').drawImage(canvas, 0, 0);
+        this.lastInfo = { screenId: screen.id, pageId: this.page?.id ?? null, at: Date.now(), image: lazyJpeg(snap), tiles: [], interlude: 'kiosko/boot', sleeping: false };
+        this.rt.frame(this.lastInfo);
+      }
+      const wait = start + ((i + 1) * 1000) / fps - Date.now();
+      await new Promise((r) => (wait > 0 ? setTimeout(r, wait) : setImmediate(r)));
+    }
+  }
+
+  /** The first run's card: a still frame, sent again only when it changes (the theme, the language, the address). */
+  private async paintWelcomeCard(now: number): Promise<void> {
+    const { screen } = this;
+    const look = this.welcomeLook();
+    const key = JSON.stringify([look.theme.id, look.locale, look.url, screen.width, screen.height, screen.rotate]);
+    if (key === this.cardKey) return;
+    this.cardKey = key;
+    const t0 = performance.now();
+    registerFonts();
+    setFontLocale(look.locale);
+    const canvas = CANVAS.createCanvas(screen.width, screen.height);
+    paintCard(canvas.getContext('2d'), screen.width, screen.height, look);
+    const kind = encodeFor(screen.device, screen.jpegQuality || 85);
+    const out = await this.fit(rotateCanvas(canvas, screen.rotate), kind, screen.jpegQuality || 85, screen, performance.now() - t0);
+    this.lastInfo = { screenId: screen.id, pageId: this.page?.id ?? null, at: now, image: lazyJpeg(canvas), tiles: [], interlude: 'kiosko/welcome', sleeping: false };
+    this.rt.frame(this.lastInfo);
     this.last = out;
     await this.send(out);
   }

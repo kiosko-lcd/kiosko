@@ -20,6 +20,11 @@
       "types": "./dist/config/model.d.ts",
       "default": "./dist/config/model.js"
     },
+    "./starter": {
+      "source": "./src/config/starter.ts",
+      "types": "./dist/config/starter.d.ts",
+      "default": "./dist/config/starter.js"
+    },
     "./config": {
       "source": "./src/config/tools.ts",
       "types": "./dist/config/tools.d.ts",

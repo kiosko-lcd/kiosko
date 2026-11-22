@@ -1,50 +1,103 @@
 /**
- * The config of a first run: one virtual screen with a page that shows off
- * what's installed, so the editor never opens on an empty canvas. Only
- * widgets whose plugin is present are used.
+ * The config of a first run, made before anyone opens the editor: a screen
+ * for each panel found (its model's size, its firmware's angle), each with a
+ * page of what works with nothing to set up (core's starterPage), so the
+ * panels light up and come alive at once. With no panel found, one virtual
+ * screen, as before. It is marked `setup: pending`: the panels show how to
+ * open the editor (welcome.ts), and the editor offers its setup wizard,
+ * which starts from these screens.
  */
-import { LANGUAGE_IDS, languageById, localize, pickLocale, type Localized } from '@kiosko/sdk';
-import { STARTER_NAMES, newPage, newScreen, newTile, newWidget, normalize, rescale, suggestGrid, transposePage, type Config, type Registry, type Tile } from '@kiosko/core';
+import { existsSync, readdirSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
+import { localize, type Localized } from '@kiosko/sdk';
+import { PANEL_PRESETS, STARTER_NAMES, newPage, newScreen, newTile, newWidget, normalize, starterInterludes, starterPage, type Config, type DeviceConfig, type Registry, type Rotation, type Screen } from '@kiosko/core';
+import type { Discovered } from './server.ts';
 
-export function starterConfig(registry: Registry, o: { width?: number; height?: number; locale?: string } = {}): Config {
-  const width = o.width ?? 1920;
-  const height = o.height ?? 462;
-  const L = (t: Localized) => localize(t, o.locale ?? 'en');
-  const screen = newScreen(L(STARTER_NAMES.screen as Localized), width, height);
-  // Where the language is read, the services some plugins need may not be offered (mainland China:
-  // no Claude nor Gemini, languages.ts): the first page leaves out the plugins not offered there and
-  // the widgets that have a stand-in there (Claude's usage bar), and shows what works with nothing to
-  // set up, not the stand-ins (a balance needs a key), which would open on an empty tile for most.
-  const market = languageById(pickLocale(LANGUAGE_IDS, o.locale ?? 'en') ?? 'en')?.plugins;
-  const offered = (t: string) => !market?.without.includes(t.split('/')[0]!) && !market?.instead[t];
-  const has = (t: string) => offered(t) && !!registry.widget(t);
-  const page = newPage(L(STARTER_NAMES.page as Localized), width, height);
-  page.grid = { cols: 24, rows: 6, gap: 10, padding: 10 };
-  page.gravity = 'left';
-  const tiles: Tile[] = [];
-  const add = (r: { x: number; y: number; w: number; h: number }, types: string[], title?: string) => {
-    const ws = types.filter(has).map((t) => newWidget(t, {}, title));
-    if (ws.length) tiles.push(newTile(r, ws));
+/** A panel found at the first start, as its screen will be. */
+export interface StarterPanel {
+  name: string;
+  width: number;
+  height: number;
+  rotate: Rotation;
+  device: DeviceConfig;
+}
+
+const ROTATIONS: readonly number[] = [0, 90, 180, 270];
+
+/**
+ * The panels "Detect panels" found, as screens to make: named after their
+ * model (told apart with a number when several are the same), at the size
+ * they report (a Trofeo Vision 9.16 when one held by another program can't
+ * say) and their firmware's angle.
+ */
+export function starterPanels(found: Discovered, trccUrl = 'http://127.0.0.1:8099'): StarterPanel[] {
+  const out: StarterPanel[] = [];
+  const named = (width: number, height: number) => {
+    const base = PANEL_PRESETS.find((p) => (p.width === width && p.height === height) || (p.width === height && p.height === width))?.name ?? `${width}×${height}`;
+    const same = out.filter((p) => p.name === base || p.name.startsWith(`${base} `)).length;
+    if (same === 1) out.find((p) => p.name === base)!.name = `${base} 1`;
+    return same ? `${base} ${same + 1}` : base;
   };
-  const lead = 'agents/sessions';
-  if (has(lead)) add({ x: 0, y: 0, w: 11, h: 6 }, [lead]);
-  else add({ x: 0, y: 0, w: 11, h: 6 }, ['core/text'], L({ en: 'Welcome', es: 'Bienvenida', de: 'Willkommen', 'zh-Hant': '歡迎', 'zh-Hans': '欢迎' }));
-  add({ x: 11, y: 0, w: 5, h: 4 }, ['core/clock']);
-  add({ x: 11, y: 4, w: 5, h: 2 }, ['weather/forecast', 'mirror/compliments']);
-  add({ x: 16, y: 0, w: 8, h: 6 }, ['usage/rail', 'vitals/vitals', 'system/health', 'mirror/countdown'].filter(has).slice(0, 3));
-  if (!has(lead)) {
-    const welcome = tiles[0]?.widgets[0];
-    if (welcome) welcome.options = { text: L({ en: 'Hi there.\nDrag widgets from the library to build your panel.', es: 'Hola.\nArrastra widgets desde la biblioteca para montar tu panel.', de: 'Hallo!\nZieh Widgets aus der Bibliothek, um dein Panel zu gestalten.', 'zh-Hant': '你好。\n從小工具庫拖曳小工具，\n打造你的面板。', 'zh-Hans': '你好。\n从组件库拖动小组件，\n布置你的副屏。' }), maxSize: 54 };
+  for (const u of found.usb) {
+    const width = u.width || 1920;
+    const height = u.height || 462;
+    out.push({ name: named(width, height), width, height, rotate: (ROTATIONS.includes(u.rotate ?? 0) ? (u.rotate ?? 0) : 0) as Rotation, device: { driver: 'usb', ...(u.serial ? { serial: u.serial } : {}) } });
   }
-  page.tiles = tiles;
-  // Laid out for a 1920×462 strip: turned a quarter for a portrait screen, fitted for any other.
-  if (height > width) transposePage(page, width, height);
-  else {
-    const grid = suggestGrid(width, height);
-    page.tiles = rescale(page.tiles, page.grid, grid);
-    page.grid = grid;
-  }
-  screen.pages = [page];
-  screen.interludes = offered('agents/runner') && registry.interlude('agents/runner') ? [{ id: 'interlude-runner', type: 'agents/runner', enabled: false, everyMs: 15 * 60_000, maxSeconds: 30, options: {} }] : [];
-  return normalize({ screens: [screen], locale: 'auto' });
+  for (const t of found.trcc) out.push({ name: named(t.width, t.height), width: t.width, height: t.height, rotate: 0, device: { driver: 'trcc', url: trccUrl, deviceKey: t.key } });
+  return out;
+}
+
+/**
+ * Whether AI agents have been used on this machine, as the agents plugin
+ * reads them: its hook's session files, or the agents' own logs it reads
+ * (Codex, Qwen Code, Kimi). Only then does the first page lead with them.
+ */
+export function agentTraces(env: NodeJS.ProcessEnv = process.env, home = homedir()): boolean {
+  const dirs = [env.AGENT_SESSIONS_DIR ?? join(env.AIMONITOR_DIR ?? join(home, '.aimonitor'), 'sessions'), join(home, '.codex', 'sessions'), join(home, '.qwen', 'projects'), join(home, '.kimi', 'sessions')];
+  return dirs.some((d) => {
+    try {
+      return existsSync(d) && readdirSync(d).length > 0;
+    } catch {
+      return false;
+    }
+  });
+}
+
+const CATS_PAGE: Localized = { en: 'Cats room', es: 'Sala de los gatos', de: 'Katzenzimmer', 'zh-Hant': '貓咪房間', 'zh-Hans': '猫咪房间' };
+
+export function starterConfig(
+  registry: Registry,
+  o: {
+    width?: number;
+    height?: number;
+    locale?: string;
+    /** The panels found: a screen for each. None: one virtual screen of `width×height`. */
+    panels?: StarterPanel[];
+    /** Agents have been used here (`agentTraces`): the agents and the cats room lead. Default: if installed. */
+    agents?: boolean;
+    /** The weather can be had (a place is known). Default: if installed. */
+    weather?: boolean;
+  } = {},
+): Config {
+  const locale = o.locale ?? 'en';
+  const has = (t: string) => !!registry.widget(t);
+  const one = (name: string, width: number, height: number, device?: DeviceConfig, rotate: Rotation = 0): Screen => {
+    const screen = newScreen(name, width, height, device);
+    screen.rotate = rotate;
+    screen.pages = [starterPage(has, { width, height, locale, agents: o.agents ?? true, weather: o.weather ?? true })];
+    // Where agents are in use, the cats room too: a page of its own.
+    if ((o.agents ?? true) && has('cats/room')) {
+      const cats = newPage(localize(CATS_PAGE, locale), width, height);
+      cats.tiles = [newTile({ x: 0, y: 0, w: cats.grid.cols, h: cats.grid.rows }, [newWidget('cats/room')])];
+      cats.tiles[0]!.chrome = 'bare';
+      screen.pages.push(cats);
+    }
+    screen.interludes = starterInterludes((t) => !!registry.interlude(t), locale);
+    return screen;
+  };
+  const screens = o.panels?.length
+    ? o.panels.map((p) => one(p.name, p.width, p.height, p.device, p.rotate))
+    : [one(localize(STARTER_NAMES.screen as Localized, locale), o.width ?? 1920, o.height ?? 462)];
+  return normalize({ screens, locale: 'auto', setup: 'pending' });
 }

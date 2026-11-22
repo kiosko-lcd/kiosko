@@ -81,7 +81,8 @@ test('one page per language, each saying what it is and where the others are', (
     assert.ok(page.includes(`data-lang="${l.id}" data-root="${root}"`), `${l.id}: plugin cards in its language`);
     assert.ok(page.includes(`demo/3d/?lang=${l.panel}`), `${l.id}: the 3D page in its language`);
     if (l.id.startsWith('zh')) assert.ok(page.includes(`href="../${l.id}/docs/usb/"`) && page.includes(`href="../${l.id}/docs/install/"`), `${l.id}: its own guides, on the site`);
-    if (l.id === 'en') assert.ok(page.includes('blob/main/docs/usb.md"'), 'en: the English guide');
+    // The USB guide on the site in every language: English at /docs/usb/, the others at /<id>/docs/usb/.
+    assert.ok(page.includes(`href="${l.id === 'en' ? '' : `../${l.id}/`}docs/usb/"`), `${l.id}: the USB guide on the site`);
     // Only the English page sends a first visit on to the visitor's language.
     assert.equal(page.includes('location.replace'), l.id === 'en', `${l.id}: redirect`);
     assert.match(page, new RegExp(`aria-current="page">[^<]+</a>`));

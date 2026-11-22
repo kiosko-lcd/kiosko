@@ -84,6 +84,9 @@ class Host implements RunnerHost {
   readonly demoMode: boolean;
   readonly maxConcurrent: number;
   readonly playIdleMs: number;
+  readonly welcome: boolean;
+  readonly startedAt: number;
+  readonly editorUrl: string | undefined;
   rnd = Math.random;
   readonly data = new Map<string, unknown>();
   readonly sources = new Map<string, unknown>();
@@ -101,6 +104,9 @@ class Host implements RunnerHost {
     this.demoMode = init.demo;
     this.maxConcurrent = init.maxConcurrent;
     this.playIdleMs = init.playIdleMs;
+    this.welcome = init.welcome;
+    this.startedAt = init.startedAt;
+    this.editorUrl = init.editorUrl;
     this.post = post;
     this.device = new RelayDevice(post);
   }
