@@ -48,6 +48,8 @@ Settings every widget or source shares, whatever its plugin:
 |---|---|---|
 | top level | `timeFormat` | `"auto"` (the language's habit), `"24h"` or `"12h"`: how every widget writes clock times |
 | top level | `threads` | `"auto"` (default), `"always"` or `"never"`: paint each screen in a thread of its own (auto: with two or more screens on and a core to spare for each; never: all on the main thread, as before) |
+| top level | `setup` | `"pending"` as the first run writes it (the panels say how to open the editor), then `"done"` or `"skipped"`: the editor's first-run setup has been gone through (or skipped) and is not offered on its own again; Settings → Setup runs it any time. Missing: offered while the config is still the first run's |
+| top level | `bootAnimation` | `false` turns off the short animation of the Kiosko mark on every panel at start (on by default) |
 | a screen | `thread` | `"always"` or `"never"`: this screen in a thread of its own or on the main thread, whatever `threads` says |
 | `workday` | `days`, `start`, `end` | working days (0 = Sunday) and hours, for `"when": "work"`/`"off"` and for plugins |
 | `workday` | `hours` | hours due on a working day (timesheets), default 8 |

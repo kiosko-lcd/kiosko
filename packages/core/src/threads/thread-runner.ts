@@ -31,6 +31,8 @@ export interface ThreadOwner {
   readonly demoMode: boolean;
   readonly maxConcurrent: number;
   readonly playIdleMs: number;
+  readonly welcome: boolean;
+  readonly startedAt: number;
   log: LogFn;
   dataOf(instanceId: string): unknown;
   sourceData(type: string): unknown;
@@ -110,6 +112,8 @@ export class ThreadRunner implements Runner {
       demo: this.owner.demoMode,
       maxConcurrent: this.owner.maxConcurrent,
       playIdleMs: this.owner.playIdleMs,
+      welcome: this.owner.welcome,
+      startedAt: this.owner.startedAt,
       pinned: this.pinned,
       off: this.off,
     };

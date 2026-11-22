@@ -133,10 +133,15 @@ export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
    * For trying Kiosko without any setup, screenshots and kiosks at fairs.
    */
   readonly demoMode: boolean;
-  constructor(registry: Registry, config: Config, o: { demo?: boolean; threadEntry?: URL } = {}) {
+  /** The boot animation and the first run's card on the panels (welcome.ts): the server's `start` asks for them; tests and the browser demo don't. */
+  readonly welcome: boolean;
+  /** When this runtime was made: the boot animation plays only soon after. */
+  readonly startedAt = Date.now();
+  constructor(registry: Registry, config: Config, o: { demo?: boolean; threadEntry?: URL; welcome?: boolean } = {}) {
     super();
     this.registry = registry;
     this.demoMode = !!o.demo;
+    this.welcome = !!o.welcome && !o.demo;
     this.threadEntry = o.threadEntry;
     this.setMaxListeners(100);
     this.config = config;

@@ -233,7 +233,20 @@ export interface Config {
   homeassistant?: HomeAssistantLink;
   /** Each screen painting in a thread of its own (see `ThreadsMode`). Missing = `auto`. */
   threads?: ThreadsMode;
+  /**
+   * The editor's first-run setup (web/src/wizard): `pending` as the first run writes it (the
+   * panels show how to open the editor; the first edit made by hand counts as setting up), then
+   * `done` or `skipped`, so it is not offered on its own again (Settings can always run it).
+   * Missing (a config from before it): offered while the config is still the first run's
+   * (`looksLikeStarter`).
+   */
+  setup?: SetupState;
+  /** The short animation on every panel when Kiosko starts (welcome.ts). Missing = on. */
+  bootAnimation?: boolean;
 }
+
+export type SetupState = 'pending' | 'done' | 'skipped';
+export const SETUP_STATES: readonly SetupState[] = ['pending', 'done', 'skipped'];
 
 /**
  * How Kiosko shows up in Home Assistant: an MQTT broker (the one Home
