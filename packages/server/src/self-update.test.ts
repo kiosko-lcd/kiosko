@@ -22,7 +22,7 @@ function fakeSystem(o: { installed?: string; prefix?: string; installFails?: (v:
   let installed = o.installed ?? '0.2.8';
   const calls: string[] = [];
   const run: Run = async (cmd, args) => {
-    const line = `${cmd.split('/').at(-1)} ${args.join(' ')}`;
+    const line = `${cmd.split(/[\\/]/).at(-1)!.replace(/\.cmd$/i, '')} ${args.join(' ')}`;
     calls.push(line);
     if (args[0] === 'prefix') return { code: 0, stdout: `${o.prefix ?? PREFIX}\n`, stderr: '' };
     if (args[0] === 'install') {

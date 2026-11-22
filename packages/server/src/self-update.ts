@@ -545,8 +545,10 @@ export class KioskoUpdater {
 /** Runs a command, never throwing: its exit code and output. */
 export const realRun: Run = (cmd, args, o = {}) =>
   new Promise((ok) => {
-    const win = process.platform === 'win32';
-    const child = spawn(cmd, args, { env: o.env ?? process.env, shell: win && /\.cmd$/i.test(cmd), windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+    // A .cmd (npm.cmd) only runs through cmd.exe, which takes the line as given: quote its path
+    // ("C:\Program Files\nodejs\npm.cmd"); the arguments here never hold spaces.
+    const shell = process.platform === 'win32' && /\.cmd$/i.test(cmd);
+    const child = spawn(shell && /\s/.test(cmd) ? `"${cmd}"` : cmd, args, { env: o.env ?? process.env, shell, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
     let stdout = '';
     let stderr = '';
     child.stdout.on('data', (d) => (stdout = (stdout + d).slice(-20_000)));
