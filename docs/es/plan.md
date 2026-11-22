@@ -1202,7 +1202,7 @@ Lo que cambia en el camino:
     - *De dónde*: **IsThereAnyDeal** (API con clave gratuita) y la lista de deseos pública de **Steam**.
     - *A tener en cuenta*: precios en la moneda y la región de la cuenta; avisar solo de las bajadas, no de todo.
 56. **Baterías de tus cacharros** (`kiosko-plugin-batteries`):
-    - *Qué*: batería de auriculares, ratón, teclado, mando, portátil y móvil, cargando o no, con aviso por debajo del 15 %. *En curso* (2026-11-22).
+    - *Qué*: batería de auriculares, ratón, teclado, mando, portátil y móvil, cargando o no, con aviso por debajo del 15 %. *Hecho* (2026-11-22): `kiosko-plugin-batteries` 0.1.0, plugin opcional.
     - *De dónde*: **UPower** y **BlueZ** (Linux), PowerShell y `Win32_Battery` (Windows), `ioreg` y `pmset` (macOS); el móvil, con **KDE Connect**.
     - *A tener en cuenta*: cada sistema da distintos dispositivos; lo que no se pueda leer, se omite sin pedir nada.
 
