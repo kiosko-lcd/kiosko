@@ -172,6 +172,8 @@ static cJSON *describe(bool full)
         cJSON_AddStringToObject(j, "part", esp_ota_get_running_partition()->label);
         // Optional fields (firmware 0.1.2): an older Kiosko ignores them.
         cJSON_AddNumberToObject(j, "bright", app_settings.bright);
+        cJSON_AddNumberToObject(j, "heapMin", heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL));
+        cJSON_AddNumberToObject(j, "heapLargest", heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL));
         float t = power_temp_c();
         if (!isnan(t)) cJSON_AddNumberToObject(j, "tempC", roundf(t * 10) / 10);
     }
@@ -248,6 +250,7 @@ done:
         send_plain(fd, KS_PAIR_OK, cJSON_CreateObject());
         net_announce();
         ESP_LOGI(TAG, "paired with '%s'", peer);
+        app_heap_note("paired");
     } else if (tried) {
         // Each wrong attempt waits longer: 5 s, 10 s, 20 s... up to 5 min.
         failures++;
@@ -421,7 +424,11 @@ static int dispatch(sess_t *ss, uint8_t type, uint8_t *p, size_t n, int64_t rx_u
             info.last_rx_ms = rx_us / 1000;
         }
         taskEXIT_CRITICAL(&mux);
-        if (r == ESP_OK) app_frames_started();
+        if (r == ESP_OK) {
+            app_frames_started();
+            static bool noted;
+            if (!noted) { noted = true; app_heap_note("first frame"); }
+        }
         char a[112];
         snprintf(a, sizeof(a), "{\"n\":%lu,\"ok\":%s,\"rx\":%lu,\"dec\":%lu%s}", (unsigned long)num, r == ESP_OK ? "true" : "false",
                  (unsigned long)(rx_us / 1000), (unsigned long)dec, r == ESP_OK ? "" : ",\"err\":\"decode\"");
@@ -484,6 +491,7 @@ static int dispatch(sess_t *ss, uint8_t type, uint8_t *p, size_t n, int64_t rx_u
         mbedtls_sha256_init(&ss->ota_sha);
         mbedtls_sha256_starts(&ss->ota_sha, 0);
         ESP_LOGI(TAG, "OTA: %lu bytes to %s", (unsigned long)ss->ota_size, ss->ota_part->label);
+        app_heap_note("OTA begin");
         cJSON_AddNumberToObject(o, "off", 0);
         r = send_json_sealed(ss, KS_OTA_ACK, o);
         break;
@@ -510,6 +518,7 @@ static int dispatch(sess_t *ss, uint8_t type, uint8_t *p, size_t n, int64_t rx_u
         r = send_json_sealed(ss, KS_OTA_DONE, o);
         if (ok) {
             ESP_LOGI(TAG, "OTA done; restarting into %s (rolls back unless it proves itself)", ss->ota_part->label);
+            app_heap_note("OTA end");
             settings_mark_ota_by_kiosko();
             vTaskDelay(pdMS_TO_TICKS(500));
             esp_restart();
@@ -533,6 +542,7 @@ static void run_session(sess_t *ss)
     taskEXIT_CRITICAL(&mux);
     ui_kick();
     ESP_LOGI(TAG, "Kiosko connected");
+    app_heap_note("session up");
     if (send_json_sealed(ss, KS_STATE, describe(true))) goto out;
     int64_t state_at = esp_timer_get_time();
     for (;;) {

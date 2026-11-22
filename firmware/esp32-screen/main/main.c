@@ -23,6 +23,12 @@ static volatile int hold_ms;              // BOOT being held, for the hint on th
 static volatile const char *flash_msg;    // a one-off message (after a long press)
 static int64_t flash_until_us;
 
+void app_heap_note(const char *when)
+{
+    ESP_LOGI("heap", "%s: free %u, lowest %u, largest block %u", when, (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
+             (unsigned)heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL), (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL));
+}
+
 void ui_kick(void) { if (ui_task) xTaskNotifyGive(ui_task); }
 bool app_showing_frames(void) { return showing_frames; }
 void app_frames_started(void) { showing_frames = true; frames_overdrawn = false; }
@@ -41,6 +47,7 @@ static void confirm_cb(void *arg)
 {
     if (net_state() != NET_ONLINE || (need_session && !had_session)) { confirming = false; return; }
     if (esp_ota_mark_app_valid_cancel_rollback() == ESP_OK) ESP_LOGI(TAG, "this firmware is confirmed");
+    app_heap_note("confirmed");
     pending = false;
     esp_timer_stop(deadline_timer);
 }
@@ -75,10 +82,15 @@ static void crash_cb(void *arg)
 
 static const uint16_t BG = RGB565(14, 20, 32), FG = RGB565(240, 244, 250), MUT = RGB565(150, 165, 190), ACC = RGB565(90, 160, 255);
 
-static void page(const char *title, const char *lines[], int n, uint16_t title_color)
+typedef struct { const char *title; const char **lines; int n; uint16_t color; } page_t;
+
+// Run once per band (display_paint): the layout is the same each time, the band clips it.
+static void page_paint(void *ctx)
 {
-    xSemaphoreTakeRecursive(app_gfx_lock, portMAX_DELAY);
-    display_flush_wait();
+    const page_t *pg = ctx;
+    const char *title = pg->title, **lines = pg->lines;
+    int n = pg->n;
+    uint16_t title_color = pg->color;
     fb_clear(BG);
     int total = fb_text_height(TXT_SMALL) + 10;
     for (int i = 0; i < n; i++) total += fb_text_height(lines[i][0] == '\x01' ? TXT_HUGE : lines[i][0] == '\x02' ? TXT_BIG : TXT_TINY) + 4;
@@ -92,8 +104,12 @@ static void page(const char *title, const char *lines[], int n, uint16_t title_c
         else if (s[0] == '\x02') { sz = TXT_BIG; c = FG; s++; }
         y = fb_text_center(y, sz, c, s) + 4;
     }
-    display_flush();
-    xSemaphoreGiveRecursive(app_gfx_lock);
+}
+
+static void page(const char *title, const char *lines[], int n, uint16_t title_color)
+{
+    page_t pg = { title, lines, n, title_color };
+    display_paint(page_paint, &pg);
 }
 
 static void draw(const session_info_t *si, int64_t now)
@@ -235,8 +251,10 @@ static void button_task(void *arg)
 void app_main(void)
 {
     logbuf_init();
+    app_heap_note("boot");
     settings_load();
     display_init();
+    app_heap_note("display up");
     display_set_rotation(app_settings.rot);
     led_init();
     power_init();
@@ -267,6 +285,7 @@ void app_main(void)
     session_start();
     web_start();
     xTaskCreate(button_task, "button", 3072, NULL, 5, NULL);
+    app_heap_note("all started");
     ESP_LOGI(TAG, "Kiosko screen %s on %s, %s, free RAM %u B (largest block %u B)", esp_app_get_description()->version, BOARD_MODEL, run->label,
              (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL), (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL));
     ui_loop();

@@ -85,11 +85,20 @@ back to the previous one by itself:
 
 ## Notes
 
-- **JPEG.** It uses the decoder in the chip's ROM (`CONFIG_JD_USE_ROM`),
-  about 90 ms for a 320×172 frame. esp_jpeg's own build with RGB565 output
-  hung this board on the second image.
-- **Memory.** There is no PSRAM: a 110 KB framebuffer and a 96 KB receive
-  buffer, both in internal RAM. Frames are decrypted in place.
+- **JPEG.** It uses the decoder in the chip's ROM (TJpgDec), called
+  directly from `display.c`, about 90 ms for a 320×172 frame. esp_jpeg's own
+  build with RGB565 output hung this board on the second image.
+- **Memory.** There is no PSRAM. The 96 KB receive buffer stays: a frame is
+  sealed and must be whole before it can be authenticated, and it is
+  decrypted in place. There is **no framebuffer** since 0.1.3. With one
+  (110 KB), frames arriving through the 23 KB TCP window left 6 KB of heap
+  at the lowest. Instead, the decoder's output goes to the panel one MCU row
+  at a time, from two 16-row DMA buffers (10 KB each) that alternate. The
+  screen's own pages are painted band by band (`display_paint`). The free
+  heap is about 115 KB and its lowest point stays far above 30 KB: see
+  `heap`, `heapMin` and `heapLargest` in `status.json`. `heap:` log lines
+  give the heap at boot, online, the first session and frame, a pairing
+  and an OTA.
 - **Power and heat** (`main/power.c`). With the radio always on, the board
   ran hot. Now:
   - **Wi-Fi modem sleep** (`WIFI_PS_MIN_MODEM`) by default: the radio sleeps
@@ -118,8 +127,8 @@ back to the previous one by itself:
     `status.json` (light sleep since boot), and the full table at the end of
     `kiosko remote logs`. `otaState` says whether a new firmware is still on
     trial (`pending`) or confirmed (`valid`).
-  - Heap is short (no PSRAM): the log for `kiosko remote logs` is built in
-    the session's receive buffer, not on the heap.
+  - The log for `kiosko remote logs` is built in the session's receive
+    buffer, not on the heap.
 - **Brightness.** The backlight is PWM, 0–100 % in perceived brightness
   (the duty is the square: 70 %, the default, is about half the power). It is
   kept in NVS. Kiosko sets it (`SET bright`, in the editor's remote-screen

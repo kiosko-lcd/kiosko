@@ -96,6 +96,7 @@ static esp_err_t h_status(httpd_req_t *req)
     cJSON_AddNumberToObject(j, "uptime", (double)(now / 1000000));
     cJSON_AddNumberToObject(j, "heap", heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
     cJSON_AddNumberToObject(j, "heapMin", heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL));
+    cJSON_AddNumberToObject(j, "heapLargest", heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL));
     cJSON_AddStringToObject(j, "partition", esp_ota_get_running_partition()->label);
     // "pending" while a new firmware is on trial (it rolls back unless it proves itself), then "valid".
     esp_ota_img_states_t st;

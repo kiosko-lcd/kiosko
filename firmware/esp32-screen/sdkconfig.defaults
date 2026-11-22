@@ -25,8 +25,7 @@ CONFIG_MBEDTLS_CHACHAPOLY_C=y
 CONFIG_MBEDTLS_HKDF_C=y
 CONFIG_MBEDTLS_ECP_DP_SECP256R1_ENABLED=y
 
-# JPEG: the decoder in ROM (esp_jpeg's own build with RGB565 output hung this board).
-CONFIG_JD_USE_ROM=y
+# JPEG: the ROM's TJpgDec, called directly (display.c), straight to the panel in bands.
 CONFIG_LOG_COLORS=n
 
 # Cooler (main/power.c): the CPU scales 80-160 MHz and light-sleeps when idle; the Wi-Fi

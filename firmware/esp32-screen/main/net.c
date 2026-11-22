@@ -199,6 +199,7 @@ static void on_event(void *arg, esp_event_base_t base, int32_t id, void *data)
         }
         set_state(NET_ONLINE);
         net_announce();
+        app_heap_note("online");
         app_healthy_check();
     }
 }
