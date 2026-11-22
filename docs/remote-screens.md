@@ -105,8 +105,8 @@ slider (0–100 %). The screen keeps it, even without Kiosko. Unset, it uses
 its own: 70 %, or what you chose on its setup page. A lower brightness runs
 cooler.
 
-The card's status line also shows the **chip's temperature**. It reads high
-compared with the room: 45–60 °C is normal for this chip.
+The card's status line also shows the **chip's temperature**. It reads warmer
+than the room: around 40–50 °C is normal for this chip.
 
 ## Several screens
 
