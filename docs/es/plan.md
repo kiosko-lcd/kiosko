@@ -1109,6 +1109,45 @@ Lo que cambia en el camino:
       una opción para no mostrar nada que no quieras en pantalla (solo
       progreso, sin imagen).
 
+39. **El problema de ajedrez del día** (`kiosko-plugin-chess`). Un interludio
+    que se juega (`input: true`, como Doom) desde la página Jugar:
+    - *Qué*: el problema del día de **Lichess** en el tablero, que resuelves
+      con el mando o el teclado (cursor y casilla); al acertar, la jugada
+      siguiente y la solución; también tu puntuación de problemas y las
+      partidas por correspondencia que esperan tu jugada.
+    - *De dónde*: la API abierta de Lichess (`/api/puzzle/daily`, sin
+      clave; con token, tu cuenta). Las piezas, un juego propio y libre.
+    - *Encaje*: en paneles largos, tablero a un lado y la explicación al
+      otro; en reposo, el problema queda como widget.
+40. **Minijuegos propios** (`kiosko-plugin-arcade`). Juegos cortos y
+    originales para la página Jugar, pensados para la forma de los paneles
+    (una barra de 1920×462 no es una pantalla de consola):
+    - *Ideas*: un esquivador lateral que recorre la barra, una serpiente con
+      reglas propias, bloques que caen de lado, un juego de reflejos para
+      dos con el mando dividido.
+    - *Condición*: diseño, nombres, arte y sonido propios; nada que imite un
+      juego concreto existente (ni su aspecto ni sus niveles).
+    - *Con*: récords locales por juego, el modo mosaico (2–3 paneles
+      apilados, como Doom) y el «1 % bajo» de `gaming` para medirse.
+41. **Tu estación meteorológica** (`kiosko-plugin-weather-station`). El
+    plugin `weather` da la previsión; esto, lo que mide tu estación ahora:
+    - *Qué*: viento con ráfagas y dirección, lluvia caída hoy y su
+      intensidad, presión y su tendencia (para anticipar cambios), UV y
+      radiación solar, y los sensores interiores que tenga.
+    - *De dónde*: **Ecowitt** (API local del gateway o el «custom server»
+      que envía por HTTP), **Netatmo**, **Davis** a través de **WeeWX**, y
+      **Ambient Weather**.
+    - *A tener en cuenta*: la fuente se comparte con los widgets de
+      `weather` donde tenga sentido (la temperatura «ahora» de tu estación
+      en vez de la del modelo).
+42. **Tu semana en reuniones** (`calendar`, sin plugin nuevo). Sobre la fuente
+    `calendar/events` que ya existe:
+    - *Qué*: horas de reunión frente a libres por día de la semana, el
+      próximo hueco de 2 horas seguidas (para trabajo profundo), y los días
+      más cargados en ámbar/rojo.
+    - *Cómo*: un widget nuevo en `kiosko-plugin-calendar`; sin nada nuevo
+      que configurar, con la jornada de `workday` para saber qué es «libre».
+
 ### Decisiones abiertas para ti
 
 - **Nombre**: `Kiosko` es provisional (el paquete npm está como
