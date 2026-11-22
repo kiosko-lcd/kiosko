@@ -21,7 +21,8 @@ test('the store API: the catalogue for this Kiosko, and installs only of a relea
   const index = buildIndex([entry('doom', { official: true }), entry('acuario'), entry('cosa', { os: [other] }), entry('bad', { withdrawn: true })], { generatedAt: '2026-11-21T03:17:00Z' });
   index.plugins.push({ ...entry('hidden'), hidden: true });
   const rt = new Runtime(new Registry(), normalize({ screens: [] }));
-  const port = 20_000 + Math.floor(Math.random() * 30_000);
+  // Below 40 000: Windows reserves blocks of its dynamic range (49 152 and up: Hyper-V, WSL), and listening there fails with EACCES.
+  const port = 20_000 + Math.floor(Math.random() * 20_000);
   const store = new StoreCatalog({ cacheDir: dir, snapshot: () => index, fetch: (async () => { throw new Error('offline'); }) as never });
   const srv = startServer({ runtime: rt, host: '127.0.0.1', port, configPath: join(dir, 'config.json'), webDir: dir, version: '0', checkUpdates: false, homeassistant: false, store });
   const base = `http://127.0.0.1:${port}`;
