@@ -1,6 +1,7 @@
 // The protocol server (TCP 7428, docs/remote-screen.md): pairing by SPAKE2 on a
 // code shown on the glass, then one authenticated, sealed session at a time
 // with a Kiosko that sends frames (latest wins: it waits for each ACK).
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
 #include "cJSON.h"
@@ -28,6 +29,7 @@ static const char *TAG = "session";
 #define PAIR_TTL_S      120
 #define WINDOW_S        120
 #define SESSION_IDLE_S  20
+#define STATE_EVERY_S   30   // the state again (its temperature), unasked
 
 static session_info_t info;
 static portMUX_TYPE mux = portMUX_INITIALIZER_UNLOCKED;
@@ -168,6 +170,10 @@ static cJSON *describe(bool full)
         cJSON_AddNumberToObject(j, "rssi", net_rssi());
         cJSON_AddStringToObject(j, "ip", net_ip());
         cJSON_AddStringToObject(j, "part", esp_ota_get_running_partition()->label);
+        // Optional fields (firmware 0.1.2): an older Kiosko ignores them.
+        cJSON_AddNumberToObject(j, "bright", app_settings.bright);
+        float t = power_temp_c();
+        if (!isnan(t)) cJSON_AddNumberToObject(j, "tempC", roundf(t * 10) / 10);
     }
     return j;
 }
@@ -274,16 +280,47 @@ typedef struct {
     bool ota_on;
 } sess_t;
 
+// Seals in place: `b` holds the type and the payload (`len` bytes), with room for the tag after.
+static int send_sealed_buf(sess_t *ss, uint8_t *b, size_t len)
+{
+    uint8_t hdr[4];
+    return ks_seal(&ss->s.tx, b, len, hdr) || write_full(ss->fd, hdr, 4) || write_full(ss->fd, b, len + KS_TAG_LEN) ? -1 : 0;
+}
+
 static int send_sealed(sess_t *ss, uint8_t type, const uint8_t *p, size_t n)
 {
     uint8_t *b = malloc(1 + n + KS_TAG_LEN);
     if (!b) return -1;
     b[0] = type;
     if (n) memcpy(b + 1, p, n);
-    uint8_t hdr[4];
-    int r = ks_seal(&ss->s.tx, b, 1 + n, hdr) || write_full(ss->fd, hdr, 4) || write_full(ss->fd, b, 1 + n + KS_TAG_LEN) ? -1 : 0;
+    int r = send_sealed_buf(ss, b, 1 + n);
     free(b);
     return r;
+}
+
+// The log as {"text":"..."}, built in `big` (this session's receive buffer, free until the next
+// message has been read): a few KB of heap are too many on this board. The log holds no control
+// bytes but newlines (logbuf.c), so escaping is \", \\ and \n. esp_pm's profile goes after it.
+static int send_logs(sess_t *ss)
+{
+    char *raw = (char *)big + CONFIG_KS_RX_MAX / 2;
+    size_t n = logbuf_read(raw, CONFIG_KS_RX_MAX / 8);
+    n += power_profile(raw + n, CONFIG_KS_RX_MAX / 8);
+    uint8_t *o = big;
+    size_t k = 0;
+    static const char head[] = "{\"text\":\"";
+    o[k++] = KS_LOGS;
+    memcpy(o + k, head, sizeof(head) - 1);
+    k += sizeof(head) - 1;
+    for (size_t i = 0; i < n; i++) {
+        char c = raw[i];
+        if (c == '"' || c == '\\') { o[k++] = '\\'; o[k++] = c; }
+        else if (c == '\n') { o[k++] = '\\'; o[k++] = 'n'; }
+        else if ((uint8_t)c >= 0x20) o[k++] = c;
+    }
+    o[k++] = '"';
+    o[k++] = '}';
+    return send_sealed_buf(ss, o, k);
 }
 
 static int send_json_sealed(sess_t *ss, uint8_t type, cJSON *j)
@@ -303,11 +340,12 @@ static void ota_stop(sess_t *ss)
     mbedtls_sha256_free(&ss->ota_sha);
     ss->ota_on = false;
     info.ota = false;
+    power_hold_fast(false);
 }
 
 static int on_set(sess_t *ss, cJSON *j)
 {
-    const cJSON *rot = cJSON_GetObjectItem(j, "rot"), *idle = cJSON_GetObjectItem(j, "idle");
+    const cJSON *rot = cJSON_GetObjectItem(j, "rot"), *idle = cJSON_GetObjectItem(j, "idle"), *bright = cJSON_GetObjectItem(j, "bright");
     const char *id = jstr(j, "id"), *tz = jstr(j, "tz"), *lang = jstr(j, "lang");
     bool save = false, announce = false;
     if (cJSON_IsNumber(rot)) {
@@ -337,6 +375,16 @@ static int on_set(sess_t *ss, cJSON *j)
         app_settings.idle = idle->valueint;
         save = true;
     }
+    // Brightness (0..100), saved: it stays without Kiosko and after a restart.
+    if (cJSON_IsNumber(bright) && bright->valuedouble >= 0 && bright->valuedouble <= 100) {
+        int b = (int)(bright->valuedouble + 0.5);
+        display_set_brightness(b);
+        if (b != app_settings.bright) {
+            app_settings.bright = b;
+            save = true;
+            ESP_LOGI(TAG, "brightness %d %% from Kiosko", b);
+        }
+    }
     if (save) settings_save();
     if (announce) net_announce();
     ui_kick();
@@ -354,6 +402,7 @@ static int dispatch(sess_t *ss, uint8_t type, uint8_t *p, size_t n, int64_t rx_u
 {
     if (type == KS_FRAME) {
         if (n < 5) return -1;
+        power_frame_seen();
         uint32_t num = (uint32_t)p[0] << 24 | p[1] << 16 | p[2] << 8 | p[3];
         uint32_t dec = 0;
         esp_err_t r = ss->ota_on ? ESP_ERR_INVALID_STATE : display_jpeg(p + 4, n - 4, &dec);
@@ -412,16 +461,9 @@ static int dispatch(sess_t *ss, uint8_t type, uint8_t *p, size_t n, int64_t rx_u
         send_sealed(ss, KS_UNPAIR, (const uint8_t *)"{}", 2);
         r = -1;
         break;
-    case KS_LOGS: {
-        char *text = malloc(6200);
-        if (!text) break;
-        logbuf_read(text, 6200);
-        cJSON *o = cJSON_CreateObject();
-        cJSON_AddStringToObject(o, "text", text);
-        free(text);
-        r = send_json_sealed(ss, KS_LOGS, o);
+    case KS_LOGS:
+        r = send_logs(ss);
         break;
-    }
     case KS_OTA_BEGIN: {
         const cJSON *size = cJSON_GetObjectItem(j, "size");
         ss->ota_part = esp_ota_get_next_update_partition(NULL);
@@ -436,6 +478,7 @@ static int dispatch(sess_t *ss, uint8_t type, uint8_t *p, size_t n, int64_t rx_u
         }
         ss->ota_on = true;
         info.ota = true;
+        power_hold_fast(true);
         ss->ota_size = (uint32_t)size->valuedouble;
         ss->ota_off = 0;
         mbedtls_sha256_init(&ss->ota_sha);
@@ -455,6 +498,7 @@ static int dispatch(sess_t *ss, uint8_t type, uint8_t *p, size_t n, int64_t rx_u
             mbedtls_sha256_free(&ss->ota_sha);
             ss->ota_on = false;
             info.ota = false;
+            power_hold_fast(false);
             if (ss->ota_off != ss->ota_size) { err = "short"; esp_ota_abort(ss->ota); }
             else if (!ks_equal(got, ss->ota_want, 32)) { err = "sha256 mismatch"; esp_ota_abort(ss->ota); }
             else if (esp_ota_end(ss->ota) != ESP_OK) err = "not a valid firmware image";
@@ -490,6 +534,7 @@ static void run_session(sess_t *ss)
     ui_kick();
     ESP_LOGI(TAG, "Kiosko connected");
     if (send_json_sealed(ss, KS_STATE, describe(true))) goto out;
+    int64_t state_at = esp_timer_get_time();
     for (;;) {
         // Wait for a message, a second at a time, so a silent Kiosko is noticed.
         fd_set rf;
@@ -503,6 +548,11 @@ static void run_session(sess_t *ss)
             cJSON *o = describe(true);
             cJSON_AddBoolToObject(o, "resend", true);
             if (send_json_sealed(ss, KS_STATE, o)) break;
+            state_at = esp_timer_get_time();
+        }
+        if (esp_timer_get_time() - state_at > STATE_EVERY_S * 1000000LL) {
+            if (send_json_sealed(ss, KS_STATE, describe(true))) break;
+            state_at = esp_timer_get_time();
         }
         if (s == 0) {
             if (esp_timer_get_time() - info.last_seen_us > SESSION_IDLE_S * 1000000LL) { ESP_LOGW(TAG, "Kiosko silent: closing"); break; }
@@ -511,14 +561,20 @@ static void run_session(sess_t *ss)
         int64_t t0 = esp_timer_get_time();
         uint8_t hdr[4];
         set_timeout(ss->fd, 5000);
-        if (read_full(ss->fd, hdr, 4)) break;
+        // A message at full speed, from its first byte to its answer (power.c).
+        power_busy_begin();
+        int r = -1;
+        if (read_full(ss->fd, hdr, 4)) goto msg_done;
         uint32_t L = (uint32_t)hdr[0] << 24 | hdr[1] << 16 | hdr[2] << 8 | hdr[3];
-        if (L < 1 + KS_TAG_LEN || L > CONFIG_KS_RX_MAX) { ESP_LOGW(TAG, "bad length %lu", (unsigned long)L); break; }
-        if (read_full(ss->fd, big, L)) break;
+        if (L < 1 + KS_TAG_LEN || L > CONFIG_KS_RX_MAX) { ESP_LOGW(TAG, "bad length %lu", (unsigned long)L); goto msg_done; }
+        if (read_full(ss->fd, big, L)) goto msg_done;
         int64_t rx = esp_timer_get_time() - t0;
-        if (ks_open(&ss->s.rx, hdr, big, L)) { ESP_LOGW(TAG, "a message did not authenticate: closing"); break; }
+        if (ks_open(&ss->s.rx, hdr, big, L)) { ESP_LOGW(TAG, "a message did not authenticate: closing"); goto msg_done; }
         info.last_seen_us = esp_timer_get_time();
-        if (dispatch(ss, big[0], big + 1, L - KS_TAG_LEN - 1, rx) < 0) break;
+        r = dispatch(ss, big[0], big + 1, L - KS_TAG_LEN - 1, rx);
+    msg_done:
+        power_busy_end();
+        if (r < 0) break;
     }
 out:
     ota_stop(ss);

@@ -45,6 +45,15 @@ int net_rssi(void)
     return state == NET_ONLINE && esp_wifi_sta_get_ap_info(&ap) == ESP_OK ? ap.rssi : 0;
 }
 
+// Power save off while frames come fast: modem sleep holds each received frame back until
+// the next beacon (power.c decides). Kept for when the station (re)connects.
+static volatile bool low_latency;
+void net_set_low_latency(bool on)
+{
+    low_latency = on;
+    if (state == NET_ONLINE) esp_wifi_set_ps(on ? WIFI_PS_NONE : WIFI_PS_MIN_MODEM);
+}
+
 bool net_time_ok(void) { return time(NULL) > 1700000000; }
 
 static void set_state(net_state_t s)
@@ -181,8 +190,8 @@ static void on_event(void *arg, esp_event_base_t base, int32_t id, void *data)
         ESP_LOGI(TAG, "online, IP %s", ip);
         esp_timer_stop(fallback_timer);
         stop_portal();
-        // Low latency over battery: modem sleep holds received frames back until the next beacon.
-        esp_wifi_set_ps(WIFI_PS_NONE);
+        // Modem sleep unless frames are coming fast (power.c): the radio sleeps between beacons.
+        esp_wifi_set_ps(low_latency ? WIFI_PS_NONE : WIFI_PS_MIN_MODEM);
         if (!sntp_on) {
             sntp_on = true;
             esp_sntp_config_t c = ESP_NETIF_SNTP_DEFAULT_CONFIG("pool.ntp.org");

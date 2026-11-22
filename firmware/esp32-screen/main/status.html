@@ -16,9 +16,9 @@ dt{color:var(--mut)}dd{margin:0;font-variant-numeric:tabular-nums}
 <dl id="d"></dl>
 </main><script>
 const rows=[['Kiosko','kiosko',v=>v?'<span class="ok">connected</span>':'<span class="off">waiting</span>'],['Paired','paired',v=>v?'yes':'no'],
-['Name (id)','id'],['Unique id','uid'],['Model','model'],['Firmware','fw',(v,s)=>v+' ('+s.partition+')'],['Size','w',(v,s)=>v+'×'+s.h+' at '+s.rot+'°'],
+['Name (id)','id'],['Unique id','uid'],['Model','model'],['Firmware','fw',(v,s)=>v+' ('+s.partition+(s.otaState==='pending'?', on trial':'')+')'],['Size','w',(v,s)=>v+'×'+s.h+' at '+s.rot+'°'],
 ['Frames','frames'],['fps','fps'],['Last frame','lastFrameAgoMs',v=>v<0?'—':v<1500?'now':Math.round(v/1000)+' s ago'],['JPEG decode','decodeMs',v=>v+' ms'],
-['IP','ip'],['Signal','rssi',v=>v+' dBm'],['Up','uptime',v=>Math.floor(v/3600)+' h '+Math.floor(v%3600/60)+' min'],['Free RAM','heap',v=>Math.round(v/1024)+' KB']];
+['Chip temperature','tempC',v=>v==null?'—':v+' °C'],['Brightness','bright',v=>v+' %'],['Light sleep','sleepPct',v=>v==null?'—':v+' % of the time since start'],['Wi-Fi power save','wifiPs',v=>v==='off'?'off (frames coming fast)':'modem sleep'],['IP','ip'],['Signal','rssi',v=>v+' dBm'],['Up','uptime',v=>Math.floor(v/3600)+' h '+Math.floor(v%3600/60)+' min'],['Free RAM','heap',v=>Math.round(v/1024)+' KB']];
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 async function tick(){try{const s=await (await fetch('/status.json',{cache:'no-store'})).json();
 document.getElementById('title').textContent='Kiosko screen · '+s.id;

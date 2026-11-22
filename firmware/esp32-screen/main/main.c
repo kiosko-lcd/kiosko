@@ -192,12 +192,13 @@ static void ui_loop(void)
 // ---- BOOT ---------------------------------------------------------------------------------
 // Short press: open pairing on a paired screen for 2 min (or cancel a pairing in progress).
 // Hold 5 s: forget the pairing. Hold 10 s: forget the pairing and the Wi-Fi, restart in setup.
+// Polled every 50 ms while up (the chip light-sleeps in between), every 30 ms while held.
 static void button_task(void *arg)
 {
     gpio_config_t io = { .pin_bit_mask = 1ULL << BOARD_BUTTON, .mode = GPIO_MODE_INPUT, .pull_up_en = 1 };
     gpio_config(&io);
     for (;;) {
-        vTaskDelay(pdMS_TO_TICKS(30));
+        vTaskDelay(pdMS_TO_TICKS(50));
         if (gpio_get_level(BOARD_BUTTON)) continue;
         int ms = 0;
         while (!gpio_get_level(BOARD_BUTTON) && ms < 12000) {
@@ -220,7 +221,7 @@ static void button_task(void *arg)
             net_announce();
             flash_msg = T("forgot");
             flash_until_us = esp_timer_get_time() + 3000000;
-        } else if (ms >= 60) {
+        } else if (ms >= 30) {
             session_info_t si;
             session_get(&si);
             if (si.pairing || esp_timer_get_time() < si.window_until_us) session_cancel_pairing();
@@ -238,6 +239,7 @@ void app_main(void)
     display_init();
     display_set_rotation(app_settings.rot);
     led_init();
+    power_init();
     ui_task = xTaskGetCurrentTaskHandle();
 
     esp_ota_img_states_t st;

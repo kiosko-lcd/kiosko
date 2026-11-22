@@ -23,6 +23,7 @@ typedef struct {
     char peer[48];           // who it is paired with, as Kiosko said (shown, not trusted)
     uint16_t rot;            // 0/90/180/270: the screen's own, when no Kiosko says otherwise
     uint16_t idle;           // seconds without Kiosko before the idle page
+    uint8_t bright;          // backlight, 0..100 (perceived); Kiosko or the setup page set it
     bool paired;
     uint8_t key[32];         // the pairing key (NVS; see the docs about NVS encryption)
 } settings_t;
@@ -52,6 +53,10 @@ void display_flush_start(void);         // sends app_fb, returns at once
 void display_flush_wait(void);
 // Decodes a baseline JPEG into app_fb (centred, black around if smaller) and starts the flush.
 esp_err_t display_jpeg(const uint8_t *jpeg, size_t len, uint32_t *decode_ms);
+// Backlight 0..100 (perceived brightness; 0 = off), as shown now. It does not save:
+// app_settings.bright is the saved one (a future night dimming changes only this).
+void display_set_brightness(int pct);
+int display_brightness(void);
 typedef enum { TXT_TINY, TXT_SMALL, TXT_BIG, TXT_HUGE } txt_size_t;
 void fb_clear(uint16_t color);
 void fb_rect(int x, int y, int w, int h, uint16_t color);
@@ -76,6 +81,18 @@ const char *net_ap_ssid(void);
 const char *net_ap_pass(void);   // WPA2 password of the setup network, shown on the screen
 bool net_time_ok(void);
 void net_announce(void);         // (re)publishes the mDNS service and its TXT
+void net_set_low_latency(bool on); // Wi-Fi power save off (true) or modem sleep (false)
+
+// ---- power.c: power management, adaptive Wi-Fi power save, the chip's temperature --
+void power_init(void);
+void power_busy_begin(void);     // CPU at full speed, no light sleep (a frame); nests
+void power_busy_end(void);
+void power_frame_seen(void);     // a frame arrived: power save goes off while they come fast
+void power_hold_fast(bool on);   // power save off for as long as held (an OTA)
+bool power_fast(void);
+float power_temp_c(void);        // the chip's own sensor, °C; NAN if none
+int power_sleep_pct(void);       // % of the time since boot in light sleep; -1 if unknown
+size_t power_profile(char *out, size_t max); // esp_pm's time per mode and its locks, as text
 
 // ---- web.c: the read-only status page, and the setup page on the AP only -------
 void web_start(void);

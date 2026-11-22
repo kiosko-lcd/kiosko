@@ -52,6 +52,7 @@ void settings_load(void)
     strcpy(s->tz, "UTC0");
     strcpy(s->lang, "en");
     s->idle = CONFIG_KS_IDLE_SECONDS;
+    s->bright = CONFIG_KS_BRIGHTNESS;
 
     nvs_handle_t h;
     bool have = false;
@@ -67,6 +68,7 @@ void settings_load(void)
         get_str(h, "peer", s->peer, sizeof(s->peer));
         nvs_get_u16(h, "rot", &s->rot);
         nvs_get_u16(h, "idle", &s->idle);
+        nvs_get_u8(h, "bright", &s->bright);
         uint8_t ok = 0;
         app_ota_by_kiosko = nvs_get_u8(h, "otak", &ok) == ESP_OK && ok;
         size_t n = sizeof(s->key);
@@ -90,7 +92,8 @@ void settings_load(void)
     if (!have) settings_save();
     if (s->rot % 90 || s->rot > 270) s->rot = 0;
     if (s->idle < 3) s->idle = CONFIG_KS_IDLE_SECONDS;
-    ESP_LOGI(TAG, "uid %s, id %s, rotation %u, %s", app_uid, s->id, s->rot, s->paired ? "paired" : "not paired");
+    if (s->bright > 100) s->bright = CONFIG_KS_BRIGHTNESS;
+    ESP_LOGI(TAG, "uid %s, id %s, rotation %u, brightness %u %%, %s", app_uid, s->id, s->rot, s->bright, s->paired ? "paired" : "not paired");
 }
 
 void settings_save(void)
@@ -106,6 +109,7 @@ void settings_save(void)
     nvs_set_str(h, "peer", s->peer);
     nvs_set_u16(h, "rot", s->rot);
     nvs_set_u16(h, "idle", s->idle);
+    nvs_set_u8(h, "bright", s->bright);
     if (s->paired) nvs_set_blob(h, "key", s->key, sizeof(s->key));
     else nvs_erase_key(h, "key");
     nvs_commit(h);

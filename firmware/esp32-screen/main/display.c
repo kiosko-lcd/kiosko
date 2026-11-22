@@ -1,8 +1,10 @@
-// The panel: ST7789 over SPI, rotation by MADCTL (no cost), JPEG frames and text.
+// The panel: ST7789 over SPI, rotation by MADCTL (no cost), JPEG frames and text, and
+// the backlight's brightness (LEDC PWM).
 #include <stdio.h>
 #include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "driver/gpio.h"
+#include "driver/ledc.h"
 #include "driver/spi_master.h"
 #include "esp_heap_caps.h"
 #include "esp_lcd_panel_io.h"
@@ -27,6 +29,43 @@ static int width = BOARD_LCD_W, height = BOARD_LCD_H, rotation;
 
 #define FB_PIXELS (BOARD_LCD_W * BOARD_LCD_H)
 
+// ---- backlight -------------------------------------------------------------------
+// PWM from the LEDC, clocked by RC_FAST and kept alive in light sleep (KEEP_ALIVE), so the
+// light neither flickers nor goes out while the chip sleeps between beacons. 5 kHz, 10 bits.
+// The percentage is perceived brightness: duty = pct^2 (70 % is about half the power).
+#define BL_RES      LEDC_TIMER_10_BIT
+#define BL_MAX      ((1 << 10) - 1)
+static int brightness = -1;
+
+static void backlight_init(void)
+{
+    ledc_timer_config_t t = {
+        .speed_mode = LEDC_LOW_SPEED_MODE, .timer_num = LEDC_TIMER_0, .duty_resolution = BL_RES,
+        .freq_hz = 5000, .clk_cfg = LEDC_USE_RC_FAST_CLK,
+    };
+    ESP_ERROR_CHECK(ledc_timer_config(&t));
+    ledc_channel_config_t c = {
+        .gpio_num = BOARD_LCD_BL, .speed_mode = LEDC_LOW_SPEED_MODE, .channel = LEDC_CHANNEL_0,
+        .timer_sel = LEDC_TIMER_0, .duty = 0, .sleep_mode = LEDC_SLEEP_MODE_KEEP_ALIVE,
+        .flags.output_invert = !BOARD_LCD_BL_ON,
+    };
+    ESP_ERROR_CHECK(ledc_channel_config(&c));
+}
+
+void display_set_brightness(int pct)
+{
+    if (pct < 0) pct = 0;
+    if (pct > 100) pct = 100;
+    if (pct == brightness) return;
+    brightness = pct;
+    uint32_t duty = (uint32_t)(pct * pct * BL_MAX + 5000) / 10000;
+    if (pct && !duty) duty = 1;
+    ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, duty);
+    ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
+}
+
+int display_brightness(void) { return brightness < 0 ? 0 : brightness; }
+
 static bool on_flush_done(esp_lcd_panel_io_handle_t io, esp_lcd_panel_io_event_data_t *e, void *ctx)
 {
     BaseType_t woken = pdFALSE;
@@ -41,9 +80,7 @@ void display_init(void)
     app_fb = heap_caps_malloc(FB_PIXELS * 2, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL);
     assert(app_fb);
 
-    gpio_config_t bl = { .pin_bit_mask = 1ULL << BOARD_LCD_BL, .mode = GPIO_MODE_OUTPUT };
-    ESP_ERROR_CHECK(gpio_config(&bl));
-    gpio_set_level(BOARD_LCD_BL, !BOARD_LCD_BL_ON);
+    backlight_init(); // dark until the panel shows something
 
     spi_bus_config_t bus = {
         .mosi_io_num = BOARD_SPI_MOSI, .miso_io_num = BOARD_SPI_MISO, .sclk_io_num = BOARD_SPI_SCLK,
@@ -78,7 +115,7 @@ void display_init(void)
     fb_clear(0);
     display_flush();
     ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(panel, true));
-    gpio_set_level(BOARD_LCD_BL, BOARD_LCD_BL_ON);
+    display_set_brightness(app_settings.bright);
     ESP_LOGI(TAG, "%s %dx%d ready", BOARD_MODEL, BOARD_LCD_W, BOARD_LCD_H);
 }
 
@@ -146,6 +183,7 @@ esp_err_t display_jpeg(const uint8_t *jpeg, size_t len, uint32_t *decode_ms)
 
     xSemaphoreTakeRecursive(app_gfx_lock, portMAX_DELAY);
     display_flush_wait();
+    power_busy_begin(); // full speed for the decode (the session holds it too, power.c)
     int64_t t0 = esp_timer_get_time();
     cfg.out_scale = s;
     cfg.outbuf = (uint8_t *)app_fb;
@@ -165,6 +203,7 @@ esp_err_t display_jpeg(const uint8_t *jpeg, size_t len, uint32_t *decode_ms)
         if (decode_ms) *decode_ms = (uint32_t)((esp_timer_get_time() - t0) / 1000);
         display_flush_start();
     }
+    power_busy_end();
     xSemaphoreGiveRecursive(app_gfx_lock);
     return r == ESP_OK ? ESP_OK : ESP_FAIL;
 }

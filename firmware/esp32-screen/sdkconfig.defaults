@@ -28,3 +28,15 @@ CONFIG_MBEDTLS_ECP_DP_SECP256R1_ENABLED=y
 # JPEG: the decoder in ROM (esp_jpeg's own build with RGB565 output hung this board).
 CONFIG_JD_USE_ROM=y
 CONFIG_LOG_COLORS=n
+
+# Cooler (main/power.c): the CPU scales 80-160 MHz and light-sleeps when idle; the Wi-Fi
+# uses modem sleep unless frames come fast. A USB host on the console keeps it awake
+# (the USB-Serial/JTAG can't stay connected through light sleep on the C6).
+CONFIG_PM_ENABLE=y
+CONFIG_FREERTOS_USE_TICKLESS_IDLE=y
+CONFIG_USJ_NO_AUTO_LS_ON_CONNECTION=y
+# The time in each mode (light sleep among them): `sleepPct` in status.json, and the logs.
+CONFIG_PM_PROFILING=y
+# Light sleep's code lives in IRAM (~12 KB of the heap); the SPI ISR goes to flash to win
+# some of it back (it only waits while the flash is written: an OTA, a setting saved).
+CONFIG_SPI_MASTER_ISR_IN_IRAM=n

@@ -18,6 +18,11 @@ menu "Kiosko screen"
         int "Seconds without Kiosko before the screen shows its own idle page"
         default 15
 
+    config KS_BRIGHTNESS
+        int "Backlight brightness until Kiosko or the setup page sets one (0-100, perceived)"
+        range 0 100
+        default 70
+
     config KS_TEST_PAIR_CODE
         string "TEST ONLY: a fixed pairing code (empty = random, as it must be)"
         default ""

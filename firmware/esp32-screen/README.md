@@ -90,9 +90,41 @@ back to the previous one by itself:
   hung this board on the second image.
 - **Memory.** There is no PSRAM: a 110 KB framebuffer and a 96 KB receive
   buffer, both in internal RAM. Frames are decrypted in place.
-- **Wi-Fi.** Power save is off, because modem sleep holds frames back until
-  the next beacon. The country is `ES` (channels 1–13); set
-  `KS_WIFI_COUNTRY` for yours.
+- **Power and heat** (`main/power.c`). With the radio always on, the board
+  ran hot. Now:
+  - **Wi-Fi modem sleep** (`WIFI_PS_MIN_MODEM`) by default: the radio sleeps
+    between the access point's beacons. Modem sleep holds each received
+    frame back until the next beacon, so while frames come fast (over 2 fps
+    for 3 s: an interlude, an animation) power save goes off, and it comes
+    back after 5 s under 1 fps. An OTA keeps it off. `status.json` says
+    which (`wifiPs`).
+  - **Power management**: the CPU scales between 80 and 160 MHz and the chip
+    **light-sleeps** whenever it is idle (tickless idle). Receiving,
+    decrypting and decoding a frame hold the CPU at 160 MHz (an
+    `ESP_PM_CPU_FREQ_MAX` lock, which also keeps it awake); the SPI driver
+    holds its own lock while the DMA sends the picture to the panel.
+  - What light sleep could break, and how it doesn't: the **backlight** PWM
+    runs from the RC_FAST clock and is kept alive in sleep
+    (`LEDC_SLEEP_MODE_KEEP_ALIVE`), so it neither flickers nor goes out; the
+    **USB-Serial/JTAG** console can't stay connected through light sleep on
+    the C6, so a USB host on it keeps the chip awake
+    (`CONFIG_USJ_NO_AUTO_LS_ON_CONNECTION`): on a plain charger it sleeps;
+    **BOOT** is polled every 50 ms; the LED task only wakes to blink.
+  - The sleep code lives in IRAM (about 12 KB of the heap); the SPI master's
+    ISR goes to flash to win some back (`CONFIG_SPI_MASTER_ISR_IN_IRAM=n`).
+  - The chip's own **temperature** sensor is read every 5 s: `tempC` in
+    `status.json` and in the session's `STATE`, sent every 30 s.
+  - `CONFIG_PM_PROFILING` counts the time in each mode: `sleepPct` in
+    `status.json` (light sleep since boot), and the full table at the end of
+    `kiosko remote logs`. `otaState` says whether a new firmware is still on
+    trial (`pending`) or confirmed (`valid`).
+  - Heap is short (no PSRAM): the log for `kiosko remote logs` is built in
+    the session's receive buffer, not on the heap.
+- **Brightness.** The backlight is PWM, 0–100 % in perceived brightness
+  (the duty is the square: 70 %, the default, is about half the power). It is
+  kept in NVS. Kiosko sets it (`SET bright`, in the editor's remote-screen
+  card), and so does the setup page. `KS_BRIGHTNESS` is the default.
+- **Wi-Fi country.** `ES` (channels 1–13); set `KS_WIFI_COUNTRY` for yours.
 - **Pairing key.** It is kept in NVS, in clear. NVS and flash encryption are
   in menuconfig (Security), off by default. Turning them on burns eFuses for
   good.

@@ -90,8 +90,8 @@ The screen rejects messages over its `max` (98 304 bytes on the C6), and over
 | 0B | PAIR_OK | S→K | `{}` |
 | 10 | FRAME | K→S | `u32 BE frame number`, then a baseline JPEG |
 | 11 | ACK | S→K | `{"n","ok","rx":ms,"dec":ms,"err"?}` |
-| 12 | SET | K→S | `{"rot"?,"id"?,"tz"?,"lang"?,"idle"?}`; answered with STATE |
-| 13 | STATE | S→K | `{"uid","id","model","w","h","rot","fw","max","last","up","heap","rssi","ip","part","resend"?}` |
+| 12 | SET | K→S | `{"rot"?,"id"?,"tz"?,"lang"?,"idle"?,"bright"?}`; answered with STATE |
+| 13 | STATE | S→K | `{"uid","id","model","w","h","rot","fw","max","last","up","heap","rssi","ip","part","resend"?,"bright"?,"tempC"?}` |
 | 14 | LED | K→S | `{"rgb":"rrggbb","blink":ms}` (`000000` = off) |
 | 15/16 | PING/PONG | both | `{}` |
 | 17 | UNPAIR | K→S | `{}`; the screen forgets the key, answers UNPAIR and closes |
@@ -100,7 +100,7 @@ The screen rejects messages over its `max` (98 304 bytes on the C6), and over
 | 1A | OTA_DATA | K→S | raw bytes, in order (16 KiB pieces) |
 | 1B | OTA_END | K→S | `{}` |
 | 1C | OTA_DONE | S→K | `{"ok":true}` or `{"ok":false,"err"}`; on success it restarts into the new image |
-| 1D | LOGS | both | K→S `{}`; S→K `{"text"}` (the last ~6 KB of its log) |
+| 1D | LOGS | both | K→S `{}`; S→K `{"text"}` (the last ~6 KB of its log; from 0.1.2, then the time in each power mode) |
 
 ERROR codes: `proto`, `notPaired`, `badKey`, `busy` (pairing or update in
 progress), `pairingClosed`, `tooManyTries`, `badCode`.
@@ -170,13 +170,37 @@ not on by default here: turning them on is irreversible on the chip
   always the newest. Frames painted in the meantime replace each other, so a
   slow link never builds a queue.
 - An unchanged picture is not sent again. A `PING` every 5 s keeps the
-  session. A screen hearing nothing for 20 s closes it. Kiosko gives up
+  session. Firmware 0.1.2 runs the Wi-Fi in modem sleep, so an answer can
+  wait for the next beacon (100–300 ms); while frames come fast (over 2 fps)
+  it turns power save off, and turns it on again 5 s after they slow down. A screen hearing nothing for 20 s closes it. Kiosko gives up
   after 16 s without an answer.
 - ACK times (`rx`, `dec`) and Kiosko's round trip show in the editor (fps,
   ms a frame, ms decoding).
 - A frame bigger than the screen's `max` is not sent, and the editor says
   so. Screens added by pairing get `maxBytes` under it, so Kiosko lowers the
   JPEG quality first.
+
+## Brightness and temperature
+
+Firmware 0.1.2 adds two optional fields, still protocol 1. A side that
+doesn't know them ignores them: Kiosko 0.2.10 and older never send `bright`
+and don't read `tempC`, and firmware 0.1.1 ignores a `bright` in `SET`.
+
+- **`SET bright`**: the backlight, 0–100 in perceived brightness (0 = off).
+  The screen applies it at once and keeps it in NVS, so it stays without
+  Kiosko and after a restart. Kiosko pushes it on every connection when the
+  screen's config has `device.brightness`; without one, the screen keeps
+  its own (70 % by default, or what its setup page set).
+- **`STATE bright`**: the brightness it has. Kiosko only offers the control
+  for screens that say it.
+- **`STATE tempC`**: the chip's own temperature sensor, °C with one
+  decimal. It reads it every 5 s and sends `STATE` every 30 s on its own, so
+  Kiosko sees it change. `status.json` has it too.
+
+For a future night dimming, the screen keeps the shown brightness apart
+from the saved one (`display_set_brightness`). A temporary dim would be
+another optional `SET` field that changes only the first, not this one,
+which writes to flash.
 
 ## Resync
 
