@@ -130,6 +130,17 @@ kiosko doctor
 
 另外，在 Windows 上给副屏换成 WinUSB 驱动之后，TRCC 就识别不到这块副屏了；如果想换回 TRCC，可以在“设备管理器”中恢复原来的驱动。详见 [通过 USB 连接副屏](usb.md)。
 
+## 更新 Kiosko
+
+Kiosko 每天会向 npm（你设置的源，例如 npmmirror）询问一次是否有新版本。有新版本时，编辑器顶栏会显示提示（点 × 关闭后，直到下一个版本才会再出现），**插件 → 更新** 里会列出新功能（GitHub 的发行说明；连不上 GitHub 时只列出 npm 上的版本号）、因此可以更新的插件，以及适合你安装方式的更新方法：
+
+- **npm（Linux、macOS）**：点 **将 Kiosko 更新到 …**。Kiosko 会用你的 npm 和源安装该版本，确认新版本能启动并加载你的插件，然后重启；任何一步失败都会装回原来的版本。也可以手动运行 `npm install -g kiosko@<版本> --registry https://registry.npmmirror.com`，再重启 Kiosko。
+- **Windows 安装程序**：点同一个按钮，Kiosko 会从 GitHub 下载该版本的 `Kiosko-Setup-<版本>-x64.exe`，用发行版公布的 `.sha256` 校验，你确认后才运行。连不上 GitHub 时，请从其他渠道下载安装程序并手动运行。
+- **Windows 上的 npm**：先停止 Kiosko，再运行上面的 npm 命令，然后重新启动。
+- **源代码**：`git pull && npm install && npm run web:build`，然后重启。
+
+每一步都会记录在 **活动记录** 中。
+
 ## 故障排查与求助
 
 - 先运行 `kiosko doctor`：它会列出 Kiosko 的版本、配置文件、已加载的插件、中文字体、Kiosko 能看到的 USB 副屏（含序列号），以及每个屏幕的状态。

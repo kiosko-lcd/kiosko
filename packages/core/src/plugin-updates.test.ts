@@ -48,10 +48,15 @@ test('checkUpdates: every plugin and Kiosko, with the abbreviated metadata; a pa
     { http: createHttp({ fetch: fake }), registry: 'https://reg.test', sdk: '0.2.2', platform: 'linux', kioskoVersion: '0.2.2', now: 42 },
   );
   assert.deepEqual(r.plugins.map((p) => [p.id, p.version]), [['weather', '0.2.2']]);
-  assert.deepEqual(r.kiosko, { current: '0.2.2', latest: '0.3.0' });
+  // GitHub (the same fake: 404) can't be read: npm's versions stand in for the notes, and the check still succeeds.
+  assert.equal(r.kiosko?.current, '0.2.2');
+  assert.equal(r.kiosko?.latest, '0.3.0');
+  assert.deepEqual(r.kiosko?.versions, ['0.3.0']);
+  assert.equal(r.kiosko?.notes?.from, 'npm');
+  assert.deepEqual(r.kiosko?.notes?.releases.map((x) => x.version), ['0.3.0']);
   assert.deepEqual(r.errors.map((e) => e.package), ['kiosko-plugin-gone']);
   assert.equal(r.checkedAt, 42);
-  assert.ok(asked.every((a) => a.accept === 'application/vnd.npm.install-v1+json'));
+  assert.ok(asked.filter((a) => !a.url.startsWith('https://api.github.com/')).every((a) => a.accept === 'application/vnd.npm.install-v1+json'));
   assert.ok(asked.some((a) => a.url === 'https://reg.test/@acme%2Fkiosko-plugin-x'), 'scoped names keep their @');
 });
 
@@ -65,4 +70,16 @@ test('npmRegistry: where npm installs from (npmmirror in mainland China), else r
   writeFileSync(join(home, '.npmrc'), 'fund=false\nregistry = "https://registry.npmmirror.com/"\n');
   assert.equal(npmRegistry({}, home), 'https://registry.npmmirror.com');
   assert.equal(npmRegistry({ npm_config_registry: 'https://r.example/' }, home), 'https://r.example');
+});
+
+test('pickUpdate: a plugin blocked only by this Kiosko\'s plugin API says which newer Kiosko takes it', () => {
+  const weather = { id: 'weather', package: 'kiosko-plugin-weather', version: '0.2.1' };
+  const p = { 'dist-tags': { latest: '0.3.0' }, versions: { '0.2.1': v('^0.2.0'), '0.3.0': v('^0.3.0') } };
+  assert.equal(pickUpdate(weather, p, { ...env, kioskoLatest: '0.3.1' })!.unlockedBy, '0.3.1');
+  // The newer Kiosko is still too old for it, or there is none: nothing promised.
+  assert.equal(pickUpdate(weather, p, { ...env, kioskoLatest: '0.2.9' })!.unlockedBy, undefined);
+  assert.equal(pickUpdate(weather, p, env)!.unlockedBy, undefined);
+  // Blocked by the operating system: a newer Kiosko doesn't help.
+  const win = { 'dist-tags': { latest: '0.3.0' }, versions: { '0.3.0': v('^0.3.0', ['win32']) } };
+  assert.equal(pickUpdate(weather, win, { ...env, kioskoLatest: '0.3.1' })!.unlockedBy, undefined);
 });

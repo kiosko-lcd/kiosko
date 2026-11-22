@@ -6,7 +6,7 @@
 import { batch, computed, signal } from '@preact/signals';
 import { localize } from '@kiosko/sdk/i18n';
 import type { Config, Page, Screen, Tile, WidgetInstance } from '@kiosko/core/model';
-import { CLIENT_ID, api, connectEvents, type AlertInfo, type AppState, type FrameEvent, type PluginInfo, type Status, type WidgetInfo } from './api.ts';
+import { CLIENT_ID, api, connectEvents, type AlertInfo, type AppState, type FrameEvent, type KioskoUpdateStatus, type PluginInfo, type Status, type WidgetInfo } from './api.ts';
 
 export type View = 'editor' | 'screens' | 'plugins' | 'play' | 'settings' | 'logs';
 
@@ -35,6 +35,10 @@ export const showGrid = signal(true);
 /** The panel drawn at its real size on the stage (in the monitor's CSS millimetres). */
 export const trueSize = signal(false);
 export const liveMode = signal(false);
+/** "Update Kiosko"'s progress, as the server streams it (null until it says). */
+export const kioskoStatus = signal<KioskoUpdateStatus | null>(null);
+/** The version of the Kiosko the editor is connected to, from each (re)connection's hello. */
+export const serverVersion = signal<string | null>(null);
 
 function readView(): View {
   const h = location.hash.replace('#/', '').split('/')[0];
@@ -211,6 +215,8 @@ export async function boot(): Promise<void> {
     config.value = s.config;
     status.value = s.status;
     alerts.value = s.alerts ?? [];
+    kioskoStatus.value = s.kioskoUpdate?.status ?? null;
+    serverVersion.value = s.version;
     screenId.value = s.config.screens[0]?.id ?? null;
     pageId.value = s.config.screens[0]?.pages[0]?.id ?? null;
   });
@@ -230,6 +236,8 @@ export async function boot(): Promise<void> {
     status: (st) => (status.value = st),
     alerts: (a) => (alerts.value = a),
     online: (on) => (online.value = on),
+    hello: (e) => (serverVersion.value = e.version),
+    kioskoUpdate: (st) => (kioskoStatus.value = st),
   });
   api.logs().then((l) => (logs.value = l)).catch(() => undefined);
 }

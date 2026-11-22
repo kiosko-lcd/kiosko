@@ -90,6 +90,37 @@ Windows too.
 
 From a clone: `npm install && npm run dev`.
 
+### Updating
+
+Kiosko asks npm once a day whether there is a newer Kiosko (and newer
+plugins; `KIOSKO_NO_UPDATE_CHECK=1` turns it off). When there is, the editor
+says so in its top bar (close it and it stays quiet until the next version)
+and **Plugins → Updates** shows what's new (the GitHub release notes; where
+GitHub can't be reached, the versions on npm), which plugin updates were
+waiting for it, and what to do for the way this Kiosko was installed:
+
+| Installed with | By hand | From the editor |
+|---|---|---|
+| **npm**, Linux / macOS | `npm install -g kiosko@<version>` (with `--registry` when yours isn't npm's, e.g. npmmirror), then restart | **Update Kiosko** |
+| **npm**, Windows | stop Kiosko, `npm install -g kiosko@<version>`, start it | — (Windows keeps a running Kiosko's files open) |
+| **Windows installer** | run that version's `Kiosko-Setup-<version>-x64.exe` from the [release](https://github.com/kiosko-lcd/kiosko/releases) | **Update Kiosko** |
+| **a clone** | `git pull && npm install && npm run web:build`, then restart | — |
+
+**Update Kiosko** never runs on its own: it starts with your click and runs
+one update at a time. With npm it installs that exact version with your npm
+and registry into the folder this Kiosko runs from, checks that the new one
+starts (`kiosko --version`) and loads your plugins (`kiosko self-check`), and
+only then restarts: through `systemctl --user` or `launchctl` when Kiosko is
+your session service, otherwise by starting the new one and stopping once it
+answers (if it doesn't, the running one carries on). If anything fails, the
+version you had is installed again and the editor says why. Started from a
+terminal, it installs and asks you to restart it. With the Windows installer
+it downloads the release's `.exe`, checks it against the release's `.sha256`
+and runs it only after you confirm (silently for a per-user install, with the
+options you chose when you installed; the wizard otherwise); the installer
+stops Kiosko and starts it again. Every step goes to **Activity**, and the
+editor reconnects to the new version by itself.
+
 A first run creates a virtual screen with a few widgets, so there's something
 to play with before any hardware is connected. Then go to **Screens → Add
 screen**, pick your panel model and its connection:
@@ -449,6 +480,7 @@ kiosko config import <file> [--apply]
 kiosko doctor
 kiosko plugins [list|add <id>|link <folder>|remove <id>]
 kiosko service install      # start with your session (systemd / launchd / Task Scheduler)
+kiosko self-check [--json]  # load the plugins as start would and say what loads
 ```
 
 ## Coming from aimonitor

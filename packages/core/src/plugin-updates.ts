@@ -14,6 +14,7 @@ import { readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { incompatibility, packageMeta } from './plugin-meta.ts';
+import { kioskoReleaseNotes, versionsBetween, type KioskoNotes } from './kiosko-release.ts';
 
 export const REGISTRY = 'https://registry.npmjs.org';
 
@@ -55,6 +56,18 @@ export interface PluginUpdate {
   version?: string;
   /** Why `latest` itself can't be installed here, when it can't. */
   blocked?: string;
+  /** The newer Kiosko (the one npm has) that `latest` would fit, when it is only blocked by this Kiosko's plugin API. */
+  unlockedBy?: string;
+}
+
+/** Kiosko itself, when npm has a newer one. */
+export interface KioskoUpdate {
+  current: string;
+  latest: string;
+  /** The stable versions after `current` up to `latest`, newest first (npm's list). */
+  versions: string[];
+  /** What's new in them (GitHub's release notes, or npm's versions when GitHub can't be read). */
+  notes?: KioskoNotes;
 }
 
 export interface UpdateCheck {
@@ -63,7 +76,7 @@ export interface UpdateCheck {
   /** Plugins with something newer: installable (`version`) or not (`blocked`). */
   plugins: PluginUpdate[];
   /** Kiosko itself, when npm has a newer one. */
-  kiosko?: { current: string; latest: string };
+  kiosko?: KioskoUpdate;
   /** Packages that couldn't be checked (offline, not on npm…), with why. */
   errors: { package: string; error: string }[];
 }
@@ -82,20 +95,31 @@ const releases = (p: Packument) =>
     })
     .sort((a, b) => compareVersions(b, a));
 
-/** For one plugin: the newest version that fits, and why `latest` doesn't if it doesn't. */
-export function pickUpdate(installed: InstalledPlugin, p: Packument, env: { sdk: string; platform: string }): PluginUpdate | null {
+/**
+ * For one plugin: the newest version that fits, and why `latest` doesn't if
+ * it doesn't. With `kioskoLatest` (a newer Kiosko npm has), whether that one
+ * would take `latest`: its plugin API is its version (SDK_VERSION follows
+ * Kiosko's).
+ */
+export function pickUpdate(installed: InstalledPlugin, p: Packument, env: { sdk: string; platform: string; kioskoLatest?: string }): PluginUpdate | null {
   const latest = p['dist-tags']?.latest;
   if (!latest || compareVersions(latest, installed.version) <= 0) return null;
-  const why = (v: string) => incompatibility(packageMeta(p.versions?.[v] ?? {}), env);
+  const meta = (v: string) => packageMeta(p.versions?.[v] ?? {});
+  const why = (v: string) => incompatibility(meta(v), env);
   const blocked = p.versions?.[latest] ? why(latest) : null;
   const version = releases(p).find((v) => compareVersions(v, installed.version) > 0 && compareVersions(v, latest) <= 0 && !why(v));
-  return { id: installed.id, package: installed.package, current: installed.version, latest, ...(version ? { version } : {}), ...(blocked ? { blocked } : {}) };
+  const unlocks = blocked && env.kioskoLatest && compareVersions(env.kioskoLatest, env.sdk) > 0 && !incompatibility(meta(latest), { sdk: env.kioskoLatest, platform: env.platform });
+  return { id: installed.id, package: installed.package, current: installed.version, latest, ...(version ? { version } : {}), ...(blocked ? { blocked } : {}), ...(unlocks ? { unlockedBy: env.kioskoLatest } : {}) };
 }
 
-/** Asks npm about every installed plugin (and Kiosko). Never throws: a package that can't be read is listed in `errors`. */
+/**
+ * Asks npm about every installed plugin (and Kiosko), and GitHub what is new
+ * in a newer Kiosko. Never throws: a package that can't be read is listed in
+ * `errors`; GitHub unreachable leaves npm's version list as the notes.
+ */
 export async function checkUpdates(
   plugins: InstalledPlugin[],
-  o: { kioskoVersion?: string; http?: HttpClient; registry?: string; sdk?: string; platform?: string; now?: number; signal?: AbortSignal } = {},
+  o: { kioskoVersion?: string; http?: HttpClient; registry?: string; sdk?: string; platform?: string; now?: number; signal?: AbortSignal; github?: string | false } = {},
 ): Promise<UpdateCheck> {
   const http = o.http ?? createHttp({ agent: 'kiosko-updates' });
   const env = { sdk: o.sdk ?? SDK_VERSION, platform: o.platform ?? process.platform };
@@ -110,15 +134,15 @@ export async function checkUpdates(
       return null;
     }
   };
-  const found = await Promise.all(plugins.map(async (pl) => {
-    const p = await read(pl.package);
-    return p ? pickUpdate(pl, p, env) : null;
-  }));
-  let kiosko: UpdateCheck['kiosko'];
-  if (o.kioskoVersion) {
-    const p = await read('kiosko');
-    const latest = p?.['dist-tags']?.latest;
-    if (latest && compareVersions(latest, o.kioskoVersion) > 0) kiosko = { current: o.kioskoVersion, latest };
+  const [k, ...found] = await Promise.all([o.kioskoVersion ? read('kiosko') : Promise.resolve(null), ...plugins.map((pl) => read(pl.package))]);
+  let kiosko: KioskoUpdate | undefined;
+  const latest = k?.['dist-tags']?.latest;
+  if (o.kioskoVersion && latest && compareVersions(latest, o.kioskoVersion) > 0) {
+    const all = Object.keys(k?.versions ?? {});
+    const versions = versionsBetween(all.length ? all : [latest], o.kioskoVersion, latest);
+    const notes = o.github === false ? undefined : await kioskoReleaseNotes(o.kioskoVersion, latest, { http, npmVersions: versions, ...(o.github ? { api: o.github } : {}), ...(o.signal ? { signal: o.signal } : {}) });
+    kiosko = { current: o.kioskoVersion, latest, versions, ...(notes ? { notes } : {}) };
   }
-  return { checkedAt: o.now ?? Date.now(), plugins: found.filter((x): x is PluginUpdate => !!x), ...(kiosko ? { kiosko } : {}), errors };
+  const picked = plugins.map((pl, i) => (found[i] ? pickUpdate(pl, found[i]!, { ...env, ...(kiosko ? { kioskoLatest: kiosko.latest } : {}) }) : null));
+  return { checkedAt: o.now ?? Date.now(), plugins: picked.filter((x): x is PluginUpdate => !!x), ...(kiosko ? { kiosko } : {}), errors };
 }

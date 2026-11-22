@@ -198,6 +198,20 @@ export const api: typeof httpApi = {
   checkUpdates: async () => {
     throw notHere();
   },
+  // Kiosko's own update: there is no Kiosko installed behind the demo.
+  kioskoUpdate: async () => {
+    throw notHere();
+  },
+  startKioskoUpdate: async () => {
+    throw notHere();
+  },
+  confirmKioskoUpdate: async () => {
+    throw notHere();
+  },
+  cancelKioskoUpdate: async () => {
+    throw notHere();
+  },
+  version: async () => ({ version: (await state()).version, instance: 'demo' }),
   reloadPlugin: async () => {
     throw notHere();
   },

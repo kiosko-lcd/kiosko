@@ -78,6 +78,51 @@ export interface PluginUpdate {
   latest: string;
   version?: string;
   blocked?: string;
+  /** The newer Kiosko that `latest` would fit, when only this Kiosko's plugin API blocks it. */
+  unlockedBy?: string;
+}
+
+/** A newer Kiosko on npm, with what is new in it (GitHub's release notes, or npm's versions). */
+export interface KioskoUpdateInfo {
+  current: string;
+  latest: string;
+  versions: string[];
+  notes?: {
+    from: 'github' | 'npm';
+    releases: { version: string; name?: string; body?: string; truncated?: boolean; url: string; date?: string }[];
+    error?: string;
+    windows?: { name: string; exe: string; sha256: string };
+  };
+}
+
+export type InstallKind = 'windows-installer' | 'npm-global' | 'npx' | 'source' | 'other';
+export type UpdateStepCode = 'prefix' | 'install' | 'verify' | 'selfCheck' | 'rollback' | 'restart' | 'download' | 'hash' | 'launch';
+export type RestartHow = 'systemd' | 'launchd' | 'handover' | 'manual' | 'installer';
+
+/** "Update Kiosko"'s progress (see server's self-update.ts). */
+export interface KioskoUpdateStatus {
+  state: 'idle' | 'working' | 'ready' | 'restarting' | 'done' | 'failed';
+  target: string | null;
+  from: string;
+  method: 'npm' | 'windows' | null;
+  steps: { at: number; code: UpdateStepCode; ok: boolean | null; detail?: string }[];
+  error: { code: string; detail: string } | null;
+  rolledBack: boolean;
+  restart: RestartHow | null;
+  sha256: string | null;
+  warnings: string[];
+  logFile: string | null;
+}
+
+/** How this Kiosko was installed, what to do to update it, and whether its button can. */
+export interface KioskoUpdateState {
+  install: { kind: InstallKind; service: 'systemd' | 'launchd' | 'schtasks' | null; dir: string; perUser: boolean; platform: string };
+  canUpdate: boolean;
+  /** Why the button can't: the install kind, `npmWindows`, `demo`. */
+  blocker: string | null;
+  restart: RestartHow;
+  instructions: { kind: InstallKind; version: string; command?: string; url: string; download?: string; stopFirst?: boolean } | null;
+  status: KioskoUpdateStatus;
 }
 
 export interface PluginInfo {
@@ -209,7 +254,9 @@ export interface AppState {
   /** Plugins found but not loaded: they don't fit this Kiosko (plugin API, operating system). */
   refused: { id?: string; version?: string; origin: string; reason: string }[];
   /** Newer versions on npm, from the last daily check (null before it, and in the demo). */
-  updates?: { checkedAt: number; plugins: PluginUpdate[]; kiosko: { current: string; latest: string } | null } | null;
+  updates?: { checkedAt: number; plugins: PluginUpdate[]; kiosko: KioskoUpdateInfo | null } | null;
+  /** Updating Kiosko itself (not in the demo). */
+  kioskoUpdate?: KioskoUpdateState;
   categories: { id: string; label: string | Record<string, string> }[];
   themes: ThemeInfo[];
   presets: { id: string; name: string; width: number; height: number; maker?: string; tested?: boolean }[];
@@ -289,6 +336,15 @@ export const api = {
   refreshStore: () => fetch('/api/store/refresh', { method: 'POST', headers: H }).then((r) => ok<{ from: string; fetchedAt: number | null; error: string | null }>(r)),
   /** Installs exactly this release (checked against the catalogue's integrity), and what it needs; an unreviewed one only with `acceptRisk`. */
   installFromStore: (id: string, version: string, acceptRisk = false) => fetch('/api/store/install', { method: 'POST', headers: H, body: JSON.stringify({ id, version, acceptRisk }) }).then((r) => ok<StoreInstallResult>(r)),
+  /** Kiosko's own update: how it is installed, the instructions and the button's progress. */
+  kioskoUpdate: () => fetch('/api/kiosko/update').then((r) => ok<KioskoUpdateState>(r)),
+  /** Starts updating Kiosko to the version the check found (npm: all of it; Windows: download and verify). */
+  startKioskoUpdate: (version: string) => fetch('/api/kiosko/update', { method: 'POST', headers: H, body: JSON.stringify({ version }) }).then((r) => ok<KioskoUpdateState>(r)),
+  /** Windows: runs the verified installer. */
+  confirmKioskoUpdate: (version: string) => fetch('/api/kiosko/update/confirm', { method: 'POST', headers: H, body: JSON.stringify({ version }) }).then((r) => ok<KioskoUpdateState>(r)),
+  cancelKioskoUpdate: () => fetch('/api/kiosko/update/cancel', { method: 'POST', headers: H, body: '{}' }).then((r) => ok<KioskoUpdateState>(r)),
+  /** Who answers now (after a restart: the new version). */
+  version: () => fetch('/api/version', { cache: 'no-store' }).then((r) => ok<{ version: string; instance: string }>(r)),
   setPluginEnabled: (id: string, enabled: boolean) => fetch(`/api/plugins/${encodeURIComponent(id)}/enabled`, { method: 'POST', headers: H, body: JSON.stringify({ enabled }) }).then((r) => ok<AppState>(r)),
 };
 
@@ -303,12 +359,16 @@ export interface FrameEvent {
 }
 
 /** Server-sent events, reconnecting on their own. */
-export function connectEvents(h: { config?: (e: { rev: number; by: string | null }) => void; frame?: (e: FrameEvent) => void; log?: (e: { at: number; scope: string; message: string }) => void; status?: (s: Status) => void; alerts?: (a: AlertInfo[]) => void; online?: (on: boolean) => void }): () => void {
+export function connectEvents(h: { config?: (e: { rev: number; by: string | null }) => void; frame?: (e: FrameEvent) => void; log?: (e: { at: number; scope: string; message: string }) => void; status?: (s: Status) => void; alerts?: (a: AlertInfo[]) => void; online?: (on: boolean) => void; hello?: (e: { version: string }) => void; kioskoUpdate?: (s: KioskoUpdateStatus) => void }): () => void {
   let es: EventSource | null = null;
   let closed = false;
   const open = () => {
     es = new EventSource('/api/events');
-    es.addEventListener('hello', () => h.online?.(true));
+    es.addEventListener('hello', (e) => {
+      h.online?.(true);
+      h.hello?.(JSON.parse((e as MessageEvent).data));
+    });
+    es.addEventListener('kiosko-update', (e) => h.kioskoUpdate?.(JSON.parse((e as MessageEvent).data)));
     es.addEventListener('frame', (e) => h.frame?.(JSON.parse((e as MessageEvent).data)));
     es.addEventListener('config', (e) => h.config?.(JSON.parse((e as MessageEvent).data)));
     es.addEventListener('log', (e) => h.log?.(JSON.parse((e as MessageEvent).data)));
