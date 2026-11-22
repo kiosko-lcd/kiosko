@@ -28,6 +28,8 @@ export interface RemoteConfig {
   /** Address to use instead of looking it up by mDNS. */
   host?: string;
   port?: number;
+  /** Backlight 0-100, pushed on every connection (firmware 0.1.2 on; older ones ignore it). */
+  brightness?: number;
   jpegQuality?: number;
 }
 
@@ -49,6 +51,10 @@ export interface RemoteStatus {
   /** Frames painted here but replaced by a newer one before they could go. */
   dropped: number;
   since: number | null;
+  /** The chip's temperature, °C, as the screen last said (firmware 0.1.2 on; null: it doesn't say). */
+  tempC: number | null;
+  /** Its backlight, 0-100 (firmware 0.1.2 on; null: an older one, without brightness). */
+  bright: number | null;
 }
 
 /** What the driver needs of the mDNS browser (tests: a fake). */
@@ -75,6 +81,11 @@ export interface RemoteDeps {
 }
 
 const ROTATIONS = [0, 90, 180, 270];
+
+/** A brightness to push: 0-100, whole; null when none is set (the screen keeps its own). */
+export function brightnessOf(v: unknown): number | null {
+  return typeof v === 'number' && Number.isFinite(v) ? Math.min(100, Math.max(0, Math.round(v))) : null;
+}
 
 export class RemoteDevice {
   readonly status: DeviceStatus & { remote: RemoteStatus };
@@ -118,7 +129,7 @@ export class RemoteDevice {
       code: 'connecting',
       framesSent: 0,
       lastSentAt: null,
-      remote: { online: false, id: cfg.id ?? cfg.uid, host: cfg.host ?? null, fw: '', model: '', w: 0, h: 0, rot: this.rotate, fps: 0, rttMs: null, decodeMs: null, lastFrameAt: null, dropped: 0, since: null },
+      remote: { online: false, id: cfg.id ?? cfg.uid, host: cfg.host ?? null, fw: '', model: '', w: 0, h: 0, rot: this.rotate, fps: 0, rttMs: null, decodeMs: null, lastFrameAt: null, dropped: 0, since: null, tempC: null, bright: null },
     };
     this.mdns.retain();
     this.mdns.on('found', this.onFound);
@@ -281,7 +292,8 @@ export class RemoteDevice {
     this.applyState(st.json());
     // Kiosko's screen config is the truth: its rotation (and language, clock) go to the screen.
     const extra = this.deps.settings?.() ?? {};
-    sendSealed(wire, session, T.SET, { rot: this.rotate, ...extra });
+    const bright = brightnessOf(this.cfg.brightness);
+    sendSealed(wire, session, T.SET, { rot: this.rotate, ...extra, ...(bright !== null ? { bright } : {}) });
     this.rotDirty = false;
     this.ledDirty = !!this.led;
     // Whatever it shows now is not ours (or may not be): the current frame at once.
@@ -368,6 +380,8 @@ export class RemoteDevice {
     if (typeof j.fw === 'string') r.fw = j.fw;
     if (typeof j.w === 'number') r.w = j.w;
     if (typeof j.h === 'number') r.h = j.h;
+    if (typeof j.tempC === 'number' && Number.isFinite(j.tempC)) r.tempC = j.tempC;
+    if (typeof j.bright === 'number' && Number.isFinite(j.bright)) r.bright = j.bright;
   }
 
   /**

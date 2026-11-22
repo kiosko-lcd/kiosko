@@ -38,9 +38,10 @@ export type DeviceConfig =
   /**
    * A Kiosko remote screen on the network (firmware/esp32-screen, docs/remote-screen.md):
    * found by `uid` over mDNS (or at `host`), paired with `key` (secret), turned by the
-   * screen itself to the screen's `rotate`.
+   * screen itself to the screen's `rotate`. `brightness` (0-100, perceived) is pushed to
+   * screens that support it (firmware 0.1.2 on); unset, the screen keeps its own.
    */
-  | { driver: 'remote'; uid: string; id?: string; key?: string; host?: string; port?: number };
+  | { driver: 'remote'; uid: string; id?: string; key?: string; host?: string; port?: number; brightness?: number };
 
 /** Whether the panel turns the picture itself (Kiosko then paints it the page's way round). */
 export function deviceRotates(d: DeviceConfig): boolean {

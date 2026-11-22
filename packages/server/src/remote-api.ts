@@ -127,7 +127,8 @@ export function remoteApi(ctx: RemoteApiContext) {
       if (s) {
         const keepHost = s.device.driver === 'remote' ? s.device.host : undefined;
         const keepPort = s.device.driver === 'remote' ? s.device.port : undefined;
-        s.device = { driver: 'remote', uid: info.uid, id: info.id, key: hex, ...(keepHost ? { host: keepHost } : {}), ...(keepPort ? { port: keepPort } : {}) };
+        const keepBright = s.device.driver === 'remote' ? s.device.brightness : undefined;
+        s.device = { driver: 'remote', uid: info.uid, id: info.id, key: hex, ...(keepHost ? { host: keepHost } : {}), ...(keepPort ? { port: keepPort } : {}), ...(keepBright !== undefined ? { brightness: keepBright } : {}) };
       } else {
         s = remoteScreen(ctx.runtime.registry, info, hex, ctx.runtime.config.locale === 'auto' ? 'en' : ctx.runtime.config.locale);
         cfg.screens.push(s);

@@ -1,7 +1,7 @@
 /**
  * Kiosko remote screens in the editor (docs/remote-screen.md): pairing with
- * the code the screen shows, and a paired screen's link, address, firmware
- * update, log and unpairing. The pairing key never reaches these controls:
+ * the code the screen shows, and a paired screen's link (with its chip's
+ * temperature), brightness, address, firmware update, log and unpairing. The pairing key never reaches these controls:
  * the server writes it into the config.
  */
 import { useEffect, useRef, useState } from 'preact/hooks';
@@ -126,6 +126,8 @@ export function RemoteSettings({ s, link, setDevice }: { s: Screen; link?: Remot
   const [pairing, setPairing] = useState(false);
   const [logs, setLogs] = useState<string | null>(null);
   const [updating, setUpdating] = useState(false);
+  // The slider's value while it is dragged: the config (and the screen) change on release.
+  const [dragging, setDragging] = useState<number | null>(null);
   const file = useRef<HTMLInputElement>(null);
   const paired = !!dev.key;
   const name = link?.id || dev.id || dev.uid;
@@ -158,10 +160,28 @@ export function RemoteSettings({ s, link, setDevice }: { s: Screen; link?: Remot
       {link?.online && (
         <div class="muted small" role="status">
           {t('remote.status', { fps: link.fps, rtt: link.rttMs ?? '—', dec: link.decodeMs ?? '—' })}
+          {typeof link.tempC === 'number' ? ` · ${t('remote.temp', { t: Math.round(link.tempC) })}` : ''}
           {link.lastFrameAt ? ` · ${clock(link.lastFrameAt, { seconds: true })}` : ''}
         </div>
       )}
       <p class="muted small">{tr('remote.rotateHelp')}</p>
+      {typeof link?.bright === 'number' || dev.brightness !== undefined ? (
+        <>
+          <label class="field-label">{tr('remote.brightness')}</label>
+          <div class="slider-row">
+            <input type="range" min={0} max={100} step={5} value={dragging ?? dev.brightness ?? link?.bright ?? 70} aria-label={tr('remote.brightness')}
+              onInput={(e) => setDragging(Number((e.target as HTMLInputElement).value))}
+              onChange={(e) => {
+                setDragging(null);
+                setDevice({ ...dev, brightness: Number((e.target as HTMLInputElement).value) });
+              }} />
+            <span class="slider-value">{t('remote.brightnessValue', { v: dragging ?? dev.brightness ?? link?.bright ?? 70 })}</span>
+          </div>
+          <span class="muted small">{tr('remote.brightnessHelp')}</span>
+        </>
+      ) : (
+        link?.online && <p class="muted small">{tr('remote.brightnessOld')}</p>
+      )}
       <label class="field-label">{tr('remote.host')}</label>
       <input class="input mono" value={dev.host ?? ''} placeholder={link?.host ?? 'kiosko-…local'} onChange={(e) => {
         const host = (e.target as HTMLInputElement).value.trim();

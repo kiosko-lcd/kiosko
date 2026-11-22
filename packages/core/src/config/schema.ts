@@ -311,6 +311,7 @@ export function configSchema(plugins: readonly PluginDefinition[]): S {
               key: { type: 'string', pattern: '^[0-9a-f]{64}$', description: 'The pairing key (64 hex digits), set by pairing in the editor. Empty: not paired yet.', 'x-secret': true },
               host: { type: 'string', description: 'Address to use instead of finding it by mDNS (another subnet, a network without multicast).', 'x-risk': 'network' },
               port: { type: 'integer', minimum: 1, maximum: 65535, default: 7428 },
+              brightness: { type: 'integer', minimum: 0, maximum: 100, description: 'Backlight brightness, 0-100 (perceived; 0 = off), pushed to the screen on every connection. Screen firmware 0.1.2 or later; older ones ignore it. Empty: the screen keeps its own (70 % unless set on its setup page).' },
             },
           },
           {
