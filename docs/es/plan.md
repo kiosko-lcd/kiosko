@@ -1283,6 +1283,44 @@ Lo que cambia en el camino:
       GPL (como pasó con `usb-ly`, ver `temas.md`): escribirlas desde una
       especificación propia del protocolo (sala limpia), con capturas USB.
 
+62. **Pantallas de tinta electrónica (e-ink) por Wi-Fi.** Ideales para
+    paneles que cambian despacio (agenda, tiempo, resumen de agentes,
+    GitLab): sin brillo, legibles con luz de día, y las de batería aguantan
+    semanas. Pero piden otro modelo que los LCD. *Pendiente de hablar cómo
+    darles soporte (2026-11-22).*
+    - *Diferencias*:
+      - **La pantalla pide, Kiosko no empuja.** Las de batería despiertan,
+        piden una imagen, refrescan y duermen minutos; el protocolo de las
+        ESP32 (conexión permanente) no les sirve: necesitan algo que
+        consultar.
+      - **Refresco lento** (1–3 s, con parpadeo y fantasmas): sin
+        animaciones ni interludios; un reloj solo puede mostrar la hora del
+        último refresco.
+      - **Pocos colores**: 1 bit, 4 grises o 6–7 colores (Spectra 6,
+        ACeP). Hace falta un modo de pintar para tinta: tema de alto
+        contraste, cuantización a la paleta y tramado (Floyd–Steinberg o
+        Atkinson), letra más grande.
+      - **Política de refresco** por página (cada 15 min, cada hora, nada de
+        noche): es el presupuesto de batería del dispositivo.
+    - *Vía más rápida*: un servidor compatible con **TRMNL** (7,5″ 800×480,
+      firmware abierto y modo «trae tu propio servidor»: el dispositivo llama
+      a un endpoint con su token y recibe la URL de la imagen y cuánto
+      dormir). Daría soporte inmediato a TRMNL y a las placas que corren su
+      firmware (comprobar la lista actual).
+    - *Otro hardware*: **Inkplate** (Soldered, ESP32), **LilyGO T5** y
+      placas e-paper de Waveshare con ESP32, **Pimoroni Inky Impression**
+      (Raspberry Pi, color), Kindle antiguos con jailbreak (salvapantallas en
+      línea). Más adelante, una variante e-ink del firmware propio (punto
+      59): modo «pedir», sueño profundo, mismo emparejamiento.
+    - *Seguridad*: lo que piden las pantallas escucha en la red local: no el
+      editor (solo `127.0.0.1`), sino un servidor pequeño, de solo lectura,
+      en su propio puerto, con un token por dispositivo y nada más que la
+      imagen de cada uno.
+    - *Orden propuesto*: (1) modo de pintar para tinta (paletas, tramado,
+      tema, política de refresco, tamaños comunes como 800×480); (2)
+      endpoint compatible con TRMNL; (3) Inkplate y la variante e-ink del
+      firmware propio.
+
 ### Decisiones abiertas para ti
 
 - **Nombre**: `Kiosko` es provisional (el paquete npm está como
