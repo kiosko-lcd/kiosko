@@ -1095,6 +1095,20 @@ Lo que cambia en el camino:
     - *A tener en cuenta*: las imágenes pesan; bajarlas a la resolución del
       panel, guardarlas en caché y no pedirlas más de cada 10 minutos.
 
+38. **Tu generación de imágenes** (`kiosko-plugin-comfyui`). Junto a `llm` y
+    `gpu`, la otra mitad de una máquina de IA local:
+    - *Qué*: el progreso de la imagen en curso (paso N de M, nodo que se
+      ejecuta, vista previa a medio hacer si la da), la cola de trabajos, y
+      la última imagen terminada en el panel, encajada a su forma.
+    - *De dónde*: la API local de **ComfyUI** (HTTP y WebSocket: `/queue`,
+      `/history`, eventos `progress`/`executing`, vistas previas); también
+      **Automatic1111** y **Forge** (`/sdapi/v1/progress`).
+    - *Encaje*: como interludio, las últimas imágenes en pase de diapositivas;
+      un momento (no a pantalla completa) al terminar un trabajo largo.
+    - *A tener en cuenta*: las imágenes son tuyas y se quedan en el equipo;
+      una opción para no mostrar nada que no quieras en pantalla (solo
+      progreso, sin imagen).
+
 ### Decisiones abiertas para ti
 
 - **Nombre**: `Kiosko` es provisional (el paquete npm está como
