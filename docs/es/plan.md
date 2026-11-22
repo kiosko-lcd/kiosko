@@ -1189,6 +1189,23 @@ Lo que cambia en el camino:
     - *De dónde*: **EventStreams** de Wikimedia (flujo público) y los eventos públicos de **GitHub**.
     - *A tener en cuenta*: solo dibujo de lo que llega, sin guardar nada; con un límite de eventos por segundo.
 
+53. **Una obra del día** (`kiosko-plugin-art`):
+    - *Qué*: un cuadro o una fotografía de dominio público de un gran museo, con autor, año y museo, encajada a la forma del panel (recorte inteligente en barras largas, completa en cuadradas); también como interludio.
+    - *De dónde*: Open Access del **Met**, **Art Institute of Chicago** (IIIF), **Rijksmuseum**; en Taiwán, los datos abiertos del **Museo del Palacio Nacional**. Sin clave salvo Rijksmuseum.
+    - *A tener en cuenta*: solo obras de dominio público o CC0, y el crédito siempre en pantalla.
+54. **Lo que lees** (`kiosko-plugin-reading`):
+    - *Qué*: el libro actual con su progreso, páginas leídas hoy, la racha y el objetivo del año.
+    - *De dónde*: estadísticas de **KOReader** (su base SQLite o el servidor de sincronización), **Calibre-Web**, **Hardcover** (API GraphQL) y **Kavita**.
+    - *A tener en cuenta*: sin títulos en pantalla si no quieres (solo cifras).
+55. **Ofertas de tu lista de deseos** (`kiosko-plugin-deals`):
+    - *Qué*: los juegos de tu lista de deseos rebajados, con el descuento, la tienda y si es su precio más bajo; encaja con `gaming`.
+    - *De dónde*: **IsThereAnyDeal** (API con clave gratuita) y la lista de deseos pública de **Steam**.
+    - *A tener en cuenta*: precios en la moneda y la región de la cuenta; avisar solo de las bajadas, no de todo.
+56. **Baterías de tus cacharros** (`kiosko-plugin-batteries`):
+    - *Qué*: batería de auriculares, ratón, teclado, mando, portátil y móvil, cargando o no, con aviso por debajo del 15 %. *En curso* (2026-11-22).
+    - *De dónde*: **UPower** y **BlueZ** (Linux), PowerShell y `Win32_Battery` (Windows), `ioreg` y `pmset` (macOS); el móvil, con **KDE Connect**.
+    - *A tener en cuenta*: cada sistema da distintos dispositivos; lo que no se pueda leer, se omite sin pedir nada.
+
 ### Decisiones abiertas para ti
 
 - **Nombre**: `Kiosko` es provisional (el paquete npm está como
