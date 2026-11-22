@@ -1070,6 +1070,142 @@ Lo que cambia en el camino:
     que dibuja la hora. Nada externo: solo dibujo, así que vale en
     cualquier país.
 
+36. **El aire de tu habitación** (`kiosko-plugin-air`). El tiempo dice cómo
+    está fuera; esto, cómo está donde trabajas:
+    - *Qué*: CO₂ con aviso de ventilar (ámbar desde 1000 ppm, rojo desde
+      1400), temperatura y humedad de la habitación, y su historia del día.
+    - *De dónde*: sensores Bluetooth de bajo consumo leídos por sus anuncios,
+      sin emparejar: **Aranet4**, **Xiaomi LYWSD03MMC** con firmware ATC o
+      PVVX, **SwitchBot** Meter; o un sensor **ESPHome** por la red; o el que
+      ya tenga **Home Assistant**.
+    - *Alertas*: ventilar como momento (no a pantalla completa); a pantalla
+      completa solo con niveles altos de verdad.
+    - *A tener en cuenta*: el Bluetooth en Windows y macOS pide permisos y
+      va distinto que en Linux (BlueZ); empezar por Linux y ESPHome.
+37. **El planeta ahora** (`kiosko-plugin-world`):
+    - *Qué*: un mapa del mundo con la línea del día y la noche moviéndose,
+      las ciudades de tu equipo con su hora y si están en horario laboral,
+      y la Tierra entera vista por satélite, renovada cada 10 minutos.
+    - *De dónde*: la línea día/noche y las horas, calculadas en local (sin
+      red); las imágenes de disco completo de **Himawari-9** (JMA, Asia y
+      Oceanía) y **GOES** (NOAA, América), públicas.
+    - *Encaje*: como widget en paneles largos y como interludio (la Tierra
+      girando durante un día en unos segundos); sin claves, vale en
+      cualquier país.
+    - *A tener en cuenta*: las imágenes pesan; bajarlas a la resolución del
+      panel, guardarlas en caché y no pedirlas más de cada 10 minutos.
+
+38. **Tu generación de imágenes** (`kiosko-plugin-comfyui`). Junto a `llm` y
+    `gpu`, la otra mitad de una máquina de IA local:
+    - *Qué*: el progreso de la imagen en curso (paso N de M, nodo que se
+      ejecuta, vista previa a medio hacer si la da), la cola de trabajos, y
+      la última imagen terminada en el panel, encajada a su forma.
+    - *De dónde*: la API local de **ComfyUI** (HTTP y WebSocket: `/queue`,
+      `/history`, eventos `progress`/`executing`, vistas previas); también
+      **Automatic1111** y **Forge** (`/sdapi/v1/progress`).
+    - *Encaje*: como interludio, las últimas imágenes en pase de diapositivas;
+      un momento (no a pantalla completa) al terminar un trabajo largo.
+    - *A tener en cuenta*: las imágenes son tuyas y se quedan en el equipo;
+      una opción para no mostrar nada que no quieras en pantalla (solo
+      progreso, sin imagen).
+
+39. **El problema de ajedrez del día** (`kiosko-plugin-chess`). Un interludio
+    que se juega (`input: true`, como Doom) desde la página Jugar:
+    - *Qué*: el problema del día de **Lichess** en el tablero, que resuelves
+      con el mando o el teclado (cursor y casilla); al acertar, la jugada
+      siguiente y la solución; también tu puntuación de problemas y las
+      partidas por correspondencia que esperan tu jugada.
+    - *De dónde*: la API abierta de Lichess (`/api/puzzle/daily`, sin
+      clave; con token, tu cuenta). Las piezas, un juego propio y libre.
+    - *Encaje*: en paneles largos, tablero a un lado y la explicación al
+      otro; en reposo, el problema queda como widget.
+40. **Minijuegos propios** (`kiosko-plugin-arcade`). Juegos cortos y
+    originales para la página Jugar, pensados para la forma de los paneles
+    (una barra de 1920×462 no es una pantalla de consola):
+    - *Ideas*: un esquivador lateral que recorre la barra, una serpiente con
+      reglas propias, bloques que caen de lado, un juego de reflejos para
+      dos con el mando dividido.
+    - *Condición*: diseño, nombres, arte y sonido propios; nada que imite un
+      juego concreto existente (ni su aspecto ni sus niveles).
+    - *Con*: récords locales por juego, el modo mosaico (2–3 paneles
+      apilados, como Doom) y el «1 % bajo» de `gaming` para medirse.
+41. **Tu estación meteorológica** (`kiosko-plugin-weather-station`). El
+    plugin `weather` da la previsión; esto, lo que mide tu estación ahora:
+    - *Qué*: viento con ráfagas y dirección, lluvia caída hoy y su
+      intensidad, presión y su tendencia (para anticipar cambios), UV y
+      radiación solar, y los sensores interiores que tenga.
+    - *De dónde*: **Ecowitt** (API local del gateway o el «custom server»
+      que envía por HTTP), **Netatmo**, **Davis** a través de **WeeWX**, y
+      **Ambient Weather**.
+    - *A tener en cuenta*: la fuente se comparte con los widgets de
+      `weather` donde tenga sentido (la temperatura «ahora» de tu estación
+      en vez de la del modelo).
+42. **Tu semana en reuniones** (`calendar`, sin plugin nuevo). Sobre la fuente
+    `calendar/events` que ya existe:
+    - *Qué*: horas de reunión frente a libres por día de la semana, el
+      próximo hueco de 2 horas seguidas (para trabajo profundo), y los días
+      más cargados en ámbar/rojo.
+    - *Cómo*: un widget nuevo en `kiosko-plugin-calendar`; sin nada nuevo
+      que configurar, con la jornada de `workday` para saber qué es «libre».
+
+43. **Visitas de tu web** (`kiosko-plugin-analytics`):
+    - *Qué*: visitantes ahora mismo, páginas más vistas hoy, de dónde llegan y el pico del día.
+    - *De dónde*: **Plausible**, **Umami**, **Matomo**, **GA4** (API de datos) y **Cloudflare Web Analytics** (GraphQL), todos con clave de solo lectura.
+    - *A tener en cuenta*: sin datos personales en pantalla: solo cifras y rutas.
+44. **Tus paquetes** (`kiosko-plugin-package-stats`):
+    - *Qué*: descargas por semana de tus paquetes y su tendencia, estrellas e issues nuevas de tus repositorios, y cuántos dependen de ti.
+    - *De dónde*: API de descargas de **npm**, **pypistats**, **crates.io** y **GitHub** (sin clave para lo público).
+    - *A tener en cuenta*: npm da las descargas con un día de retraso: decirlo.
+45. **Lo que vendes** (`kiosko-plugin-sales`):
+    - *Qué*: ventas e ingresos de hoy, ingreso recurrente mensual (MRR), bajas, y las reseñas nuevas de tu app con su nota.
+    - *De dónde*: **Stripe**, **Lemon Squeezy**, **Paddle**, **Shopify**; **App Store Connect** y **Google Play Console** para las reseñas.
+    - *A tener en cuenta*: claves restringidas de solo lectura; importes en la moneda de cada cuenta, sin convertir.
+46. **Lo que consume tu equipo** (`kiosko-plugin-power`):
+    - *Qué*: vatios del PC ahora (CPU, GPU y total), kWh del día y su coste: cuánto cuesta una tarde de juego o una noche entrenando un modelo.
+    - *De dónde*: **RAPL** (CPU, Linux), **NVML** (GPU NVIDIA) y un enchufe inteligente (**Shelly**, **Tasmota**) para el total real; el precio, a mano o del punto 20.
+    - *A tener en cuenta*: RAPL y NVML miden solo partes; el total fiable es el del enchufe.
+47. **Lo nuevo en IA** (`kiosko-plugin-ai-radar`):
+    - *Qué*: modelos en tendencia en Hugging Face con su tamaño y si caben en tu GPU (con `gpu`), artículos nuevos de arXiv de tus temas y modelos nuevos en Ollama.
+    - *De dónde*: API de **Hugging Face**, **arXiv** y la biblioteca de **Ollama**; en China, **ModelScope**.
+    - *A tener en cuenta*: «cabe en tu GPU» es una estimación por tamaño y cuantización: decirlo.
+48. **Radioaficionados** (`kiosko-plugin-radio`):
+    - *Qué*: condiciones de propagación por banda, flujo solar e índice K, estaciones DX anunciadas y los mensajes APRS cerca de ti.
+    - *De dónde*: **hamqsl** (N0NBH), un **DX cluster** (telnet), **APRS-IS** (con tu indicativo) y tu receptor **SDR**.
+    - *A tener en cuenta*: público pequeño pero fiel, y muy de pantallas siempre encendidas.
+49. **La casa** (`kiosko-plugin-family`):
+    - *Qué*: a quién le toca cada tarea esta semana, el horario de los niños y las extraescolares de hoy, y la lista de la compra compartida; para un panel en la cocina o la entrada.
+    - *De dónde*: propio, editable desde el móvil (como la página Jugar); o **Grocy** o **Todoist**.
+    - *A tener en cuenta*: nombres de menores en pantalla: solo lo que el usuario escriba.
+50. **Episodios nuevos** (`kiosko-plugin-podcasts`):
+    - *Qué*: los episodios nuevos de tus podcasts con su duración, y lo que dejaste a medias.
+    - *De dónde*: feeds **RSS** de podcast (OPML para importar), o **Pocket Casts** o **Audiobookshelf**.
+    - *A tener en cuenta*: solo títulos y portadas, nada que descargar.
+51. **Tus cifras de creador** (`kiosko-plugin-creator`):
+    - *Qué*: suscriptores y visualizaciones de tu canal de YouTube, suscriptores de tu boletín y aperturas del último envío, y seguidores en las plataformas que uses.
+    - *De dónde*: **YouTube Data API**, **Buttondown**, **Substack** (lo que deja leer), **Ghost** y **Beehiiv**.
+    - *A tener en cuenta*: encaja con `streaming` (punto 32): lo de directo allí, lo acumulado aquí.
+52. **El mundo en vivo** (`kiosko-plugin-pulse`):
+    - *Qué*: un interludio que dibuja el pulso de internet en tiempo real: cada edición de Wikipedia, cada evento público de GitHub, como luces que aparecen y se apagan con su idioma o su lenguaje.
+    - *De dónde*: **EventStreams** de Wikimedia (flujo público) y los eventos públicos de **GitHub**.
+    - *A tener en cuenta*: solo dibujo de lo que llega, sin guardar nada; con un límite de eventos por segundo.
+
+53. **Una obra del día** (`kiosko-plugin-art`):
+    - *Qué*: un cuadro o una fotografía de dominio público de un gran museo, con autor, año y museo, encajada a la forma del panel (recorte inteligente en barras largas, completa en cuadradas); también como interludio.
+    - *De dónde*: Open Access del **Met**, **Art Institute of Chicago** (IIIF), **Rijksmuseum**; en Taiwán, los datos abiertos del **Museo del Palacio Nacional**. Sin clave salvo Rijksmuseum.
+    - *A tener en cuenta*: solo obras de dominio público o CC0, y el crédito siempre en pantalla.
+54. **Lo que lees** (`kiosko-plugin-reading`):
+    - *Qué*: el libro actual con su progreso, páginas leídas hoy, la racha y el objetivo del año.
+    - *De dónde*: estadísticas de **KOReader** (su base SQLite o el servidor de sincronización), **Calibre-Web**, **Hardcover** (API GraphQL) y **Kavita**.
+    - *A tener en cuenta*: sin títulos en pantalla si no quieres (solo cifras).
+55. **Ofertas de tu lista de deseos** (`kiosko-plugin-deals`):
+    - *Qué*: los juegos de tu lista de deseos rebajados, con el descuento, la tienda y si es su precio más bajo; encaja con `gaming`.
+    - *De dónde*: **IsThereAnyDeal** (API con clave gratuita) y la lista de deseos pública de **Steam**.
+    - *A tener en cuenta*: precios en la moneda y la región de la cuenta; avisar solo de las bajadas, no de todo.
+56. **Baterías de tus cacharros** (`kiosko-plugin-batteries`):
+    - *Qué*: batería de auriculares, ratón, teclado, mando, portátil y móvil, cargando o no, con aviso por debajo del 15 %. *En curso* (2026-11-22).
+    - *De dónde*: **UPower** y **BlueZ** (Linux), PowerShell y `Win32_Battery` (Windows), `ioreg` y `pmset` (macOS); el móvil, con **KDE Connect**.
+    - *A tener en cuenta*: cada sistema da distintos dispositivos; lo que no se pueda leer, se omite sin pedir nada.
+
 ### Decisiones abiertas para ti
 
 - **Nombre**: `Kiosko` es provisional (el paquete npm está como
