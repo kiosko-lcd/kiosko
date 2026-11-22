@@ -127,7 +127,8 @@ function Updates() {
  */
 export function Plugins() {
   const a = app.value!;
-  const parts = route.value.split('/');
+  // `plugins/store/<id>`, `plugins/store?cat=time`: the address after the view, without its query.
+  const parts = route.value.split('?')[0]!.split('/');
   const tab = parts[1] === 'store' ? 'store' : parts[1] === 'updates' ? 'updates' : 'installed';
   const updates = KIOSKO_DEMO ? 0 : (a.updates?.plugins.filter((p) => p.version).length ?? 0) + kioskoCount();
   const tabs = [

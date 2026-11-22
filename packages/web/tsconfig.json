@@ -11,7 +11,8 @@
     "skipLibCheck": true,
     "allowImportingTsExtensions": true,
     "customConditions": ["source"],
+    "resolveJsonModule": true,
     "types": []
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx"]
+  "include": ["src/**/*.ts", "src/**/*.tsx", "store-kit/**/*.ts"]
 }

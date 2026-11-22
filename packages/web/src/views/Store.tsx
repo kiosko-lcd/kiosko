@@ -1,21 +1,35 @@
 /**
- * The plugin store inside the Plugins page (docs/es/tienda.md, §6.2–6.3):
- * the same catalogue as https://kioskolcd.dev/store/, crossed with this
- * Kiosko (its system and plugin API), these screens and this language.
- * `#/plugins/store/<id>` opens a plugin's page (the site's "Open in
- * Kiosko" lands there): it never installs anything without a click, and
- * installing always goes through the dialog that says what the plugin
- * does first.
+ * The plugin store inside the Plugins page (docs/es/tienda.md, §6.2–6.3): the
+ * same catalogue as https://kioskolcd.dev/store/, drawn by the same parts
+ * (packages/web/store-kit: the cards, the plugin page, the pictures on a
+ * panel, their stylesheet and their words), crossed with this Kiosko: its
+ * system and plugin API, what is installed, these screens and this language.
+ * What only a Kiosko can do is added here: Install, Update, "does it run
+ * here", "does it fit my screens", and the dialog that says what a plugin
+ * does before it is installed. `#/plugins/store/<id>` opens a plugin's page
+ * (the site's "Open in Kiosko" lands there): nothing is installed without a
+ * click. Without a connection it works from the catalogue that comes with
+ * Kiosko; pictures that do not come give way to the plugins' drawings.
  */
 import { signal } from '@preact/signals';
-import { useEffect, useRef, useState } from 'preact/hooks';
-import { fitsScreens, installableRelease, marketFor, matches, regionOf, releaseProblem, searchText, textIn, type StorePlugin, type StorePluginFile } from '@kiosko/core/store';
+import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
+import { fitsScreens, installableRelease, marketFor, matches, regionOf, releaseProblem, searchText, type StorePlugin, type StorePluginFile } from '@kiosko/core/store';
+import { listIn, regionName as regionNameIn } from '@kiosko/sdk/languages';
 import { api, type StoreState } from '../api.ts';
 import { Icon } from '../icons.tsx';
-import { listIn, regionName as regionNameIn } from '@kiosko/sdk/languages';
-import { dateTime, errorText, fullWidth, labelled, listOf, t, tr, uiLanguage } from '../i18n.ts';
-import { app, config, locale, notify, status } from '../store.ts';
+import { dateTime, errorText, fullWidth, listOf, t, tr, uiLanguage } from '../i18n.ts';
+import { app, config, locale, notify, route, status } from '../store.ts';
 import { DemoNote } from '../demo/ui.tsx';
+import { CATEGORY, OS, PERMS, card, categoryChip, esc, featuredIn, feature, icon, offeredIn, plural, pluginPage, say, textIn, type Kit } from '../../store-kit/render.ts';
+import { wireStore } from '../../store-kit/client.ts';
+import en from '../../landing/i18n/en.json';
+import es from '../../landing/i18n/es.json';
+import de from '../../landing/i18n/de.json';
+import zhHant from '../../landing/i18n/zh-Hant.json';
+import zhHans from '../../landing/i18n/zh-Hans.json';
+
+/** The store's words: the site's, so both stores say the same (a language without them reads English). */
+const WORDS: Kit['texts'] = { en, es, de, 'zh-Hant': zhHant, 'zh-Hans': zhHans };
 
 const store = signal<StoreState | null>(null);
 const loading = signal(false);
@@ -33,14 +47,6 @@ export async function loadStore(refresh = false): Promise<void> {
   }
 }
 
-const OS: Record<string, string> = { linux: 'Linux', darwin: 'macOS', win32: 'Windows' };
-const PERMS = [
-  ['network', 'globe'],
-  ['exec', 'square-terminal'],
-  ['files', 'folder-open'],
-  ['devices', 'usb'],
-] as const;
-
 /** This Kiosko, for "does it run here" (the browser demo has no real system: it is not judged). */
 function env(st: StoreState) {
   return { sdk: st.sdk, platform: OS[st.platform] ? st.platform : 'linux' };
@@ -51,43 +57,28 @@ function myScreens() {
   return (config.value?.screens ?? []).filter((s) => s.enabled !== false).map((s) => ({ id: s.id, name: s.name, width: s.width, height: s.height }));
 }
 
-/** A picture of the site (a path from its root), from where the catalogue lives. */
-const siteUrl = (st: StoreState, path: string) => new URL(path, new URL('../../', st.url)).href;
+const where = () => ({ region: regionOf(locale.value), lang: uiLanguage() });
 
-/** The picture that shows a plugin best on a panel: its widest widget's (panels are wide), else its cover or an interlude's poster. */
-function bestPicture(p: StorePlugin, lang: string): { src: string; size?: { w: number; h: number } } | null {
-  const withShots = p.widgets.filter((w) => w.shots);
-  const w = withShots.find((x) => x.shotSize && x.shotSize.w / x.shotSize.h >= 2.4) ?? withShots[0];
-  const shot = w?.shots?.[lang] ?? w?.shots?.en;
-  if (shot) return { src: shot, size: w!.shotSize };
-  const cover = p.cover ?? p.interludes.find((i) => i.poster)?.poster;
-  return cover ? { src: cover } : null;
+/** The store's parts as the editor shows them: in its language, the pictures from the site, links to its own pages. */
+function kitOf(st: StoreState): Kit {
+  return {
+    lang: uiLanguage(),
+    texts: WORDS,
+    index: st.index!,
+    // The pictures are on the site, next to the catalogue (they are not there offline: client.ts draws the plugins instead).
+    root: new URL('../../', st.url).href,
+    page: (id) => `#/plugins/store/${encodeURIComponent(id)}`,
+    list: '#/plugins/store',
+    category: (id) => `#/plugins/store?cat=${encodeURIComponent(id)}`,
+    region: regionOf(locale.value),
+    presets: st.index?.presets,
+    newTab: true,
+    market: (p) => marketFor(p, where()),
+  };
 }
 
-/** A plugin's picture on a small screen, as on the site's cards; without one (or offline), its drawing. */
-function StoreScreen({ p, st, lang }: { p: StorePlugin; st: StoreState; lang: string }) {
-  const [failed, setFailed] = useState(false);
-  const pic = bestPicture(p, lang);
-  const sized = !!pic?.size && !failed;
-  return (
-    <span class="store-screen" aria-hidden="true">
-      {/* With its size known, the screen has its shape before the picture arrives. */}
-      <span class={`store-bezel ${sized ? 'sized' : ''}`} style={sized ? { '--ar': String(pic!.size!.w / pic!.size!.h) } : undefined}>
-        {pic && !failed ? <img src={siteUrl(st, pic.src)} alt="" loading="lazy" decoding="async" width={pic.size?.w} height={pic.size?.h} onError={() => setFailed(true)} /> : <span class="store-poster"><Icon name={p.icon ?? 'puzzle'} size={30} /></span>}
-      </span>
-    </span>
-  );
-}
-
-const regionName = (code: string) => regionNameIn(code, uiLanguage());
-const languageName = (tag: string) => {
-  try {
-    return new Intl.DisplayNames([tag], { type: 'language' }).of(tag) ?? tag;
-  } catch {
-    return tag;
-  }
-};
 const list = (items: string[]) => listIn(items, uiLanguage());
+const regionName = (code: string) => regionNameIn(code, uiLanguage());
 const what = (v: string) => (v === 'user' ? tr('perm.user') : v === 'lan' ? tr('perm.lan') : v);
 
 /** Whether it runs here, and why not. */
@@ -110,43 +101,6 @@ function fitLine(p: StorePlugin): { text: string; level: 'ok' | 'some' | 'none' 
   return { text: t('store.fitsSome', { n, total: screens.length }), level: 'some' };
 }
 
-function TierPill({ p }: { p: StorePlugin }) {
-  if (p.tier === 'official') return <span class="pill official-pill">{tr('store.official')}</span>;
-  if (p.tier === 'found') return <span class="pill warn-pill">{tr('store.unreviewed')}</span>;
-  return null;
-}
-
-function PermissionChips({ perms }: { perms: StorePlugin['permissions'] }) {
-  const any = PERMS.filter(([k]) => perms[k]?.length);
-  if (!any.length) return <span class="perm-chip"><Icon name="shield-check" size={12} /> {tr('store.noPermissions')}</span>;
-  return (
-    <>
-      {any.map(([k, icon]) => (
-        <span class="perm-chip" title={tr(`perm.${k}Help`)}>
-          <Icon name={icon} size={12} /> {labelled(tr(`perm.${k}`), listOf(perms[k]!.map(what)))}
-        </span>
-      ))}
-    </>
-  );
-}
-
-/** The button of a plugin: installed, update, install (unreviewed ones ask more), or why not. */
-function Action({ p, st, onInstall }: { p: StorePlugin; st: StoreState; onInstall: (p: StorePlugin) => void }) {
-  const have = st.installed[p.id];
-  const release = installableRelease(p, env(st));
-  if (have && (!release || release.version === have || !isNewer(release.version, have))) return <span class="store-installed"><Icon name="check" size={14} /> {tr('store.installed')}</span>;
-  if (!release) return null;
-  if (KIOSKO_DEMO) return <button class="btn small" disabled>{tr('store.install')}</button>;
-  return (
-    <button class={`btn small ${p.tier === 'found' ? '' : 'primary'}`} onClick={(e) => {
-      e.stopPropagation();
-      onInstall(p);
-    }}>
-      <Icon name="download" size={13} /> {have ? t('store.update', { v: release.version }) : p.tier === 'found' ? tr('store.installMore') : tr('store.install')}
-    </button>
-  );
-}
-
 function isNewer(a: string, b: string): boolean {
   const pa = a.split('.').map(Number);
   const pb = b.split('.').map(Number);
@@ -154,114 +108,183 @@ function isNewer(a: string, b: string): boolean {
   return false;
 }
 
-/** The store's list: search, category, fits my screens, my region. */
+/** What this Kiosko can do with it: nothing (installed, or it does not run here), update or install. */
+function stateOf(p: StorePlugin, st: StoreState): { kind: 'installed' | 'update' | 'install' | 'cant'; version?: string } {
+  const have = st.installed[p.id];
+  const release = installableRelease(p, env(st));
+  if (have && (!release || release.version === have || !isNewer(release.version, have))) return { kind: 'installed', version: have };
+  if (!release) return { kind: 'cant' };
+  return { kind: have ? 'update' : 'install', version: release.version };
+}
+
+/** Its button, as markup for the store's parts (a click on `data-act` comes back to the view). */
+function actionButton(p: StorePlugin, st: StoreState, size: 'small' | 'big'): string {
+  const s = stateOf(p, st);
+  if (s.kind === 'installed') return `<span class="ks-badge installed">${icon('check', 13)}${esc(tr('store.installed'))}</span>`;
+  if (s.kind === 'cant') return '';
+  const label = s.kind === 'update' ? t('store.update', { v: s.version! }) : p.tier === 'found' ? tr('store.installMore') : tr('store.install');
+  return `<button type="button" class="ks-button ${size} ${p.tier === 'found' ? '' : 'primary'}" data-act="install" data-id="${esc(p.id)}"${KIOSKO_DEMO ? ' disabled' : ''}>${icon(s.kind === 'update' ? 'arrow-up-circle' : 'download', size === 'big' ? 18 : 14)}${esc(label)}</button>`;
+}
+
+/** Under a card: does it run here, does it fit, is it meant for where you are, and its button. */
+function cardFoot(p: StorePlugin, st: StoreState): string {
+  const problem = problemOf(p, st);
+  const market = marketFor(p, where());
+  const fit = fitLine(p);
+  const state = problem
+    ? `<span class="ks-state ks-bad">${icon('circle-x', 14)}${esc(problem)}</span>`
+    : market === 'missing'
+      ? `<span class="ks-state ks-warn">${icon('map-pin-off', 14)}${esc(tr('store.missingHere'))}</span>`
+      : market === 'elsewhere'
+        ? `<span class="ks-state ks-warn">${icon('map-pin', 14)}${esc(t('store.elsewhere', { regions: list((p.markets?.only ?? []).map(regionName)) }))}</span>`
+        : fit
+          ? `<span class="ks-state ${fit.level === 'ok' ? 'ks-good' : fit.level === 'some' ? 'ks-warn' : 'ks-bad'}">${icon(fit.level === 'ok' ? 'circle-check' : fit.level === 'some' ? 'circle-alert' : 'circle-x', 14)}${esc(fit.text)}</span>`
+          : '';
+  return `${state}<span class="ks-act">${actionButton(p, st, 'small')}</span>`;
+}
+
+/**
+ * Markup from the store's parts, wired as on the site (pictures, thumbnails, clips, copying), with
+ * the editor's buttons (`data-act`) and category chips (`data-cat`) coming back here.
+ */
+function KitHtml({ html, class: cls, onAct, onCat }: { html: string; class?: string; onAct?: (act: string, id: string) => void; onCat?: (id: string) => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => wireStore(ref.current!, { copied: tr('common.copied') }), [html]);
+  return (
+    <div
+      ref={ref}
+      class={cls}
+      dangerouslySetInnerHTML={{ __html: html }}
+      onClick={(e) => {
+        const el = e.target as HTMLElement;
+        const act = el.closest<HTMLElement>('[data-act]');
+        if (act && onAct) {
+          e.preventDefault();
+          onAct(act.dataset.act!, act.dataset.id!);
+          return;
+        }
+        const cat = el.closest<HTMLElement>('[data-cat]');
+        if (cat && onCat) onCat(cat.dataset.cat!);
+      }}
+    />
+  );
+}
+
+/** While the catalogue comes (it is read from this Kiosko: fast, but not instant). */
+function Loading() {
+  return (
+    <p class="muted store-loading" role="status">
+      <Icon name="loader" size={16} class="spin" /> {tr('store.loading')}
+    </p>
+  );
+}
+
+/** The store's list: search, categories, "fits my screens", "useful where I am", the picked ones, then every plugin. */
 export function StoreView() {
   const st = store.value;
+  const query = new URLSearchParams(route.value.split('?')[1] ?? '');
   const [q, setQ] = useState('');
-  const [cat, setCat] = useState('');
+  const [cat, setCat] = useState(query.get('cat') ?? '');
   const [fitsMine, setFitsMine] = useState(true);
   const [mine, setMine] = useState(true);
   const [installing, setInstalling] = useState<StorePlugin | null>(null);
   useEffect(() => {
     if (!store.value) void loadStore();
   }, []);
-  const lang = uiLanguage();
-  if (!st) return <p class="muted">…</p>;
+  // A category from a plugin's page (its crumbs) or from the site.
+  useEffect(() => setCat(query.get('cat') ?? ''), [route.value]);
+  if (!st) return <Loading />;
   const index = st.index;
-  const where = { region: regionOf(locale.value), lang };
+  const k = index ? kitOf(st) : null;
   const screens = myScreens();
+  const offered = index ? offeredIn(index, uiLanguage()).length : 0;
   const categories = (index?.categories ?? []).filter((c) => index!.plugins.some((p) => p.categories.includes(c.id)));
+  const filtering = !!q.trim() || !!cat;
   const shown = (index?.plugins ?? []).filter((p) => {
+    if (p.hidden) return false;
     if (cat && !p.categories.includes(cat)) return false;
     if (q.trim()) return matches(p, q, searchText(p));
     // Never hidden from a search: only from the browsing.
-    if (mine && marketFor(p, where) !== 'ok') return false;
+    if (mine && marketFor(p, where()) !== 'ok') return false;
     if (fitsMine && screens.length && p.widgets.length && !fitsScreens(p.widgets, screens).some((s) => s.fits.length)) return false;
     return true;
   });
   const fetched = st.fetchedAt ?? (index ? Date.parse(index.generatedAt) : null);
   const stale = !!st.error || st.from === 'snapshot' || (fetched !== null && Date.now() - fetched > 7 * 86400_000);
+  const clear = () => {
+    setQ('');
+    setCat('');
+    setFitsMine(false);
+    setMine(false);
+  };
+  const featured = k && !filtering ? featuredIn(shown) : [];
+  const onAct = (act: string, id: string) => {
+    const p = index?.plugins.find((x) => x.id === id);
+    if (act === 'install' && p) setInstalling(p);
+  };
   return (
     <div class="store-view">
-      <div class="store-bar">
-        <input class="input" type="search" placeholder={tr('store.search')} value={q} onInput={(e) => setQ((e.target as HTMLInputElement).value)} aria-label={tr('store.search')} />
-        <label class="check"><input type="checkbox" checked={fitsMine} onChange={(e) => setFitsMine((e.target as HTMLInputElement).checked)} /> {tr('store.fitsMine')}</label>
-        <label class="check"><input type="checkbox" checked={mine} onChange={(e) => setMine((e.target as HTMLInputElement).checked)} /> {tr('store.myRegion')}</label>
-      </div>
-      {categories.length > 0 && (
-        <div class="store-cats" role="group" aria-label={tr('store.allCategories')}>
-          <button type="button" class={`chip ${cat ? '' : 'on'}`} aria-pressed={!cat} onClick={() => setCat('')}>{tr('store.allCategories')}</button>
-          {categories.map((c) => (
-            <button type="button" class={`chip ${cat === c.id ? 'on' : ''}`} aria-pressed={cat === c.id} onClick={() => setCat(cat === c.id ? '' : c.id)}>{textIn(c.label, lang)}</button>
-          ))}
+      <div class="store-tools" role="search">
+        <div class="ks-search-row">
+          <span dangerouslySetInnerHTML={{ __html: icon('search', 18) }} />
+          <input type="search" placeholder={k ? say(k, 'store-search') : tr('store.search')} value={q} onInput={(e) => setQ((e.target as HTMLInputElement).value)} aria-label={k ? say(k, 'store-search') : tr('store.search')} />
         </div>
-      )}
-      <div class="store-meta muted small">
-        {screens.length > 0 && (
-          <span>
-            <Icon name="monitor" size={13} /> {tr('store.yourScreens')} {screens.map((s) => `${s.name} ${s.width}×${s.height}`).join(' · ')}
-          </span>
+        {k && categories.length > 0 && (
+          <KitHtml class="ks-chips store-cats" html={[categoryChip(k, '', !cat, 'button'), ...categories.map((c) => categoryChip(k, c.id, cat === c.id, 'button'))].join('')} onCat={(id) => setCat(id === cat ? '' : id)} />
         )}
-        <span class="tb-spacer" />
-        {index && (
-          <span title={st.error ?? ''}>
-            {t(stale && st.error ? 'store.offline' : 'store.catalogue', { date: dateTime(Date.parse(index.generatedAt)) })}
-            {st.from === 'snapshot' ? ` (${tr('store.bundledCopy')})` : ''}
-          </span>
-        )}
-        {!KIOSKO_DEMO && st.online && (
-          <button class="btn ghost small" disabled={loading.value} onClick={() => loadStore(true)}>
-            <Icon name={loading.value ? 'loader' : 'refresh-cw'} size={13} /> {tr('store.refresh')}
-          </button>
-        )}
+        <div class="store-meta">
+          <label class="check"><input type="checkbox" checked={fitsMine} onChange={(e) => setFitsMine((e.target as HTMLInputElement).checked)} /> {tr('store.fitsMine')}</label>
+          <label class="check"><input type="checkbox" checked={mine} onChange={(e) => setMine((e.target as HTMLInputElement).checked)} /> {tr('store.myRegion')}</label>
+          {screens.length > 0 && (
+            <span class="muted small" title={screens.map((s) => `${s.name} ${s.width}×${s.height}`).join('\n')}>
+              <Icon name="monitor" size={13} /> {tr('store.yourScreens')} {screens.map((s) => `${s.name} ${s.width}×${s.height}`).join(' · ')}
+            </span>
+          )}
+          <span class="tb-spacer" />
+          {index && (
+            <span class={`muted small ${stale && st.error ? 'store-stale' : ''}`} title={st.error ?? ''}>
+              {stale && st.error && <Icon name="wifi-off" size={13} />} {t(stale && st.error ? 'store.offline' : 'store.catalogue', { date: dateTime(Date.parse(index.generatedAt)) })}
+              {st.from === 'snapshot' ? ` (${tr('store.bundledCopy')})` : ''}
+            </span>
+          )}
+          {!KIOSKO_DEMO && st.online && (
+            <button class="btn ghost small" disabled={loading.value} onClick={() => loadStore(true)}>
+              <Icon name={loading.value ? 'loader' : 'refresh-cw'} size={13} class={loading.value ? 'spin' : ''} /> {tr('store.refresh')}
+            </button>
+          )}
+        </div>
       </div>
       {KIOSKO_DEMO && <DemoNote k="installHint" />}
-      {!index && <p class="muted">{tr('store.empty')}</p>}
-      {index && !shown.length && <p class="muted">{tr('store.none')}</p>}
-      <div class="store-list">
-        {shown.map((p) => {
-          const fit = fitLine(p);
-          const problem = problemOf(p, st);
-          const market = marketFor(p, where);
-          return (
-            <article class={`card store-row ${p.tier}`} onClick={() => (location.hash = `#/plugins/store/${p.id}`)}>
-              <StoreScreen p={p} st={st} lang={lang} />
-              <div class="store-row-main">
-                <div class="store-row-title">
-                  <span class="plugin-icon small"><Icon name={p.icon ?? 'puzzle'} size={15} /></span>
-                  <a href={`#/plugins/store/${p.id}`} onClick={(e) => e.stopPropagation()}><b>{textIn(p.name, lang)}</b></a>
-                  <TierPill p={p} />
-                  <span class="muted mono small">v{p.latest}</span>
-                  {p.bundled && <span class="pill">{tr('store.bundled')}</span>}
-                </div>
-                <p class="muted small store-desc">{textIn(p.description, lang)}</p>
-                <div class="store-facts small">
-                  {problem ? (
-                    <span class="bad"><Icon name="circle-x" size={13} /> {problem}</span>
-                  ) : (
-                    <>
-                      {fit && <span class={fit.level === 'ok' ? 'good' : fit.level === 'some' ? 'warn' : 'bad'}><Icon name={fit.level === 'ok' ? 'circle-check' : fit.level === 'some' ? 'circle-alert' : 'circle-x'} size={13} /> {fit.text}</span>}
-                      <span class="good"><Icon name="circle-check" size={13} /> {list(p.platforms.map((x) => OS[x] ?? x))}</span>
-                    </>
-                  )}
-                  {market === 'elsewhere' && <span class="warn">{t('store.elsewhere', { regions: list((p.markets?.only ?? []).map(regionName)) })}</span>}
-                  {market === 'missing' && <span class="warn">{tr('store.missingHere')}</span>}
-                  <PermissionChips perms={p.permissions} />
-                </div>
-              </div>
-              <div class="store-row-action">
-                <Action p={p} st={st} onInstall={setInstalling} />
-              </div>
-            </article>
-          );
-        })}
-      </div>
+      {!index && <p class="ks-empty">{tr('store.empty')}</p>}
+      {k && featured.length > 0 && (
+        <section class="store-section" aria-labelledby="store-featured-h">
+          <h2 id="store-featured-h">{say(k, 'store-featured')}</h2>
+          <KitHtml class="ks-features" html={featured.map((p) => feature(p, k)).join('')} />
+        </section>
+      )}
+      {k && (
+        <section class="store-section" aria-labelledby="store-all-h">
+          <div class="store-section-head">
+            <h2 id="store-all-h">{filtering ? (cat ? (textIn(categories.find((c) => c.id === cat)?.label, uiLanguage()) || cat) : say(k, 'store-all-plugins')) : say(k, 'store-all-plugins')}</h2>
+            <p class="muted small" aria-live="polite">{plural(k, 'store-shown', shown.length)}{shown.length < offered && !filtering ? ` · ${t('store.hiddenByFilters', { n: offered - shown.length })}` : ''}</p>
+          </div>
+          {shown.length > 0 ? (
+            <KitHtml class="ks-cards" html={shown.map((p) => card(p, k, { foot: cardFoot(p, st) })).join('')} onAct={onAct} />
+          ) : (
+            <div class="ks-empty">
+              <span dangerouslySetInnerHTML={{ __html: icon('search-x', 28) }} />
+              <span>{say(k, 'store-none')}</span>
+              <button type="button" class="ks-button" onClick={clear}>{say(k, 'store-clear')}</button>
+            </div>
+          )}
+        </section>
+      )}
       {installing && <InstallDialog p={installing} st={st} onClose={() => setInstalling(null)} />}
     </div>
   );
 }
 
-/** One plugin's page: the same facts as the site's, plus how it fits each of this person's screens. */
+/** One plugin's page: the site's, with this Kiosko's button and how each widget fits each of this person's screens. */
 export function StoreSheet({ id }: { id: string }) {
   const st = store.value;
   const [sheet, setSheet] = useState<StorePluginFile | null>(null);
@@ -273,178 +296,49 @@ export function StoreSheet({ id }: { id: string }) {
     setSheet(null);
     api.storePlugin(id).then(setSheet).catch(() => undefined);
   }, [id, st?.index?.generatedAt]);
-  const lang = uiLanguage();
-  if (!st) return <p class="muted">…</p>;
+  // A new plugin's page opens at its top.
+  useEffect(() => document.querySelector('.page-view')?.scrollTo({ top: 0 }), [id]);
+  if (!st) return <Loading />;
   const p = st.index?.plugins.find((x) => x.id === id);
-  const back = (
-    <a class="btn ghost small" href="#/plugins/store">
-      <Icon name="arrow-left" size={13} /> {tr('store.back')}
-    </a>
-  );
-  if (!p) return (
-    <div class="store-sheet">
-      {back}
-      <p class="muted">{t('store.notFound', { id })}</p>
-    </div>
-  );
+  if (!p || !st.index) {
+    return (
+      <div class="ks-empty">
+        <span dangerouslySetInnerHTML={{ __html: icon('search-x', 28) }} />
+        <span>{t('store.notFound', { id })}</span>
+        <a class="ks-button" href="#/plugins/store">{tr('store.back')}</a>
+      </div>
+    );
+  }
+  const k = kitOf(st);
+  const lang = uiLanguage();
   const screens = myScreens();
   const per = fitsScreens(p.widgets, screens);
   const problem = problemOf(p, st);
-  const latest = p.releases[0];
-  const risky = sheet?.riskyOptions ?? [];
-  const where = { region: regionOf(locale.value), lang };
-  const market = marketFor(p, where);
+  const state = stateOf(p, st);
+  const market = marketFor(p, where());
   const site = new URL(`../../${lang === 'en' ? '' : `${lang}/`}store/${p.id}/`, st.url).href;
+  const fitsHere = screens.length > 0 && p.widgets.length > 0
+    ? `<p class="ks-fine">${esc(tr('store.onYourScreens'))}</p><p class="ks-fits">${per.map((s) => `<span class="ks-fit ${s.ideal.length === p.widgets.length ? 'ks-good' : s.fits.length ? 'ks-warn' : 'ks-bad'}"><b>${esc(s.name)}</b> ${s.fits.length}/${p.widgets.length}</span>`).join('')}</p>`
+    : '';
+  const action = [
+    problem ? `<p class="ks-state ks-bad">${icon('circle-x', 16)}<span>${esc(problem)}</span></p>` : '',
+    state.kind === 'installed'
+      ? `<p class="ks-state ks-good">${icon('circle-check', 16)}<span>${esc(tr('store.installed'))} · v${esc(state.version ?? '')}</span></p><a class="ks-button" href="#/editor">${icon('layout-dashboard', 16)}${esc(tr('store.toEditor'))}</a>`
+      : actionButton(p, st, 'big'),
+    fitsHere,
+  ].join('');
+  const fitOf = (type: string) =>
+    per.length
+      ? `<p class="ks-fits">${per.map((s) => `<span class="ks-fit ${s.ideal.includes(type) ? 'ks-good' : s.fits.includes(type) ? 'ks-warn' : 'ks-bad'}"><b>${esc(s.name)}</b> ${esc(s.ideal.includes(type) ? tr('store.ideal') : s.fits.includes(type) ? tr('store.fits') : tr('store.tooBig'))}</span>`).join('')}</p>`
+      : '';
+  const notes = market === 'missing' ? `<p class="ks-note warn">${icon('map-pin-off', 16)}<span>${esc(tr('store.missingHere'))}</span></p>` : '';
+  const links = `<a class="ks-link-chip" href="${esc(site)}" target="_blank" rel="noopener noreferrer">${icon('external-link', 15)}${esc(tr('store.onSite'))}</a>`;
+  const html = pluginPage(p, sheet, k, { action, notes, widget: (x) => fitOf(x.type), links });
   return (
     <div class="store-sheet">
-      {back}
-      <header class="store-sheet-head">
-        <span class="plugin-icon big"><Icon name={p.icon ?? 'puzzle'} size={28} /></span>
-        <div class="store-sheet-title">
-          <h2>
-            {textIn(p.name, lang)} <TierPill p={p} /> {p.bundled && <span class="pill">{tr('store.bundled')}</span>}
-          </h2>
-          <p class="muted">{textIn(p.description, lang)}</p>
-          <p class="muted mono small">
-            {p.package} · v{p.latest}{latest?.date ? ` · ${dateTime(Date.parse(latest.date))}` : ''} · {p.license || '—'}
-          </p>
-        </div>
-        <div class="store-sheet-action">
-          {problem ? <span class="bad small"><Icon name="circle-x" size={13} /> {problem}</span> : <Action p={p} st={st} onInstall={() => setInstalling(true)} />}
-        </div>
-      </header>
-      {p.tier === 'found' && (
-        <div class="banner warn">
-          <Icon name="triangle-alert" size={16} /> {tr('store.nobodyLooked')}
-        </div>
-      )}
-      {market === 'elsewhere' && <div class="banner info">{t('store.elsewhere', { regions: list((p.markets?.only ?? []).map(regionName)) })}{p.markets?.note ? `${fullWidth() ? '：' : ': '}${textIn(p.markets.note, lang)}` : ''}</div>}
-      {market === 'missing' && <div class="banner info">{tr('store.missingHere')}</div>}
-      <StoreGallery p={p} st={st} lang={lang} />
-      <div class="grid-2 gap-lg">
-        <section class="card">
-          {p.widgets.length > 0 && (
-            <>
-              <h3><Icon name="layout-grid" size={16} /> {tr('store.widgets')} · {tr('store.onYourScreens')}</h3>
-              <table class="store-table small">
-                <thead>
-                  <tr>
-                    <th />
-                    <th>{tr('store.min')}</th>
-                    <th>{tr('store.preferred')}</th>
-                    {screens.map((s) => <th>{s.name}</th>)}
-                  </tr>
-                </thead>
-                <tbody>
-                  {p.widgets.map((w) => (
-                    <tr>
-                      <th scope="row">{textIn(w.name, lang)}</th>
-                      <td class="mono">{w.min ? `${w.min.w}×${w.min.h}` : '—'}</td>
-                      <td class="mono">{w.preferred ? `${w.preferred.w}×${w.preferred.h}` : '—'}</td>
-                      {per.map((s) => (
-                        <td class={s.ideal.includes(w.type) ? 'good' : s.fits.includes(w.type) ? 'warn' : 'bad'}>
-                          {s.ideal.includes(w.type) ? tr('store.ideal') : s.fits.includes(w.type) ? tr('store.fits') : tr('store.tooBig')}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </>
-          )}
-          {p.interludes.length > 0 && (
-            <>
-              <h3><Icon name="clapperboard" size={16} /> {tr('store.interludes')}</h3>
-              <ul class="plain small">
-                {p.interludes.map((i) => <li><b>{textIn(i.name, lang)}</b> <span class="muted">{textIn(i.description, lang)}</span></li>)}
-              </ul>
-            </>
-          )}
-          <h3><Icon name="history" size={16} /> {tr('store.versions')}</h3>
-          <ul class="plain small">
-            {p.releases.slice(0, 6).map((r) => (
-              <li>
-                <span class="mono">{r.version}</span> <span class="muted">{r.date ? dateTime(Date.parse(r.date)) : ''}</span>
-                {r.deprecated && <span class="pill" title={r.deprecated}>{tr('store.deprecated')}</span>}
-                {r.addedPermissions && <span class="pill warn-pill">{tr('store.morePermissions')}</span>}
-              </li>
-            ))}
-          </ul>
-        </section>
-        <section class="card">
-          <h3><Icon name="shield" size={16} /> {tr('store.does')}</h3>
-          <div class="plugin-perms"><PermissionChips perms={p.permissions} /></div>
-          {(risky.length > 0 || p.riskyOptions > 0) && <p class="small warn">{t('store.risky', { n: risky.length || p.riskyOptions })}</p>}
-          {risky.length > 0 && <ul class="plain mono small muted">{risky.map((r) => <li>{r.path}</li>)}</ul>}
-          <p class="muted small">{tr('store.permNote')}</p>
-          <dl class="store-facts-list small">
-            <dt>{tr('store.works')}</dt>
-            <dd>{list(p.platforms.map((x) => OS[x] ?? x))}{latest?.sdk ? ` · API ${latest.sdk}` : ''}</dd>
-            <dt>{tr('store.languages')}</dt>
-            <dd>{list(p.languages.map(languageName))}</dd>
-            {p.requires.length > 0 && (
-              <>
-                <dt>{tr('plugins.needs')}</dt>
-                <dd>{listOf(p.requires)}</dd>
-              </>
-            )}
-            {p.publisher?.name && (
-              <>
-                <dt>{tr('store.author')}</dt>
-                <dd>{p.publisher.name}</dd>
-              </>
-            )}
-          </dl>
-          {p.popularity?.weekly ? <p class="muted small">{t('store.downloads', { n: p.popularity.weekly })}</p> : null}
-          <p class="store-links small">
-            {p.links.repository && <a href={p.links.repository} target="_blank" rel="noopener noreferrer"><Icon name="code-xml" size={12} /> {tr('store.source')}</a>}
-            {p.links.issues && <a href={p.links.issues} target="_blank" rel="noopener noreferrer"><Icon name="bug" size={12} /> {tr('store.issues')}</a>}
-            {p.links.funding && <a href={p.links.funding} target="_blank" rel="noopener noreferrer"><Icon name="heart" size={12} /> {tr('store.funding')}</a>}
-            <a href={site} target="_blank" rel="noopener noreferrer"><Icon name="external-link" size={12} /> {tr('store.onSite')}</a>
-          </p>
-        </section>
-      </div>
-      {installing && <InstallDialog p={p} st={st} risky={risky.length || p.riskyOptions} onClose={() => setInstalling(false)} />}
-    </div>
-  );
-}
-
-/** A plugin's pictures: one big, on a panel, and the others as thumbnails that bring theirs onto it. */
-function StoreGallery({ p, st, lang }: { p: StorePlugin; st: StoreState; lang: string }) {
-  const [on, setOn] = useState(0);
-  const [failed, setFailed] = useState<Set<number>>(new Set());
-  const shots = p.widgets.filter((w) => w.shots).map((w, i) => ({ i, name: textIn(w.name, lang), description: textIn(w.description, lang), src: siteUrl(st, w.shots![lang] ?? w.shots!.en!) })).filter((x) => !failed.has(x.i));
-  const cover = !p.widgets.some((w) => w.shots) ? bestPicture(p, lang)?.src : null;
-  // Only interludes: the first one's clip, silent and looping (its still with reduced motion, or if it fails).
-  const lead = cover ? p.interludes.find((i) => i.video && i.poster) : undefined;
-  const still = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if (!shots.length && !cover) return null;
-  const fail = (i: number) => setFailed((f) => new Set(f).add(i));
-  const main = shots.find((x) => x.i === on) ?? shots[0];
-  return (
-    <div class="store-gallery">
-      <figure class="store-stage">
-        <span class="store-slab">
-          {main ? (
-            <img key={main.src} src={main.src} alt={main.name} onError={() => fail(main.i)} />
-          ) : lead && !still && !failed.has(-2) ? (
-            <video src={siteUrl(st, lead.video!)} poster={siteUrl(st, lead.poster!)} aria-label={textIn(lead.name, lang)} muted loop playsInline autoplay onError={() => fail(-2)} />
-          ) : (
-            <img src={siteUrl(st, lead?.poster ?? cover!)} alt={textIn(p.name, lang)} onError={() => fail(-1)} />
-          )}
-        </span>
-        {main ? <figcaption class="small"><b>{main.name}</b> <span class="muted">{main.description}</span></figcaption> : lead && <figcaption class="small"><b>{textIn(lead.name, lang)}</b> <span class="muted">{textIn(lead.description, lang)}</span></figcaption>}
-      </figure>
-      {shots.length > 1 && (
-        <div class="store-thumbs">
-          {shots.map((x) => (
-            <button type="button" aria-pressed={x === main} onClick={() => setOn(x.i)}>
-              <span class="store-thumb"><img src={x.src} alt="" loading="lazy" /></span>
-              <span>{x.name}</span>
-            </button>
-          ))}
-        </div>
-      )}
+      {KIOSKO_DEMO && state.kind !== 'installed' && <DemoNote k="installHint" />}
+      <KitHtml html={html} onAct={(act) => act === 'install' && setInstalling(true)} />
+      {installing && <InstallDialog p={p} st={st} risky={sheet?.riskyOptions.length || p.riskyOptions} onClose={() => setInstalling(false)} />}
     </div>
   );
 }
@@ -466,7 +360,7 @@ function InstallDialog({ p, st, risky = p.riskyOptions, onClose }: { p: StorePlu
   const missing = p.requires.filter((id) => !st.installed[id]).map((id) => st.index?.plugins.find((x) => x.id === id)).filter((x): x is StorePlugin => !!x);
   // What comes along asks too: its permissions add up in the same dialog.
   const perms: StorePlugin['permissions'] = {};
-  for (const x of [p, ...missing]) for (const [k] of PERMS) if (x.permissions[k]?.length) perms[k] = [...new Set([...(perms[k] ?? []), ...x.permissions[k]!])];
+  for (const x of [p, ...missing]) for (const [key] of PERMS) if (x.permissions[key]?.length) perms[key] = [...new Set([...(perms[key] ?? []), ...x.permissions[key]!])];
   const per = fitsScreens(p.widgets, myScreens());
   const install = async () => {
     setBusy(true);
@@ -486,27 +380,36 @@ function InstallDialog({ p, st, risky = p.riskyOptions, onClose }: { p: StorePlu
     }
   };
   const who = [p.publisher?.name, p.tier === 'official' ? tr('store.official') : p.tier === 'found' ? tr('store.unreviewed') : null, p.license].filter(Boolean).join(' · ');
+  const sep = fullWidth() ? '：' : ': ';
   return (
-    <dialog ref={ref} class="store-dialog" onClose={onClose} onClick={(e) => e.target === ref.current && ref.current?.close()}>
-      <h3>{t('store.dialogTitle', { name: textIn(p.name, lang), v: release.version })}</h3>
-      <p class="muted small">{t('store.by', { who })}</p>
+    <dialog ref={ref} class="store-dialog" aria-labelledby="install-h" onClose={onClose} onClick={(e) => e.target === ref.current && ref.current?.close()}>
+      <header class="store-dialog-head" style={{ '--tint': CATEGORY[p.categories[0] ?? '']?.[1] ?? '#8b7bff' }}>
+        <span dangerouslySetInnerHTML={{ __html: `<span class="ks-app-icon">${icon(p.icon && !p.icon.trim().startsWith('<') ? p.icon : (CATEGORY[p.categories[0] ?? '']?.[0] ?? 'puzzle'), 20)}</span>` }} />
+        <div>
+          <h3 id="install-h">{t('store.dialogTitle', { name: textIn(p.name, lang), v: release.version })}</h3>
+          <p class="muted small">{t('store.by', { who })}</p>
+        </div>
+      </header>
       <p>{tr('store.codeRuns')}</p>
-      <ul class="store-perm-list">
-        {PERMS.map(([k, icon]) => (
-          <li class={perms[k]?.length ? '' : 'muted'}>
-            <Icon name={icon} size={14} />
-            <b>{tr(`perm.${k}`)}{fullWidth() ? '：' : ':'}</b>{fullWidth() ? '' : ' '}{perms[k]?.length ? listOf(perms[k]!.map(what)) : '—'}
+      <ul class="ks-perms">
+        {PERMS.map(([key, ico]) => (
+          <li class={perms[key]?.length ? '' : 'ks-none'}>
+            <span class="ks-perm-ic" dangerouslySetInnerHTML={{ __html: icon(ico, 16) }} />
+            <span>
+              <b>{tr(`perm.${key}`)}</b>
+              {perms[key]?.length ? listOf(perms[key]!.map(what)) : '—'}
+            </span>
           </li>
         ))}
-        {risky > 0 && <li class="warn"><Icon name="triangle-alert" size={14} /> {t('store.risky', { n: risky })}</li>}
       </ul>
+      {risky > 0 && <p class="ks-note warn small"><Icon name="triangle-alert" size={15} /> <span>{t('store.risky', { n: risky })}</span></p>}
       <p class="muted small">{tr('store.permNote')}</p>
       {missing.length > 0 && <p class="small">{t('store.alsoInstalls', { list: list(missing.map((x) => textIn(x.name, lang))) })}</p>}
       {per.length > 0 && p.widgets.length > 0 && (
-        <p class="small">
+        <p class="ks-fits">
           {per.map((s) => (
-            <span class={`store-fit ${s.ideal.length === p.widgets.length ? 'good' : s.fits.length ? 'warn' : 'bad'}`}>
-              {s.name}: {s.fits.length}/{p.widgets.length}
+            <span class={`ks-fit ${s.ideal.length === p.widgets.length ? 'ks-good' : s.fits.length ? 'ks-warn' : 'ks-bad'}`}>
+              <b>{s.name}</b>{sep}{s.fits.length}/{p.widgets.length}
             </span>
           ))}
         </p>
@@ -523,7 +426,7 @@ function InstallDialog({ p, st, risky = p.riskyOptions, onClose }: { p: StorePlu
       <div class="dialog-actions">
         <button class="btn ghost" onClick={() => ref.current?.close()}>{tr('common.cancel')}</button>
         <button class="btn primary" disabled={!ok || busy} onClick={install}>
-          <Icon name={busy ? 'loader' : 'download'} size={14} /> {busy ? tr('store.installing') : t('store.installVersion', { v: release.version })}
+          <Icon name={busy ? 'loader' : 'download'} size={14} class={busy ? 'spin' : ''} /> {busy ? tr('store.installing') : t('store.installVersion', { v: release.version })}
         </button>
       </div>
     </dialog>

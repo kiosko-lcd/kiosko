@@ -41,7 +41,7 @@ test('store pages: the list and each plugin, in every language, with the links b
       assert.ok(list.includes(`src="${root}gallery/img/`), `${l.id}: the gallery's pictures`);
       assert.doesNotMatch(list.replace(/https:\/\/(kioskolcd\.dev|github\.com)[^"]*/g, ''), /(src|href)="https?:/);
       // Unreviewed ones are listed, and marked.
-      assert.match(list, /class="card found"[^>]*data-tier="found"/);
+      assert.match(list, /class="ks-card found"[^>]*data-tier="found"/);
       assert.ok(list.includes(texts[l.id]['store-unreviewed'] ?? texts.en['store-unreviewed']));
       assert.doesNotMatch(list.replace(/<script type="application\/json"[\s\S]*?<\/script>/, ''), /\{\{|\{n\}|\{category\}|undefined/);
       // The panel at the top shows the gallery's sample pages in this language; the first one says what it is.
@@ -51,11 +51,11 @@ test('store pages: the list and each plugin, in every language, with the links b
       assert.match(list, /<input type="radio" name="cat" value="" checked \/>/);
       assert.match(list, /<select name="sort" form="store-filters">/);
       // Icons drawn into the page, not fetched.
-      assert.match(list, /<span class="app-icon"><svg class="ic"/);
+      assert.match(list, /<span class="ks-app-icon"><svg class="ks-ic"/);
     }
     // Picked ones first, from those offered (an editorial order, nothing made up).
     const en = readFileSync(join(out, 'store/index.html'), 'utf8');
-    assert.deepEqual([...en.matchAll(/<a class="feature" href="([^/]+)\//g)].map((m) => m[1]), FEATURED.filter((id: string) => ['weather', 'agents', 'acuario'].includes(id)).slice(0, 3));
+    assert.deepEqual([...en.matchAll(/<a class="ks-feature" href="([^/]+)\//g)].map((m) => m[1]), FEATURED.filter((id: string) => ['weather', 'agents', 'acuario'].includes(id)).slice(0, 3));
     // Simplified Chinese: the AI agents are offered too (they read the agents used there, languages.ts).
     const hans = readFileSync(join(out, 'zh-Hans/store/index.html'), 'utf8');
     assert.ok(hans.includes('data-id="agents"'));
@@ -70,11 +70,11 @@ test('store pages: the list and each plugin, in every language, with the links b
     assert.ok(page.includes('api.example.com') && page.includes(texts.es['store-perm-user']));
     assert.ok(page.includes('src="../../../gallery/img/es/weather-clock.png"'));
     // The command, and a button that copies it (a script's: the page works without).
-    assert.ok(page.includes('<button type="button" class="copy" data-copy="kiosko plugins install kiosko-plugin-weather@0.2.0">'));
+    assert.ok(page.includes('<button type="button" class="ks-copy" data-copy="kiosko plugins install kiosko-plugin-weather@0.2.0">'));
     const agents = readFileSync(join(out, 'es/store/agents/index.html'), 'utf8');
     assert.ok(agents.includes('hreflang="zh-Hans"'), 'offered in zh-Hans: its alternate there');
     const fish = readFileSync(join(out, 'store/acuario/index.html'), 'utf8');
-    assert.match(fish, /class="note unreviewed"/);
+    assert.match(fish, /class="ks-note unreviewed"/);
     assert.match(fish, /Only useful in Spain/);
     // The sitemap has them, each in its languages.
     const xml = sitemap(pages) as string;
@@ -102,7 +102,7 @@ test('an interlude with a clip: its page plays it (silent, its still as poster);
     const index = buildIndex([e.plugin], { generatedAt: '2026-11-21T03:17:00Z' });
     buildStorePages({ out, index, details: { fractals: { riskyOptions: e.file, sources: e.sources } }, texts, css: 'c.css', js: 'j.js', presets: PANEL_PRESETS });
     const page = readFileSync(join(out, 'es/store/fractals/index.html'), 'utf8');
-    const clips = [...page.matchAll(/<video class="clip"[^>]*>/g)].map((m) => m[0]);
+    const clips = [...page.matchAll(/<video class="ks-clip"[^>]*>/g)].map((m) => m[0]);
     // On the big panel only (the list keeps the stills): never autoplaying (store.ts plays it on screen), never loading before then.
     assert.equal(clips.length, 1);
     for (const c of clips) {
@@ -114,7 +114,7 @@ test('an interlude with a clip: its page plays it (silent, its still as poster);
     assert.ok(page.includes('<img src="../../../store/v1/img/fractals/0.2.1/coral.jpg"'), 'coral: its still');
     // Each interlude with a still has its place on the big panel, chosen by a thumbnail.
     assert.equal([...page.matchAll(/<button type="button" data-shot="\d"/g)].length, 2);
-    assert.match(page, /<figure class="" id="shot-1"><div class="glass"><img src="[^"]*coral\.jpg"/);
+    assert.match(page, /<figure class="" id="shot-1"><div class="ks-glass"><img src="[^"]*coral\.jpg"/);
   } finally {
     rmSync(out, { recursive: true, force: true });
   }
