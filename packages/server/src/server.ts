@@ -66,7 +66,20 @@ export interface ServerOptions {
   selfUpdate?: Partial<UpdaterDeps>;
   /** Kiosko's folder (tests). Default: paths.home. */
   home?: string;
+  /**
+   * How "Detect panels" (and the setup wizard) look for panels (tests, and trying the editor
+   * without touching real ones). Default: ask `trcc serve` at `url` and libusb.
+   */
+  discover?: (url: string, tokenFile?: string) => Promise<Discovered>;
 }
+
+/** The panels "Detect panels" finds: those `trcc serve` drives, and the LY ones on USB. */
+export interface Discovered {
+  trcc: Awaited<ReturnType<typeof discoverTrcc>>;
+  usb: Awaited<ReturnType<typeof discoverUsb>>;
+}
+
+export const realDiscover = async (url: string, tokenFile?: string): Promise<Discovered> => ({ trcc: await discoverTrcc(url, tokenFile), usb: await discoverUsb() });
 
 function webRoot(): string {
   // The published bundle carries the editor next to the CLI.
@@ -430,7 +443,7 @@ export function startServer(o: ServerOptions) {
 
     if (p === '/api/devices/discover' && m === 'GET') {
       const url0 = url.searchParams.get('url') ?? 'http://127.0.0.1:8099';
-      return json(res, 200, { trcc: await discoverTrcc(url0, url.searchParams.get('tokenFile') ?? undefined), usb: await discoverUsb() });
+      return json(res, 200, await (o.discover ?? realDiscover)(url0, url.searchParams.get('tokenFile') ?? undefined));
     }
 
     // Who answers here: the update's handover tells the new Kiosko from the old one by it.
