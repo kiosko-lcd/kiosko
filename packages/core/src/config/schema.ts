@@ -218,6 +218,16 @@ export function configSchema(plugins: readonly PluginDefinition[]): S {
           port: { type: 'integer', minimum: 1, maximum: 65535, default: DEFAULT_CONFIG.server.port },
         },
       },
+      networkScreens: {
+        type: 'object',
+        additionalProperties: false,
+        description: 'A second, separate server for browsers showing a Kiosko screen (docs/browser-screens.md). It serves only the viewer page, its pairing and the frames of paired browsers: never the editor, its API, the config or the plugins. Off unless enabled.',
+        properties: {
+          enabled: { type: 'boolean', default: false, description: 'Listen for browsers on the network.', 'x-risk': 'network' },
+          host: { type: 'string', default: '0.0.0.0', description: '0.0.0.0: every network interface (the LAN). 127.0.0.1: only this computer (a tablet on a USB cable with adb reverse). Or one address of this computer.', 'x-risk': 'network' },
+          port: { type: 'integer', minimum: 1, maximum: 65535, default: 7429 },
+        },
+      },
       threads: {
         enum: ['auto', 'always', 'never'],
         default: 'auto',
@@ -312,6 +322,20 @@ export function configSchema(plugins: readonly PluginDefinition[]): S {
               host: { type: 'string', description: 'Address to use instead of finding it by mDNS (another subnet, a network without multicast).', 'x-risk': 'network' },
               port: { type: 'integer', minimum: 1, maximum: 65535, default: 7428 },
               brightness: { type: 'integer', minimum: 0, maximum: 100, description: 'Backlight brightness, 0-100 (perceived; 0 = off), pushed to the screen on every connection. Screen firmware 0.1.2 or later; older ones ignore it. Empty: the screen keeps its own (70 % unless set on its setup page).' },
+            },
+          },
+          {
+            title: 'Browser screen',
+            description: 'A browser (an old tablet, a phone) showing the screen full-screen over the local network. It opens the page of the network-screens server (networkScreens), is paired once with the code it shows, and gets the frames over an authenticated, encrypted WebSocket. See docs/browser-screens.md.',
+            type: 'object',
+            additionalProperties: false,
+            required: ['driver', 'uid'],
+            properties: {
+              driver: { const: 'browser' },
+              uid: { type: 'string', pattern: '^[0-9a-f]{12}$', description: 'The browser\'s id (12 hex digits), which it made and keeps; it shows the last four under its code.' },
+              id: { type: 'string', description: 'What the browser said it was when it was paired (Android, iPad…).' },
+              key: { type: 'string', pattern: '^[0-9a-f]{64}$', description: 'The pairing key (64 hex digits), set by pairing in the editor. Empty: not paired (revoked).', 'x-secret': true },
+              follow: { type: 'boolean', default: true, description: 'Give the screen the browser\'s size and orientation, and follow it when it turns.' },
             },
           },
           {

@@ -69,6 +69,7 @@ const GUIDES: Record<string, ReadonlySet<string>> = {
   install: new Set(['zh-Hant', 'zh-Hans']),
   usb: new Set(['en', 'es', 'de', 'zh-Hant', 'zh-Hans']),
   'remote-screens': new Set(['en', 'es', 'de', 'zh-Hant', 'zh-Hans']),
+  'browser-screens': new Set(['en', 'es', 'de', 'zh-Hant', 'zh-Hans']),
 };
 const onSite = (lang: string, guide: string) => `https://kioskolcd.dev/${lang === 'en' ? '' : `${lang}/`}docs/${guide}/`;
 
@@ -91,6 +92,12 @@ export function usbGuideUrl(): string {
 export function remoteGuideUrl(): string {
   const lang = uiLanguage();
   return GUIDES['remote-screens']!.has(lang) ? onSite(lang, 'remote-screens') : 'https://github.com/kiosko-lcd/kiosko/blob/main/docs/remote-screens.md';
+}
+
+/** The guide to browser screens (a tablet or phone over the LAN), on the site, else on GitHub. */
+export function browserGuideUrl(): string {
+  const lang = uiLanguage();
+  return GUIDES['browser-screens']!.has(lang) ? onSite(lang, 'browser-screens') : 'https://github.com/kiosko-lcd/kiosko/blob/main/docs/browser-screens.md';
 }
 
 /** Whether the editor writes in Chinese, Japanese or Korean: full-width punctuation, no spaces around it. */

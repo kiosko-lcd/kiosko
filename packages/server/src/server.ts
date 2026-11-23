@@ -23,6 +23,8 @@ import { SDK_VERSION } from '@kiosko/sdk';
 import { installableRelease, releaseProblem, type StorePlugin } from '@kiosko/core';
 import { HomeAssistantBridge } from './homeassistant.ts';
 import { remoteApi } from './remote-api.ts';
+import { browserApi } from './browser-api.ts';
+import { ScreensServer } from './screens-server.ts';
 import { ALERT_LEVELS, type AlertLevel } from '@kiosko/sdk';
 import { AlertError, DEFAULT_SNOOZE_MS, PANEL_PRESETS, checkUpdates, discoverRemote, discoverTrcc, discoverUsb, normalize, npmRegistry, paths, resolveLocale, saveConfig, type Config, type FrameInfo, type Runtime, type Screen, type UpdateCheck } from '@kiosko/core';
 import { currentInstall, updateBlocker, updateInstructions, type InstallInfo } from './install-kind.ts';
@@ -72,6 +74,11 @@ export interface ServerOptions {
    * without touching real ones). Default: ask `trcc serve` at `url` and libusb.
    */
   discover?: (url: string, tokenFile?: string) => Promise<Discovered>;
+  /**
+   * Whether the network-screens server (browser screens) may start when the config switches it on.
+   * Default: yes, except in demo mode.
+   */
+  networkScreens?: boolean;
 }
 
 /** The panels "Detect panels" finds: those `trcc serve` drives, the LY ones on USB, the remote screens on the LAN. */
@@ -158,6 +165,8 @@ export function startServer(o: ServerOptions) {
     instance,
     logFile: join(home, 'kiosko.log'),
     release: async () => {
+      netPaused = true;
+      await syncNet();
       runtime.stop();
       for (const c of clients) c.end();
       clients.clear();
@@ -176,6 +185,8 @@ export function startServer(o: ServerOptions) {
         });
       });
       runtime.start();
+      netPaused = false;
+      void syncNet();
     },
     spawn: () => {
       const out = openSync(join(home, 'kiosko.log'), 'a');
@@ -322,6 +333,51 @@ export function startServer(o: ServerOptions) {
     },
   });
 
+  // The network-screens server (screens-server.ts): a server of its own, started and stopped with the config.
+  const screens = (o.networkScreens ?? !runtime.demoMode) ? new ScreensServer({ hub: runtime.browsers, viewerDir: join(root, 'viewer'), log: (m) => runtime.log('network-screens', m) }) : null;
+  const net = { enabled: false, host: '', port: 0, listening: false, error: null as string | null };
+  let netSync: Promise<void> = Promise.resolve();
+  let netClosed = false;
+  /** Stopped while an update hands over to the new Kiosko (which listens there instead). */
+  let netPaused = false;
+  const syncNet = () => {
+    netSync = netSync.then(async () => {
+      if (!screens) return;
+      const want = runtime.config.networkScreens;
+      const on = !netClosed && !netPaused && !!want?.enabled;
+      const at = screens.listening;
+      if (on && at && at.host === want!.host && at.port === want!.port) return;
+      if (!on && !at && !net.error && !net.enabled) return;
+      Object.assign(net, { enabled: on, host: want?.host ?? '', port: want?.port ?? 0, listening: false, error: null });
+      if (!on) return screens.close();
+      try {
+        await screens.listen(want!.host, want!.port);
+        net.listening = true;
+      } catch (err) {
+        net.error = err instanceof Error ? err.message : String(err);
+        runtime.log('network-screens', `could not listen on ${want!.host}:${want!.port}: ${net.error}`);
+      }
+      send('config', { rev, by: null });
+    });
+    return netSync;
+  };
+  const onConfigNet = () => void syncNet();
+  runtime.on('config', onConfigNet);
+  void syncNet();
+  const browser = browserApi({
+    runtime,
+    json,
+    body,
+    commit: (cfg) => {
+      const c = normalize(cfg);
+      saveConfig(c, o.configPath);
+      rev++;
+      runtime.apply(c);
+      send('config', { rev, by: null });
+    },
+    state: () => ({ ...net }),
+  });
+
   function findScreen(cfg: Config, id: string): Screen | undefined {
     return cfg.screens.find((s) => s.id === id);
   }
@@ -460,6 +516,7 @@ export function startServer(o: ServerOptions) {
     }
 
     if ((p.startsWith('/api/remote/') || /^\/api\/screens\/[^/]+\/remote\//.test(p)) && (await remote(req, res, p, m))) return;
+    if ((p === '/api/browser' || p.startsWith('/api/browser/') || /^\/api\/screens\/[^/]+\/browser\//.test(p)) && (await browser(req, res, p, m))) return;
 
     if (p === '/api/devices/discover' && m === 'GET') {
       const url0 = url.searchParams.get('url') ?? 'http://127.0.0.1:8099';
@@ -691,9 +748,12 @@ export function startServer(o: ServerOptions) {
     runtime.off('frame', onFrame);
     runtime.off('alerts', onAlerts);
     runtime.off('log', onLog);
+    runtime.off('config', onConfigNet);
+    netClosed = true;
+    void syncNet();
     for (const c of clients) c.end();
     clients.clear();
     server.close();
   }
-  return { server, close, updater };
+  return { server, close, updater, screens, networkScreensReady: () => netSync };
 }

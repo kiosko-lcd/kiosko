@@ -6,7 +6,7 @@
 import { TIME_FORMATS } from '@kiosko/sdk/format';
 import { DEFAULT_WORKDAY } from '@kiosko/sdk/workday';
 import { suggestGrid } from '../layout/grid.ts';
-import { ALERT_THRESHOLDS, CONFIG_VERSION, DEFAULT_CONFIG, DEFAULT_MAX_BYTES, TEXT_SCALE, SETUP_STATES, THREADS_MODES, type Config, type Screen, type ScreenAlerts } from './model.ts';
+import { ALERT_THRESHOLDS, CONFIG_VERSION, DEFAULT_CONFIG, DEFAULT_NETWORK_SCREENS, DEFAULT_MAX_BYTES, TEXT_SCALE, SETUP_STATES, THREADS_MODES, type Config, type NetworkScreens, type Screen, type ScreenAlerts } from './model.ts';
 
 /**
  * Fills gaps of a config written by hand or by an older version. Never throws.
@@ -28,11 +28,21 @@ export function normalize(raw: unknown): Config {
     plugins: { disabled: c.plugins?.disabled ?? [] },
     server: { ...DEFAULT_CONFIG.server, ...(c.server ?? {}) },
     ...(c.homeassistant && typeof c.homeassistant === 'object' ? { homeassistant: normalizeHa(c.homeassistant) } : {}),
+    ...(c.networkScreens && typeof c.networkScreens === 'object' ? { networkScreens: normalizeNet(c.networkScreens) } : {}),
     ...(THREADS_MODES.includes(threads as never) ? { threads: threads! } : {}),
     ...(SETUP_STATES.includes(setup as never) ? { setup: setup! } : {}),
     // On unless switched off: only `false` is written.
     ...(bootAnimation === false ? { bootAnimation: false } : {}),
     screens,
+  };
+}
+
+function normalizeNet(n: Partial<NetworkScreens>): NetworkScreens {
+  const port = Math.round(Number(n.port));
+  return {
+    enabled: n.enabled === true,
+    host: (typeof n.host === 'string' && n.host.trim()) || DEFAULT_NETWORK_SCREENS.host,
+    port: port >= 1 && port <= 65535 ? port : DEFAULT_NETWORK_SCREENS.port,
   };
 }
 

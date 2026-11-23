@@ -211,6 +211,46 @@ export interface RemoteFound {
   hostname: string;
 }
 
+/** A browser screen's viewer, as its driver sees it. */
+export interface BrowserLink {
+  online: boolean;
+  id: string;
+  address: string | null;
+  w: number;
+  h: number;
+  fps: number;
+  rttMs: number | null;
+  decodeMs: number | null;
+  lastFrameAt: number | null;
+  dropped: number;
+  since: number | null;
+  server: boolean;
+}
+
+/** A browser waiting to be paired (it shows a code). */
+export interface BrowserWaiting {
+  uid: string;
+  id: string;
+  w: number;
+  h: number;
+  address: string;
+  since: number;
+}
+
+/** The network-screens server, and the browsers waiting at it (GET /api/browser). */
+export interface BrowserState {
+  enabled: boolean;
+  host: string;
+  port: number;
+  listening: boolean;
+  error: string | null;
+  /** Where to open the viewer from the LAN. */
+  urls: string[];
+  waiting: BrowserWaiting[];
+  /** A wrong code makes the next try wait this many seconds. */
+  waitSeconds: number;
+}
+
 /** A remote screen's link, as its driver sees it. */
 export interface RemoteLink {
   online: boolean;
@@ -234,7 +274,7 @@ export interface RemoteLink {
 }
 
 export interface Status {
-  screens: { id: string; name: string; page: string | null; pinned: string | null; interlude: string | null; playing?: boolean; device: { driver: string; ok: boolean; message: string; code?: string; params?: Record<string, string | number>; framesSent: number; lastSentAt: number | null; detected?: { width: number; height: number; rotate?: number }; remote?: RemoteLink }; lastFrameAt: number | null; sleeping: boolean; alert?: string | null; frames?: ScreenFrames; thread?: ScreenThread }[];
+  screens: { id: string; name: string; page: string | null; pinned: string | null; interlude: string | null; playing?: boolean; device: { driver: string; ok: boolean; message: string; code?: string; params?: Record<string, string | number>; framesSent: number; lastSentAt: number | null; detected?: { width: number; height: number; rotate?: number }; remote?: RemoteLink; browser?: BrowserLink }; lastFrameAt: number | null; sleeping: boolean; alert?: string | null; frames?: ScreenFrames; thread?: ScreenThread }[];
   /** Painting in threads: the setting, the cores, the main thread's heap and the whole process' memory. */
   threads?: { mode: 'auto' | 'always' | 'never'; cores: number; heapBytes: number; rssBytes: number };
   /** How busy the main thread is (0–1). */
@@ -365,6 +405,10 @@ export const api = {
   pairCancel: (pairId: string) => fetch(`/api/remote/pair/${pairId}`, { method: 'DELETE', headers: H }).then((r) => ok(r)),
   unpairRemote: (screenId: string) => fetch(`/api/screens/${encodeURIComponent(screenId)}/remote/unpair`, { method: 'POST', headers: H }).then((r) => ok<{ ok: true; told: boolean }>(r)),
   remoteOta: (screenId: string, image: Blob) => fetch(`/api/screens/${encodeURIComponent(screenId)}/remote/ota`, { method: 'POST', headers: { 'x-kiosko': '1', 'content-type': 'application/octet-stream' }, body: image }).then((r) => ok<{ ok: true }>(r)),
+  /** Browser screens: the network-screens server and who waits at it; pairing one with its code; revoking one. */
+  browserState: () => fetch('/api/browser').then((r) => ok<BrowserState>(r)),
+  browserPair: (uid: string, code: string, screenId?: string) => fetch('/api/browser/pair', { method: 'POST', headers: H, body: JSON.stringify({ uid, code, ...(screenId ? { screenId } : {}) }) }).then((r) => ok<{ ok: true; screenId: string }>(r)),
+  unpairBrowser: (screenId: string) => fetch(`/api/screens/${encodeURIComponent(screenId)}/browser/unpair`, { method: 'POST', headers: H }).then((r) => ok<{ ok: true; told: boolean }>(r)),
   remoteLogs: (screenId: string) => fetch(`/api/screens/${encodeURIComponent(screenId)}/remote/logs`).then((r) => ok<{ text: string }>(r)),
   logs: () => fetch('/api/logs').then((r) => ok<{ at: number; scope: string; message: string }[]>(r)),
   /** Values a source offers for an option, from its live data (or its demo data before there is any). */

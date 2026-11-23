@@ -31,6 +31,7 @@
   "wifi-screens-title": "也支援 Wi-Fi 小螢幕",
   "wifi-screens-body": "執行 Kiosko 開放韌體的 ESP32 螢幕（目前為 Waveshare ESP32-C6-LCD-1.47，之後會支援更多）會自動在你的網路上宣告自己。用螢幕上的代碼配對；它會自動重新同步，支援任何方向，也可以同時使用多台。",
   "wifi-screens-guide": "如何設定 →",
+  "browser-screens-link": "手邊沒有 ESP32？舊平板或手機的瀏覽器也可以 →",
   "yours": "你的設定",
   "now-with-your-config": "換上你的設定。",
   "drop-a-config-json-on": "把 <code>config.json</code>（你自己的，或 AI 助理幫你寫的）拖到這個頁面，面板就會用範例資料顯示它的頁面，每個螢幕一塊面板。檔案只留在這個瀏覽器裡，不會上傳到任何地方。",
