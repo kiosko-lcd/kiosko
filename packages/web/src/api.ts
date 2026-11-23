@@ -184,6 +184,8 @@ export interface JsonSchema {
     labels?: Record<string, string | Record<string, string>>;
     /** Values to offer, from a source's live data (`GET /api/choices`). */
     choices?: { source: string; list: string };
+    /** Keys to offer for a map, with their labels (a device's last reading): see MapField.keyChoices. */
+    keyChoices?: { source: string; list: string };
   };
 }
 

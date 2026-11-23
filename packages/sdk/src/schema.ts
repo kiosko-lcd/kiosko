@@ -102,6 +102,12 @@ export interface MapField extends Common<Record<string, string>> {
   kind: 'map';
   keyLabel?: Localized;
   valueLabel?: Localized;
+  /**
+   * Keys to offer, from a source's live data (see `ChoicesRef`): the editor
+   * shows each key's label next to it (a device's last reading, say) and
+   * offers the ones not in the map yet. Keys stay free text.
+   */
+  keyChoices?: ChoicesRef;
 }
 
 export type Field = StringField | NumberField | BooleanField | EnumField<string> | ColorField | ListField<any> | ObjectField<any> | MapField;
@@ -268,7 +274,7 @@ export function toJsonSchema(f: Field): Record<string, unknown> {
     case 'list':
       return { ...base, type: 'array', items: toJsonSchema(f.item), maxItems: f.max, ...(f.filter ? { 'x-ui': { ...ui, widget: 'filter', choices: f.item.kind === 'string' ? f.item.choices : undefined }, 'x-filter': true } : {}) };
     case 'map':
-      return { ...base, type: 'object', additionalProperties: { type: 'string' } };
+      return { ...base, type: 'object', additionalProperties: { type: 'string' }, ...(f.keyChoices ? { 'x-ui': { ...ui, keyChoices: f.keyChoices } } : {}) };
     case 'object':
       return { ...base, type: 'object', properties: Object.fromEntries(Object.entries(f.props as Record<string, Field>).map(([k, sub]) => [k, toJsonSchema(sub)])) };
   }

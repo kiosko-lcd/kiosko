@@ -272,6 +272,9 @@ select.input { cursor: pointer; }
 .list-actions .icon-btn { width: 26px; height: 26px; }
 .list-actions .icon-btn:disabled { opacity: 0.3; cursor: default; }
 .map-row { display: flex; gap: 6px; align-items: center; }
+.map-entry { display: grid; gap: 2px; }
+.map-offer { justify-content: flex-start; gap: 8px; text-align: left; flex-wrap: wrap; }
+.map-offer .muted { font-weight: 400; }
 
 /* ---------- Page views (Screens, Plugins, Settings, Logs) ---------- */
 .page-view { height: 100%; overflow: auto; padding: 26px clamp(16px, 4vw, 44px) 60px; }

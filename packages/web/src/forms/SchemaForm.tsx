@@ -186,7 +186,7 @@ function Control({ id, name, schema, value, onChange }: { id: string; name: stri
           </fieldset>
         );
       }
-      return <MapInput id={id} value={(value as Record<string, string>) ?? {}} onChange={onChange} />;
+      return <MapInput id={id} value={(value as Record<string, string>) ?? {}} keyChoices={ui.keyChoices} onChange={onChange} />;
     default:
       return <input id={id} class="input" value={JSON.stringify(value)} onChange={(e) => {
         try {
@@ -443,20 +443,46 @@ function ListInput({ id, schema, value, onChange }: { id: string; schema: JsonSc
   );
 }
 
-function MapInput({ id, value, onChange }: { id: string; value: Record<string, string>; onChange: (v: Record<string, string>) => void }) {
+/**
+ * A string → string map. With `keyChoices` (a source's live list), each key
+ * shows its label under it (a device's last reading, say), and the keys not in
+ * the map yet are offered below, one click each.
+ */
+function MapInput({ id, value, keyChoices, onChange }: { id: string; value: Record<string, string>; keyChoices?: { source: string; list: string } | undefined; onChange: (v: Record<string, string>) => void }) {
   const rows = Object.entries(value);
   const setRow = (i: number, k: string, v: string) => onChange(Object.fromEntries(rows.map((r, j) => (j === i ? [k, v] : r))));
+  const choices = useChoices(keyChoices);
+  const norm = (k: string) => k.trim().toUpperCase();
+  const labelOf = (k: string) => choices.find((c) => norm(c.value) === norm(k));
+  const unnamed = choices.filter((c) => !rows.some(([k]) => norm(k) === norm(c.value)));
+  const listId = `${id}-keys`;
   return (
     <div class="list" id={id}>
+      {keyChoices && (
+        <datalist id={listId}>
+          {choices.map((c) => (
+            <option value={c.value}>{[c.label, c.group].filter(Boolean).join(' · ')}</option>
+          ))}
+        </datalist>
+      )}
       {rows.map(([k, v], i) => (
-        <div class="map-row">
-          <input class="input mono" value={k} onInput={(e) => setRow(i, (e.target as HTMLInputElement).value, v)} />
-          <Icon name="arrow-right" size={14} />
-          <input class="input" value={v} {...typed((text) => setRow(i, k, text))} />
-          <button type="button" class="icon-btn danger" onClick={() => onChange(Object.fromEntries(rows.filter((_, j) => j !== i)))}>
-            <Icon name="x" size={14} />
-          </button>
+        <div class="map-entry">
+          <div class="map-row">
+            <input class="input mono" value={k} list={keyChoices ? listId : undefined} spellcheck={false} onInput={(e) => setRow(i, (e.target as HTMLInputElement).value, v)} />
+            <Icon name="arrow-right" size={14} />
+            <input class="input" value={v} {...typed((text) => setRow(i, k, text))} />
+            <button type="button" class="icon-btn danger" onClick={() => onChange(Object.fromEntries(rows.filter((_, j) => j !== i)))}>
+              <Icon name="x" size={14} />
+            </button>
+          </div>
+          {labelOf(k)?.label && <div class="muted small choice-label">{labelOf(k)!.label}</div>}
         </div>
+      ))}
+      {unnamed.map((c) => (
+        <button type="button" class="btn ghost small map-offer" onClick={() => onChange({ ...value, [c.value]: '' })}>
+          <Icon name="plus" size={14} /> <span class="mono">{c.value}</span>
+          {c.label && <span class="muted">{c.label}</span>}
+        </button>
       ))}
       <button type="button" class="btn ghost small" onClick={() => onChange({ ...value, [`key${rows.length + 1}`]: '' })}>
         <Icon name="plus" size={14} /> {tr('common.add')}
