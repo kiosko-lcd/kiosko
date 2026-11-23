@@ -65,3 +65,13 @@ test('toJsonSchema exports English titles, secrets and risks', () => {
   assert.deepEqual(risksOf(js.properties.bin!), ['exec']);
   assert.deepEqual(risksOf(F.props.plain), []);
 });
+
+test('a map can offer its keys from a source (keyChoices), shown in the editor with their labels', () => {
+  const ref = { source: 'switchbot/devices', list: 'devices' };
+  const withKeys = toJsonSchema(t.map({ keyChoices: ref })) as { type: string; additionalProperties: unknown; 'x-ui': { keyChoices?: unknown } };
+  assert.equal(withKeys.type, 'object');
+  assert.deepEqual(withKeys.additionalProperties, { type: 'string' });
+  assert.deepEqual(withKeys['x-ui'].keyChoices, ref);
+  const plain = toJsonSchema(t.map()) as { 'x-ui': { keyChoices?: unknown } };
+  assert.equal(plain['x-ui'].keyChoices, undefined);
+});
