@@ -427,6 +427,7 @@ Some official plugins are **optional**: they don't come with Kiosko, and the
 | [logs](https://github.com/kiosko-lcd/kiosko-plugin-logs) | live logs: journald, log files, Docker, macOS, Windows, Kubernetes and Loki; errors as they happen, repeats folded, secrets masked |
 | [hazards](https://github.com/kiosko-lcd/kiosko-plugin-hazards) | official warnings (NWS, tsunami.gov, CWA, AEMET, Meteoalarm, GDACS) as full-screen alerts on every panel; informational, not a substitute for official alerts |
 | [batteries](https://github.com/kiosko-lcd/kiosko-plugin-batteries) | the battery of your Bluetooth headphones, mouse, keyboard, controller, laptop and phone, with a warning before one runs out (UPower/BlueZ, Windows, macOS, KDE Connect) |
+| [switchbot](https://github.com/kiosko-lcd/kiosko-plugin-switchbot) | SwitchBot thermometers, door and presence sensors heard straight from the computer's Bluetooth (no hub, account or Home Assistant), with an alert for a door left open (Linux) |
 
 Every official widget, painted with its sample data: run `kiosko gallery`
 (published to GitHub Pages by the `Gallery` workflow, together with the

@@ -1070,7 +1070,7 @@ Lo que cambia en el camino:
     que dibuja la hora. Nada externo: solo dibujo, así que vale en
     cualquier país.
 
-36. **El aire de tu habitación** (`kiosko-plugin-air`). El tiempo dice cómo
+36. **El aire de tu habitación** (`kiosko-plugin-air`). *Hecho para SwitchBot* (2026-11-23): `kiosko-plugin-switchbot` 0.1.0 lee termómetros, puertas y presencia por Bluetooth, sin hub ni cuenta (Linux). Queda lo demás (Aranet4, Xiaomi, ESPHome). El tiempo dice cómo
     está fuera; esto, cómo está donde trabajas:
     - *Qué*: CO₂ con aviso de ventilar (ámbar desde 1000 ppm, rojo desde
       1400), temperatura y humedad de la habitación, y su historia del día.

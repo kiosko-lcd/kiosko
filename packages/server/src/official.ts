@@ -14,7 +14,7 @@
  */
 export const BUNDLED_PLUGIN_IDS = ['agents', 'cats', 'system', 'vitals', 'usage', 'weather', 'calendar', 'news', 'mirror', 'gitlab', 'github', 'calls', 'timesheet', 'llm', 'gpu', 'homeassistant'] as const;
 
-export const OPTIONAL_PLUGIN_IDS = ['doom', 'video', 'fractals', 'gaming', 'logs', 'hazards', 'batteries'] as const;
+export const OPTIONAL_PLUGIN_IDS = ['doom', 'video', 'fractals', 'gaming', 'logs', 'hazards', 'batteries', 'switchbot'] as const;
 
 export interface OfficialPlugin {
   id: string;
