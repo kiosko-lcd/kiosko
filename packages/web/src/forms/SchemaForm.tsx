@@ -456,6 +456,16 @@ function MapInput({ id, value, keyChoices, onChange }: { id: string; value: Reco
   const labelOf = (k: string) => choices.find((c) => norm(c.value) === norm(k));
   const unnamed = choices.filter((c) => !rows.some(([k]) => norm(k) === norm(c.value)));
   const listId = `${id}-keys`;
+  // A key added from the offers: straight to its name.
+  const [focusKey, setFocusKey] = useState<string | null>(null);
+  useEffect(() => {
+    if (focusKey === null) return;
+    const el = document.getElementById(id)?.querySelector<HTMLInputElement>(`input[data-map-value="${CSS.escape(focusKey)}"]`);
+    if (el) {
+      el.focus();
+      setFocusKey(null);
+    }
+  }, [focusKey, value]);
   return (
     <div class="list" id={id}>
       {keyChoices && (
@@ -470,7 +480,7 @@ function MapInput({ id, value, keyChoices, onChange }: { id: string; value: Reco
           <div class="map-row">
             <input class="input mono" value={k} list={keyChoices ? listId : undefined} spellcheck={false} onInput={(e) => setRow(i, (e.target as HTMLInputElement).value, v)} />
             <Icon name="arrow-right" size={14} />
-            <input class="input" value={v} {...typed((text) => setRow(i, k, text))} />
+            <input class="input" value={v} data-map-value={k} {...typed((text) => setRow(i, k, text))} />
             <button type="button" class="icon-btn danger" onClick={() => onChange(Object.fromEntries(rows.filter((_, j) => j !== i)))}>
               <Icon name="x" size={14} />
             </button>
@@ -479,7 +489,10 @@ function MapInput({ id, value, keyChoices, onChange }: { id: string; value: Reco
         </div>
       ))}
       {unnamed.map((c) => (
-        <button type="button" class="btn ghost small map-offer" onClick={() => onChange({ ...value, [c.value]: '' })}>
+        <button type="button" class="btn ghost small map-offer" onClick={() => {
+            onChange({ ...value, [c.value]: '' });
+            setFocusKey(c.value);
+          }}>
           <Icon name="plus" size={14} /> <span class="mono">{c.value}</span>
           {c.label && <span class="muted">{c.label}</span>}
         </button>
