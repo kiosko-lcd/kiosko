@@ -140,6 +140,7 @@ screen**, pick your panel model and its connection:
 | **trcc serve** | Linux with [thermalright-trcc-linux](https://github.com/Lexonight1/thermalright-trcc-linux) running `trcc serve`. |
 | **Frame file** | Kiosko writes `frame.jpg` atomically; an external sender (e.g. one bound to a USB serial number, for several identical panels) pushes it to the glass. |
 | **Remote screen** | A small Wi-Fi display running [Kiosko's screen firmware](firmware/esp32-screen) (Waveshare ESP32-C6-LCD-1.47 for now): found on the network, paired once with the code it shows, frames over an encrypted session. Experimental; see the [guide](docs/remote-screens.md) and the [protocol](docs/remote-screen.md). |
+| **Browser** | Any browser on the LAN (an old tablet, a phone) showing a screen full-screen: it opens a page of a second, separate server (off by default; the editor stays on 127.0.0.1), is paired once with the code it shows, and gets frames over an encrypted WebSocket; it follows the device's size and orientation. Experimental; see the [guide](docs/browser-screens.md). |
 
 **Home Assistant**: Kiosko can show up there as a device per screen (over
 MQTT), with its page to choose, a switch to turn it off and a button per

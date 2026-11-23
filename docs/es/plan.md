@@ -1294,7 +1294,22 @@ Lo que cambia en el camino:
       **irreversibles**: decisión del dueño.
     - *Probar en Windows y macOS*: el descubrimiento por la red (cortafuegos,
       sin Bonjour en Windows).
-60. **Cualquier navegador como pantalla.** Una tableta o un móvil viejo que
+60. **Cualquier navegador como pantalla.** *Hecho* (2026-11-23), a falta de
+    probarlo en tabletas reales: driver `browser` y un segundo servidor
+    aparte, «Pantallas por la red» (apagado por defecto, puerto 7429, se
+    elige dónde escucha), que solo sirve la página del visor, el
+    emparejamiento y los fotogramas de los navegadores emparejados (el resto,
+    404; el editor sigue solo en 127.0.0.1). El navegador muestra el código
+    y se teclea en el editor (Pantallas → Añadir pantalla → Navegador, con la
+    dirección y su QR): el mismo SPAKE2 y la misma sesión ChaCha20-Poly1305
+    que las ESP32, en JS puro en el visor (http://192.168.x.x no es contexto
+    seguro: sin `crypto.subtle` ni Wake Lock), con espera creciente tras un
+    código erróneo. Último fotograma gana con ACK, resincroniza al volver,
+    la pantalla sigue el tamaño y la orientación del navegador, revocar desde
+    la tarjeta. Mantener encendida: Wake Lock si hay contexto seguro (modo
+    cable con `adb reverse`), si no un vídeo mudo propio. Guía en
+    docs/browser-screens.md (5 idiomas). Lo que sigue era el plan.
+    Una tableta o un móvil viejo que
     muestra una pantalla de Kiosko a pantalla completa por la red local, con
     el mismo emparejamiento que las ESP32 (código en pantalla, sesión
     autenticada) y sin abrir el editor a la red: una página de solo
