@@ -1266,21 +1266,31 @@ Lo que cambia en el camino:
     editor), una tarjeta en la portada, *Actualizar firmware…* en la tarjeta
     de cada pantalla (se elige el `.bin` a mano) y los **binarios compilados
     en cada release** (`.github/workflows/firmware.yml`: la aplicación para la
-    OTA y la imagen completa para USB, con su SHA-256). Pendiente:
-    - *Instalar sin ser desarrollador*: instalador desde el navegador en
-      kioskolcd.dev (ESP Web Tools, WebSerial en Chrome y Edge: conectar la
-      placa y pulsar), con la imagen completa de la release.
-    - *Actualizar el firmware sin buscar el fichero*: cuando una versión de
-      Kiosko trae firmware nuevo, ofrecerlo a cada placa emparejada por la OTA
-      autenticada.
+    OTA y la imagen completa para USB, con su SHA-256). Hecho después
+    (2026-11-24, `feat/esp32-night`, firmware 0.1.4):
+    - *Brillo y modo noche*: ventana de noche por pantalla
+      (`device.night`, como las horas tranquilas de las alertas) con su
+      brillo (0 = luz apagada), y la luz se apaga mientras Kiosko muestra la
+      pantalla en negro (apagada desde Home Assistant o la API, dormida,
+      desactivada); las alertas la encienden. `SET dim` temporal que no se
+      guarda y acaba con la sesión; el firmware viejo lo ignora.
+    - *Actualizar el firmware sin buscar el fichero*: Kiosko sabe qué
+      firmware trae (`SCREEN_FIRMWARE`, igual a `version.txt` por un test) y la
+      tarjeta ofrece *Actualizar el firmware a X*; al pulsar, lo descarga de
+      la release de su versión en GitHub, comprueba el SHA-256 y lo manda por
+      la OTA autenticada. Sin GitHub lo dice y no envía nada.
+    - *Instalar sin ser desarrollador*: instalador web en kioskolcd.dev/flash/
+      (5 idiomas) con ESP Web Tools 10.5.2 (Apache-2.0) servido desde el
+      propio sitio; la imagen completa de la última release se copia al sitio
+      al desplegar (GitHub no da CORS en las descargas), y la release de
+      firmware relanza el despliegue. Enlazado desde la guía.
+    Pendiente:
     - *Más placas*: Cheap Yellow Display (320×240, táctil), LilyGO T-Display
       S3, M5Stack, pantallas redondas de 240×240 (GC9A01); hoy solo queda
       preparada la capa de placa.
     - *Entrada desde el dispositivo*: el botón (BOOT u otros) para cambiar de
       página o descartar una alerta; el táctil donde lo haya. El protocolo
       hoy solo va de Kiosko a la pantalla.
-    - *Brillo y modo noche*: bajar o apagar la retroiluminación por horario o
-      cuando Kiosko pausa esa pantalla.
     - *Imágenes más rápidas*: enviar solo la región que cambió (Kiosko sabe
       qué tesela cambia) o imagen en bruto con compresión ligera en pantallas
       pequeñas, en vez de JPEG (decodificar cuesta ~95 ms y limita a ~6–8

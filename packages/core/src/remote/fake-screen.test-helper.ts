@@ -20,6 +20,11 @@ export interface FakeOptions {
   /** Firmware 0.1.2 on: its chip's temperature and its brightness, in STATE. Unset: an older one. */
   tempC?: number;
   bright?: number;
+  /** Firmware 0.1.4 on: it dims for Kiosko (`SET dim`) and says `dim` in STATE. */
+  dims?: boolean;
+  /** What it says it is (INFO, STATE). Default: model `fake`, firmware 0.0.0. */
+  model?: string;
+  fw?: string;
 }
 
 export class FakeScreen {
@@ -32,6 +37,10 @@ export class FakeScreen {
   max: number;
   tempC: number | undefined;
   bright: number | undefined;
+  /** The dimming Kiosko asked for (-1: none); undefined: a firmware without it. */
+  dim: number | undefined;
+  model: string;
+  fw: string;
   readonly frames: { num: number; jpeg: Buffer; at: number }[] = [];
   readonly sets: Record<string, unknown>[] = [];
   readonly leds: Record<string, unknown>[] = [];
@@ -56,6 +65,9 @@ export class FakeScreen {
     this.max = o.max ?? 98_000;
     this.tempC = o.tempC;
     this.bright = o.bright;
+    this.dim = o.dims ? -1 : undefined;
+    this.model = o.model ?? 'fake';
+    this.fw = o.fw ?? '0.0.0';
     this.server = createServer((s) => void this.handle(s));
   }
 
@@ -74,7 +86,7 @@ export class FakeScreen {
   }
 
   private info(nd: Buffer) {
-    return { proto: 1, uid: this.uid, id: this.id, model: 'fake', w: 172, h: 320, rot: this.rot, fw: '0.0.0', max: this.max, nonce: nd.toString('hex'), paired: !!this.key, pairing: !this.key };
+    return { proto: 1, uid: this.uid, id: this.id, model: this.model, w: 172, h: 320, rot: this.rot, fw: this.fw, max: this.max, nonce: nd.toString('hex'), paired: !!this.key, pairing: !this.key };
   }
 
   private async handle(sock: Socket): Promise<void> {
@@ -131,11 +143,11 @@ export class FakeScreen {
 
   /** What firmware 0.1.2 adds to STATE (an older one says neither). */
   private extra(): Record<string, number> {
-    return { ...(this.tempC !== undefined ? { tempC: this.tempC } : {}), ...(this.bright !== undefined ? { bright: this.bright } : {}) };
+    return { ...(this.tempC !== undefined ? { tempC: this.tempC } : {}), ...(this.bright !== undefined ? { bright: this.bright } : {}), ...(this.dim !== undefined ? { dim: this.dim } : {}) };
   }
 
   private async session(w: Wire, s: Session): Promise<void> {
-    this.sealed(w, s, T.STATE, { id: this.id, rot: this.rot, w: 172, h: 320, fw: '0.0.0', last: this.frames.at(-1)?.num ?? 0, ...this.extra() });
+    this.sealed(w, s, T.STATE, { id: this.id, rot: this.rot, w: 172, h: 320, fw: this.fw, last: this.frames.at(-1)?.num ?? 0, ...this.extra() });
     let decoding = 0;
     let ota: { size: number; sha: string; parts: Buffer[]; off: number } | null = null;
     for (;;) {
@@ -156,6 +168,7 @@ export class FakeScreen {
         this.sets.push(j);
         if (typeof j.rot === 'number') this.rot = j.rot;
         if (typeof j.bright === 'number' && this.bright !== undefined) this.bright = j.bright;
+        if (typeof j.dim === 'number' && this.dim !== undefined) this.dim = j.dim;
         this.sealed(w, s, T.STATE, { id: this.id, rot: this.rot, ...this.extra() });
       } else if (m.type === T.LED) this.leds.push(JSON.parse(m.payload.toString()));
       else if (m.type === T.PING) this.sealed(w, s, T.PONG, {});

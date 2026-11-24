@@ -133,6 +133,9 @@ back to the previous one by itself:
   (the duty is the square: 70 %, the default, is about half the power). It is
   kept in NVS. Kiosko sets it (`SET bright`, in the editor's remote-screen
   card), and so does the setup page. `KS_BRIGHTNESS` is the default.
+  From 0.1.4 Kiosko can also dim it for a while (`SET dim`: night mode, a
+  screen Kiosko shows black), never saved and over when the session ends;
+  the screen's own pages always show at the saved brightness.
 - **Wi-Fi country.** `ES` (channels 1–13); set `KS_WIFI_COUNTRY` for yours.
 - **Pairing key.** It is kept in NVS, in clear. NVS and flash encryption are
   in menuconfig (Security), off by default. Turning them on burns eFuses for

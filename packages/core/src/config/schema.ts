@@ -312,6 +312,13 @@ export function configSchema(plugins: readonly PluginDefinition[]): S {
               host: { type: 'string', description: 'Address to use instead of finding it by mDNS (another subnet, a network without multicast).', 'x-risk': 'network' },
               port: { type: 'integer', minimum: 1, maximum: 65535, default: 7428 },
               brightness: { type: 'integer', minimum: 0, maximum: 100, description: 'Backlight brightness, 0-100 (perceived; 0 = off), pushed to the screen on every connection. Screen firmware 0.1.2 or later; older ones ignore it. Empty: the screen keeps its own (70 % unless set on its setup page).' },
+              night: {
+                type: 'object',
+                additionalProperties: false,
+                required: ['start', 'end', 'brightness'],
+                description: 'Night mode: from start to end (local time; start after end goes across midnight) the backlight goes to this brightness (0 = off), and back at the end. Alerts that take the panel over still show at full brightness. Screen firmware 0.1.4 or later; older ones ignore it. Whatever this says, the backlight goes off while Kiosko shows the screen black (switched off, asleep).',
+                properties: { start: { $ref: '#/$defs/time' }, end: { $ref: '#/$defs/time' }, brightness: { type: 'integer', minimum: 0, maximum: 100 } },
+              },
             },
           },
           {

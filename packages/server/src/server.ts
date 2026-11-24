@@ -22,7 +22,7 @@ import { StoreCatalog } from './store.ts';
 import { SDK_VERSION } from '@kiosko/sdk';
 import { installableRelease, releaseProblem, type StorePlugin } from '@kiosko/core';
 import { HomeAssistantBridge } from './homeassistant.ts';
-import { remoteApi } from './remote-api.ts';
+import { remoteApi, type RemoteApiContext } from './remote-api.ts';
 import { ALERT_LEVELS, type AlertLevel } from '@kiosko/sdk';
 import { AlertError, DEFAULT_SNOOZE_MS, PANEL_PRESETS, checkUpdates, discoverRemote, discoverTrcc, discoverUsb, normalize, npmRegistry, paths, resolveLocale, saveConfig, type Config, type FrameInfo, type Runtime, type Screen, type UpdateCheck } from '@kiosko/core';
 import { currentInstall, updateBlocker, updateInstructions, type InstallInfo } from './install-kind.ts';
@@ -50,6 +50,8 @@ export interface ServerOptions {
   /** Folder with the built editor (index.html, assets). */
   webDir?: string;
   version: string;
+  /** How a screen's firmware is fetched from this version's GitHub release (tests). Default: fetch. */
+  firmwareFetch?: RemoteApiContext['fetch'];
   /**
    * Ask npm once a day for newer versions of the plugins (and of Kiosko).
    * Default: on, except in demo mode or with KIOSKO_NO_UPDATE_CHECK=1.
@@ -311,6 +313,8 @@ export function startServer(o: ServerOptions) {
 
   const remote = remoteApi({
     runtime,
+    version: o.version,
+    ...(o.firmwareFetch ? { fetch: o.firmwareFetch } : {}),
     json,
     body,
     commit: (cfg) => {

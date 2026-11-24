@@ -26,6 +26,12 @@ What you get:
 
 ## Install the firmware
 
+**From the browser (easiest).** Open the
+[web installer](https://kioskolcd.dev/flash/) in Chrome or Edge on a
+computer, plug the board in by USB, press *Connect and install* and pick its
+port. It writes the latest release's full image; nothing to install. Then go
+on with [First boot and Wi-Fi](#first-boot-and-wi-fi).
+
 **Ready-made images.** Each Kiosko release on
 [GitHub](https://github.com/kiosko-lcd/kiosko/releases/latest) carries, with
 their SHA-256:
@@ -105,6 +111,15 @@ slider (0–100 %). The screen keeps it, even without Kiosko. Unset, it uses
 its own: 70 %, or what you chose on its setup page. A lower brightness runs
 cooler.
 
+**Night mode** (screen firmware 0.1.4 or later): turn it on in the card,
+choose the hours (for example 22:30 to 07:00) and the night brightness, down
+to *backlight off*. The screen goes back to its own brightness when the night
+ends. Alerts that take the screen over still light it up. And whenever Kiosko
+shows the screen black (switched off from Home Assistant, or asleep because
+nothing on the page has anything to show), its backlight goes off too. None
+of this is saved on the screen: if Kiosko goes away, the screen lights up
+again.
+
 The card's status line also shows the **chip's temperature**. It reads warmer
 than the room: around 35–45 °C is normal for this chip.
 
@@ -127,7 +142,13 @@ The screen counts the seconds while you hold the button.
 
 ## Updating the firmware
 
-On the screen's card: *Update firmware…*, then choose the app `.bin` (not the
+When this Kiosko brings a newer firmware than the screen has, the screen's
+card says so and offers **Update firmware to X**. On that click, and only
+then, Kiosko downloads the firmware from its own release on GitHub, checks
+its SHA-256 and sends it. Without internet access (or GitHub out of reach),
+download the file from the release page and use *Update firmware…* instead.
+
+By hand: *Update firmware…* on the screen's card, then choose the app `.bin` (not the
 `-full` one). Or from the command line:
 
 ```sh

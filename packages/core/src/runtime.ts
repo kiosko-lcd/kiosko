@@ -20,6 +20,7 @@ import { backgroundSources } from './config/sources.ts';
 import { FetchHost, SourceHub } from './data.ts';
 import { ledFor, openDevice, type Device, type DeviceStatus } from './devices.ts';
 import { posixTz } from './remote/tz.ts';
+import { dimFor } from './remote/backlight.ts';
 import { resolveLocale, type LogFn } from './env.ts';
 import type { Registry } from './registry.ts';
 import { PLAY_IDLE_MS, ScreenRunner, TICK_MS, type FrameInfo, type Runner, type RunnerHost } from './screen-runner.ts';
@@ -334,6 +335,7 @@ export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
       if (this.alertsDirty || now - this.alertsAskedAt >= ALERTS_EVERY_MS) this.askAlerts(now);
       this.refreshAlerts(now);
       await Promise.all([...this.runners.values()].map((r) => r.update(now)));
+      this.refreshBacklights(now);
     };
     this.timer = setInterval(() => void loop(), TICK_MS);
     this.apply(this.config);
@@ -440,6 +442,14 @@ export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
     if (sig === this.alertsSig) return;
     this.alertsSig = sig;
     this.emit('alerts', list);
+  }
+
+  /** Remote screens' backlights: off while Kiosko shows them black, the night's brightness in their night window (remote/backlight.ts). */
+  refreshBacklights(now = Date.now()): void {
+    for (const r of this.runners.values()) {
+      if (!r.device.setDim) continue;
+      r.device.setDim(dimFor(r.screen, { sleeping: r.off || !!r.lastInfo?.sleeping, alert: !!r.alert }, now));
+    }
   }
 
   /** Alerts not seen nor expired, highest first; the snoozed ones too. */
