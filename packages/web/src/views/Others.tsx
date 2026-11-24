@@ -6,7 +6,7 @@ import { SchemaForm, Toggle } from '../forms/SchemaForm.tsx';
 import { Icon } from '../icons.tsx';
 import { pickLocale } from '@kiosko/sdk/i18n';
 import { openWizard } from '../wizard/Wizard.tsx';
-import { UI_LANGUAGES, aside, clock, count, dateTime, errorText, fmtMs, labelled, listOf, sentences, t, tr, uiLanguage, weekOrder } from '../i18n.ts';
+import { UI_LANGUAGES, aside, clock, count, dateTime, errorText, fmtMs, labelled, listOf, restGuideUrl, sentences, t, tr, uiLanguage, weekOrder } from '../i18n.ts';
 import { app, config, edit, logs, notify, setUiTheme, status, uiTheme } from '../store.ts';
 import { DemoNote } from '../demo/ui.tsx';
 import { StoreSheet, StoreView } from './Store.tsx';
@@ -499,6 +499,7 @@ export function Settings() {
         </section>
       )}
       {!KIOSKO_DEMO && <HomeAssistantCard />}
+      {!KIOSKO_DEMO && <PushCard />}
       <ThreadsCard />
       <div class="grid-2 gap-lg">
         <section class="card">
@@ -647,6 +648,121 @@ function HomeAssistantCard() {
       <div style="max-width:760px">
         <SchemaForm schema={HA_SCHEMA} value={value as unknown as Record<string, unknown>} onChange={(v, k) => edit((d) => (d.homeassistant = v as unknown as NonNullable<typeof d.homeassistant>), `ha-${k}`)} idPrefix="ha" />
       </div>
+    </section>
+  );
+}
+
+/** A push name: what goes in its URL (the server and the config check the same). */
+const PUSH_NAME = /^[a-z0-9][a-z0-9_-]{0,39}$/;
+
+/** A random token for a push name: 24 bytes, base64url (32 characters). */
+export function newPushToken(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(24));
+  return btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+/** The command that pushes to `name` from this computer. */
+export function pushCurl(origin: string, name: string, token: string): string {
+  return `curl -X POST -H 'Authorization: Bearer ${token}' -H 'Content-Type: application/json' -d '{"value": 42, "text": "Hello"}' ${origin}/api/push/${name}`;
+}
+
+/** Settings → Push: the names scripts push to, each with its URL, token and a curl to try it. */
+function PushCard() {
+  const hooks = config.value!.push?.hooks ?? [];
+  const seen = status.value?.push ?? [];
+  const [name, setName] = useState('');
+  const [shown, setShown] = useState<string | null>(null);
+  const origin = location.origin;
+  const clean = name.trim().toLowerCase();
+  const problem = !clean ? null : !PUSH_NAME.test(clean) ? tr('settings.pushBadName') : hooks.some((h) => h.name === clean) ? tr('settings.pushTaken') : null;
+  const add = () => {
+    if (!clean || problem) return;
+    edit((d) => (d.push = { hooks: [...(d.push?.hooks ?? []), { name: clean, token: newPushToken() }] }));
+    setName('');
+    setShown(clean);
+  };
+  const copy = (text: string) => void navigator.clipboard?.writeText(text).then(() => notify(tr('wiz.copied'), 'ok'), () => undefined);
+  return (
+    <section class="card push-card">
+      <h3>
+        <Icon name="webhook" size={16} /> {tr('settings.push')}
+        <a class="btn ghost small" style="margin-left:auto;text-transform:none;letter-spacing:normal" href={restGuideUrl()} target="_blank" rel="noreferrer">
+          <Icon name="book-open" size={13} /> {tr('settings.pushGuide')}
+        </a>
+      </h3>
+      <p class="muted small">{tr('settings.pushHint')}</p>
+      <p class="muted small">{t('settings.pushLocal', { host: location.host })}</p>
+      {!hooks.length && <p class="muted small">{tr('settings.pushNone')}</p>}
+      {hooks.map((h) => {
+        const at = seen.find((x) => x.name === h.name)?.at ?? null;
+        const open = shown === h.name;
+        const url = `${origin}/api/push/${h.name}`;
+        const curl = pushCurl(origin, h.name, h.token);
+        return (
+          <div class="push-hook" key={h.name}>
+            <div class="row push-head">
+              <b class="mono">{h.name}</b>
+              <span class={`status-pill ${at ? 'ok' : ''}`}>
+                <span class="dot" /> {at ? t('settings.pushLast', { time: clock(at, { seconds: true }) }) : tr('settings.pushNever')}
+              </span>
+              <span style="margin-left:auto" />
+              <button class="btn ghost small" onClick={() => setShown(open ? null : h.name)}>
+                <Icon name={open ? 'eye-off' : 'eye'} size={13} /> {tr(open ? 'settings.pushHide' : 'settings.pushShow')}
+              </button>
+              <button class="btn ghost small" onClick={() => {
+                edit((d) => {
+                  const x = d.push?.hooks.find((y) => y.name === h.name);
+                  if (x) x.token = newPushToken();
+                });
+                setShown(h.name);
+                notify(tr('settings.pushRegenerated'), 'ok');
+              }}>
+                <Icon name="refresh-cw" size={13} /> {tr('settings.pushRegenerate')}
+              </button>
+              <button class="icon-btn danger" title={tr('common.delete')} aria-label={t('common.deleteItem', { name: h.name })} onClick={() => {
+                if (!confirm(t('settings.pushDeleteConfirm', { name: h.name }))) return;
+                edit((d) => {
+                  if (d.push) d.push.hooks = d.push.hooks.filter((y) => y.name !== h.name);
+                });
+              }}>
+                <Icon name="trash-2" size={14} />
+              </button>
+            </div>
+            <div class="row push-line">
+              <span class="muted small">URL</span>
+              <code class="mono push-code">{url}</code>
+              <button class="icon-btn" title={tr('wiz.copy')} aria-label={tr('wiz.copy')} onClick={() => copy(url)}>
+                <Icon name="copy" size={13} />
+              </button>
+            </div>
+            <div class="row push-line">
+              <span class="muted small">{tr('settings.pushToken')}</span>
+              <code class="mono push-code">{open ? h.token : '•'.repeat(16)}</code>
+              <button class="icon-btn" title={tr('wiz.copy')} aria-label={tr('wiz.copy')} onClick={() => copy(h.token)}>
+                <Icon name="copy" size={13} />
+              </button>
+            </div>
+            {open && (
+              <div class="push-try">
+                <span class="muted small">{tr('settings.pushTry')}</span>
+                <div class="row push-line">
+                  <pre class="code push-curl">{curl}</pre>
+                  <button class="icon-btn" title={tr('wiz.copy')} aria-label={tr('wiz.copy')} onClick={() => copy(curl)}>
+                    <Icon name="copy" size={13} />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+      <div class="row">
+        <input class="input" placeholder={tr('settings.pushNamePh')} aria-label={tr('settings.pushNamePh')} value={name} spellcheck={false} onInput={(e) => setName((e.target as HTMLInputElement).value)} onKeyDown={(e) => e.key === 'Enter' && add()} />
+        <button class="ks-button" disabled={!clean || !!problem} onClick={add}>
+          <Icon name="plus" size={14} /> {tr('settings.pushAdd')}
+        </button>
+      </div>
+      {problem && <p class="small push-problem">{problem}</p>}
     </section>
   );
 }

@@ -23,7 +23,7 @@
  * Pure (no Node).
  */
 import { localize, THEMES, TIME_FORMATS, toJsonSchema, type Field, type Localized, type PluginDefinition } from '@kiosko/sdk';
-import { CONFIG_SCHEMA_ID, CONFIG_VERSION, DEFAULT_CONFIG, ZOOM } from './model.ts';
+import { CONFIG_SCHEMA_ID, CONFIG_VERSION, DEFAULT_CONFIG, PUSH_NAME_PATTERN, ZOOM } from './model.ts';
 import { sourceOptionsField } from './sources.ts';
 
 type S = Record<string, unknown>;
@@ -240,6 +240,26 @@ export function configSchema(plugins: readonly PluginDefinition[]): S {
           password: { type: 'string', 'x-secret': true },
           discoveryPrefix: { type: 'string', default: 'homeassistant', description: "Home Assistant's MQTT discovery prefix." },
           nodeId: { type: 'string', pattern: '^[a-z0-9_-]+$', description: "This Kiosko's id in the topics, so several machines don't collide. Default: kiosko." },
+        },
+      },
+      push: {
+        type: 'object',
+        additionalProperties: false,
+        description: 'Names scripts may push to with POST /api/push/<name> (a value, a text, a level), for the Push and JSON widgets. Each has its own token. See docs/rest-webhook.md.',
+        properties: {
+          hooks: {
+            type: 'array',
+            default: [],
+            items: {
+              type: 'object',
+              additionalProperties: false,
+              required: ['name', 'token'],
+              properties: {
+                name: { type: 'string', pattern: PUSH_NAME_PATTERN, 'x-pattern-hint': 'lowercase letters, digits, "-" and "_", up to 40', description: 'Goes in the URL: /api/push/<name>.' },
+                token: { type: 'string', 'x-secret': true, description: 'Sent as "Authorization: Bearer <token>" (or ?token=). At least 16 characters; the editor makes a random one.' },
+              },
+            },
+          },
         },
       },
     },

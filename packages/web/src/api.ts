@@ -246,6 +246,8 @@ export interface Status {
   problems: { origin: string; message: string }[];
   /** Kiosko as a device in Home Assistant, over MQTT. */
   homeassistant?: { enabled: boolean; state: 'off' | 'connecting' | 'connected' | 'error' | 'closed'; error: string | null; broker?: string };
+  /** Push names (POST /api/push/<name>) and when each last got something. */
+  push?: { name: string; at: number | null }[];
 }
 
 /** What a screen really does: frames sent per second, ms painting (on its thread) and encoding each one. */

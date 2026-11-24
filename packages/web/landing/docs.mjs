@@ -11,7 +11,7 @@ import { pageHead } from './store.mjs';
 
 const REPO_BLOB = 'https://github.com/kiosko-lcd/kiosko/blob/main/docs/';
 /** The guides the site publishes, by file. */
-export const GUIDES = ['install', 'usb', 'remote-screens'];
+export const GUIDES = ['install', 'usb', 'remote-screens', 'rest-webhook'];
 
 const HAN = /[⺀-鿿豈-﫿＀-￯　-〿]/;
 

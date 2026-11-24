@@ -16,6 +16,7 @@
   "plugins-all-the-way-down": "Plugins all the way down.",
   "every-widget-data-source-and": "Every widget, data source and animation is a plugin with the same small contract. {{PLUGIN_COUNT}} come with it (AI agents, GitHub and GitLab, calendar, weather, news, GPUs, local LLMs) and yours fits in a single file.",
   "see-them-all": "See them all ↓",
+  "no-plugin-json-push": "No plugin needed: any JSON API, or a push from your scripts →",
   "always-on": "Always on",
   "made-for-screens-that-never": "Made for screens that never turn off.",
   "it-repaints-only-when-something": "It repaints only when something changes, shifts pixels against burn-in and goes black when nothing needs you. Dark is the normal state: when it lights up, it is worth a look.",

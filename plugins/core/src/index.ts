@@ -6,6 +6,8 @@
  */
 import { readdir, readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
+import { jsonList, jsonText, jsonValue } from './json.ts';
+import { push, pushSource } from './push.ts';
 import { createFormatters, definePlugin, hanScript, expandPath, defineWidget, drawEmpty, drawMore, listLayout, listOptions, t, type Graphics, type RenderContext } from '@kiosko/sdk';
 
 /** The largest size at which `text` fits `w×h` (one line). */
@@ -432,11 +434,15 @@ export default definePlugin({
   version: '0.2.11',
   languages: ['en', 'es', 'de', 'zh-Hant', 'zh-Hans'],
   sdk: '^0.2.0',
-  // The picture widget reads the image (or folder, or URL) you give it.
+  // The picture widget reads the image (or folder, or URL) you give it; the JSON ones ask the URL you give them.
   permissions: { files: ['user'], network: ['user'] },
-  description: { en: 'Clock, date, notes, lists and pictures.', es: 'Reloj, fecha, notas, listas e imágenes.', de: 'Uhr, Datum, Notizen, Listen und Bilder.', 'zh-Hant': '時鐘、日期、便條、清單和圖片。', 'zh-Hans': '时钟、日期、便签、列表和图片。' },
+  description: { en: 'Clock, date, notes, lists, pictures, any JSON and pushes from your scripts.', es: 'Reloj, fecha, notas, listas, imágenes, cualquier JSON y los push de tus scripts.', de: 'Uhr, Datum, Notizen, Listen, Bilder, beliebiges JSON und Pushes deiner Skripte.', 'zh-Hant': '時鐘、日期、便條、清單、圖片、任何 JSON，以及腳本傳來的推送。', 'zh-Hans': '时钟、日期、便签、列表、图片、任何 JSON，以及脚本发来的推送。' },
   author: 'Kiosko',
   license: 'MIT',
   icon: 'box',
-  widgets: [clock, date, text, list, image],
+  widgets: [clock, date, text, list, image, jsonValue, jsonList, jsonText, push],
+  sources: [pushSource],
 });
+
+export { jsonList, jsonText, jsonValue, push, pushSource };
+export { pushes, PushStore, PUSH_LIMITS, PUSH_NAME, type PushData, type PushEntry } from './push-store.ts';

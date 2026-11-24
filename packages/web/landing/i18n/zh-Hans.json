@@ -16,6 +16,7 @@
   "plugins-all-the-way-down": "一切皆插件。",
   "every-widget-data-source-and": "每个小组件、数据源和动画都是插件，遵循同一套精简的接口约定。自带 {{PLUGIN_COUNT}} 个（本地大模型、显卡、GitHub 和 GitLab、日历、天气、新闻），你自己的插件一个文件就能写完。",
   "see-them-all": "查看全部 ↓",
+  "no-plugin-json-push": "无需编写插件：任何 JSON API，或从你的脚本推送 →",
   "always-on": "常亮",
   "made-for-screens-that-never": "为从不关闭的屏幕而设计。",
   "it-repaints-only-when-something": "只在内容变化时重绘，会微移像素防止烧屏，没有需要你关注的事时就全黑。平时保持暗色：一旦亮起，就值得看一眼。",

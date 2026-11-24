@@ -248,6 +248,8 @@ export interface Config {
   server: { host: string; port: number };
   /** Kiosko as a device in Home Assistant, over MQTT (see docs/homeassistant.md). Absent = off. */
   homeassistant?: HomeAssistantLink;
+  /** Names scripts may push to (`POST /api/push/<name>`), each with its token (see docs/rest-webhook.md). Absent = none. */
+  push?: { hooks: PushHook[] };
   /** Each screen painting in a thread of its own (see `ThreadsMode`). Missing = `auto`. */
   threads?: ThreadsMode;
   /**
@@ -264,6 +266,17 @@ export interface Config {
 
 export type SetupState = 'pending' | 'done' | 'skipped';
 export const SETUP_STATES: readonly SetupState[] = ['pending', 'done', 'skipped'];
+
+/** A name scripts push to, `POST /api/push/<name>`, with the token that lets them. */
+export interface PushHook {
+  /** Lowercase letters, digits, `-` and `_`, up to 40: it goes in the URL. */
+  name: string;
+  /** Sent as `Authorization: Bearer <token>` (or `?token=`). Random, made by the editor. */
+  token: string;
+}
+
+/** A push name: lowercase letters, digits, `-` and `_`, 1 to 40, not starting with `-` or `_`. */
+export const PUSH_NAME_PATTERN = '^[a-z0-9][a-z0-9_-]{0,39}$';
 
 /**
  * How Kiosko shows up in Home Assistant: an MQTT broker (the one Home

@@ -678,7 +678,7 @@ Lo que cambia en el camino:
     - *Cuándo*: consultar cada pocos segundos solo durante los partidos de
       tus equipos, y cada pocas horas el resto del tiempo, por los límites
       de las APIs gratuitas.
-18. **Widget genérico REST/JSON y webhook de entrada.** Dos piezas en `core`
+18. **Widget genérico REST/JSON y webhook de entrada.** *Hecho* (2026-11-24): en `core`, **Valor JSON** (número grande con unidad, colores por umbral y curva con histórico propio), **Lista JSON** y **Texto JSON**, que leen una URL (cabeceras, secreto en su cabecera o en `{secret}`, GET/POST, `timeoutMs` y tamaño máximo de respuesta) o un push, con rutas tipo JSONPath sin `eval` (`$.a.b`, `[0]`, `[-1]`, `['clave']`, `[*]`); y el widget **Push** con `POST /api/push/<nombre>` (`value`, `text`, `title`, `level`, `ttlMs`; `alert` se queda la tesela y `critical` lanza una alerta a pantalla completa), un token aleatorio por nombre (`Authorization: Bearer` o `?token=`), sin `X-Kiosko` (lleva su propio secreto), 64 KB por petición, 20 de ráfaga y 5/s por nombre, lo último y un histórico corto en memoria y en `push.json`; en Ajustes → Push se crean, se copian la URL y el `curl`, se cambia el token y se borran. Solo en `127.0.0.1`: desde otra máquina, un túnel o un script local. Guía en `docs/rest-webhook.md` (y es, de, zh-Hant, zh-Hans). Lo que sigue era el plan. Dos piezas en `core`
     que convierten en widget cualquier cosa sin escribir un plugin:
     - *REST/JSON*: una URL (con cabeceras y secreto opcionales), una ruta
       dentro de la respuesta (`$.data.temperature`, o una expresión
