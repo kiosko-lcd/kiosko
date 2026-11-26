@@ -144,3 +144,19 @@ test('threads: never keeps every screen on the main thread; a screen can say oth
     rt.stop();
   }
 });
+
+test('threads: a context page reaches the screen in its thread, and leaving it gives the rotation back', async (t) => {
+  const now = new Date();
+  const later = (m: number) => { const d = new Date(now.getTime() + m * 60_000); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+  const around = { start: later(-60), end: later(60) };
+  const two = (rules: unknown[]) => [{ ...page('tt/fill'), id: 'main' }, { ...page('tt/fill'), id: 'ctx', showWhen: rules, tiles: [{ ...page('tt/fill').tiles[0]!, widgets: [{ id: 'w-ctx', type: 'tt/fill', options: {} }] }] }];
+  const rt = setup('always', [screen('a', 'tt/fill', { pages: two([{ time: around, label: 'now' }]), context: { minMs: 0, holdMs: 0 } })]);
+  rt.start();
+  t.after(() => rt.stop());
+  await until(() => screenOf(rt, 'a').thread.on && screenOf(rt, 'a').page === 'ctx', 15_000, 'the context page, painted in the thread');
+  assert.deepEqual(screenOf(rt, 'a').context?.reason, { label: 'now', time: `${around.start}–${around.end}` });
+  // The window no longer holds (now is outside it): the page stays out of the rotation, which has only main.
+  rt.apply(normalize({ threads: 'always', screens: [screen('a', 'tt/fill', { pages: two([{ time: { start: later(120), end: later(180) } }]), context: { minMs: 0, holdMs: 0 } })] }));
+  await until(() => screenOf(rt, 'a').page === 'main', 8000, 'back to the rotation');
+  assert.equal(screenOf(rt, 'a').context, null);
+});

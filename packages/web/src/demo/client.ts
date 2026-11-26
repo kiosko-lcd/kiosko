@@ -70,6 +70,7 @@ function viaWorker(url: string): Promise<RendererApi> {
           logs: () => call('logs', []),
           stage: (channels) => call('stage', [channels]),
           choices: (source, list) => call('choices', [source, list]),
+          sourcePaths: (source) => call('sourcePaths', [source]),
         } as RendererApi);
       } else if ('unsupported' in data) {
         worker.terminate();

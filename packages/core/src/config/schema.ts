@@ -364,6 +364,32 @@ export function configSchema(plugins: readonly PluginDefinition[]): S {
           chrome: { enum: ['auto', 'card', 'bare'], default: 'auto', description: 'card: framed with an optional title; bare: edge to edge; auto: what the shown widget prefers.' },
         },
       },
+      showWhenRule: {
+        type: 'object',
+        additionalProperties: false,
+        description: 'A context rule: every condition it has must hold (app, source, time, urgent); a page comes up when any of its rules holds.',
+        properties: {
+          label: { type: 'string', description: 'What it means ("game open"), shown in the editor as the reason the page is on screen.' },
+          priority: { type: 'integer', default: 0, description: 'Higher wins when several pages want the screen.' },
+          app: { type: 'string', description: 'A program running: its process name as a glob, case-insensitive ("steam*", "obs*", "zoom*"); several separated by commas. Linux: the kernel name or argv[0]; macOS: the executable or its .app; Windows: the image name, with or without .exe.' },
+          source: { type: 'string', description: 'A source, "plugin/source" (e.g. "calls/active"): it runs even with no widget showing it.' },
+          path: { type: 'string', description: 'Where in the source\'s data: dots and brackets ("active", "items[0].price"). Empty: the data itself.' },
+          op: { enum: ['truthy', 'falsy', 'eq', 'ne', 'gt', 'gte', 'lt', 'lte', 'contains'], description: 'How the value compares: default eq with a "value", truthy without. No data yet (or no such path) never matches.' },
+          value: { type: ['string', 'number', 'boolean'], description: 'What the value is compared with.' },
+          time: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['start', 'end'],
+            description: 'A local time window; start after end goes across midnight.',
+            properties: {
+              start: { $ref: '#/$defs/time' },
+              end: { $ref: '#/$defs/time' },
+              days: { type: 'array', items: { type: 'integer', minimum: 0, maximum: 6 }, description: 'The days it starts on, 0 = Sunday … 6 = Saturday. Missing: every day.' },
+            },
+          },
+          urgent: { type: 'boolean', description: 'A widget on this page is urgent (a meeting about to start, a permission waiting).' },
+        },
+      },
       page: {
         type: 'object',
         additionalProperties: false,
@@ -374,6 +400,12 @@ export function configSchema(plugins: readonly PluginDefinition[]): S {
           enabled: { type: 'boolean', default: true },
           durationMs: { type: 'integer', minimum: 10_000, default: 10 * 60_000, description: 'Time on screen when pages take turns, in ms.' },
           when: { $ref: '#/$defs/when' },
+          showWhen: {
+            type: 'array',
+            items: { $ref: '#/$defs/showWhenRule' },
+            description: 'Context rules: while one holds (a program running, a source\'s value, a time window, an urgent widget on this page), this page takes the screen over from the rotation; when none holds any more, the rotation comes back. The highest priority wins; equals take turns. A pinned page and alerts still go first.',
+          },
+          inRotation: { type: 'boolean', default: false, description: 'With "showWhen": also take a turn in the normal rotation. Pages without rules always do.' },
           grid: { $ref: '#/$defs/grid', description: 'Missing: a grid of square-ish cells of about 80 px for the screen size.' },
           gravity: { enum: ['none', 'up', 'left'], default: 'none', description: 'How the editor closes gaps after a move: none (free placement), up (masonry), left (wide strips).' },
           background: {
@@ -402,6 +434,15 @@ export function configSchema(plugins: readonly PluginDefinition[]): S {
           device: { $ref: '#/$defs/device' },
           pages: { type: 'array', items: { $ref: '#/$defs/page' }, default: [] },
           pinnedPage: { type: 'string', description: 'Id of a page to show all the time (no turns).' },
+          context: {
+            type: 'object',
+            additionalProperties: false,
+            description: 'Anti-flicker for context pages ("showWhen"), in ms. Missing: 20 s and 10 s.',
+            properties: {
+              minMs: { type: 'integer', minimum: 0, maximum: 3_600_000, default: 20_000, description: 'Least time a context page stays once it came up (a higher priority one doesn\'t wait).' },
+              holdMs: { type: 'integer', minimum: 0, maximum: 3_600_000, default: 10_000, description: 'How long it stays after its rule stopped holding, in case it holds again.' },
+            },
+          },
           interludes: { type: 'array', items: { $ref: '#/$defs/interlude' }, default: [] },
           pixelShift: {
             type: 'object',

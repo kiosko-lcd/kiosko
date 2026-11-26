@@ -14,11 +14,13 @@ import { availableParallelism } from 'node:os';
 import { localize, themeById, validate, type AlertLevel, type PadEvent, type Theme } from '@kiosko/sdk';
 import { AlertBoard, type ActiveAlert, type PluginAlert } from './alerts.ts';
 import { MAX_CONCURRENT } from './animation.ts';
-import { composePage, composeWidget, type ComposeResult } from './compositor.ts';
-import { isWorking, widgetsOf, type Config, type Page, type Screen, type WidgetInstance } from './config/model.ts';
+import { composePage, composeWidget, tileState, type ComposeResult } from './compositor.ts';
+import { isWorking, whenMatches, widgetsOf, type Config, type Page, type Screen, type WidgetInstance } from './config/model.ts';
+import { ContextEngine, matchingPages, needsApps, ruleSources, type ContextEnv, type ContextPick, type ContextReason } from './context.ts';
 import { backgroundSources } from './config/sources.ts';
 import { FetchHost, SourceHub } from './data.ts';
 import { ledFor, openDevice, type Device, type DeviceStatus } from './devices.ts';
+import { ProcessWatch, systemProcesses, type ProcessLister } from './processes.ts';
 import { posixTz } from './remote/tz.ts';
 import { resolveLocale, type LogFn } from './env.ts';
 import type { Registry } from './registry.ts';
@@ -82,6 +84,9 @@ export class PaintTimes {
 
 const round = (ms: number) => Math.round(ms * 10) / 10;
 
+/** How often the context pages' rules are looked at again without a change (time windows, urgency). */
+export const CONTEXT_EVERY_MS = 1_000;
+
 /** How often the plugins' alerts are asked again without a data change (for the ones that depend on the time). */
 export const ALERTS_EVERY_MS = 5_000;
 
@@ -118,6 +123,12 @@ export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
   private alertsSig = '';
   /** A plugin's `alerts` failing, said once per message. */
   private alertErrors = new Map<string, string>();
+  /** Context pages (context.ts): what holds, over time, per screen. */
+  private readonly contextEngine = new ContextEngine();
+  private contextDirty = true;
+  private contextAt = Number.NEGATIVE_INFINITY;
+  /** The running programs, listed only while an `app` rule needs them; null: none can be (the browser demo). */
+  private readonly apps: ProcessWatch | null;
 
   /** The cores `threads: auto` counts on (see threads/plan.ts); tests set it. */
   cores: number = cpuCount();
@@ -140,7 +151,8 @@ export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
   readonly editorUrl: string | undefined;
   /** When this runtime was made: the boot animation plays only soon after. */
   readonly startedAt = Date.now();
-  constructor(registry: Registry, config: Config, o: { demo?: boolean; threadEntry?: URL; welcome?: boolean; editorUrl?: string } = {}) {
+  /** `processes`: who lists the running programs for `app` rules (tests pass a fake); null: nobody. Default: this system's (none in demo mode). */
+  constructor(registry: Registry, config: Config, o: { demo?: boolean; threadEntry?: URL; welcome?: boolean; editorUrl?: string; processes?: ProcessLister | null; appsEveryMs?: number } = {}) {
     super();
     this.registry = registry;
     this.demoMode = !!o.demo;
@@ -151,6 +163,8 @@ export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
     this.config = config;
     this.hub = new SourceHub(registry, this.log, (type) => this.onData({ source: type }));
     this.fetches = new FetchHost(this.hub, this.log, (id) => this.onData({ instance: id }));
+    const lister = o.processes !== undefined ? o.processes : o.demo ? null : systemProcesses();
+    this.apps = lister ? new ProcessWatch(lister, (m) => this.log('context', m), o.appsEveryMs) : null;
   }
 
   log: LogFn = (scope, message) => {
@@ -194,6 +208,7 @@ export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
 
   private onData(change: { source?: string; instance?: string }): void {
     this.alertsDirty = true;
+    this.contextDirty = true;
     for (const r of this.runners.values()) r.dataChanged(change);
     this.emit('data', change);
   }
@@ -223,6 +238,8 @@ export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
     }
     // And those the user turned on to watch for alerts with no widget.
     for (const s of backgroundSources(this.config, (type) => this.registry.source(type))) sources.add(s);
+    // And those the context pages' rules read.
+    for (const s of ruleSources(this.config)) if (this.registry.source(s)) sources.add(s);
     this.paintTimes.retain(new Set(instances.map((i) => i.inst.id)));
     if (this.demoMode) {
       sources.clear();
@@ -255,6 +272,7 @@ export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
   apply(config: Config): void {
     this.config = config;
     this.alertsDirty = true;
+    this.contextDirty = true;
     this.registry.setDisabled(config.plugins.disabled);
     const ids = new Set(config.screens.map((s) => s.id));
     for (const [id, r] of this.runners) {
@@ -305,6 +323,7 @@ export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
     const r = thread ? new ThreadRunner(s, this, this.threadEntry ?? defaultThreadEntry(), device) : new ScreenRunner(s, this, device);
     if (old) {
       if (old.pinned !== r.pinned) r.setPinned(old.pinned);
+      if (old.context) r.setContext(old.context);
       if (old.off) r.setOff(true);
       if (old.alert) r.setAlert(old.alert, Date.now());
     }
@@ -333,6 +352,7 @@ export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
       this.fetches.tick(this.config, now);
       if (this.alertsDirty || now - this.alertsAskedAt >= ALERTS_EVERY_MS) this.askAlerts(now);
       this.refreshAlerts(now);
+      this.refreshContext(now);
       await Promise.all([...this.runners.values()].map((r) => r.update(now)));
     };
     this.timer = setInterval(() => void loop(), TICK_MS);
@@ -350,6 +370,11 @@ export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
 
   lastFrame(screenId: string): FrameInfo | null {
     return this.runners.get(screenId)?.lastInfo ?? null;
+  }
+
+  /** The context page that has a screen now, and why (see context.ts). */
+  contextOf(screenId: string): ContextPick | null {
+    return this.runners.get(screenId)?.context ?? null;
   }
 
   pin(screenId: string, pageId: string | null): void {
@@ -424,6 +449,54 @@ export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
       }
     }
     this.alerts.sync(out, now, resolveLocale(this.config));
+  }
+
+  /**
+   * Every screen gets the context page it must show now (context.ts), if
+   * any: at most every `CONTEXT_EVERY_MS`, or sooner when data, the running
+   * programs or the config changed.
+   */
+  refreshContext(now = Date.now()): void {
+    const wantApps = needsApps(this.config);
+    if (wantApps) this.apps?.poll(now, () => (this.contextDirty = true));
+    else this.apps?.stop();
+    if (!this.contextDirty && now - this.contextAt < CONTEXT_EVERY_MS) return;
+    this.contextDirty = false;
+    this.contextAt = now;
+    const working = this.working(now);
+    const env: ContextEnv = {
+      now,
+      apps: wantApps ? (this.apps?.names ?? null) : null,
+      source: (type) => this.hub.data(type),
+      urgent: (page) => this.urgentOn(page, now, working),
+    };
+    this.contextEngine.retain(new Set(this.config.screens.map((s) => s.id)));
+    for (const r of this.runners.values()) {
+      const has = r.screen.enabled && r.screen.pages.some((p) => p.showWhen?.length);
+      const pick = has ? this.contextEngine.step(r.screen, matchingPages(r.screen, env, working), now) : null;
+      const was = r.context;
+      r.setContext(pick);
+      if (pick?.page !== was?.page || pick?.leaving !== was?.leaving) {
+        if (pick?.page !== was?.page) this.log(`screen:${r.screen.name}`, pick ? `context page ${pick.page}: ${describeReason(pick.reason)}` : 'context page gone: back to the rotation');
+        this.emit('screen', { screenId: r.screen.id, context: pick });
+      }
+    }
+  }
+
+  /** The type of a widget on `page` that is urgent now (as its tile sees it), or null. */
+  private urgentOn(page: Page, now: number, working: boolean): string | null {
+    if (this.demoMode) return null;
+    const cfg = this.config;
+    for (const tile of page.tiles) {
+      for (const w of tile.widgets) {
+        const def = this.registry.widget(w.type);
+        if (!def?.urgent || w.disabled || !whenMatches(w.when, working)) continue;
+        const options = def.options ? (validate(def.options, w.options).value as Record<string, unknown>) : {};
+        const state = { options, data: this.fetches.data(w.id), sources: this.hub.pick(def.sources), now, working, workday: cfg.workday, ...(cfg.location ? { location: cfg.location } : {}) };
+        if (tileState(def, w, state).urgent) return w.type;
+      }
+    }
+    return null;
   }
 
   /** Every screen gets the alert it must show now, and the editor hears of any change. */
@@ -508,6 +581,8 @@ export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
         name: r.screen.name,
         page: r.page?.id ?? null,
         pinned: r.pinned,
+        /** The context page that has the screen, and why (see context.ts); null: none. */
+        context: r.context,
         interlude: r.interlude?.type ?? null,
         /** The interlude is being played from the Play page. */
         playing: r.interlude?.play ?? false,
@@ -594,6 +669,12 @@ function memory(): { heapBytes: number; rssBytes: number } {
   } catch {
     return { heapBytes: 0, rssBytes: 0 };
   }
+}
+
+/** A context page's reason, in a line for the log. */
+function describeReason(r: ContextReason): string {
+  const parts = [r.app && `${r.app} running`, r.source && `${r.source}${r.path ? ` ${r.path}` : ''} = ${r.value}`, r.time && `time ${r.time}`, r.urgent && `${r.urgent} urgent`].filter(Boolean);
+  return [r.label, parts.join(', ')].filter(Boolean).join(': ');
 }
 
 /** Theme and language for a thumbnail; unset ones come from the config. */

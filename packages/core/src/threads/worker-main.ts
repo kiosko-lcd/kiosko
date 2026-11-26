@@ -174,6 +174,7 @@ export async function runScreenThread(builtins: PluginDefinition[] = []): Promis
   const runner = new ScreenRunner(init.screen, host);
   host.runner = runner;
   if (init.pinned !== runner.pinned) runner.setPinned(init.pinned);
+  if (init.context) runner.setContext(init.context);
   if (init.off) runner.setOff(true);
   host.visible();
 
@@ -237,6 +238,9 @@ export async function runScreenThread(builtins: PluginDefinition[] = []): Promis
         return;
       case 'pin':
         runner.setPinned(m.page);
+        return;
+      case 'context':
+        runner.setContext(m.pick);
         return;
       case 'off':
         runner.setOff(m.off);

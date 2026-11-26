@@ -720,7 +720,20 @@ Lo que cambia en el camino:
     - Plugin en la carpeta de oficiales con nombre neutral
       (`kiosko-plugin-electricity`) y el PVPC como primer proveedor, para
       que otros países añadan el suyo (Nord Pool, aWATTar, Octopus).
-21. **Páginas según el contexto.** Hoy una página puede mostrarse siempre,
+21. **Páginas según el contexto.** *Hecho* (2026-11-26): `showWhen` por
+    página (programa abierto con patrón, valor de una fuente con ruta y
+    comparación, franja horaria con días, widget urgente de la propia
+    página), con prioridad, turno entre iguales y antiparpadeo por pantalla
+    (`context.minMs` 20 s, `holdMs` 10 s); las páginas con reglas salen de
+    la rotación salvo `inRotation`; fijar y las alertas siguen mandando y
+    los interludios programados esperan. Procesos por `/proc` en Linux,
+    `ps` en macOS y `tasklist` en Windows, cada 3 s y solo si alguna regla
+    los pide. El editor tiene «Mostrar esta página cuando…» y dice «fijada
+    por: …»; guía en `docs/pages.md` (5 idiomas). Queda: una reunión que
+    empieza, el webhook del punto 18 y empezar a emitir (punto 32) como
+    señales propias, probar a mano en macOS y Windows, y la demo del
+    navegador solo evalúa franjas horarias. Lo que sigue era el plan.
+    Hoy una página puede mostrarse siempre,
     en horario laboral o fuera (`when`), y una pantalla puede fijar una
     (`pinnedPage`). Faltan condiciones que cambien de página solas:
     - *Señales*: una aplicación abierta (un juego, OBS, la herramienta de

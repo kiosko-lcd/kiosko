@@ -6,8 +6,9 @@ import { api } from '../api.ts';
 import { DurationInput, SchemaForm, Toggle } from '../forms/SchemaForm.tsx';
 import { Icon } from '../icons.tsx';
 import { clock, t, tr } from '../i18n.ts';
-import { app, draftPage, draftTile, edit, page, screen, selectedTile, selectedWidget, status, tile, widget, widgets } from '../store.ts';
+import { app, draftPage, draftScreen, draftTile, edit, page, screen, selectedTile, selectedWidget, status, tile, widget, widgets } from '../store.ts';
 import { deleteTile, duplicateTile } from './Stage.tsx';
+import { ContextRules } from './ContextRules.tsx';
 
 export function Inspector() {
   const t = tile.value;
@@ -68,6 +69,10 @@ function PageInspector() {
           </>
         )}
       </section>
+      <ContextRules page={p} screen={s} set={set} setScreen={(fn, key) => edit((d) => {
+        const sc = draftScreen(d);
+        if (sc) fn(sc);
+      }, key)} />
     </div>
   );
 }

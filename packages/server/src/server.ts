@@ -24,7 +24,7 @@ import { installableRelease, releaseProblem, type StorePlugin } from '@kiosko/co
 import { HomeAssistantBridge } from './homeassistant.ts';
 import { remoteApi } from './remote-api.ts';
 import { ALERT_LEVELS, type AlertLevel } from '@kiosko/sdk';
-import { AlertError, DEFAULT_SNOOZE_MS, PANEL_PRESETS, checkUpdates, discoverRemote, discoverTrcc, discoverUsb, normalize, npmRegistry, paths, resolveLocale, saveConfig, type Config, type FrameInfo, type Runtime, type Screen, type UpdateCheck } from '@kiosko/core';
+import { AlertError, DEFAULT_SNOOZE_MS, PANEL_PRESETS, checkUpdates, dataPaths, discoverRemote, discoverTrcc, discoverUsb, normalize, npmRegistry, paths, resolveLocale, saveConfig, type Config, type FrameInfo, type Runtime, type Screen, type UpdateCheck } from '@kiosko/core';
 import { currentInstall, updateBlocker, updateInstructions, type InstallInfo } from './install-kind.ts';
 import { KioskoUpdater, UpdateError, readMarker, realRun, restartHow, writeMarker, type Handover, type UpdaterDeps } from './self-update.ts';
 
@@ -503,6 +503,23 @@ export function startServer(o: ServerOptions) {
       const source = url.searchParams.get('source') ?? '';
       const list = url.searchParams.get('list') ?? '';
       return json(res, 200, runtime.registry.choices(source, list, runtime.hub.data(source), uiLocale(req)));
+    }
+
+    // A source's data paths with a value each, for a context rule (live data, or the demo's before there is any).
+    if (p === '/api/source-paths' && m === 'GET') {
+      const source = url.searchParams.get('source') ?? '';
+      const def = runtime.registry.source(source);
+      if (!def) return json(res, 404, { error: `no source ${source}`, code: 'noSource' });
+      const live = runtime.hub.data(source);
+      let data = live;
+      if (data === undefined && def.demo) {
+        try {
+          data = def.demo({ now: Date.now(), locale: uiLocale(req) });
+        } catch {
+          data = undefined;
+        }
+      }
+      return json(res, 200, { paths: dataPaths(data), from: live !== undefined ? 'live' : data !== undefined ? 'demo' : 'none' });
     }
 
     if (p === '/api/plugins/install' && m === 'POST') {

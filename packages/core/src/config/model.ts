@@ -111,11 +111,60 @@ export interface Page {
   /** Time on screen when pages rotate. */
   durationMs?: number;
   when?: When;
+  /**
+   * Context rules (see context.ts): while one of them holds, this page takes
+   * the screen over from the normal rotation. Missing or empty: none.
+   */
+  showWhen?: ShowWhenRule[];
+  /**
+   * Whether a page with rules also takes its turn in the normal rotation.
+   * Missing: no (it only comes up when a rule holds); pages without rules
+   * always rotate.
+   */
+  inRotation?: boolean;
   grid: GridSpec;
   gravity: Gravity;
   background: { color?: string; image?: string };
   tiles: Tile[];
 }
+
+/** How a source's value is compared in a `showWhen` rule. */
+export type CompareOp = 'truthy' | 'falsy' | 'eq' | 'ne' | 'gt' | 'gte' | 'lt' | 'lte' | 'contains';
+export const COMPARE_OPS: readonly CompareOp[] = ['truthy', 'falsy', 'eq', 'ne', 'gt', 'gte', 'lt', 'lte', 'contains'];
+
+/**
+ * One rule of a page's `showWhen`. Each condition set must hold (AND); the
+ * page comes up when any of its rules holds (OR). A rule without conditions
+ * never holds.
+ */
+export interface ShowWhenRule {
+  /** What the editor says it means ("game open"); else it says what it checks. */
+  label?: string;
+  /** Higher wins when several pages want the screen. Default 0. */
+  priority?: number;
+  /** A program running: its process name, a glob (`steam*`, `obs*`), case-insensitive; several separated by commas. */
+  app?: string;
+  /** A source's value (`plugin/source`), at `path` in its data, compared with `op` and `value`. */
+  source?: string;
+  /** Dots and brackets into the source's data (`active`, `items[0].price`); empty: the data itself. */
+  path?: string;
+  /** Default: `eq` with a `value`, `truthy` without. */
+  op?: CompareOp;
+  value?: string | number | boolean;
+  /** A local time window, `HH:MM`; start after end goes across midnight. `days`: 0 = Sunday … 6, the days it starts on (missing: every day). */
+  time?: { start: string; end: string; days?: number[] };
+  /** A widget on this page is urgent (a meeting about to start, a permission waiting). */
+  urgent?: boolean;
+}
+
+/** Anti-flicker for context pages, in ms. */
+export interface ContextTiming {
+  /** Least time a context page stays once it came up (unless a higher priority one comes). */
+  minMs?: number;
+  /** How long it stays after its rule stopped holding, in case it holds again. */
+  holdMs?: number;
+}
+export const CONTEXT_TIMING: Required<ContextTiming> = { minMs: 20_000, holdMs: 10_000 };
 
 export interface InterludeSlot {
   id: string;
@@ -141,6 +190,8 @@ export interface Screen {
   pages: Page[];
   /** Pin one page (no rotation). Also settable at runtime from the API. */
   pinnedPage?: string;
+  /** How context pages (`Page.showWhen`) come and go here. Missing: `CONTEXT_TIMING`. */
+  context?: ContextTiming;
   interludes: InterludeSlot[];
   /** Anti burn-in: moves everything 1-2 px in a slow cycle. */
   pixelShift: { enabled: boolean; amplitude: number; periodMs: number };

@@ -202,6 +202,7 @@ export const api: typeof httpApi = {
   },
   logs: async () => (await start()).logs(),
   choices: async (source: string, list: string) => (await start()).choices(source, list),
+  sourcePaths: async (source: string) => (await start()).sourcePaths(source),
   install: async () => {
     throw notHere();
   },

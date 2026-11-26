@@ -84,6 +84,9 @@ export function checkConfig(raw: unknown, plugins: readonly PluginDefinition[]):
     s.pages.forEach((p, pi) => {
       const pp: PathSeg[] = [...sp, 'pages', pi];
       if (!isObj(p) || !Array.isArray(p.tiles)) return;
+      p.showWhen?.forEach((r, ri) => {
+        if (r.source && !sources.has(r.source)) warnings.push(issue([...pp, 'showWhen', ri, 'source'], `no installed plugin provides the source ${JSON.stringify(r.source)}, so this rule never holds${near(r.source, [...sources.keys()])}`));
+      });
       repeated(p.tiles, [...pp, 'tiles'], 'tile', errors);
       const grid = validGrid(p.grid) ? p.grid : null;
       p.tiles.forEach((t, ti) => {
