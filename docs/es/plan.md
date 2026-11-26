@@ -1349,6 +1349,20 @@ Lo que cambia en el camino:
       endpoint compatible con TRMNL; (3) Inkplate y la variante e-ink del
       firmware propio.
 
+63. **El espacio, hoy** (`kiosko-plugin-cosmos`):
+    - *Qué*: la foto astronómica del día de la NASA (**APOD**) y la Tierra
+      entera vista desde el satélite DSCOVR (**EPIC**), con su explicación
+      (resumida, en el idioma del panel cuando se pueda); como widget
+      tranquilo o como interludio a pantalla completa. El primo científico
+      de `art` (punto 53), con el que puede compartir el encaje de imágenes
+      (recorte inteligente en barras largas, completa en cuadradas).
+    - *De dónde*: `api.nasa.gov` (APOD y EPIC; la clave `DEMO_KEY` basta
+      para un panel, o una propia gratuita) y las imágenes de
+      `epic.gsfc.nasa.gov`.
+    - *A tener en cuenta*: algunos APOD son vídeos (mostrar su miniatura o
+      el del día anterior) y algunos tienen copyright de su autor (crédito
+      siempre en pantalla, y solo mostrarlos donde la licencia lo permita).
+
 ### Decisiones abiertas para ti
 
 - **Nombre**: `Kiosko` es provisional (el paquete npm está como
