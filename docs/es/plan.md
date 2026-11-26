@@ -523,7 +523,7 @@ Lo que cambia en el camino:
       `Localized`.
     - Después: documentación (README, `docs/plugins.md`) y la web
       (kioskolcd.dev) en chino, y el resto de idiomas que pida la gente.
-11. **Noticias por tesela, no globales.** Que una pantalla muestre noticias
+11. **Noticias por tesela, no globales.** *Hecho* (2026-11-26): perfiles de fuente en el SDK (`profiles: true` en la fuente; `sourceProfiles` en la configuración, `profile` en el widget), cada perfil leído por separado con sus datos, intervalo, estado y avisos; pestañas en Ajustes → Fuentes de datos y «Nuevo perfil…» en el inspector; sin migración (sin `sourceProfiles` todo sigue igual). `news` 0.3 los declara, agrupa por perfil, descarga una sola vez un feed que esté en dos perfiles y añade `topics` por tesela (con `!` para excluir, sin distinguir mayúsculas ni tildes). Guía en docs/data-sources.md. Lo que sigue era el plan. Que una pantalla muestre noticias
     de un tema (tecnología, deportes, tu ciudad) y otra de otro. Hoy los
     feeds RSS se configuran una vez, en la fuente compartida `news/deck`
     (Ajustes → Fuentes de datos), que los lee, agrupa la misma noticia entre
