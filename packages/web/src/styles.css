@@ -358,6 +358,19 @@ span.day { display: inline-grid; place-items: center; cursor: default; flex: non
 .source-bg { display: inline-flex; gap: 4px; align-items: center; flex-shrink: 0; padding: 2px 8px; border-radius: 999px; color: color-mix(in srgb, var(--warn) 75%, var(--text)); background: color-mix(in srgb, var(--warn) 14%, transparent); white-space: nowrap; }
 .source-body { padding: 0 14px 14px 38px; max-width: 760px; }
 .source-body > p { margin-top: 0; }
+.source-profiles { display: inline-flex; gap: 4px; align-items: center; flex-shrink: 0; padding: 2px 8px; border-radius: 999px; color: var(--text-2); background: color-mix(in srgb, var(--accent) 14%, transparent); white-space: nowrap; }
+/* Source profiles: tabs in Settings → Data sources, the picker in the inspector (editor/Profiles.tsx). */
+.profile-tabs { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0 12px; border-bottom: 1px solid var(--line); }
+.profile-tab { display: inline-flex; gap: 6px; align-items: center; border: 0; border-bottom: 2px solid transparent; background: none; color: var(--text-2); font: inherit; font-weight: 600; padding: 6px 10px; margin-bottom: -1px; cursor: pointer; border-radius: 8px 8px 0 0; }
+.profile-tab:hover { color: var(--text); background: var(--bg-2); }
+.profile-tab.on { color: var(--text); border-bottom-color: var(--accent); }
+.profile-tab.add { color: var(--accent); font-weight: 500; }
+.profile-count { min-width: 18px; padding: 0 5px; border-radius: 999px; background: var(--bg-2); color: var(--text-3); font-size: 11px; text-align: center; }
+.profile-head { margin-bottom: 12px; }
+.profile-head .row, .profile-picker .row { display: flex; gap: 6px; align-items: center; }
+.profile-head .row .input, .profile-picker .row .input { flex: 1; min-width: 0; }
+.profile-new { margin-top: 6px; }
+.profile-options { margin-top: 8px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg-2); }
 .paths { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 0; }
 .paths dt { color: var(--text-3); font-weight: 700; font-size: 12px; text-transform: uppercase; }
 .paths dd { margin: 0; word-break: break-all; }

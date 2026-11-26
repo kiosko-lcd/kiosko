@@ -195,6 +195,33 @@ export const en = {
   'settings.sourcesHint': 'Shared by every widget that uses them.',
   'settings.sourcesBackgroundHint': 'Those that can watch for alerts can also run with no widget, if you turn it on.',
   'settings.sourceBackgroundOn': 'Watching for alerts without a widget',
+  'profiles.title': 'Profiles',
+  'profiles.default': 'Default',
+  'profiles.defaultHint': 'The default profile: what every widget reads unless it picks another.',
+  'profiles.add': 'Profile',
+  'profiles.addHint': 'Another configuration of this source, read on its own; a widget picks it in its inspector.',
+  'profiles.newName': 'Profile',
+  'profiles.copyOf': '{name} (copy)',
+  'profiles.name': 'Profile name',
+  'profiles.duplicate': 'Duplicate',
+  'profiles.delete': 'Delete',
+  'profiles.deleteConfirm': 'Delete the profile “{name}”?',
+  'profiles.deleteMoves': 'Those tiles will read the default profile.',
+  'profiles.idHint': 'Id: {id}.',
+  'profiles.unused': 'No tile reads it yet',
+  'profiles.usedBy.one': 'Read by {n} tile',
+  'profiles.usedBy.other': 'Read by {n} tiles',
+  'profiles.count.one': '{n} profile',
+  'profiles.count.other': '{n} profiles',
+  'profiles.picker': 'Source profile',
+  'profiles.pickerHint': 'Reads the default configuration of this source. Pick another, or make a new one for this tile.',
+  'profiles.new': 'New profile…',
+  'profiles.newHint': 'A copy of “{from}”, to change for this tile. Enter creates it.',
+  'profiles.create': 'Create',
+  'profiles.edit': 'Edit profile',
+  'profiles.editHint': 'The options of the profile this widget reads',
+  'profiles.sharedHint': 'Its options are shared by every tile that reads it.',
+  'profiles.defaultShared': 'The default profile, shared by every widget that picks no other (also in Settings → Data sources).',
   'settings.files': 'Files',
   'settings.ha': 'Home Assistant',
   'settings.haHint': 'Kiosko as a device in Home Assistant, over MQTT: each screen with its page to choose, the page shown, a switch to turn it off and a button per interlude, for your automations (the camera page when the doorbell rings, the panels off when nobody is home).',
@@ -660,6 +687,6 @@ export const en = {
 export type Key = keyof typeof en;
 
 /** Texts with a count: en.ts has their `.one` and `.other`; a language may add the forms its rules have. */
-export type PluralKey = 'screens.frames' | 'plugins.widgets' | 'plugins.sources' | 'plugins.interludes';
+export type PluralKey = 'screens.frames' | 'plugins.widgets' | 'plugins.sources' | 'plugins.interludes' | 'profiles.usedBy' | 'profiles.count';
 /** A dictionary: every key, plus any of `.zero` `.two` `.few` `.many` its plural rules use (Polish, Arabic…). */
 export type Dictionary = Record<Key, string> & Partial<Record<`${PluralKey}.${'zero' | 'two' | 'few' | 'many'}`, string>>;
