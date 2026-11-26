@@ -1363,6 +1363,21 @@ Lo que cambia en el camino:
       el del día anterior) y algunos tienen copyright de su autor (crédito
       siempre en pantalla, y solo mostrarlos donde la licencia lo permita).
 
+64. **Tus métricas** (`kiosko-plugin-metrics`): Prometheus y Grafana en el
+    panel, para quien ya mide su infraestructura:
+    - *Qué*: cualquier consulta **PromQL** como número grande, gráfica de
+      la última hora o semáforo con umbrales (CPU de un clúster, latencia
+      p99, errores por minuto, cola de mensajes); las **alertas activas**
+      de Alertmanager (a pantalla completa las críticas, punto 27); y, si
+      se quiere, un **panel de Grafana** renderizado tal cual (su API de
+      render) ajustado a la forma de la tesela.
+    - *De dónde*: la API HTTP de Prometheus (o compatibles: VictoriaMetrics,
+      Thanos, Mimir), la de Alertmanager y la de Grafana con un token de
+      solo lectura.
+    - *A tener en cuenta*: varias instancias (perfiles de fuente, punto 11);
+      consultas caras con intervalo largo; y reutilizar el formateo y los
+      umbrales del widget JSON (punto 18).
+
 ### Decisiones abiertas para ti
 
 - **Nombre**: `Kiosko` es provisional (el paquete npm está como
