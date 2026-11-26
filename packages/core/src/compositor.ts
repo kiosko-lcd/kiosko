@@ -24,8 +24,8 @@ export interface ComposeInput {
   working: boolean;
   /** Data of an instance's own fetch. */
   dataOf: (inst: WidgetInstance) => unknown;
-  /** Latest data of shared sources. */
-  sourcesOf: (types: readonly string[] | undefined) => Record<string, unknown>;
+  /** Latest data of shared sources, by type: of the source profile `profile` where it has one (see config/profiles.ts). */
+  sourcesOf: (types: readonly string[] | undefined, profile?: string | null) => Record<string, unknown>;
   /** Painted for the editor, not for the panel. */
   preview?: boolean;
   /** Use each widget's demo data where there's no real data yet. */
@@ -119,7 +119,7 @@ function resolve(input: ComposeInput, inst: WidgetInstance): Resolved | null {
   if (!def) return null;
   let options = def.options ? (validate(def.options, inst.options).value as Record<string, unknown>) : {};
   let data = input.dataOf(inst);
-  let sources = input.sourcesOf(def.sources);
+  let sources = input.sourcesOf(def.sources, inst.profile);
   if (input.demo && def.demo) {
     const needData = data === undefined;
     const needSources = (def.sources ?? []).some((s) => sources[s] === undefined);

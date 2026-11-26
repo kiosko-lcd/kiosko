@@ -6,6 +6,7 @@
 import { TIME_FORMATS } from '@kiosko/sdk/format';
 import { DEFAULT_WORKDAY } from '@kiosko/sdk/workday';
 import { suggestGrid } from '../layout/grid.ts';
+import { normalizeProfiles } from './profiles.ts';
 import { ALERT_THRESHOLDS, CONFIG_VERSION, DEFAULT_CONFIG, DEFAULT_MAX_BYTES, TEXT_SCALE, SETUP_STATES, THREADS_MODES, type Config, type Screen, type ScreenAlerts } from './model.ts';
 
 /**
@@ -14,8 +15,9 @@ import { ALERT_THRESHOLDS, CONFIG_VERSION, DEFAULT_CONFIG, DEFAULT_MAX_BYTES, TE
  * `configSchema` (schema.ts): change both together.
  */
 export function normalize(raw: unknown): Config {
-  const { $schema, threads, setup, bootAnimation, ...c } = (raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {}) as Partial<Config>;
+  const { $schema, threads, setup, bootAnimation, sourceProfiles, ...c } = (raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {}) as Partial<Config>;
   const screens = Array.isArray(c.screens) ? c.screens.map(normalizeScreen) : [];
+  const profiles = normalizeProfiles(sourceProfiles);
   return {
     ...(typeof $schema === 'string' && $schema ? { $schema } : {}),
     ...DEFAULT_CONFIG,
@@ -25,6 +27,8 @@ export function normalize(raw: unknown): Config {
     // A copy of the defaults: the editor edits the result in place.
     workday: { ...(JSON.parse(JSON.stringify(DEFAULT_WORKDAY)) as typeof DEFAULT_WORKDAY), ...(c.workday ?? {}) },
     sources: c.sources ?? {},
+    // Only when there are any: a config without profiles stays as it was.
+    ...(profiles ? { sourceProfiles: profiles } : {}),
     plugins: { disabled: c.plugins?.disabled ?? [] },
     server: { ...DEFAULT_CONFIG.server, ...(c.server ?? {}) },
     ...(c.homeassistant && typeof c.homeassistant === 'object' ? { homeassistant: normalizeHa(c.homeassistant) } : {}),

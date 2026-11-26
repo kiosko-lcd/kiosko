@@ -36,7 +36,10 @@ export interface ThreadOwner {
   readonly editorUrl?: string | undefined;
   log: LogFn;
   dataOf(instanceId: string): unknown;
-  sourceData(type: string): unknown;
+  /** The latest data of a source key (see config/profiles.ts). */
+  sourceData(key: string): unknown;
+  /** The source keys a widget with `profile` reads. */
+  sourceKeys(types: readonly string[] | undefined, profile?: string | null): string[];
   paintTime(instance: string, type: string, ms: number, now: number): void;
   frame(info: FrameInfo): void;
   pageChanged(): void;
@@ -142,7 +145,7 @@ export class ThreadRunner implements Runner {
       const def = reg.widget(widget.type);
       if (!def || widget.disabled) continue;
       ids.add(widget.id);
-      for (const s of def.sources ?? []) sources.add(s);
+      for (const s of this.owner.sourceKeys(def.sources, widget.profile)) sources.add(s);
     }
     for (const slot of this.screen.interludes) for (const s of reg.interlude(slot.type)?.sources ?? []) sources.add(s);
     return { ids, sources };

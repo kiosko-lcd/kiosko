@@ -383,6 +383,20 @@ export function planImport(incoming: unknown, current: Config, plugins: readonly
     }
   }
   raw.sources = sources;
+  // Profiles too, one by one: a file with a «Sports» profile keeps the «Work» one it doesn't mention.
+  if (current.sourceProfiles) {
+    const profiles: Obj = isObj(raw.sourceProfiles) ? { ...raw.sourceProfiles } : {};
+    for (const [type, list] of Object.entries(current.sourceProfiles)) {
+      const into: Obj = isObj(profiles[type]) ? { ...profiles[type] } : {};
+      for (const [id, p] of Object.entries(list)) {
+        if (into[id] !== undefined) continue;
+        into[id] = clone(p);
+        carried.push(`sourceProfiles[${JSON.stringify(type)}][${JSON.stringify(id)}]`);
+      }
+      profiles[type] = into;
+    }
+    raw.sourceProfiles = profiles;
+  }
   const config = normalize(raw);
   return { report, config, carried, diff: diffConfigs(current, config), risks: listRisks(config, schema, current), secrets };
 }

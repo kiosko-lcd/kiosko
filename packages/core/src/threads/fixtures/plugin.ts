@@ -3,7 +3,7 @@
  * and again by each screen's thread. Its sources run on the main thread and
  * are fed by the test through `feed`.
  */
-import { definePlugin, defineWidget, type PadEvent } from '@kiosko/sdk';
+import { definePlugin, defineSource, defineWidget, t, type PadEvent } from '@kiosko/sdk';
 
 export class History {
   has(): boolean {
@@ -26,6 +26,8 @@ export default definePlugin({
   sources: [
     { id: 'color', name: 'Color', watch: (_ctx, emit) => ((feed.color = emit), () => void (feed.color = undefined)) },
     { id: 'classy', name: 'Classy', watch: (_ctx, emit) => ((feed.classy = emit), () => void (feed.classy = undefined)) },
+    // With profiles: each reads its colour from its options.
+    defineSource({ id: 'tint', name: 'Tint', profiles: true, options: t.object({ color: t.string({ default: '#ffffff' }) }), read: async (ctx) => ({ color: ctx.options.color }) }),
   ],
   widgets: [
     defineWidget({
@@ -37,6 +39,16 @@ export default definePlugin({
         const c = (ctx.sources['tt/color'] as { color?: string } | undefined)?.color ?? '#000000';
         if (c === '#00ff00') ctx.log(`green, loaded ${loads.n} time(s) here`);
         g.fillStyle = c;
+        g.fillRect(ctx.box.x, ctx.box.y, ctx.box.w, ctx.box.h);
+      },
+    }),
+    defineWidget({
+      id: 'tinted',
+      name: 'Tinted',
+      chrome: 'bare',
+      sources: ['tt/tint'],
+      render: (g, ctx) => {
+        g.fillStyle = (ctx.sources['tt/tint'] as { color?: string } | undefined)?.color ?? '#000000';
         g.fillRect(ctx.box.x, ctx.box.y, ctx.box.w, ctx.box.h);
       },
     }),

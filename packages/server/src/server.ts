@@ -24,7 +24,7 @@ import { installableRelease, releaseProblem, type StorePlugin } from '@kiosko/co
 import { HomeAssistantBridge } from './homeassistant.ts';
 import { remoteApi } from './remote-api.ts';
 import { ALERT_LEVELS, type AlertLevel } from '@kiosko/sdk';
-import { AlertError, DEFAULT_SNOOZE_MS, PANEL_PRESETS, checkUpdates, discoverRemote, discoverTrcc, discoverUsb, normalize, npmRegistry, paths, resolveLocale, saveConfig, type Config, type FrameInfo, type Runtime, type Screen, type UpdateCheck } from '@kiosko/core';
+import { AlertError, DEFAULT_SNOOZE_MS, PANEL_PRESETS, checkUpdates, discoverRemote, discoverTrcc, discoverUsb, normalize, npmRegistry, paths, resolveLocale, resolveSourceKey, saveConfig, type Config, type FrameInfo, type Runtime, type Screen, type UpdateCheck } from '@kiosko/core';
 import { currentInstall, updateBlocker, updateInstructions, type InstallInfo } from './install-kind.ts';
 import { KioskoUpdater, UpdateError, readMarker, realRun, restartHow, writeMarker, type Handover, type UpdaterDeps } from './self-update.ts';
 
@@ -498,11 +498,13 @@ export function startServer(o: ServerOptions) {
 
     if (p === '/api/logs' && m === 'GET') return json(res, 200, runtime.logs.slice(-200));
 
-    // Values to offer for an option, from a source's live data (or its demo data before there is any).
+    // Values to offer for an option, from a source's live data (or its demo data before there is any):
+    // of the widget's source profile (`profile`), when it reads one.
     if (p === '/api/choices' && m === 'GET') {
       const source = url.searchParams.get('source') ?? '';
       const list = url.searchParams.get('list') ?? '';
-      return json(res, 200, runtime.registry.choices(source, list, runtime.hub.data(source), uiLocale(req)));
+      const key = resolveSourceKey(runtime.config, source, url.searchParams.get('profile'), runtime.registry.source(source));
+      return json(res, 200, runtime.registry.choices(source, list, runtime.hub.data(key), uiLocale(req)));
     }
 
     if (p === '/api/plugins/install' && m === 'POST') {
