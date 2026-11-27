@@ -35,6 +35,12 @@ export interface HttpRequest {
   body?: string;
   /** Don't use or keep the conditional-request cache for this call. */
   noCache?: boolean;
+  /**
+   * The largest body to read, in bytes: a longer one (by its Content-Length,
+   * or as it arrives) throws an `HttpError` and is not kept. For URLs the
+   * user types, which may answer with anything. Kiosko 0.2.12 and later.
+   */
+  maxBytes?: number;
 }
 
 export interface HttpResponse<T> {
@@ -74,6 +80,37 @@ const hostOf = (url: string) => {
   }
 };
 
+/** The body of `res` as text, or an `HttpError` as soon as it passes `max` bytes (without reading the rest). */
+async function limitedText(res: Response, max: number, url: string): Promise<string> {
+  const tooBig = () => new HttpError(`response larger than ${max} bytes from ${hostOf(url)}`, { status: res.status, url });
+  const declared = Number(res.headers.get('content-length'));
+  if (Number.isFinite(declared) && declared > max) {
+    await res.body?.cancel().catch(() => undefined);
+    throw tooBig();
+  }
+  if (!res.body) return '';
+  const reader = res.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > max) {
+      await reader.cancel().catch(() => undefined);
+      throw tooBig();
+    }
+    chunks.push(value);
+  }
+  const all = new Uint8Array(size);
+  let at = 0;
+  for (const c of chunks) {
+    all.set(c, at);
+    at += c.byteLength;
+  }
+  return new TextDecoder().decode(all);
+}
+
 export function createHttp(o: { agent?: string; fetch?: typeof fetch; now?: () => number; maxCached?: number } = {}): HttpClient {
   const doFetch = o.fetch ?? fetch;
   const now = o.now ?? Date.now;
@@ -104,7 +141,7 @@ export function createHttp(o: { agent?: string; fetch?: typeof fetch; now?: () =
       throw new HttpError(`HTTP ${res.status} from ${host}: rate-limited until ${new Date(at).toISOString()}`, { status: res.status, url, retryAt: at });
     }
     if (!res.ok) throw new HttpError(`HTTP ${res.status} from ${host}`, { status: res.status, url });
-    const body = await res.text();
+    const body = req.maxBytes === undefined ? await res.text() : await limitedText(res, req.maxBytes, url);
     if (cacheable) {
       const etag = res.headers.get('etag') ?? undefined;
       const modified = res.headers.get('last-modified') ?? undefined;

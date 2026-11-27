@@ -64,6 +64,9 @@ function risksBy(): Record<string, Record<string, unknown>> {
 const EXPECTED_RISKS: Record<string, Record<string, unknown>> = {
   'core/text': { file: 'path' },
   'core/image': { src: ['network', 'path'] },
+  'core/json': { url: 'network' },
+  'core/json-list': { url: 'network' },
+  'core/json-text': { url: 'network' },
   'legacy/module': { module: 'exec', dir: 'exec' },
   'agents/sessions': { dir: 'path', codexDir: 'path', kimiDir: 'path', qwenDir: 'path', statusDir: 'path' },
   'system/health': { 'mounts[]': 'path' },

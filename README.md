@@ -63,11 +63,13 @@ line, for a plugin's README.
 git clone https://github.com/kiosko-lcd/kiosko && cd kiosko
 npm install
 npm run web:build
-node --conditions=source packages/server/src/cli.ts start --config examples/showcase.json --demo --open
+node --conditions=source packages/server/src/cli.ts start --sandbox --sandbox-config examples/showcase.json --demo --open
 ```
 
 `--demo` paints every widget with sample data and reads nothing from your
-machine, so you can explore the editor before connecting a panel.
+machine, so you can explore the editor before connecting a panel. `--sandbox`
+keeps everything it writes in a temp folder of its own, away from a Kiosko
+you may already run (see [Sandbox mode](docs/sandbox.md)).
 
 ## Quick start
 
@@ -138,7 +140,7 @@ screen**, pick your panel model and its connection:
 | **Virtual** | No hardware: the editor shows it, nothing else. |
 | **USB** | LY panels (0416:5408 / 5409) straight from Kiosko: Linux, macOS, Windows. Experimental; [needs a udev rule or the WinUSB driver](docs/usb.md). |
 | **trcc serve** | Linux with [thermalright-trcc-linux](https://github.com/Lexonight1/thermalright-trcc-linux) running `trcc serve`. |
-| **Frame file** | Kiosko writes `frame.jpg` atomically; an external sender (e.g. one bound to a USB serial number, for several identical panels) pushes it to the glass. |
+| **Frame file** | Kiosko writes `frame.jpg` atomically; an external sender (e.g. one bound to a USB serial number, for several identical panels) pushes it to the glass. With `presence` (a USB serial, or a heartbeat file the sender touches) a screen whose panel is unplugged is paused and costs no CPU: see [docs/usb.md](docs/usb.md#unplugged-panels-pause-their-screen-presence). |
 | **Remote screen** | A small Wi-Fi display running [Kiosko's screen firmware](firmware/esp32-screen) (Waveshare ESP32-C6-LCD-1.47 for now): found on the network, paired once with the code it shows, frames over an encrypted session. Experimental; see the [guide](docs/remote-screens.md) and the [protocol](docs/remote-screen.md). |
 | **Browser** | Any browser on the LAN (an old tablet, a phone) showing a screen full-screen: it opens a page of a second, separate server (off by default; the editor stays on 127.0.0.1), is paired once with the code it shows, and gets frames over an encrypted WebSocket; it follows the device's size and orientation. Experimental; see the [guide](docs/browser-screens.md). |
 
@@ -146,11 +148,16 @@ screen**, pick your panel model and its connection:
 MQTT), with its page to choose, a switch to turn it off and a button per
 interlude, for your automations: see [docs/homeassistant.md](docs/homeassistant.md).
 
+**Any JSON, and pushes from your scripts**: the JSON widgets show a value
+from any URL that answers JSON, and `curl -X POST … /api/push/<name>` puts
+what a script, cron or CI says on the panel, with no plugin to write: see
+[docs/rest-webhook.md](docs/rest-webhook.md).
+
 ## Concepts
 
 ```
 screen      one physical panel (or a virtual one): size, rotation, connection
-└─ page     a layout; several pages take turns or one is pinned
+└─ page     a layout; several pages take turns, one is pinned, or one comes up by itself (a game open, a call)
    └─ tile  a rectangle of grid cells
       └─ widgets  a stack: they take turns; an urgent one keeps the tile (unless you say otherwise)
 interlude   a full-screen animation every N minutes (against the wall clock)
@@ -162,6 +169,11 @@ The grid is fixed (a panel doesn't scroll): 24×6 cells on a 1920×462 panel,
 (free, up, or left for wide strips); a move that would push something off the
 panel is refused rather than losing a tile. **Auto-arrange** packs everything
 masonry-style.
+
+**Pages that come up by themselves.** A page can take the screen over while a
+game or OBS is open, while you are in a call, in a time window or when one of
+its widgets is urgent, and give it back to the turns afterwards: *Show this
+page when…* in the page's settings. See [docs/pages.md](docs/pages.md).
 
 **Portrait panels.** Stand a strip on its side and pick *Screens → Orientation →
 Portrait*: you design a 462×1920 picture (6×24 cells) and Kiosko turns it for
@@ -206,7 +218,7 @@ can run in PowerShell.
    silently, with the tasks "start when I sign in" and "add `kiosko` to PATH":
 
    ```powershell
-   .\Kiosko-Setup-0.2.11-x64.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /TASKS=service,path
+   .\Kiosko-Setup-0.2.14-x64.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /TASKS=service,path
    ```
 
    Open a new terminal afterwards so `kiosko` is on the `PATH` (or use
@@ -476,7 +488,9 @@ Some settings work the same for every widget: in the editor's Inspector,
 **Text size** (`zoom`, 0.5–2×), **Keep the tile while urgent** and **Hide when
 empty**; in Settings, the **time format** (24 h, 12 h or as the language),
 the working week (hours due, days with other hours, holidays) and, under
-Data sources, how often each source is read.
+Data sources, how often each source is read. A source with **profiles** (news
+by topic, several accounts) can have several named configurations, and each
+tile picks one: see [Data sources and profiles](docs/data-sources.md).
 
 ## Command line
 
@@ -492,6 +506,9 @@ kiosko doctor
 kiosko plugins [list|add <id>|link <folder>|remove <id>]
 kiosko service install      # start with your session (systemd / launchd / Task Scheduler)
 kiosko self-check [--json]  # load the plugins as start would and say what loads
+kiosko start --sandbox [dir] [--port N] [--sandbox-config file] [--sandbox-ttl 2h] [--sandbox-exit-with-parent]
+                            # a throwaway Kiosko that never touches the real one (docs/sandbox.md)
+kiosko sandbox list|stop [all|pid]   # the sandboxes running on this machine
 ```
 
 ## Coming from aimonitor

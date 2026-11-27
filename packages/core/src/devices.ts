@@ -13,14 +13,16 @@
  */
 import { mkdirSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { LyPanel, MAX_FRAME_BYTES, findPanels, loadUsb, modelFor } from '@loksly/usb-ly';
+import { LyPanel, MAX_FRAME_BYTES, PRODUCT_IDS, VENDOR_ID, DeviceLister, findPanels, loadUsb, modelFor, type SeenDevice } from '@loksly/usb-ly';
 import { connectPanel, detectPanel, pinFrame, sendFrame, serverAlive, type TrccOptions } from '@loksly/trcc-client';
 import type { DeviceConfig } from './config/model.ts';
 import { expandPath } from './paths.ts';
+import { PresenceMonitor, probesFor, usbProbe, type Clock, type PresenceInfo, type Probe, type ProbeDeps } from './presence.ts';
 import { RemoteDevice, type RemoteDeps, type RemoteStatus } from './remote/device.ts';
 import { browser } from './remote/mdns.ts';
 import { BrowserDevice, type BrowserStatus } from './browser/device.ts';
 import type { BrowserHub } from './browser/hub.ts';
+import { confinePath, sandboxAllows } from './sandbox.ts';
 
 export interface DeviceStatus {
   driver: DeviceConfig['driver'];
@@ -68,8 +70,16 @@ export interface Device {
   close(): void;
   /** Panels with a light of their own (remote screens): "rrggbb" ("000000" off), blinking every `blinkMs`. */
   setLed?(rgb: string, blinkMs?: number): void;
+  /**
+   * Whether its panel is there (presence.ts): `absent` pauses the screen (no
+   * composing, painting nor encoding) until it is back. Undefined or
+   * `unknown`: painted as always.
+   */
+  readonly presence?: PresenceInfo;
   /** Panels that turn the picture themselves (remote screens): the screen's rotation changed. */
   setRotation?(rotate: number): void;
+  /** Panels with a backlight Kiosko can dim (remote screens): 0-100 for now, null back to its own (remote/backlight.ts). */
+  setDim?(level: number | null): void;
 }
 
 export function encodeFor(device: DeviceConfig, jpegQuality: number): 'png' | 'jpeg' {
@@ -81,6 +91,19 @@ export function encodeFor(device: DeviceConfig, jpegQuality: number): 'png' | 'j
 
 class VirtualDevice implements Device {
   status: DeviceStatus = { driver: 'virtual', ok: true, message: 'virtual: shown only in the editor', code: 'virtual', framesSent: 0, lastSentAt: null };
+  async send(): Promise<void> {
+    this.status.framesSent++;
+    this.status.lastSentAt = Date.now();
+  }
+  close(): void {}
+}
+
+/** A real panel's screen in a sandbox that may not touch real panels: painted in the editor only. */
+class SandboxedDevice implements Device {
+  status: DeviceStatus;
+  constructor(driver: DeviceConfig['driver'], allow: string) {
+    this.status = { driver, ok: true, message: `sandbox: ${driver} panels are off here (shown only in the editor; --sandbox-allow-${allow} turns them on)`, code: 'sandboxOff', params: { driver, flag: `--sandbox-allow-${allow}` }, framesSent: 0, lastSentAt: null };
+  }
   async send(): Promise<void> {
     this.status.framesSent++;
     this.status.lastSentAt = Date.now();
@@ -106,12 +129,20 @@ export async function renameReplacing(from: string, to: string, rename: (a: stri
   }
 }
 
-class FileDevice implements Device {
+export class FileDevice implements Device {
   status: DeviceStatus;
   private readonly dir: string;
-  constructor(cfg: Extract<DeviceConfig, { driver: 'file' }>) {
-    this.dir = expandPath(cfg.dir);
+  /** Its `presence` probes, when the config has any: the sender's panel can't be seen from here otherwise. */
+  private readonly monitor: PresenceMonitor | null;
+  constructor(cfg: Extract<DeviceConfig, { driver: 'file' }>, deps: ProbeDeps = {}) {
+    // In a sandbox, a folder outside it (a real sender's) is moved inside: its panel never shows the sandbox's frames.
+    this.dir = confinePath(expandPath(cfg.dir));
     this.status = { driver: 'file', ok: true, message: `writing ${join(this.dir, 'frame.jpg')}`, code: 'fileWriting', params: { path: join(this.dir, 'frame.jpg') }, framesSent: 0, lastSentAt: null };
+    const probes = cfg.presence ? probesFor(cfg.presence, this.dir, deps) : [];
+    this.monitor = probes.length ? new PresenceMonitor(probes, deps.clock ? { clock: deps.clock } : {}) : null;
+  }
+  get presence(): PresenceInfo | undefined {
+    return this.monitor?.info;
   }
   async send(frame: Buffer): Promise<void> {
     try {
@@ -129,7 +160,9 @@ class FileDevice implements Device {
       Object.assign(this.status, { message: `cannot write in ${this.dir}: ${error}`, code: 'fileError', params: { dir: this.dir, error } });
     }
   }
-  close(): void {}
+  close(): void {
+    this.monitor?.close();
+  }
 }
 
 class TrccDevice implements Device {
@@ -204,7 +237,15 @@ export class UsbDevice implements Device {
   private timer: ReturnType<typeof setInterval> | null = null;
   private lastMessage = '';
 
-  constructor(cfg: Extract<DeviceConfig, { driver: 'usb' }>, log: (m: string) => void, o: { rotate?: number; open?: (serial?: string) => Promise<LyPanel>; retryMs?: number } = {}) {
+  /** Whether a matching panel is plugged in (presence.ts), looked at without opening it; null: not looked at (tests with a fake `open`). */
+  private readonly monitor: PresenceMonitor | null;
+
+  /**
+   * `presence`: how to tell whether the panel is plugged in. Default: USB
+   * enumeration (read only) for an LY panel with the configured serial, or
+   * none when `open` is a fake (no real bus to look at); null: never.
+   */
+  constructor(cfg: Extract<DeviceConfig, { driver: 'usb' }>, log: (m: string) => void, o: { rotate?: number; open?: (serial?: string) => Promise<LyPanel>; retryMs?: number; presence?: Probe | null; clock?: Clock } = {}) {
     this.cfg = cfg;
     this.log = log;
     this.rotate = o.rotate;
@@ -213,6 +254,29 @@ export class UsbDevice implements Device {
     const every = Math.round(Math.min(2, Math.max(0.1, cfg.keepalive ?? 1)) * 1000);
     this.timer = setInterval(() => void this.pump(), Math.min(every, 250));
     this.timer.unref();
+    const probe = o.presence === null || (o.presence === undefined && o.open) ? null : (o.presence ?? usbProbe({ vendorId: VENDOR_ID, productIds: PRODUCT_IDS, serial: cfg.serial }));
+    this.monitor = probe ? new PresenceMonitor([probe], { ...(o.clock ? { clock: o.clock } : {}), onChange: (i) => this.presenceChanged(i) }) : null;
+  }
+
+  /** Connected, it is there; else what enumeration says. */
+  get presence(): PresenceInfo | undefined {
+    if (this.panel) return { state: 'present', why: this.describe() };
+    return this.monitor?.info;
+  }
+
+  private presenceChanged(i: PresenceInfo): void {
+    if (this.closed) return;
+    if (i.state === 'absent' && !this.panel) {
+      // Nothing to keep re-sending: the runtime paints a fresh frame when it is back.
+      this.latest = null;
+      this.fresh = false;
+      this.say(`${i.why}; waiting for it`, false, 'usbAbsent', { serial: this.cfg.serial ?? '' });
+    } else if (i.state === 'present') {
+      // Plugged in again: no backoff left over from the failures while it was away.
+      this.retryAt = 0;
+      this.failures = 0;
+      void this.pump();
+    }
   }
 
   private say(message: string, ok: boolean, code?: string, params?: Record<string, string | number>): void {
@@ -234,7 +298,8 @@ export class UsbDevice implements Device {
   private pump(): Promise<void> {
     if (this.pumping) return this.pumping;
     const run = async () => {
-      while (!this.closed && this.latest && Date.now() >= this.retryAt && (this.fresh || this.due(Date.now()))) {
+      // An unplugged panel is not knocked on: presence says when it is back.
+      while (!this.closed && this.latest && Date.now() >= this.retryAt && (this.fresh || this.due(Date.now())) && (this.panel || this.monitor?.state !== 'absent')) {
         try {
           const frame = this.latest;
           this.fresh = false;
@@ -294,6 +359,7 @@ export class UsbDevice implements Device {
 
   close(): void {
     this.closed = true;
+    this.monitor?.close();
     if (this.timer) clearInterval(this.timer);
     this.timer = null;
     const p = this.panel;
@@ -302,18 +368,30 @@ export class UsbDevice implements Device {
   }
 }
 
-/** The LY panels libusb sees (serial and where), without claiming any: for `kiosko doctor`. */
-export async function listUsb(): Promise<{ ok: boolean; panels: { serial?: string; pid: number; location: string; error?: string }[]; error?: string }> {
+/**
+ * The USB devices with this vendor and product ids plugged in now, serial
+ * and where, read only: from sysfs on Linux (nothing is opened), else from
+ * libusb (opened for a moment to read the serial, never claimed). For
+ * `kiosko doctor` and the editor's "Detect panels" of a Frame file screen
+ * (its `presence.usb`). Never throws.
+ */
+export async function listUsbDevices(vendorId: number = VENDOR_ID, productIds: readonly number[] = PRODUCT_IDS): Promise<{ ok: boolean; devices: SeenDevice[]; error?: string }> {
   try {
-    const found = await findPanels(await loadUsb());
-    return { ok: true, panels: found.map((f) => ({ ...(f.serial ? { serial: f.serial } : {}), pid: f.pid, location: f.location, ...(f.error ? { error: f.error } : {}) })) };
+    return { ok: true, devices: await new DeviceLister({ usb: loadUsb }).list({ vendorId, productIds }, { serials: true }) };
   } catch (err) {
-    return { ok: false, panels: [], error: err instanceof Error ? err.message : String(err) };
+    return { ok: false, devices: [], error: err instanceof Error ? err.message : String(err) };
   }
+}
+
+/** The LY panels plugged in (serial and where), without claiming any: for `kiosko doctor`. */
+export async function listUsb(): Promise<{ ok: boolean; panels: { serial?: string; pid: number; location: string; error?: string }[]; error?: string }> {
+  const r = await listUsbDevices();
+  return { ok: r.ok, panels: r.devices.map((d) => ({ ...(d.serial ? { serial: d.serial } : {}), pid: d.pid, location: d.location, ...(d.error ? { error: d.error } : {}) })), ...(r.error ? { error: r.error } : {}) };
 }
 
 /** The LY panels libusb sees right now, for the "add screen" menu. Never throws. */
 export async function discoverUsb(): Promise<{ serial: string; key: string; width: number; height: number; rotate?: number; location: string; error?: string }[]> {
+  if (!sandboxAllows('usb')) return [];
   try {
     const found = await findPanels(await loadUsb());
     const out = [];
@@ -338,6 +416,10 @@ export async function discoverUsb(): Promise<{ serial: string; key: string; widt
 }
 
 export function openDevice(cfg: DeviceConfig, log: (m: string) => void, rotate?: number, remote?: RemoteDeps & { browsers?: BrowserHub }): Device {
+  // A sandbox leaves the real panels alone: those on USB, those `trcc serve` drives, the remote screens.
+  // A browser screen is left in: it only talks to the network-screens server, which the sandbox confines.
+  if ((cfg.driver === 'usb' || cfg.driver === 'trcc') && !sandboxAllows('usb')) return new SandboxedDevice(cfg.driver, 'usb');
+  if (cfg.driver === 'remote' && !sandboxAllows('remote')) return new SandboxedDevice(cfg.driver, 'remote');
   switch (cfg.driver) {
     case 'remote':
       return new RemoteDevice(cfg, log, rotate ?? 0, remote);
@@ -356,6 +438,7 @@ export function openDevice(cfg: DeviceConfig, log: (m: string) => void, rotate?:
 
 /** Panels `trcc serve` can see right now (for the "add screen" dialog). */
 export async function discoverTrcc(url = 'http://127.0.0.1:8099', tokenFile?: string): Promise<{ key: string; width: number; height: number }[]> {
+  if (!sandboxAllows('usb')) return [];
   const o = { url, ...(tokenFile ? { tokenFile: expandPath(tokenFile) } : {}), timeoutMs: 3000, deviceKey: '' } as TrccOptions;
   try {
     if (!(await serverAlive(o))) return [];
@@ -368,6 +451,7 @@ export async function discoverTrcc(url = 'http://127.0.0.1:8099', tokenFile?: st
 
 /** The remote screens on the LAN right now (mDNS), for "Detect panels" and `kiosko doctor`. Never throws. */
 export async function discoverRemote(ms = 1500): Promise<{ uid: string; id: string; model: string; width: number; height: number; rotate: number; fw: string; paired: boolean; address: string; port: number; hostname: string }[]> {
+  if (!sandboxAllows('remote')) return [];
   try {
     const found = await browser().browse(ms);
     return found.map((f) => ({ uid: f.uid, id: f.id, model: f.model, width: f.w, height: f.h, rotate: f.rot, fw: f.fw, paired: f.paired, address: f.address, port: f.port, hostname: f.hostname }));

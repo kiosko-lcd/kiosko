@@ -10,11 +10,14 @@
  *   kiosko doctor
  *   kiosko usb [list|test]
  *   kiosko remote [list|pair|ota|logs|unpair]   (see remote-cli.ts)
+ *   kiosko start --sandbox [dir] …, kiosko sandbox list|stop   (see sandbox-cli.ts)
  */
+// First of all: a sandbox points every path at its folder before any module reads one.
+import { boot } from './sandbox-boot.ts';
 import { spawn } from 'node:child_process';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { Registry, Runtime, cjkFontStatus, discoverRemote, installSdkResolver, scriptFontStatus, systemLocale, listUsb, loadConfig, paths, resolveLocale, saveConfig, type Config } from '@kiosko/core';
+import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { basename, dirname, join } from 'node:path';
+import { Registry, Runtime, cjkFontStatus, discoverRemote, installSdkResolver, presenceNow, scriptFontStatus, systemLocale, listUsb, loadConfig, paths, resolveLocale, saveConfig, type Config } from '@kiosko/core';
 import { hanScript } from '@kiosko/sdk';
 import { BUILTIN_PLUGINS, OFFICIAL_PLUGINS } from './builtin.ts';
 import { configCommand } from './config-cli.ts';
@@ -27,8 +30,10 @@ import { importAimonitor } from './import-aimonitor.ts';
 import { runService, servicePlan } from './service.ts';
 import { realDiscover, startServer } from './server.ts';
 import { agentTraces, starterConfig, starterPanels } from './starter.ts';
+import { SandboxRefusal, sandboxBanner, sandboxCommand, sandboxConfig, sandboxListen, sandboxTtl } from './sandbox-cli.ts';
+import { listSandboxes, registerSandbox, sandboxLifetime, sandboxRegistryDir, unregisterSandbox } from '@kiosko/core/sandbox';
 
-const VERSION = '0.2.11';
+const VERSION = '0.2.14';
 const USAGE = `Kiosko ${VERSION}: a widget mosaic for USB LCD panels
 
   kiosko start [--port 7420] [--host 127.0.0.1] [--config file] [--open] [--demo]
@@ -49,8 +54,20 @@ const USAGE = `Kiosko ${VERSION}: a widget mosaic for USB LCD panels
   kiosko plugins [list|add <id>…|link <folder>…|remove <id>…]
   kiosko service install|uninstall|print   (start with your session)
   kiosko self-check [--json]                 load the plugins as start would and say what loads (the updater's dry run)
-  kiosko version`;
-const argv = process.argv.slice(2);
+  kiosko version
+
+Sandbox: a throwaway Kiosko for tests and trying things out, that never touches the real one
+  kiosko start --sandbox [dir]               everything it writes goes in dir (default: a new temp folder,
+                                             removed when it ends; --sandbox-keep keeps it); also KIOSKO_SANDBOX=dir
+      --port N                               not 7420 unless --sandbox-force-port (default: a free one)
+      --sandbox-config file                  start from a copy of file (never written back)
+      --sandbox-ttl 2h                       ends by itself after this (30m, 1d, off; default 2h)
+      --sandbox-exit-with-parent             ends when the process that started it does
+      --sandbox-allow-usb|-remote|-lan       real USB/trcc panels, remote screens, listening on the LAN
+  kiosko sandbox list [--json]               the sandboxes running on this machine
+  kiosko sandbox stop all|<pid>… [--force]   stop them`;
+const argv = boot.argv;
+const sandbox = boot.sandbox;
 // Flags alone mean `start` (`kiosko --demo --open`), except the ones that are commands of their own.
 const FLAG_COMMANDS = new Set(['--help', '-h', '--version', '-v']);
 // `kiosko <command> --help` shows the help instead of running the command (`gallery --help` wrote a gallery).
@@ -114,24 +131,101 @@ function openBrowser(url: string): void {
   }
 }
 
+/** A refusal ends the command with its message and exit code 2. */
+function refuse(message: string): never {
+  console.error(message);
+  process.exit(2);
+}
+
 async function main(): Promise<void> {
-  const path = opt('--config') ?? paths.config;
+  if (cmd === 'sandbox') {
+    process.exitCode = await sandboxCommand(argv.slice(1), { registry: sandboxRegistryDir(), log: (l) => console.log(l) });
+    return;
+  }
+  let path = opt('--config') ?? paths.config;
+  if (sandbox) {
+    try {
+      // Only `start` copies a config in; every command refuses a config outside the sandbox.
+      const copyFrom = cmd === 'start' ? opt('--sandbox-config') : undefined;
+      path = sandboxConfig(sandbox, { own: paths.config, ...(opt('--config') ? { config: opt('--config')! } : {}), ...(copyFrom ? { copyFrom } : {}) });
+    } catch (err) {
+      refuse(err instanceof SandboxRefusal ? err.message : `--sandbox-config: ${(err as Error).message}`);
+    }
+    if (cmd === 'service' && argv[1] && argv[1] !== 'print') refuse(`kiosko service ${argv[1]}: not in a sandbox (it would change the service of the real Kiosko)`);
+    if (cmd === 'usb' && argv[1] === 'test' && !sandbox.allow.has('usb')) refuse('kiosko usb test: a sandbox leaves the real panels alone (--sandbox-allow-usb)');
+    if (cmd === 'remote' && !sandbox.allow.has('remote')) refuse('kiosko remote: a sandbox talks to no remote screen (--sandbox-allow-remote)');
+    // Commands that talk to "the running Kiosko" talk to this sandbox's, never to the one on the config's port (7420).
+    if (cmd !== 'start' && !opt('--port')) {
+      const running = listSandboxes(sandbox.registry).find((e) => e.dir === sandbox.dir);
+      if (running) argv.push('--port', String(running.port));
+      else if (cmd === 'editor' || (cmd === 'plugins' && argv[1] === 'dev')) refuse(`kiosko ${cmd}: no sandboxed Kiosko is running in ${sandbox.dir} (start it first, or give --port)`);
+    }
+  }
   switch (cmd) {
     case 'start': {
+      // A sandbox decides where it listens before anything starts: refused here, nothing was touched.
+      const sbStart = sandbox
+        ? await (async () => {
+            try {
+              const ttlMs = sandboxTtl(opt('--sandbox-ttl'));
+              const where = await sandboxListen(sandbox, { host: opt('--host'), ...(opt('--port') ? { port: opt('--port')! } : {}), force: flag('--sandbox-force-port') });
+              return { ...where, ttlMs, exitWithParent: flag('--sandbox-exit-with-parent') || process.env.KIOSKO_SANDBOX_EXIT_WITH_PARENT === '1' };
+            } catch (err) {
+              return refuse((err as Error).message);
+            }
+          })()
+        : null;
       const reg = await registry();
       const cfg = await config(reg, path);
-      const host = opt('--host') ?? cfg.server.host;
-      const port = Number(opt('--port') ?? cfg.server.port);
+      const host = sbStart?.host ?? opt('--host') ?? cfg.server.host;
+      const port = sbStart?.port ?? Number(opt('--port') ?? cfg.server.port);
       // The address it really listens on (--host/--port win over the config), for the first run's card on the panels.
       const shown = host === '0.0.0.0' || host === '::' || !host ? '127.0.0.1' : host;
       const editorAt = `http://${shown.includes(':') ? `[${shown}]` : shown}:${port}`;
       const rt = new Runtime(reg, cfg, { demo: flag('--demo'), welcome: true, editorUrl: editorAt, ...THREADS });
       if (flag('--demo')) console.log('demo mode: every widget shows sample data, nothing is read');
       rt.start();
-      const srv = startServer({ runtime: rt, host, port, configPath: path, version: VERSION });
+      const expires = sbStart?.ttlMs ? Date.now() + sbStart.ttlMs : null;
+      const srv = startServer({ runtime: rt, host, port, configPath: path, version: VERSION, ...(sandbox ? { sandbox: { ...sandbox, expires } } : {}) });
       const url = `http://${host === '0.0.0.0' ? '127.0.0.1' : host}:${port}/`;
       console.log(`Kiosko ${VERSION} — editor at ${url}`);
       console.log(`config: ${path}`);
+      let endSandbox = () => {};
+      if (sandbox && sbStart) {
+        const temporary = sandbox.created && !flag('--sandbox-keep');
+        for (const n of sbStart.notes) console.warn(n);
+        // In the log (which the console shows too, unless KIOSKO_QUIET) and so in the editor's Log.
+        const say = (l: string) => {
+          if (process.env.KIOSKO_QUIET === '1') console.log(l);
+          rt.log('sandbox', l);
+        };
+        for (const l of sandboxBanner(sandbox, { url, ttlMs: sbStart.ttlMs, exitWithParent: sbStart.exitWithParent, temporary })) say(l);
+        srv.server.once('listening', () => registerSandbox(sandbox.registry, { pid: process.pid, port, host, dir: sandbox.dir, started: Date.now(), expires, version: VERSION, temporary }));
+        const cancel = sandboxLifetime({
+          ttlMs: sbStart.ttlMs,
+          exitWithParent: sbStart.exitWithParent,
+          onEnd: (why) => {
+            say(`SANDBOX — ending: ${why}`);
+            stop();
+          },
+        });
+        let ended = false;
+        endSandbox = () => {
+          if (ended) return;
+          ended = true;
+          cancel();
+          unregisterSandbox(sandbox.registry, process.pid);
+          // Its own temp folder goes with it; a folder it was given stays (to look into).
+          if (temporary && basename(sandbox.dir).startsWith('kiosko-sandbox-')) rmSync(sandbox.dir, { recursive: true, force: true, maxRetries: 3 });
+        };
+        process.once('exit', endSandbox);
+        srv.server.once('error', (err) => {
+          console.error(`SANDBOX — cannot listen on ${host}:${port}: ${err.message}`);
+          rt.stop();
+          endSandbox();
+          process.exit(1);
+        });
+      }
       const locale = resolveLocale(cfg);
       if (hanScript(locale)) {
         const fonts = cjkFontStatus(locale);
@@ -140,11 +234,12 @@ async function main(): Promise<void> {
       const other = scriptFontStatus(locale);
       if (other && !other.ok) console.warn(`fonts: ${other.line}`);
       if (flag('--open')) openBrowser(url);
-      const stop = () => {
+      function stop() {
         rt.stop();
         srv.close();
+        endSandbox();
         process.exit(0);
-      };
+      }
       process.on('SIGINT', stop);
       process.on('SIGTERM', stop);
       return;
@@ -257,6 +352,11 @@ async function main(): Promise<void> {
       for (const s of cfg.screens) {
         const missing = s.pages.flatMap((p) => p.tiles.flatMap((t) => t.widgets.filter((w) => !reg.widget(w.type)).map((w) => w.type)));
         console.log(`screen  ${s.name} ${s.width}×${s.height} ${s.device.driver}${missing.length ? `  ✗ unknown widgets: ${[...new Set(missing)].join(', ')}` : ''}`);
+        // A Frame file screen's presence: whether its sender's panel is plugged in now (paused while it isn't).
+        if (s.device.driver === 'file' && s.device.presence) {
+          const p = await presenceNow(s.device.presence, s.device.dir);
+          console.log(`        presence ${p.state === 'absent' ? '✗ absent: paused' : p.state}: ${p.why}`);
+        }
       }
       return;
     }

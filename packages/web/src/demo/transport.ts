@@ -184,6 +184,7 @@ export const api: typeof httpApi = {
   },
   refreshWidget: async () => ({ ok: true }),
   discover: async () => ({ trcc: [], usb: [] }),
+  usbDevices: async () => ({ ok: true, devices: [] }),
   pairStart: async () => {
     throw notHere();
   },
@@ -195,6 +196,9 @@ export const api: typeof httpApi = {
     throw notHere();
   },
   remoteOta: async () => {
+    throw notHere();
+  },
+  remoteFirmware: async () => {
     throw notHere();
   },
   remoteLogs: async () => {
@@ -210,6 +214,7 @@ export const api: typeof httpApi = {
   },
   logs: async () => (await start()).logs(),
   choices: async (source: string, list: string) => (await start()).choices(source, list),
+  sourcePaths: async (source: string) => (await start()).sourcePaths(source),
   install: async () => {
     throw notHere();
   },

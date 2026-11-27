@@ -77,6 +77,14 @@ export interface RendererApi {
   stage(channels: StageChannel[]): Promise<void>;
   /** Values a source offers for an option (the server's GET /api/choices). */
   choices(source: string, list: string): Promise<ChoicesResult>;
+  /** A source's data paths for a context rule (the server's GET /api/source-paths). */
+  sourcePaths(source: string): Promise<SourcePathsResult>;
+}
+
+/** What GET /api/source-paths answers. */
+export interface SourcePathsResult {
+  paths: { path: string; value: string }[];
+  from: 'live' | 'demo' | 'none';
 }
 
 /** localStorage key of the demo's config ({ rev, config }): the editor demo keeps it, the 3D and front pages read it. */

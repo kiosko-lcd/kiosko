@@ -172,6 +172,8 @@ static cJSON *describe(bool full)
         cJSON_AddStringToObject(j, "part", esp_ota_get_running_partition()->label);
         // Optional fields (firmware 0.1.2): an older Kiosko ignores them.
         cJSON_AddNumberToObject(j, "bright", app_settings.bright);
+        // 0.1.4: the temporary dimming (-1: none); its presence tells Kiosko this firmware has it.
+        cJSON_AddNumberToObject(j, "dim", info.dim);
         cJSON_AddNumberToObject(j, "heapMin", heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL));
         cJSON_AddNumberToObject(j, "heapLargest", heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL));
         float t = power_temp_c();
@@ -348,7 +350,8 @@ static void ota_stop(sess_t *ss)
 
 static int on_set(sess_t *ss, cJSON *j)
 {
-    const cJSON *rot = cJSON_GetObjectItem(j, "rot"), *idle = cJSON_GetObjectItem(j, "idle"), *bright = cJSON_GetObjectItem(j, "bright");
+    const cJSON *rot = cJSON_GetObjectItem(j, "rot"), *idle = cJSON_GetObjectItem(j, "idle"), *bright = cJSON_GetObjectItem(j, "bright"),
+                *dim = cJSON_GetObjectItem(j, "dim");
     const char *id = jstr(j, "id"), *tz = jstr(j, "tz"), *lang = jstr(j, "lang");
     bool save = false, announce = false;
     if (cJSON_IsNumber(rot)) {
@@ -378,15 +381,25 @@ static int on_set(sess_t *ss, cJSON *j)
         app_settings.idle = idle->valueint;
         save = true;
     }
-    // Brightness (0..100), saved: it stays without Kiosko and after a restart.
+    // Brightness (0..100), saved: it stays without Kiosko and after a restart. The UI loop
+    // (main.c) shows it, unless Kiosko dims the screen for now.
     if (cJSON_IsNumber(bright) && bright->valuedouble >= 0 && bright->valuedouble <= 100) {
         int b = (int)(bright->valuedouble + 0.5);
-        display_set_brightness(b);
         if (b != app_settings.bright) {
             app_settings.bright = b;
             save = true;
             ESP_LOGI(TAG, "brightness %d %% from Kiosko", b);
         }
+    }
+    // Dimming (0.1.4): 0..100 for as long as this session lasts (night, a paused screen), -1 to
+    // go back to the saved brightness. Never saved: without Kiosko the screen lights up again.
+    if (cJSON_IsNumber(dim) && dim->valuedouble >= -1 && dim->valuedouble <= 100) {
+        int d = dim->valuedouble < 0 ? -1 : (int)(dim->valuedouble + 0.5);
+        if (d != info.dim && d < 0) ESP_LOGI(TAG, "dimming off");
+        else if (d != info.dim) ESP_LOGI(TAG, "dimmed to %d %% by Kiosko", d);
+        taskENTER_CRITICAL(&mux);
+        info.dim = d;
+        taskEXIT_CRITICAL(&mux);
     }
     if (save) settings_save();
     if (announce) net_announce();
@@ -539,6 +552,7 @@ static void run_session(sess_t *ss)
     info.online = true;
     info.last_seen_us = esp_timer_get_time();
     info.fps = 0;
+    info.dim = -1;
     taskEXIT_CRITICAL(&mux);
     ui_kick();
     ESP_LOGI(TAG, "Kiosko connected");
@@ -590,6 +604,7 @@ out:
     ota_stop(ss);
     taskENTER_CRITICAL(&mux);
     info.online = false;
+    info.dim = -1;
     taskEXIT_CRITICAL(&mux);
     led_release(LED_KIOSKO);
     ui_kick();
@@ -704,6 +719,7 @@ static void accept_task(void *arg)
 void session_start(void)
 {
     session_lock = xSemaphoreCreateMutex();
+    info.dim = -1;
     big = heap_caps_malloc(CONFIG_KS_RX_MAX, MALLOC_CAP_INTERNAL);
     assert(big);
     xTaskCreate(accept_task, "ks_accept", 4096, NULL, 5, NULL);

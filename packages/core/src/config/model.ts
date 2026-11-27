@@ -16,6 +16,8 @@ import type { TimeFormat } from '@kiosko/sdk/format';
 import { DEFAULT_WORKDAY, isWorkingAt, type Workday } from '@kiosko/sdk/workday';
 import { rescale, suggestGrid, type Gravity, type GridSpec } from '../layout/grid.ts';
 
+export * from './profiles.ts';
+
 export const CONFIG_VERSION = 1;
 
 /**
@@ -27,21 +29,46 @@ export const CONFIG_SCHEMA_ID = 'https://kioskolcd.dev/schema/v1/config.json';
 
 export type Rotation = 0 | 90 | 180 | 270;
 
+/**
+ * How a Frame file screen tells its panel is there (presence.ts). Several:
+ * absent if any says absent.
+ *
+ * - `usb`: a USB device with this vendor and product id (4 hex digits, e.g.
+ *   "0416" and "5408") and, with several identical panels, this serial, is
+ *   plugged in. Looked up read only (sysfs on Linux), never opened nor claimed:
+ *   the sender keeps the device. Without a serial the screen is only paused when
+ *   no such device is plugged in at all.
+ * - `heartbeat`: a file the sender touches while it drives the panel; absent when
+ *   missing or older than `maxAgeMs` (default 5000). Relative: inside `dir`.
+ * - `command`: exit 0 = present; run every `everyMs` (default 30000, at least 5000).
+ */
+export interface PresenceConfig {
+  usb?: { vendorId: string; productId: string; serial?: string };
+  heartbeat?: { path: string; maxAgeMs?: number };
+  command?: { argv: string[]; everyMs?: number };
+}
+
 export type DeviceConfig =
   | { driver: 'virtual' }
   /** `trcc serve` REST API (thermalright-trcc-linux). */
   | { driver: 'trcc'; url: string; tokenFile?: string; deviceKey?: string; serial?: string; keepalive?: boolean }
   /** Straight over USB from Node (LY panels, Trofeo Vision…): no trcc, no Python. */
   | { driver: 'usb'; serial?: string; keepalive?: number }
-  /** Writes `frame.jpg` atomically to `dir`; a sender (e.g. by USB serial) takes it to the panel. */
-  | { driver: 'file'; dir: string; format?: 'jpeg' | 'png'; quality?: number }
+  /**
+   * Writes `frame.jpg` atomically to `dir`; a sender (e.g. by USB serial) takes it to the panel.
+   * `presence`: how to tell the sender's panel is plugged in; while it isn't, the screen is
+   * paused (nothing painted). Without it the screen is always painted (see presence.ts).
+   */
+  | { driver: 'file'; dir: string; format?: 'jpeg' | 'png'; quality?: number; presence?: PresenceConfig }
   /**
    * A Kiosko remote screen on the network (firmware/esp32-screen, docs/remote-screen.md):
    * found by `uid` over mDNS (or at `host`), paired with `key` (secret), turned by the
    * screen itself to the screen's `rotate`. `brightness` (0-100, perceived) is pushed to
-   * screens that support it (firmware 0.1.2 on); unset, the screen keeps its own.
+   * screens that support it (firmware 0.1.2 on); unset, the screen keeps its own. `night`: a
+   * window (`HH:MM` local time, start after end across midnight) when the backlight goes to its
+   * own `brightness` (0 = off), for as long as it lasts (firmware 0.1.4 on; see remote/backlight.ts).
    */
-  | { driver: 'remote'; uid: string; id?: string; key?: string; host?: string; port?: number; brightness?: number }
+  | { driver: 'remote'; uid: string; id?: string; key?: string; host?: string; port?: number; brightness?: number; night?: { start: string; end: string; brightness: number } }
   /**
    * A browser (an old tablet, a phone) showing the screen full-screen over the LAN
    * (docs/browser-screens.md): it connects to the network-screens server with the
@@ -85,6 +112,12 @@ export interface WidgetInstance {
   takeOver?: boolean;
   /** Skipped in its tile's rotation while it has nothing to list. Missing = the widget's default (`WidgetDefinition.hideWhenEmpty`, false unless it says otherwise). */
   hideWhenEmpty?: boolean;
+  /**
+   * The profile of its shared sources it reads (`Config.sourceProfiles`), by
+   * id: news «Technology» instead of the general one. Missing, or a profile
+   * that isn't there: the default one (`sources["plugin/source"]`).
+   */
+  profile?: string;
 }
 
 /** Range and step of `WidgetInstance.zoom`. */
@@ -119,11 +152,60 @@ export interface Page {
   /** Time on screen when pages rotate. */
   durationMs?: number;
   when?: When;
+  /**
+   * Context rules (see context.ts): while one of them holds, this page takes
+   * the screen over from the normal rotation. Missing or empty: none.
+   */
+  showWhen?: ShowWhenRule[];
+  /**
+   * Whether a page with rules also takes its turn in the normal rotation.
+   * Missing: no (it only comes up when a rule holds); pages without rules
+   * always rotate.
+   */
+  inRotation?: boolean;
   grid: GridSpec;
   gravity: Gravity;
   background: { color?: string; image?: string };
   tiles: Tile[];
 }
+
+/** How a source's value is compared in a `showWhen` rule. */
+export type CompareOp = 'truthy' | 'falsy' | 'eq' | 'ne' | 'gt' | 'gte' | 'lt' | 'lte' | 'contains';
+export const COMPARE_OPS: readonly CompareOp[] = ['truthy', 'falsy', 'eq', 'ne', 'gt', 'gte', 'lt', 'lte', 'contains'];
+
+/**
+ * One rule of a page's `showWhen`. Each condition set must hold (AND); the
+ * page comes up when any of its rules holds (OR). A rule without conditions
+ * never holds.
+ */
+export interface ShowWhenRule {
+  /** What the editor says it means ("game open"); else it says what it checks. */
+  label?: string;
+  /** Higher wins when several pages want the screen. Default 0. */
+  priority?: number;
+  /** A program running: its process name, a glob (`steam*`, `obs*`), case-insensitive; several separated by commas. */
+  app?: string;
+  /** A source's value (`plugin/source`), at `path` in its data, compared with `op` and `value`. */
+  source?: string;
+  /** Dots and brackets into the source's data (`active`, `items[0].price`); empty: the data itself. */
+  path?: string;
+  /** Default: `eq` with a `value`, `truthy` without. */
+  op?: CompareOp;
+  value?: string | number | boolean;
+  /** A local time window, `HH:MM`; start after end goes across midnight. `days`: 0 = Sunday … 6, the days it starts on (missing: every day). */
+  time?: { start: string; end: string; days?: number[] };
+  /** A widget on this page is urgent (a meeting about to start, a permission waiting). */
+  urgent?: boolean;
+}
+
+/** Anti-flicker for context pages, in ms. */
+export interface ContextTiming {
+  /** Least time a context page stays once it came up (unless a higher priority one comes). */
+  minMs?: number;
+  /** How long it stays after its rule stopped holding, in case it holds again. */
+  holdMs?: number;
+}
+export const CONTEXT_TIMING: Required<ContextTiming> = { minMs: 20_000, holdMs: 10_000 };
 
 export interface InterludeSlot {
   id: string;
@@ -149,6 +231,8 @@ export interface Screen {
   pages: Page[];
   /** Pin one page (no rotation). Also settable at runtime from the API. */
   pinnedPage?: string;
+  /** How context pages (`Page.showWhen`) come and go here. Missing: `CONTEXT_TIMING`. */
+  context?: ContextTiming;
   interludes: InterludeSlot[];
   /** Anti burn-in: moves everything 1-2 px in a slow cycle. */
   pixelShift: { enabled: boolean; amplitude: number; periodMs: number };
@@ -263,8 +347,16 @@ export interface Config {
   location?: { latitude: number; longitude: number; name?: string };
   /** Work schedule, for `when: work|off` and for plugins (`ctx.workday`). */
   workday: Workday;
-  /** Global options of shared sources, by `plugin/source`. */
+  /** Global options of shared sources, by `plugin/source`: each one's default profile. */
   sources: Record<string, Record<string, unknown>>;
+  /**
+   * More named configurations of the sources that accept them
+   * (`SourceDefinition.profiles`), by `plugin/source` and then by profile id:
+   * `{ "news/deck": { "tech": { "name": "Technology", "options": { … } } } }`.
+   * Each is read on its own; a widget picks one with its `profile`. Missing:
+   * one configuration per source, the default one (see config/profiles.ts).
+   */
+  sourceProfiles?: Record<string, Record<string, SourceProfile>>;
   plugins: { disabled: string[] };
   screens: Screen[];
   server: { host: string; port: number };
@@ -272,6 +364,8 @@ export interface Config {
   homeassistant?: HomeAssistantLink;
   /** The network-screens server, for browsers showing a screen (see `NetworkScreens`). Absent = off. */
   networkScreens?: NetworkScreens;
+  /** Names scripts may push to (`POST /api/push/<name>`), each with its token (see docs/rest-webhook.md). Absent = none. */
+  push?: { hooks: PushHook[] };
   /** Each screen painting in a thread of its own (see `ThreadsMode`). Missing = `auto`. */
   threads?: ThreadsMode;
   /**
@@ -286,8 +380,27 @@ export interface Config {
   bootAnimation?: boolean;
 }
 
+/** One named configuration of a source (see `Config.sourceProfiles`). */
+export interface SourceProfile {
+  /** What the person calls it: «Technology», «Work account». */
+  name: string;
+  /** Its options, as `sources["plugin/source"]` has them for the default profile. */
+  options: Record<string, unknown>;
+}
+
 export type SetupState = 'pending' | 'done' | 'skipped';
 export const SETUP_STATES: readonly SetupState[] = ['pending', 'done', 'skipped'];
+
+/** A name scripts push to, `POST /api/push/<name>`, with the token that lets them. */
+export interface PushHook {
+  /** Lowercase letters, digits, `-` and `_`, up to 40: it goes in the URL. */
+  name: string;
+  /** Sent as `Authorization: Bearer <token>` (or `?token=`). Random, made by the editor. */
+  token: string;
+}
+
+/** A push name: lowercase letters, digits, `-` and `_`, 1 to 40, not starting with `-` or `_`. */
+export const PUSH_NAME_PATTERN = '^[a-z0-9][a-z0-9_-]{0,39}$';
 
 /**
  * How Kiosko shows up in Home Assistant: an MQTT broker (the one Home

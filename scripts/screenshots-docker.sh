@@ -32,6 +32,8 @@ docker run --rm \
     npm install --no-audit --no-fund >/tmp/install.log 2>&1 || { tail -30 /tmp/install.log; exit 1; }
     npm run dev:link >/dev/null
     npm run web:build >/dev/null
+    # Not --sandbox (docs/sandbox.md): the container is already a throwaway machine, and the
+    # shots must not show the editor's SANDBOX badge.
     export KIOSKO_HOME=/tmp/kiosko-home
     node --conditions=source packages/server/src/cli.ts start --config examples/showcase.json --demo --port 7420 >/tmp/server.log 2>&1 &
     for i in $(seq 60); do curl -sf http://127.0.0.1:7420/api/state >/dev/null && break; sleep 1; done

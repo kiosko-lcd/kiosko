@@ -70,6 +70,7 @@ const GUIDES: Record<string, ReadonlySet<string>> = {
   usb: new Set(['en', 'es', 'de', 'zh-Hant', 'zh-Hans']),
   'remote-screens': new Set(['en', 'es', 'de', 'zh-Hant', 'zh-Hans']),
   'browser-screens': new Set(['en', 'es', 'de', 'zh-Hant', 'zh-Hans']),
+  'rest-webhook': new Set(['en', 'es', 'de', 'zh-Hant', 'zh-Hans']),
 };
 const onSite = (lang: string, guide: string) => `https://kioskolcd.dev/${lang === 'en' ? '' : `${lang}/`}docs/${guide}/`;
 
@@ -98,6 +99,12 @@ export function remoteGuideUrl(): string {
 export function browserGuideUrl(): string {
   const lang = uiLanguage();
   return GUIDES['browser-screens']!.has(lang) ? onSite(lang, 'browser-screens') : 'https://github.com/kiosko-lcd/kiosko/blob/main/docs/browser-screens.md';
+}
+
+/** The guide to the JSON widgets and pushes from scripts (curl recipes), on the site, else on GitHub. */
+export function restGuideUrl(): string {
+  const lang = uiLanguage();
+  return GUIDES['rest-webhook']!.has(lang) ? onSite(lang, 'rest-webhook') : 'https://github.com/kiosko-lcd/kiosko/blob/main/docs/rest-webhook.md';
 }
 
 /** Whether the editor writes in Chinese, Japanese or Korean: full-width punctuation, no spaces around it. */

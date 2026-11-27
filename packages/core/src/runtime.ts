@@ -14,13 +14,17 @@ import { availableParallelism } from 'node:os';
 import { localize, themeById, validate, type AlertLevel, type PadEvent, type Theme } from '@kiosko/sdk';
 import { AlertBoard, type ActiveAlert, type PluginAlert } from './alerts.ts';
 import { MAX_CONCURRENT } from './animation.ts';
-import { composePage, composeWidget, type ComposeResult } from './compositor.ts';
-import { isWorking, widgetsOf, type Config, type Page, type Screen, type WidgetInstance } from './config/model.ts';
+import { composePage, composeWidget, type ComposeResult, tileState } from './compositor.ts';
+import { isWorking, widgetsOf, type Config, type Page, type Screen, type WidgetInstance, whenMatches } from './config/model.ts';
+import { ContextEngine, matchingPages, needsApps, ruleSources, type ContextEnv, type ContextPick, type ContextReason } from './context.ts';
+import { sourceKeysOf } from './config/profiles.ts';
 import { backgroundSources } from './config/sources.ts';
 import { FetchHost, SourceHub } from './data.ts';
 import { ledFor, openDevice, type Device, type DeviceStatus } from './devices.ts';
+import { ProcessWatch, systemProcesses, type ProcessLister } from './processes.ts';
 import { posixTz } from './remote/tz.ts';
 import { BrowserHub } from './browser/hub.ts';
+import { dimFor } from './remote/backlight.ts';
 import { resolveLocale, type LogFn } from './env.ts';
 import type { Registry } from './registry.ts';
 import { PLAY_IDLE_MS, ScreenRunner, TICK_MS, type FrameInfo, type Runner, type RunnerHost } from './screen-runner.ts';
@@ -83,6 +87,9 @@ export class PaintTimes {
 
 const round = (ms: number) => Math.round(ms * 10) / 10;
 
+/** How often the context pages' rules are looked at again without a change (time windows, urgency). */
+export const CONTEXT_EVERY_MS = 1_000;
+
 /** How often the plugins' alerts are asked again without a data change (for the ones that depend on the time). */
 export const ALERTS_EVERY_MS = 5_000;
 
@@ -119,6 +126,12 @@ export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
   private alertsSig = '';
   /** A plugin's `alerts` failing, said once per message. */
   private alertErrors = new Map<string, string>();
+  /** Context pages (context.ts): what holds, over time, per screen. */
+  private readonly contextEngine = new ContextEngine();
+  private contextDirty = true;
+  private contextAt = Number.NEGATIVE_INFINITY;
+  /** The running programs, listed only while an `app` rule needs them; null: none can be (the browser demo). */
+  private readonly apps: ProcessWatch | null;
 
   /**
    * The browsers showing screens (browser/hub.ts): the network-screens server
@@ -151,7 +164,8 @@ export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
   readonly editorUrl: string | undefined;
   /** When this runtime was made: the boot animation plays only soon after. */
   readonly startedAt = Date.now();
-  constructor(registry: Registry, config: Config, o: { demo?: boolean; threadEntry?: URL; welcome?: boolean; editorUrl?: string } = {}) {
+  /** `processes`: who lists the running programs for `app` rules (tests pass a fake); null: nobody. Default: this system's (none in demo mode). */
+  constructor(registry: Registry, config: Config, o: { demo?: boolean; threadEntry?: URL; welcome?: boolean; editorUrl?: string; processes?: ProcessLister | null; appsEveryMs?: number } = {}) {
     super();
     this.registry = registry;
     this.demoMode = !!o.demo;
@@ -162,6 +176,8 @@ export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
     this.config = config;
     this.hub = new SourceHub(registry, this.log, (type) => this.onData({ source: type }));
     this.fetches = new FetchHost(this.hub, this.log, (id) => this.onData({ instance: id }));
+    const lister = o.processes !== undefined ? o.processes : o.demo ? null : systemProcesses();
+    this.apps = lister ? new ProcessWatch(lister, (m) => this.log('context', m), o.appsEveryMs) : null;
   }
 
   log: LogFn = (scope, message) => {
@@ -184,11 +200,15 @@ export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
   dataOf(instanceId: string): unknown {
     return this.fetches.data(instanceId);
   }
-  sourceData(type: string): unknown {
-    return this.hub.data(type);
+  sourceData(key: string): unknown {
+    return this.hub.data(key);
   }
-  sourcesOf(types: readonly string[] | undefined): Record<string, unknown> {
-    return this.hub.pick(types);
+  sourcesOf(types: readonly string[] | undefined, profile?: string | null): Record<string, unknown> {
+    return this.hub.pick(types, this.config, profile);
+  }
+  /** The source keys a widget with `profile` reads (see config/profiles.ts). */
+  sourceKeys(types: readonly string[] | undefined, profile?: string | null): string[] {
+    return sourceKeysOf(this.config, types, profile, (t) => this.registry.source(t)).map(([, key]) => key);
   }
   paintTime(instance: string, type: string, ms: number, now: number): void {
     this.paintTimes.record(instance, type, ms, now, this.log);
@@ -205,6 +225,7 @@ export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
 
   private onData(change: { source?: string; instance?: string }): void {
     this.alertsDirty = true;
+    this.contextDirty = true;
     for (const r of this.runners.values()) r.dataChanged(change);
     this.emit('data', change);
   }
@@ -220,20 +241,25 @@ export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
     for (const r of this.runners.values()) {
       r.visibleIds.clear();
       r.sourceTypes.clear();
+      // A screen whose panel is missing needs nothing: what only it shows stops (presence.ts).
+      if (r.paused) continue;
       for (const { page, widget } of widgetsOf(r.screen)) {
         const def = this.registry.widget(widget.type);
         if (!def || widget.disabled) continue;
         instances.push({ inst: widget, def });
-        for (const s of def.sources ?? []) sources.add(s);
+        const keys = this.sourceKeys(def.sources, widget.profile);
+        for (const s of keys) sources.add(s);
         if (!r.page || r.page.id === page.id) {
           r.visibleIds.add(widget.id);
-          for (const s of def.sources ?? []) r.sourceTypes.add(s);
+          for (const s of keys) r.sourceTypes.add(s);
         }
       }
       for (const slot of r.screen.interludes) for (const s of this.registry.interlude(slot.type)?.sources ?? []) if (slot.enabled) sources.add(s);
     }
     // And those the user turned on to watch for alerts with no widget.
     for (const s of backgroundSources(this.config, (type) => this.registry.source(type))) sources.add(s);
+    // And those the context pages' rules read.
+    for (const s of ruleSources(this.config)) if (this.registry.source(s)) sources.add(s);
     this.paintTimes.retain(new Set(instances.map((i) => i.inst.id)));
     if (this.demoMode) {
       sources.clear();
@@ -266,6 +292,7 @@ export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
   apply(config: Config): void {
     this.config = config;
     this.alertsDirty = true;
+    this.contextDirty = true;
     this.registry.setDisabled(config.plugins.disabled);
     const ids = new Set(config.screens.map((s) => s.id));
     for (const [id, r] of this.runners) {
@@ -284,6 +311,7 @@ export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
     for (const s of config.screens) this.runners.get(s.id)?.device.setRotation?.(s.rotate);
     // A browser whose key went (revoked, paired again, its screen removed) is shown nothing more.
     this.browsers.recheck();
+    this.refreshPresence(false);
     this.refreshWanted();
     this.emit('config', config);
   }
@@ -316,8 +344,14 @@ export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
       else taken.close();
     }
     const r = thread ? new ThreadRunner(s, this, this.threadEntry ?? defaultThreadEntry(), device) : new ScreenRunner(s, this, device);
+    // A panel known to be missing from the start (a probe that answers at once): not one frame for it.
+    if (isPaused(r)) {
+      if (old?.paused) r.setPaused(true);
+      else this.setPaused(r, true);
+    }
     if (old) {
       if (old.pinned !== r.pinned) r.setPinned(old.pinned);
+      if (old.context) r.setContext(old.context);
       if (old.off) r.setOff(true);
       if (old.alert) r.setAlert(old.alert, Date.now());
     }
@@ -345,8 +379,11 @@ export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
       this.hub.tick(this.config, now);
       this.fetches.tick(this.config, now);
       if (this.alertsDirty || now - this.alertsAskedAt >= ALERTS_EVERY_MS) this.askAlerts(now);
+      this.refreshPresence();
       this.refreshAlerts(now);
+      this.refreshContext(now);
       await Promise.all([...this.runners.values()].map((r) => r.update(now)));
+      this.refreshBacklights(now);
     };
     this.timer = setInterval(() => void loop(), TICK_MS);
     this.apply(this.config);
@@ -363,6 +400,11 @@ export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
 
   lastFrame(screenId: string): FrameInfo | null {
     return this.runners.get(screenId)?.lastInfo ?? null;
+  }
+
+  /** The context page that has a screen now, and why (see context.ts). */
+  contextOf(screenId: string): ContextPick | null {
+    return this.runners.get(screenId)?.context ?? null;
   }
 
   pin(screenId: string, pageId: string | null): void {
@@ -390,6 +432,35 @@ export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
     if (!r || r.off === off) return;
     r.setOff(off);
     this.emit('screen', { screenId, off });
+  }
+
+  /**
+   * Pauses the screens whose panel is missing (`Device.presence` absent, see
+   * presence.ts) and resumes those whose panel is back: a paused screen
+   * composes, paints and encodes nothing, its interludes, animations and
+   * alerts wait, and the sources and fetches only it needed stop. A screen
+   * the user disabled stays as it is: presence is not `enabled`.
+   * `rewant`: start or stop the data at once (false: the caller does).
+   */
+  refreshPresence(rewant = true): void {
+    let changed = false;
+    for (const r of this.runners.values()) {
+      const pause = isPaused(r);
+      if (pause === r.paused) continue;
+      this.setPaused(r, pause);
+      changed = true;
+    }
+    if (!changed) return;
+    this.alertsDirty = true;
+    this.contextDirty = true;
+    if (rewant) this.refreshWanted();
+  }
+
+  private setPaused(r: Runner, pause: boolean): void {
+    r.setPaused(pause);
+    const why = r.device.presence?.why;
+    this.log(`screen:${r.screen.name}`, pause ? `panel not connected${why ? ` (${why})` : ''}: paused, painting nothing until it is back` : `panel connected${why ? ` (${why})` : ''}: painting again`);
+    this.emit('screen', { screenId: r.screen.id, paused: pause });
   }
 
   refreshWidget(instanceId: string): void {
@@ -420,23 +491,72 @@ export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
       const cfg = this.config;
       const done = new Set<string>();
       for (const r of this.runners.values()) {
-        if (!r.screen.enabled) continue;
+        if (!r.screen.enabled || r.paused) continue;
         for (const { widget } of widgetsOf(r.screen)) {
           const def = this.registry.widget(widget.type);
           if (!def?.alerts || widget.disabled || done.has(widget.id)) continue;
           done.add(widget.id);
           call(widget.type, () => {
             const options = def.options ? (validate(def.options, widget.options).value as Record<string, unknown>) : {};
-            return def.alerts!({ options, data: this.fetches.data(widget.id), sources: this.hub.pick(def.sources), now, working, workday: cfg.workday, ...(cfg.location ? { location: cfg.location } : {}) });
+            return def.alerts!({ options, data: this.fetches.data(widget.id), sources: this.hub.pick(def.sources, cfg, widget.profile), now, working, workday: cfg.workday, ...(cfg.location ? { location: cfg.location } : {}) });
           }, 'widget');
         }
       }
-      for (const { type, options } of this.hub.running()) {
+      // Every profile of a source is asked; the same alert id from two of them is one alert.
+      for (const { key, type, options } of this.hub.running()) {
         const def = this.registry.source(type);
-        if (def?.alerts) call(type, () => def.alerts!({ data: this.hub.data(type), options, now }), 'source');
+        if (def?.alerts) call(type, () => def.alerts!({ data: this.hub.data(key), options, now }), 'source');
       }
     }
     this.alerts.sync(out, now, resolveLocale(this.config));
+  }
+
+  /**
+   * Every screen gets the context page it must show now (context.ts), if
+   * any: at most every `CONTEXT_EVERY_MS`, or sooner when data, the running
+   * programs or the config changed.
+   */
+  refreshContext(now = Date.now()): void {
+    const wantApps = needsApps(this.config);
+    if (wantApps) this.apps?.poll(now, () => (this.contextDirty = true));
+    else this.apps?.stop();
+    if (!this.contextDirty && now - this.contextAt < CONTEXT_EVERY_MS) return;
+    this.contextDirty = false;
+    this.contextAt = now;
+    const working = this.working(now);
+    const env: ContextEnv = {
+      now,
+      apps: wantApps ? (this.apps?.names ?? null) : null,
+      source: (type) => this.hub.data(type),
+      urgent: (page) => this.urgentOn(page, now, working),
+    };
+    this.contextEngine.retain(new Set(this.config.screens.map((s) => s.id)));
+    for (const r of this.runners.values()) {
+      const has = r.screen.enabled && !r.paused && r.screen.pages.some((p) => p.showWhen?.length);
+      const pick = has ? this.contextEngine.step(r.screen, matchingPages(r.screen, env, working), now) : null;
+      const was = r.context;
+      r.setContext(pick);
+      if (pick?.page !== was?.page || pick?.leaving !== was?.leaving) {
+        if (pick?.page !== was?.page) this.log(`screen:${r.screen.name}`, pick ? `context page ${pick.page}: ${describeReason(pick.reason)}` : 'context page gone: back to the rotation');
+        this.emit('screen', { screenId: r.screen.id, context: pick });
+      }
+    }
+  }
+
+  /** The type of a widget on `page` that is urgent now (as its tile sees it), or null. */
+  private urgentOn(page: Page, now: number, working: boolean): string | null {
+    if (this.demoMode) return null;
+    const cfg = this.config;
+    for (const tile of page.tiles) {
+      for (const w of tile.widgets) {
+        const def = this.registry.widget(w.type);
+        if (!def?.urgent || w.disabled || !whenMatches(w.when, working)) continue;
+        const options = def.options ? (validate(def.options, w.options).value as Record<string, unknown>) : {};
+        const state = { options, data: this.fetches.data(w.id), sources: this.hub.pick(def.sources), now, working, workday: cfg.workday, ...(cfg.location ? { location: cfg.location } : {}) };
+        if (tileState(def, w, state).urgent) return w.type;
+      }
+    }
+    return null;
   }
 
   /** Every screen gets the alert it must show now, and the editor hears of any change. */
@@ -453,6 +573,14 @@ export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
     if (sig === this.alertsSig) return;
     this.alertsSig = sig;
     this.emit('alerts', list);
+  }
+
+  /** Remote screens' backlights: off while Kiosko shows them black, the night's brightness in their night window (remote/backlight.ts). */
+  refreshBacklights(now = Date.now()): void {
+    for (const r of this.runners.values()) {
+      if (!r.device.setDim) continue;
+      r.device.setDim(dimFor(r.screen, { sleeping: r.off || !!r.lastInfo?.sleeping, alert: !!r.alert }, now));
+    }
   }
 
   /** Alerts not seen nor expired, highest first; the snoozed ones too. */
@@ -521,6 +649,8 @@ export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
         name: r.screen.name,
         page: r.page?.id ?? null,
         pinned: r.pinned,
+        /** The context page that has the screen, and why (see context.ts); null: none. */
+        context: r.context,
         interlude: r.interlude?.type ?? null,
         /** The interlude is being played from the Play page. */
         playing: r.interlude?.play ?? false,
@@ -529,6 +659,10 @@ export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
         lastFrameAt: r.lastInfo?.at ?? null,
         sleeping: r.lastInfo?.sleeping ?? false,
         off: r.off,
+        /** Its panel is missing (presence.ts): nothing is painted for it until it is back. */
+        paused: r.paused,
+        /** What its driver says of the panel being there: present, absent, unknown (none: it can't tell). */
+        presence: r.device.presence ?? null,
         /** The alert that has the screen, if any. */
         alert: r.alert?.top.id ?? null,
         /** Real fps, paint and encode times. */
@@ -571,7 +705,7 @@ export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
       now: o.now ?? Date.now(),
       working: this.working(o.now ?? Date.now()),
       dataOf: (inst) => this.fetches.data(inst.id),
-      sourcesOf: (types) => this.hub.pick(types),
+      sourcesOf: (types, profile) => this.hub.pick(types, this.config, profile),
       preview: true,
       demo: o.demo ?? true,
       ...(o.forceShown ? { forceShown: o.forceShown } : {}),
@@ -607,6 +741,17 @@ function memory(): { heapBytes: number; rssBytes: number } {
   } catch {
     return { heapBytes: 0, rssBytes: 0 };
   }
+}
+
+/** A screen is paused when it is enabled and its panel is known to be missing. */
+function isPaused(r: Runner): boolean {
+  return r.screen.enabled && r.device.presence?.state === 'absent';
+}
+
+/** A context page's reason, in a line for the log. */
+function describeReason(r: ContextReason): string {
+  const parts = [r.app && `${r.app} running`, r.source && `${r.source}${r.path ? ` ${r.path}` : ''} = ${r.value}`, r.time && `time ${r.time}`, r.urgent && `${r.urgent} urgent`].filter(Boolean);
+  return [r.label, parts.join(', ')].filter(Boolean).join(': ');
 }
 
 /** Theme and language for a thumbnail; unset ones come from the config. */

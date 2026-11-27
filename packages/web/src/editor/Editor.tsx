@@ -4,9 +4,10 @@ import { newPage, type Page, type Screen } from '@kiosko/core/model';
 import { useEffect, useState } from 'preact/hooks';
 import { api } from '../api.ts';
 import { Icon } from '../icons.tsx';
-import { tr } from '../i18n.ts';
+import { t, tr } from '../i18n.ts';
 import { app, canRedo, canUndo, widgets, draftPage, draftScreen, edit, go, lastFrame, liveMode, page, pageId, redo, screen, selectedTile, showGrid, status, trueSize, undo } from '../store.ts';
 import { Inspector } from './Inspector.tsx';
+import { contextWhy } from './ContextRules.tsx';
 import { Library } from './Library.tsx';
 import { Stage } from './Stage.tsx';
 import { allTemplates, pageFromTemplate } from './templates.ts';
@@ -121,6 +122,7 @@ function PagesBar() {
   const st = status.value?.screens.find((x) => x.id === s.id);
   const onPanel = lastFrame.value[s.id]?.pageId ?? st?.page;
   const pinned = st?.pinned ?? s.pinnedPage ?? null;
+  const ctx = st?.context ?? null;
   const setScreen = (fn: (sc: typeof s) => void) => edit((d) => {
     const sc = draftScreen(d);
     if (sc) fn(sc);
@@ -138,6 +140,7 @@ function PagesBar() {
             <div class="page-card-meta">
               {onPanel === p.id && <span class="dot live" title={tr('pages.onPanel')} />}
               <span class="page-name">{p.name}</span>
+              {!!p.showWhen?.length && <span class={`ctx-badge ${ctx?.page === p.id ? 'on' : ''}`} title={ctx?.page === p.id ? t('ctx.fixedBy', { why: contextWhy(ctx) }) : tr('ctx.badge')}><Icon name="zap" size={11} /></span>}
               <span class="page-count">{p.tiles.length}</span>
               <button class={`icon-btn tiny ${pinned === p.id ? 'pinned' : ''}`} title={pinned === p.id ? tr('pages.unpin') : tr('pages.pin')} onClick={(e) => {
                 e.stopPropagation();
@@ -180,10 +183,17 @@ function PagesBar() {
           </button>
         </>
       )}
-      {s.pages.length > 1 && (
-        <span class="muted small">
-          <Icon name={pinned ? 'pin' : 'repeat'} size={12} /> {pinned ? s.pages.find((p) => p.id === pinned)?.name : tr('pages.rotation')}
+      {ctx && !pinned ? (
+        <span class={`ctx-status small ${ctx.leaving ? 'leaving' : ''}`} title={ctx.leaving ? tr('ctx.leaving') : undefined}>
+          <Icon name="zap" size={12} /> <b>{s.pages.find((p) => p.id === ctx.page)?.name ?? ctx.page}</b> · {t('ctx.fixedBy', { why: contextWhy(ctx) })}
+          {ctx.leaving && <em class="pill">{tr('ctx.leaving')}</em>}
         </span>
+      ) : (
+        s.pages.length > 1 && (
+          <span class="muted small">
+            <Icon name={pinned ? 'pin' : 'repeat'} size={12} /> {pinned ? s.pages.find((p) => p.id === pinned)?.name : tr('pages.rotation')}
+          </span>
+        )
       )}
     </div>
   );

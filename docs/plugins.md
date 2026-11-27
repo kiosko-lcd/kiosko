@@ -365,6 +365,42 @@ choices: {
 Fields ask for one with `choices: { source: 'homeassistant/states', list:
 'entities' }`. Keep them quick: they run when the editor opens a form.
 
+### Profiles: several configurations of one source
+
+A source whose options make sense more than once (two GitHub accounts, news
+feeds by topic, a work and a personal calendar) declares `profiles: true`.
+The user then keeps named **profiles** of it next to the default
+configuration, and each widget picks one in its inspector (Kiosko adds the
+picker and the instance's `profile`; the widget declares nothing):
+
+```js
+export const deck = defineSource({
+  id: 'deck',
+  name: 'News deck',
+  profiles: true,                       // Kiosko 0.2.12+; older ones ignore it
+  // for a plugin that must still type-check against an older SDK: ...({ profiles: true } as {}),
+  options: t.object({ feeds: t.list(feedItem) }),
+  async read(ctx) {
+    // ctx.profile: undefined for the default profile, else its id. Keep files apart with it.
+    const file = join(ctx.cacheDir, ctx.profile ? `deck-${ctx.profile}.json` : 'deck.json');
+    …
+  },
+});
+```
+
+Each profile runs as a source of its own (`news/deck#tech` in the status and
+the logs): its own options, data, interval, errors, background switch and
+alerts. A widget still reads `ctx.sources['news/deck']` and gets the data of
+its profile, in `render`, `fetch` and `alerts`; `choices` are made from the
+data of the profile the form is for. Two profiles may read the same thing
+(the same feed, the same API): if that is expensive, share it inside the
+plugin (a short cache by URL), because Kiosko reads each profile on its own.
+
+Leave `profiles` off for sources that read something unique to the machine
+(a battery, a USB sensor, the local agents): there is nothing to configure
+twice. See [Data sources and profiles](data-sources.md) for what the user
+sees.
+
 ### Talking to APIs
 
 `createHttp` gives every plugin the same polite client:
@@ -664,6 +700,12 @@ problems (and plugins refused for another plugin API or system), and a widget
 that throws shows its error in its tile without breaking the rest of the frame.
 Activity names a widget that takes over 50 ms to paint, and the inspector shows
 its paint time: keep heavy work in `fetch` or a source, `render` only paints.
+
+To try it without touching the Kiosko you use every day, run a
+[sandbox](sandbox.md): `KIOSKO_SANDBOX=/tmp/try kiosko plugins link .`, then
+`KIOSKO_SANDBOX=/tmp/try kiosko start --port 37491` (and `kiosko plugins dev`
+with the same variable). Its `cacheDir`, `dataDir`, `~` and temp folder are
+all inside `/tmp/try`, and it ends by itself after two hours.
 
 ## Publishing
 

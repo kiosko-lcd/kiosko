@@ -14,6 +14,7 @@ import { closest, formatPath, toPointer, validateJson, type JsonIssue, type Json
 import { zoomOf, type Config } from './model.ts';
 import { normalize } from './normalize.ts';
 import { configSchema, TYPE_PATTERN } from './schema.ts';
+import { acceptsProfiles, profilesOf } from './profiles.ts';
 import { sourceOptionsField } from './sources.ts';
 
 export interface ConfigReport {
@@ -84,6 +85,9 @@ export function checkConfig(raw: unknown, plugins: readonly PluginDefinition[]):
     s.pages.forEach((p, pi) => {
       const pp: PathSeg[] = [...sp, 'pages', pi];
       if (!isObj(p) || !Array.isArray(p.tiles)) return;
+      p.showWhen?.forEach((r, ri) => {
+        if (r.source && !sources.has(r.source)) warnings.push(issue([...pp, 'showWhen', ri, 'source'], `no installed plugin provides the source ${JSON.stringify(r.source)}, so this rule never holds${near(r.source, [...sources.keys()])}`));
+      });
       repeated(p.tiles, [...pp, 'tiles'], 'tile', errors);
       const grid = validGrid(p.grid) ? p.grid : null;
       p.tiles.forEach((t, ti) => {
@@ -123,6 +127,11 @@ export function checkConfig(raw: unknown, plugins: readonly PluginDefinition[]):
             }
           }
           if (def.options) unknownOptions(def.options, w.options, [...wp, 'options'], warnings, w.type);
+          if (typeof w.profile === 'string') {
+            const own = (def.sources ?? []).filter((x) => acceptsProfiles(sources.get(x)));
+            if (!own.length) warnings.push(issue([...wp, 'profile'], `${w.type} reads no source with profiles, so it is ignored`, w.type));
+            else if (!own.some((x) => Object.hasOwn(profilesOf(cfg, x), w.profile!))) warnings.push(issue([...wp, 'profile'], `no profile ${JSON.stringify(w.profile)} in sourceProfiles[${JSON.stringify(own[0])}], so it reads the default one${near(w.profile, own.flatMap((x) => Object.keys(profilesOf(cfg, x))))}`, w.type));
+          }
         });
       });
     });
@@ -141,6 +150,19 @@ export function checkConfig(raw: unknown, plugins: readonly PluginDefinition[]):
       if (field) unknownOptions(field, opts, ['sources', type], warnings, type);
       else if (!def && new RegExp(TYPE_PATTERN).test(type)) warnings.push(issue(['sources', type], `no installed plugin provides this source, so it is ignored${near(type, [...sources.keys()])}`));
     }
+  }
+  for (const [type, list] of Object.entries(cfg.sourceProfiles ?? {})) {
+    const def = sources.get(type);
+    if (!def) {
+      if (new RegExp(TYPE_PATTERN).test(type)) warnings.push(issue(['sourceProfiles', type], `no installed plugin provides this source, so its profiles are ignored${near(type, [...sources.keys()])}`));
+      continue;
+    }
+    if (!acceptsProfiles(def)) {
+      warnings.push(issue(['sourceProfiles', type], 'this source has no profiles (one configuration only), so these are ignored'));
+      continue;
+    }
+    const field = sourceOptionsField(def);
+    for (const [id, p] of Object.entries(list)) if (field) unknownOptions(field, p.options, ['sourceProfiles', type, id, 'options'], warnings, type);
   }
   if (Array.isArray(cfg.plugins.disabled)) {
     cfg.plugins.disabled.forEach((id, i) => {

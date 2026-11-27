@@ -3,11 +3,13 @@ import { typed } from '../forms/ime.ts';
 import { useState } from 'preact/hooks';
 import { ZOOM, type Tile, type When } from '@kiosko/core/model';
 import { api } from '../api.ts';
-import { DurationInput, SchemaForm, Toggle } from '../forms/SchemaForm.tsx';
+import { ChoicesProfile, DurationInput, SchemaForm, Toggle } from '../forms/SchemaForm.tsx';
 import { Icon } from '../icons.tsx';
 import { clock, t, tr } from '../i18n.ts';
-import { app, draftPage, draftTile, edit, page, screen, selectedTile, selectedWidget, status, tile, widget, widgets } from '../store.ts';
+import { app, config, draftPage, draftTile, edit, page, screen, selectedTile, selectedWidget, status, tile, widget, widgets, draftScreen } from '../store.ts';
+import { ProfilePicker, keyFor, profileSourceOf } from './Profiles.tsx';
 import { deleteTile, duplicateTile } from './Stage.tsx';
+import { ContextRules } from './ContextRules.tsx';
 
 export function Inspector() {
   const t = tile.value;
@@ -68,6 +70,10 @@ function PageInspector() {
           </>
         )}
       </section>
+      <ContextRules page={p} screen={s} set={set} setScreen={(fn, key) => edit((d) => {
+        const sc = draftScreen(d);
+        if (sc) fn(sc);
+      }, key)} />
     </div>
   );
 }
@@ -85,6 +91,8 @@ function TileInspector({ t }: { t: Tile }) {
     if (wi) fn(wi);
   }, key);
   const p = page.value!;
+  // The source whose profile it reads, when it reads one that has profiles.
+  const profiled = w ? profileSourceOf(w.type) : undefined;
 
   return (
     <div class="insp">
@@ -182,10 +190,25 @@ function TileInspector({ t }: { t: Tile }) {
             {tr('inspector.title')}
           </label>
           <input id="w-title" class="input" placeholder={tr('inspector.titlePh')} value={w.title ?? ''} {...typed((text) => setWidget((x) => (x.title = text || undefined), `title-${w.id}`))} />
+          {profiled && (
+            <ProfilePicker
+              s={profiled}
+              widgetId={w.id}
+              profile={w.profile}
+              onPick={(id) =>
+                setWidget((x) => {
+                  if (id) x.profile = id;
+                  else delete x.profile;
+                })
+              }
+            />
+          )}
           {info?.options && Object.keys(info.options.properties ?? {}).length > 0 && (
             <>
               <h3>{tr('inspector.options')}</h3>
-              <SchemaForm key={w.id} schema={info.options} value={w.options} onChange={(v, k) => setWidget((x) => (x.options = v), `opt-${w.id}-${k}`)} idPrefix={`o-${w.id}`} />
+              <ChoicesProfile.Provider value={w.profile}>
+                <SchemaForm key={w.id} schema={info.options} value={w.options} onChange={(v, k) => setWidget((x) => (x.options = v), `opt-${w.id}-${k}`)} idPrefix={`o-${w.id}`} />
+              </ChoicesProfile.Provider>
             </>
           )}
           <h3>{tr('inspector.when')}</h3>
@@ -210,7 +233,7 @@ function TileInspector({ t }: { t: Tile }) {
           )}
           {/* Edge-to-edge scenes fill their tile whatever the zoom: offered only to reset one. */}
           {(info?.chrome !== 'bare' || (w.zoom ?? 1) !== 1) && <ZoomInput value={w.zoom ?? 1} onChange={(v) => setWidget((x) => (x.zoom = v === 1 ? undefined : v), `zoom-${w.id}`)} />}
-          <DataStatus id={w.id} sources={info?.sources ?? []} hasFetch={!!info?.hasFetch} />
+          <DataStatus id={w.id} sources={info?.sources ?? []} profile={w.profile} hasFetch={!!info?.hasFetch} />
           {info?.hasFetch && (
             <>
               <label class="field-label">{tr('inspector.refreshEvery')}</label>
@@ -290,14 +313,18 @@ export function WidgetPicker({ onPick, onCancel }: { onPick: (type: string) => v
 const SLOW_PAINT_MS = 50;
 
 /** Where the widget's data stands (own fetch and shared sources) and how long it takes to paint, live from the server. */
-function DataStatus({ id, sources, hasFetch }: { id: string; sources: string[]; hasFetch: boolean }) {
+function DataStatus({ id, sources, profile, hasFetch }: { id: string; sources: string[]; profile: string | undefined; hasFetch: boolean }) {
   if (app.value?.demo) return hasFetch || sources.length ? <div class="data-status demo"><Icon name="flask-conical" size={13} /> {tr('data.demo')}</div> : null;
   const st = status.value;
   const paint = st?.paint?.find((p) => p.instance === id);
   if (!hasFetch && !sources.length && !paint) return null;
   const rows = [
     ...(hasFetch ? [st?.fetches.find((f) => f.id === id) ?? { type: tr('data.own'), ok: true, error: null, updatedAt: null }] : []),
-    ...sources.map((s) => st?.sources.find((x) => x.type === s) ?? { type: s, ok: true, error: null, updatedAt: null }),
+    // Each source under the key the widget reads it (its profile's, see Profiles.tsx).
+    ...sources.map((s) => {
+      const key = keyFor(config.value!, s, profile);
+      return st?.sources.find((x) => (x.key ?? x.type) === key) ?? { type: key, ok: true, error: null, updatedAt: null };
+    }),
   ];
   const slow = !!paint && paint.avgMs > SLOW_PAINT_MS;
   return (
@@ -305,7 +332,7 @@ function DataStatus({ id, sources, hasFetch }: { id: string; sources: string[]; 
       {rows.map((r) => (
         <div class={`data-row ${r.ok ? (r.updatedAt ? 'ok' : 'wait') : 'bad'}`} title={r.error ?? ''}>
           <span class="dot" />
-          <code>{'type' in r ? r.type : ''}</code>
+          <code>{'key' in r && r.key ? r.key : 'type' in r ? r.type : ''}</code>
           <span>{!r.ok ? r.error : r.updatedAt ? t('data.updated', { time: clock(r.updatedAt) }) : tr('data.waiting')}</span>
         </div>
       ))}

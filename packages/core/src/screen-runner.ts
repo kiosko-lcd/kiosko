@@ -12,14 +12,14 @@ import { alertIntensity, alertStepMs, paintAlert } from './alert-paint.ts';
 import type { ShownAlert } from './alerts.ts';
 import { AnimationScheduler, type PlayablePlan } from './animation.ts';
 import { composePage, rotateCanvas, type Animatable, type ComposeResult, type TileCache } from './compositor.ts';
-import { legibleCjkPx, paintTurn, whenMatches, type Config, type Page, type Screen } from './config/model.ts';
+import { legibleCjkPx, paintTurn, type Config, type Page, type Screen } from './config/model.ts';
+import { choosePage, type ContextPick } from './context.ts';
 import { encodeFor, type Device } from './devices.ts';
 import { CANVAS, baseContext, kit, resolveLocale, type LogFn } from './env.ts';
 import { offersSetup } from './config/starter.ts';
 import { BOOT_FPS, BOOT_MS, CARD_EVERY_MS, CARD_MS, FIRST_CARD_MS, cardUrl, paintBoot, paintCard, welcomeDue } from './welcome.ts';
 import { registerFonts, setFontLocale } from './fonts.ts';
 import { FrameStats, type ScreenFrameStats } from './frame-stats.ts';
-import { pickPage } from './layout/stack.ts';
 import type { Registry } from './registry.ts';
 
 export interface FrameInfo {
@@ -122,8 +122,8 @@ export interface RunnerHost {
   working(now: number): boolean;
   /** Data of a widget instance's own fetch. */
   dataOf(instanceId: string): unknown;
-  /** Latest data of shared sources. */
-  sourcesOf(types: readonly string[] | undefined): Record<string, unknown>;
+  /** Latest data of shared sources, by type: of the source profile `profile` where it has one (see config/profiles.ts). */
+  sourcesOf(types: readonly string[] | undefined, profile?: string | null): Record<string, unknown>;
   /** How long a widget took to paint on the panel. */
   paintTime(instance: string, type: string, ms: number, now: number): void;
   /** A frame painted, for the editor. */
@@ -141,7 +141,11 @@ export interface Runner {
   readonly screen: Screen;
   readonly page: Page | null;
   readonly pinned: string | null;
+  /** The context page that has the screen now, and why (see context.ts); null: none. */
+  readonly context: ContextPick | null;
   readonly off: boolean;
+  /** Its panel is not there (presence.ts): nothing is painted until it is back. */
+  readonly paused: boolean;
   readonly interlude: { type: string; play: boolean } | null;
   readonly animating: string | null;
   readonly alert: ShownAlert | null;
@@ -161,7 +165,10 @@ export interface Runner {
   /** The panel, for whoever paints the screen next; closing this runner leaves it open. */
   takeDevice(): Device;
   setPinned(pageId: string | null): void;
+  setContext(pick: ContextPick | null): void;
   setOff(off: boolean): void;
+  /** Pauses the screen while its panel is missing, or resumes it with a fresh, full frame. */
+  setPaused(paused: boolean): void;
   playNow(slotId: string, play?: boolean): Promise<void>;
   stopInterlude(): void;
   press(e: PadEvent): boolean;
@@ -172,17 +179,26 @@ export class ScreenRunner implements Runner {
   device: Device;
   private deviceKey: string;
   private last: Buffer | null = null;
+  /**
+   * What `last` shows, when it was a page painted all from the tile cache or
+   * a black one (see `ComposeResult.sameAs`): a frame with the same look is
+   * neither encoded nor sent again. Only good while `last` is that frame.
+   */
+  private lastLook: { look: string; frame: Buffer } | null = null;
   lastInfo: FrameInfo | null = null;
   dirty = true;
   private nextAt = 0;
   private busy = false;
   pinned: string | null = null;
+  context: ContextPick | null = null;
   private playedSlot = new Map<string, number>();
   interlude: { slotId: string; type: string; stopAt: number; play: boolean } | null = null;
   /** The buttons of whoever plays the interlude now (Play page). */
   private pad: { send(e: PadEvent): void } | null = null;
   /** Switched off from outside (Home Assistant, the API): black until switched on. Not saved. */
   off = false;
+  /** Its panel is missing (presence.ts): no composing, painting nor encoding until it is back. */
+  paused = false;
   /** An interlude asked for now (the editor, Home Assistant): played as soon as the screen is free. */
   private wanted: string | null = null;
   private wantedPlay = false;
@@ -268,9 +284,7 @@ export class ScreenRunner implements Runner {
   }
 
   currentPage(now: number): Page | null {
-    const working = this.rt.working(now);
-    const pages = this.screen.pages.filter((p) => whenMatches(p.when, working));
-    return pickPage(pages, now, this.pinned);
+    return choosePage(this.screen, now, this.rt.working(now), this.pinned, this.context?.page ?? null);
   }
 
   /**
@@ -294,7 +308,7 @@ export class ScreenRunner implements Runner {
   }
 
   async update(now: number): Promise<void> {
-    if (this.busy || !this.screen.enabled) return;
+    if (this.busy || !this.screen.enabled || this.paused) return;
     this.busy = true;
     try {
       // An alert is above everything: pages, interludes, animations, sleep.
@@ -352,7 +366,7 @@ export class ScreenRunner implements Runner {
         now,
         working: this.rt.working(now),
         dataOf: (inst) => this.rt.dataOf(inst.id),
-        sourcesOf: (types) => this.rt.sourcesOf(types),
+        sourcesOf: (types, profile) => this.rt.sourcesOf(types, profile),
         log: this.rt.log,
         demo: this.rt.demoMode,
         cache: this.tiles,
@@ -377,6 +391,12 @@ export class ScreenRunner implements Runner {
       this.nextAt = now + 60_000;
     }
     const sleeping = this.off || !!(screen.sleepWhenIdle && result?.idle);
+    // The same picture the panel already has (every tile from the cache, or
+    // black again): no encoding, no sending, nothing new for the editor.
+    // A page whose widgets didn't change used to be encoded every time some
+    // data of the page changed, only to find the JPEG equal and drop it.
+    const look = sleeping || !result ? JSON.stringify(['black', canvas.width, canvas.height]) : result.sameAs;
+    if (look !== null && this.last && this.lastLook?.look === look && this.lastLook.frame === this.last) return;
     if (sleeping || !result) {
       const g = canvas.getContext('2d');
       g.save();
@@ -390,9 +410,11 @@ export class ScreenRunner implements Runner {
     const out = await this.fit(canvas, kind, screen.jpegQuality, screen, performance.now() - t0);
     this.lastInfo = { screenId: screen.id, pageId: page?.id ?? null, at: now, image: lazyJpeg(canvas, paintTurn(screen)), tiles: result?.tiles ?? [], interlude: null, sleeping };
     this.rt.frame(this.lastInfo);
-    if (this.last?.equals(out)) return;
-    this.last = out;
-    await this.send(out);
+    if (!this.last?.equals(out)) {
+      this.last = out;
+      await this.send(out);
+    }
+    this.lastLook = look === null ? null : { look, frame: this.last };
   }
 
   /**
@@ -481,7 +503,7 @@ export class ScreenRunner implements Runner {
     const canvas = CANVAS.createCanvas(screen.width, screen.height);
     const g = canvas.getContext('2d');
     const start = Date.now();
-    for (let i = 0; i < frames && !this.alert && !this.closed; i++) {
+    for (let i = 0; i < frames && !this.alert && !this.closed && !this.paused; i++) {
       const ms = Math.min(BOOT_MS, Date.now() - start);
       if (ms >= BOOT_MS) break;
       const t0 = performance.now();
@@ -529,7 +551,8 @@ export class ScreenRunner implements Runner {
   private async maybeInterlude(now: number, force?: string, play = false): Promise<boolean> {
     const due = this.screen.interludes.find((s) => {
       if (force) return s.id === force;
-      if (!s.enabled || s.everyMs < 60_000) return false;
+      // A context page (a game, a call) is not interrupted by a scheduled one.
+      if (!s.enabled || s.everyMs < 60_000 || this.context) return false;
       const slot = Math.floor(now / s.everyMs);
       // Only during the first minute of its slot, and once per slot.
       return now - slot * s.everyMs < 60_000 && this.playedSlot.get(s.id) !== slot;
@@ -577,7 +600,7 @@ export class ScreenRunner implements Runner {
     let start = Date.now();
     // maxSeconds is a time: a screen slower than the interlude's fps plays fewer frames, not longer.
     const until = playing ? Infinity : Date.now() + due.maxSeconds * 1000;
-    for (let i = 0; i < frames && this.interlude && !this.alert; i++) {
+    for (let i = 0; i < frames && this.interlude && !this.alert && !this.paused; i++) {
       if (Date.now() >= until) break;
       if (playing && Date.now() - lastPress > this.rt.playIdleMs) {
         this.rt.log(`screen:${this.screen.name}`, `${due.type}: nobody playing, back to the pages`);
@@ -629,7 +652,7 @@ export class ScreenRunner implements Runner {
    * `Runtime.maxConcurrent` (one by default); the rest wait their turn.
    */
   private async maybeAnimate(now: number): Promise<void> {
-    if (!this.screen.enabled || this.closed || this.lastInfo?.sleeping || !this.animatable.length) return;
+    if (!this.screen.enabled || this.closed || this.paused || this.lastInfo?.sleeping || !this.animatable.length) return;
     const due = this.scheduler.next(this.animatable, now, this.screen.maxFps, this.rt.maxConcurrent);
     if (!due.length) return;
     this.animating = due.map((d) => d.animatable.type).join(', ');
@@ -666,7 +689,7 @@ export class ScreenRunner implements Runner {
     // A hold has a meaning for a single animation: with several it is ignored.
     const hold = items.length === 1 ? items[0]!.play.hold : undefined;
     // An alert stops any of them, interruptible or not.
-    const abort = () => this.closed || !!this.alert || (interruptible && this.dirty) || !this.screen.enabled;
+    const abort = () => this.closed || !!this.alert || this.paused || (interruptible && this.dirty) || !this.screen.enabled;
     this.dirty = false;
     // The page as it was at the start: same clock, same data for every frame, so
     // only the animated tiles move (a changing clock would flicker) and, if it
@@ -699,9 +722,9 @@ export class ScreenRunner implements Runner {
           if (!memoData.has(inst.id)) memoData.set(inst.id, this.rt.dataOf(inst.id));
           return memoData.get(inst.id);
         },
-        sourcesOf: (types) => {
-          const k = JSON.stringify(types ?? []);
-          if (!memoSources.has(k)) memoSources.set(k, this.rt.sourcesOf(types));
+        sourcesOf: (types, profile) => {
+          const k = JSON.stringify([types ?? [], profile ?? null]);
+          if (!memoSources.has(k)) memoSources.set(k, this.rt.sourcesOf(types, profile));
           return memoSources.get(k)!;
         },
         log: this.rt.log,
@@ -750,7 +773,7 @@ export class ScreenRunner implements Runner {
    * used to be dropped without a word).
    */
   async playNow(slotId: string, play = false): Promise<void> {
-    if (this.off || this.alert) return;
+    if (this.off || this.alert || this.paused) return;
     this.wanted = slotId;
     this.wantedPlay = play;
     if (this.busy) return;
@@ -778,9 +801,32 @@ export class ScreenRunner implements Runner {
     this.dirty = true;
   }
 
+  setContext(pick: ContextPick | null): void {
+    if (pick?.page !== this.context?.page) this.dirty = true;
+    this.context = pick;
+  }
+
   setOff(off: boolean): void {
     this.off = off;
     if (off) this.stopInterlude();
+    this.dirty = true;
+  }
+
+  setPaused(paused: boolean): void {
+    if (paused === this.paused) return;
+    this.paused = paused;
+    if (paused) {
+      // What plays stops at its next frame; nothing is asked for meanwhile.
+      this.stopInterlude();
+      this.wanted = null;
+      this.animatable = [];
+      return;
+    }
+    // Back: whatever the panel shows (its logo, an old picture) is replaced by a full frame painted from scratch.
+    this.tiles.clear();
+    this.last = null;
+    this.alertKey = null;
+    this.cardKey = null;
     this.dirty = true;
   }
 

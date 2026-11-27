@@ -24,6 +24,93 @@ bytes y descarta **sin avisar** lo que pase de ahí; Kiosko lee la confirmación
 del panel y lo dice en el estado de la pantalla («el panel descartó un
 fotograma de … KB: baja la calidad JPEG»).
 
+## Paneles desenchufados: su pantalla se pausa (presencia)
+
+Una pantalla sin panel gasta CPU para nadie: su página se compone, sus widgets
+se pintan y sus fotogramas se codifican igual. Por eso Kiosko **pausa la
+pantalla cuyo panel falta**: no se compone, pinta ni codifica nada para ella,
+sus interludios, animaciones y alertas esperan, y las fuentes y consultas que
+solo ella enseña se paran. Se vuelve a buscar de forma barata (a los 2 s, 4 s,
+8 s… hasta cada 30 s, y al momento con un evento de conexión USB: inotify en
+`/dev/bus/usb` en Linux, los eventos hotplug de libusb en el resto) y la
+pantalla **vuelve con un fotograma nuevo y completo** en cuanto vuelve el
+panel. El editor dice *Panel desconectado · en pausa (ahorrando CPU)* y
+`kiosko doctor` enseña la presencia de cada pantalla de tipo Fichero de
+fotograma. Una pantalla que apagaste sigue apagada: la presencia no es su
+interruptor.
+
+- Conexión **USB**: automática. El panel falta cuando no hay enchufado ningún
+  panel LY con su `serial` (ninguno en absoluto, si no tiene). Se mira sin abrirlo.
+- **Pantalla remota**: automática. Desconectada (sin sesión ni anuncio mDNS) o
+  sin emparejar cuenta como ausente; su anuncio la trae de vuelta al momento.
+- **Fichero de frame**: Kiosko no ve el panel que lleva su emisor, así que
+  hay que decirle cómo con `presence` (sin ello la pantalla se pinta siempre,
+  como hasta ahora):
+
+```json
+"device": {
+  "driver": "file",
+  "dir": "$XDG_RUNTIME_DIR/kiosko/left",
+  "presence": {
+    "usb": { "vendorId": "0416", "productId": "5408", "serial": "202592047DAE" },
+    "heartbeat": { "path": ".heartbeat", "maxAgeMs": 5000 }
+  }
+}
+```
+
+- `usb`: hay enchufado un dispositivo USB con ese fabricante y producto (y
+  número de serie). Solo lectura: en Linux desde sysfs, sin abrir el
+  dispositivo; en el resto libusb lo abre un instante para leer el número de
+  serie, una vez por conexión, y nunca lo reclama. El emisor sigue con el
+  panel sin enterarse.
+- `heartbeat`: un fichero que el emisor toca mientras lleva el panel; si falta
+  o tiene más de `maxAgeMs` (5000 por defecto), el panel falta. Una ruta
+  relativa va dentro de `dir`. El emisor de `contrib/usb-sender` toca
+  `.heartbeat` en la carpeta que enseña cada segundo mientras su panel está
+  conectado.
+- `command`: `{ "argv": ["lsusb", "-d", "0416:5408"], "everyMs": 30000 }`: un
+  programa (sin shell) que sale con 0 mientras el panel está; se ejecuta cada
+  `everyMs` (como poco cada 5 s) y se mata a los 10 s. Al importar una config
+  aparece en la revisión, como todo valor que ejecuta programas.
+
+Con varias comprobaciones, falta si **alguna** dice que falta. Una que no
+puede saberlo (sin libusb, un gemelo cuyo número de serie no se lee) dice
+*desconocido*, y esas pantallas se pintan como siempre.
+
+En el editor: **Pantallas → (la pantalla) → Fichero de frame → Pausar
+cuando su panel esté desenchufado**, y **Detectar números de serie** lista los
+dispositivos con ese VID:PID y sus números de serie (solo lectura), diciendo
+qué pantalla usa ya cada uno.
+
+**Los paneles iguales necesitan el número de serie.** Todos los Trofeo Vision
+dicen `0416:5408`. Sin `serial`, Kiosko solo sabe que hay *algún* panel
+enchufado, nunca *cuál*, así que solo pausa la pantalla cuando no hay
+**ninguno**. Con dos de tres desenchufados y sin números de serie no se pausa
+nada, a propósito: pausar una pantalla cuyo panel sí está la dejaría
+congelada. `kiosko doctor` lista los números de serie (también `lsusb -v -d
+0416:5408 | grep iSerial`).
+
+### Con el emisor de trcc (`contrib/usb-sender`)
+
+Cada emisor lleva un panel, elegido por número de serie, y enseña el
+`frame.jpg` de una carpeta. A cada pantalla Fichero de frame, la presencia
+de *su* emisor:
+
+- Sin `wheel` en la config de los emisores vale cualquiera: `usb` con el
+  `serial` del emisor no necesita nada de él; `heartbeat` además nota que el
+  emisor no está corriendo.
+- **Con `wheel`** (los paneles se turnan cada pocas horas en enseñar cada
+  carpeta) la carpeta que enseña un panel cambia, así que su número de serie
+  no dice qué pantalla enseña: usa solo **`heartbeat`** (`{ "path":
+  ".heartbeat" }`). El emisor toca el latido de la carpeta que enseña *ahora*,
+  así que se pintan justo las pantallas que algún panel conectado está
+  enseñando; en el cambio de turno el latido de la carpeta nueva se toca en
+  menos de un segundo y su pantalla vuelve.
+
+El latido necesita el `kiosko-sender.py` actualizado (toca `.heartbeat` salvo
+que su config diga `"heartbeat": false`). Un emisor antiguo no lo toca nunca y
+la pantalla se quedaría en pausa: actualiza antes el emisor.
+
 ## Lo que necesita cada sistema
 
 **Linux.** Tu usuario debe poder abrir el dispositivo. Si `kiosko doctor`

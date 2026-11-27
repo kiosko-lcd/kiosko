@@ -138,6 +138,31 @@ test('the tile cache repaints only tiles whose inputs changed', () => {
   assert.deepEqual(calls, ['A', 'B', 'B', 'A', 'B']);
 });
 
+test('sameAs: the same tiles from the cache make the same key, and a tile painted anew a new one', () => {
+  calls.length = 0;
+  const cache = new Map();
+  let data: unknown = { v: 1 };
+  const p = page([
+    { id: 'a', x: 0, y: 0, w: 2, h: 2, widgets: [W('1', 'test/mark', { label: 'A' })], rotateMs: 0, chrome: 'bare' },
+    { id: 'b', x: 2, y: 0, w: 2, h: 2, widgets: [W('2', 'test/mark', { label: 'B' })], rotateMs: 0, chrome: 'card' },
+    { id: 'c', x: 0, y: 1, w: 1, h: 1, widgets: [], rotateMs: 0, chrome: 'card' },
+  ]);
+  const run = (now: number, o: { shift?: boolean } = {}) =>
+    composePage({ cfg, screen: o.shift ? { ...screen, pixelShift: { enabled: true, amplitude: 2, periodMs: 1000 } } : screen, page: p, theme: DEFAULT_THEME, registry: reg, now, working: true, dataOf: (i) => (i.id === '2' ? data : undefined), sourcesOf: () => ({}), cache });
+  const first = run(1000).sameAs;
+  assert.ok(first);
+  assert.equal(run(2000).sameAs, first, 'nothing changed: the same key');
+  assert.deepEqual(calls, ['A', 'B'], 'and nothing painted again');
+  data = { v: 2 };
+  const after = run(4000).sameAs;
+  assert.ok(after && after !== first, "B's new data: a new key");
+  assert.equal(run(5000).sameAs, after);
+  assert.notEqual(run(5000, { shift: true }).sameAs, after, 'a pixel shift moves everything');
+  // An animation frame is painted outside the cache, and previews have none: no key.
+  assert.equal(composePage({ cfg, screen, page: p, theme: DEFAULT_THEME, registry: reg, now: 5000, working: true, dataOf: () => undefined, sourcesOf: () => ({}), cache, animate: [{ tileId: 'a', instanceId: '1', frame: { plan: { id: 'x', frames: 3, fps: 10 }, i: 1, t: 0.5 } }] }).sameAs, null);
+  assert.equal(composePage({ cfg, screen, page: p, theme: DEFAULT_THEME, registry: reg, now: 0, working: true, dataOf: () => undefined, sourcesOf: () => ({}) }).sameAs, null);
+});
+
 const pixel = (c: Canvas, x: number, y: number) => [...c.getContext('2d').getImageData(x, y, 1, 1).data.slice(0, 3)];
 
 test('zoom: the widget gets a smaller (or bigger) box and is painted scaled to fill its tile', () => {

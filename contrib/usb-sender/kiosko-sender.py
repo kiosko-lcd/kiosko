@@ -24,9 +24,9 @@ Y por qué reenvía en bucle
 --------------------------
 El firmware LY descarta la imagen a los 2-3 s de no recibir nada y vuelve al
 logo de fábrica. El bucle de aquí abajo manda cada fotograma **nada más
-aparecer** (mira el fichero cada pocos milisegundos) y, mientras no cambie, lo
-reenvía cada `keepalive` segundos para que no se apague. **Duerme de verdad
-entre vueltas**: la versión REST de esto acabó siendo un bucle vivo de ~400
+aparecer** (inotify le avisa en cuanto Kiosko lo deja; sin inotify, lo mira
+cada 5 ms) y, mientras no cambie, lo reenvía cada `keepalive` segundos para
+que no se apague. **Duerme de verdad entre vueltas**: la versión REST de esto acabó siendo un bucle vivo de ~400
 peticiones por segundo que llenó el syslog con 17,8 GB.
 
 Medido en este panel (2026-11-07, trcc 9.12): un envío tarda ~42 ms sea cual
@@ -44,10 +44,13 @@ quedarse con el del cuadro de mando lo dejaría sin su daemon y sin su imagen.
 """
 from __future__ import annotations
 
+import ctypes
 import json
 import logging
 import os
+import select
 import signal
+import struct
 import sys
 import time
 from pathlib import Path
@@ -58,8 +61,21 @@ config.json, en segundos; "interval", el nombre viejo, vale igual). El firmware
 vuelve al logo a los ~2-3 s sin fotograma: uno por segundo deja margen."""
 
 POLL_S = 0.005
-"""Cada cuánto se mira si el daemon ha dejado fotograma nuevo: un `stat`, nada
-más. Es lo que se retrasa, como mucho, un fotograma de una animación."""
+"""Sin inotify: cada cuánto se mira si el daemon ha dejado fotograma nuevo (un
+`stat`, nada más). Es lo que se retrasa, como mucho, un fotograma de una
+animación. Con inotify (Linux, lo normal) no se mira: el núcleo despierta al
+emisor cuando el fotograma cambia, y entre medias duerme hasta el próximo
+keepalive o latido. Mirar cada 5 ms eran 200 despertares por segundo para un
+fichero que cambia, en reposo, una vez por minuto."""
+
+HEARTBEAT_S = 1.0
+"""Cada cuánto se toca ``.heartbeat`` en la carpeta que se está enseñando
+mientras el panel está conectado. Kiosko lo mira (``presence.heartbeat`` de la
+pantalla) y deja de pintar esa pantalla, sin gastar CPU, cuando lleva unos
+segundos sin tocarse: el panel se ha desenchufado o este emisor no corre. Con
+la rueda, el latido va a la carpeta del turno, así que sólo se pinta lo que
+algún panel está enseñando de verdad. ``"heartbeat": false`` en config.json lo
+apaga."""
 
 RECONNECT_WAIT_S = 3.0
 MAX_CONSECUTIVE_FAILURES = 40
@@ -96,6 +112,78 @@ class CheckedLyLcd:
     """
 
 
+class FrameWatch:
+    """Despierta al emisor cuando se reemplaza algo en la carpeta del fotograma.
+
+    inotify por ctypes (Linux, sin dependencias): `wait` duerme en un `select`
+    hasta que llega un evento o vence el plazo que se le da (el próximo
+    keepalive o latido). Sin inotify (otro sistema, sin libc, la carpeta aún
+    no existe) se vuelve a mirar cada `POLL_S`, como antes.
+    """
+
+    _IN_CLOSE_WRITE = 0x08
+    _IN_MOVED_TO = 0x80
+    _IN_CREATE = 0x100
+    _IN_IGNORED = 0x8000
+    _EVENT = struct.Struct("iIII")
+
+    def __init__(self) -> None:
+        self._fd = -1
+        self._wd = -1
+        self._dir: Path | None = None
+        self._retry_at = 0.0
+        try:
+            libc = ctypes.CDLL(None, use_errno=True)
+            fd = libc.inotify_init1(os.O_NONBLOCK | os.O_CLOEXEC)
+        except (OSError, AttributeError):
+            return
+        if fd >= 0:
+            self._libc, self._fd = libc, fd
+
+    def watch(self, folder: Path) -> None:
+        """Vigila `folder` (deja de vigilar la anterior). Si aún no existe, lo reintenta cada segundo."""
+        if self._fd < 0 or (folder == self._dir and self._wd >= 0):
+            return
+        if folder != self._dir:
+            self._drop()
+            self._dir, self._retry_at = folder, 0.0
+        if time.monotonic() < self._retry_at:
+            return
+        wd = self._libc.inotify_add_watch(
+            self._fd, os.fsencode(folder), self._IN_CLOSE_WRITE | self._IN_MOVED_TO | self._IN_CREATE,
+        )
+        if wd >= 0:
+            self._wd = wd
+        else:
+            self._retry_at = time.monotonic() + 1.0
+
+    def _drop(self) -> None:
+        if self._wd >= 0:
+            self._libc.inotify_rm_watch(self._fd, self._wd)
+        self._wd = -1
+
+    def wait(self, timeout: float) -> None:
+        """Duerme hasta `timeout` segundos, o menos si cambia algo en la carpeta."""
+        timeout = max(0.0, timeout)
+        if self._wd < 0:
+            time.sleep(min(timeout, POLL_S))
+            return
+        ready, _, _ = select.select([self._fd], [], [], timeout)
+        if not ready:
+            return
+        try:
+            buf = os.read(self._fd, 64 * 1024)
+        except BlockingIOError:
+            return
+        pos = 0
+        while pos + self._EVENT.size <= len(buf):
+            _wd, mask, _cookie, length = self._EVENT.unpack_from(buf, pos)
+            pos += self._EVENT.size + length
+            if mask & self._IN_IGNORED:
+                # La carpeta se borró: se vuelve a vigilar cuando reaparezca.
+                self._wd, self._retry_at = -1, 0.0
+
+
 def make_checked_lcd(LyLcd):
     """Subclase de LyLcd que **mira el ACK** en vez de tirarlo.
 
@@ -117,6 +205,18 @@ def make_checked_lcd(LyLcd):
 
     class Checked(LyLcd):
         last_accepted = True
+        _prepared: tuple[bytes | None, bytes | None] = (None, None)
+
+        def _prepare_frame(self, payload: bytes) -> bytes:
+            # El keepalive manda una y otra vez el MISMO fotograma: trocearlo en
+            # bloques de 512 bytes (un bucle de Python de ~270 vueltas con sus
+            # cabeceras) se hace una vez por fotograma, no una por segundo.
+            last, frame = self._prepared
+            if payload is last and frame is not None:
+                return frame
+            frame = super()._prepare_frame(payload)
+            self._prepared = (payload, frame)
+            return frame
 
         def _write_frame(self, frame: bytes) -> bool:
             total = len(frame)
@@ -286,6 +386,8 @@ def main() -> None:
     frame_path = wheel / "frame.jpg" if wheel else own_path
     log.info("fotograma: %s%s", frame_path, " (los paneles se turnan)" if wheel else "")
     next_wheel_check = 0.0
+    beat = bool(cfg.get("heartbeat", True))
+    next_beat = 0.0
     expected_rotate = int(cfg.get("rotate", 180))
     keepalive = min(2.0, max(0.1, float(cfg.get("keepalive", cfg.get("interval", KEEPALIVE_S)))))
     log.info("fotogramas nuevos al momento; el mismo, cada %.2f s", keepalive)
@@ -304,6 +406,7 @@ def main() -> None:
     if device is None:
         return  # nos pararon mientras esperábamos al panel
 
+    watch = FrameWatch()
     payload: bytes | None = None
     stamp: tuple[float, int] | None = None
     fresh = False          # hay un fotograma que el panel aún no tiene
@@ -321,9 +424,23 @@ def main() -> None:
                 if turn_path != frame_path:
                     log.info("cambio de turno: ahora enseña %s", turn_path)
                     frame_path, stamp = turn_path, None
+                    next_beat = 0.0  # que Kiosko sepa ya que esta carpeta vuelve a tener panel
+
+            # El latido: "esta carpeta tiene un panel enchufado detrás". Antes
+            # de mirar si hay fotograma: con el panel en pausa, Kiosko no
+            # escribe nada hasta ver el latido.
+            if beat and time.monotonic() >= next_beat:
+                next_beat = time.monotonic() + HEARTBEAT_S
+                try:
+                    frame_path.parent.mkdir(parents=True, exist_ok=True)
+                    (frame_path.parent / ".heartbeat").touch()
+                except OSError as exc:
+                    log.warning("no se pudo tocar el latido en %s: %s", frame_path.parent, exc)
+                    beat = False
 
             # Sólo se relee el fichero cuando cambia; el resto del tiempo esto
             # es un memcpy sobre el bus y poco más.
+            watch.watch(frame_path.parent)
             try:
                 st = os.stat(frame_path)
                 current = (st.st_mtime, st.st_size)
@@ -343,10 +460,18 @@ def main() -> None:
                 log.warning("no se pudo leer el fotograma: %s", exc)
 
             if payload is None:
-                time.sleep(0.5)
+                watch.wait(0.5)
                 continue
             if not fresh and time.monotonic() - last_send < keepalive:
-                time.sleep(POLL_S)
+                # Hasta el próximo keepalive, latido o vuelta de la rueda, o
+                # antes si llega fotograma nuevo.
+                now = time.monotonic()
+                until = last_send + keepalive
+                if beat:
+                    until = min(until, next_beat)
+                if wheel:
+                    until = min(until, next_wheel_check)
+                watch.wait(until - now)
                 continue
 
             try:

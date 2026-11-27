@@ -76,6 +76,26 @@ test('threads: each screen paints in its own thread, with the data as it changes
   }
 });
 
+test('threads: a widget on a source profile gets that profile\'s data in its thread, and moves when its profile changes', async () => {
+  const tinted = (id: string, profile?: string) => ({ ...screen(id, 'tt/tinted'), pages: [{ ...page('tt/tinted'), tiles: [{ id: 't', x: 0, y: 0, w: 1, h: 1, chrome: 'bare', widgets: [{ id: `w-${id}`, type: 'tt/tinted', options: {}, ...(profile ? { profile } : {}) }] }] }] });
+  const cfg = (bProfile: string | undefined) => normalize({ threads: 'always', sources: { 'tt/tint': { color: '#00ff00' } }, sourceProfiles: { 'tt/tint': { red: { name: 'Red', options: { color: '#ff0000' } }, blue: { name: 'Blue', options: { color: '#0000ff' } } } }, screens: [tinted('a'), tinted('b', bProfile)] });
+  const reg = new Registry();
+  reg.add(plugin, 'test', MODULE);
+  const rt = new Runtime(reg, cfg('red'));
+  rt.start();
+  try {
+    await until(() => !!rt.lastFrame('a') && !!rt.lastFrame('b'), 15_000, 'both screens painted');
+    assert.equal(screenOf(rt, 'b').thread.on, true);
+    await untilColor(rt, 'a', [0, 255, 0], 'the default profile');
+    await untilColor(rt, 'b', [255, 0, 0], 'its own profile, in its thread');
+    rt.apply(cfg('blue'));
+    await untilColor(rt, 'b', [0, 0, 255], 'another profile: its data goes to the thread');
+    await untilColor(rt, 'a', [0, 255, 0], 'the other screen keeps the default one');
+  } finally {
+    rt.stop();
+  }
+});
+
 test('threads: an interlude played from the Play page gets the buttons in its thread, and an alert stops it', async () => {
   const rt = setup('always', [screen('a', 'tt/fill'), screen('b', 'tt/fill')]);
   rt.start();
@@ -143,4 +163,20 @@ test('threads: never keeps every screen on the main thread; a screen can say oth
   } finally {
     rt.stop();
   }
+});
+
+test('threads: a context page reaches the screen in its thread, and leaving it gives the rotation back', async (t) => {
+  const now = new Date();
+  const later = (m: number) => { const d = new Date(now.getTime() + m * 60_000); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+  const around = { start: later(-60), end: later(60) };
+  const two = (rules: unknown[]) => [{ ...page('tt/fill'), id: 'main' }, { ...page('tt/fill'), id: 'ctx', showWhen: rules, tiles: [{ ...page('tt/fill').tiles[0]!, widgets: [{ id: 'w-ctx', type: 'tt/fill', options: {} }] }] }];
+  const rt = setup('always', [screen('a', 'tt/fill', { pages: two([{ time: around, label: 'now' }]), context: { minMs: 0, holdMs: 0 } })]);
+  rt.start();
+  t.after(() => rt.stop());
+  await until(() => screenOf(rt, 'a').thread.on && screenOf(rt, 'a').page === 'ctx', 15_000, 'the context page, painted in the thread');
+  assert.deepEqual(screenOf(rt, 'a').context?.reason, { label: 'now', time: `${around.start}–${around.end}` });
+  // The window no longer holds (now is outside it): the page stays out of the rotation, which has only main.
+  rt.apply(normalize({ threads: 'always', screens: [screen('a', 'tt/fill', { pages: two([{ time: { start: later(120), end: later(180) } }]), context: { minMs: 0, holdMs: 0 } })] }));
+  await until(() => screenOf(rt, 'a').page === 'main', 8000, 'back to the rotation');
+  assert.equal(screenOf(rt, 'a').context, null);
 });

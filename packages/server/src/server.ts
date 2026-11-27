@@ -22,11 +22,13 @@ import { StoreCatalog } from './store.ts';
 import { SDK_VERSION } from '@kiosko/sdk';
 import { installableRelease, releaseProblem, type StorePlugin } from '@kiosko/core';
 import { HomeAssistantBridge } from './homeassistant.ts';
-import { remoteApi } from './remote-api.ts';
+import { remoteApi, type RemoteApiContext } from './remote-api.ts';
+import { pushApi, pushFile } from './push-api.ts';
 import { browserApi } from './browser-api.ts';
 import { ScreensServer } from './screens-server.ts';
 import { ALERT_LEVELS, type AlertLevel } from '@kiosko/sdk';
-import { AlertError, DEFAULT_SNOOZE_MS, PANEL_PRESETS, checkUpdates, discoverRemote, discoverTrcc, discoverUsb, normalize, npmRegistry, paths, resolveLocale, saveConfig, type Config, type FrameInfo, type Runtime, type Screen, type UpdateCheck } from '@kiosko/core';
+import { currentSandbox, isLoopback, type Sandbox } from '@kiosko/core';
+import { AlertError, DEFAULT_SNOOZE_MS, PANEL_PRESETS, checkUpdates, discoverRemote, discoverTrcc, discoverUsb, hexId, listUsbDevices, normalize, npmRegistry, paths, resolveLocale, resolveSourceKey, saveConfig, type Config, type FrameInfo, type Runtime, type Screen, type UpdateCheck, dataPaths } from '@kiosko/core';
 import { currentInstall, updateBlocker, updateInstructions, type InstallInfo } from './install-kind.ts';
 import { KioskoUpdater, UpdateError, readMarker, realRun, restartHow, writeMarker, type Handover, type UpdaterDeps } from './self-update.ts';
 
@@ -52,6 +54,8 @@ export interface ServerOptions {
   /** Folder with the built editor (index.html, assets). */
   webDir?: string;
   version: string;
+  /** How a screen's firmware is fetched from this version's GitHub release (tests). Default: fetch. */
+  firmwareFetch?: RemoteApiContext['fetch'];
   /**
    * Ask npm once a day for newer versions of the plugins (and of Kiosko).
    * Default: on, except in demo mode or with KIOSKO_NO_UPDATE_CHECK=1.
@@ -79,6 +83,14 @@ export interface ServerOptions {
    * Default: yes, except in demo mode.
    */
   networkScreens?: boolean;
+  /** How "Detect panels" of a Frame file screen lists USB devices by VID:PID (tests). Default: read only, sysfs or libusb (listUsbDevices). */
+  usbDevices?: typeof listUsbDevices;
+  /**
+   * The sandbox this Kiosko runs in (sandbox.ts; default: the environment's), and when its time to
+   * live ends it: shown by /api/version and the editor, and no updating Kiosko, no Home Assistant
+   * and no remote screens in it (unless allowed).
+   */
+  sandbox?: (Sandbox & { expires: number | null }) | null;
 }
 
 /** The panels "Detect panels" finds: those `trcc serve` drives, the LY ones on USB, the remote screens on the LAN. */
@@ -157,7 +169,13 @@ export function startServer(o: ServerOptions) {
   const home = o.home ?? paths.home;
   const install = o.install ?? currentInstall();
   const registryUrl = o.selfUpdate?.registry ?? npmRegistry();
-  const blocker = updateBlocker(install, { demo: runtime.demoMode });
+  const sb = o.sandbox !== undefined ? o.sandbox : (() => {
+    const c = currentSandbox();
+    return c && { ...c, expires: null };
+  })();
+  const sandboxInfo = sb && { dir: sb.dir, expires: sb.expires, allow: [...sb.allow] };
+  // A sandbox never replaces the Kiosko installed on the machine.
+  const blocker = sb ? 'sandbox' : updateBlocker(install, { demo: runtime.demoMode });
   const instance = randomBytes(8).toString('hex');
   const how = o.selfUpdate?.restartHow ?? restartHow(install, { tty: !!process.stdout.isTTY, pid: process.pid });
   const probeHost = o.host === '0.0.0.0' || o.host === '::' ? '127.0.0.1' : o.host.includes(':') ? `[${o.host}]` : o.host;
@@ -277,8 +295,11 @@ export function startServer(o: ServerOptions) {
   runtime.on('log', onLog);
   runtime.on('config', () => thumbs.clear());
   // Home Assistant, over MQTT: connects only when the config has it switched on.
-  const bridge = (o.homeassistant ?? !runtime.demoMode) ? new HomeAssistantBridge(runtime, o.version) : null;
-  const fullStatus = () => ({ ...runtime.status(), homeassistant: bridge?.status() ?? { enabled: false, state: 'off', error: null } });
+  // Not from a sandbox (unless it may use the LAN): it would show up in the real Home Assistant.
+  const bridge = (o.homeassistant ?? (!runtime.demoMode && (!sb || sb.allow.has('lan')))) ? new HomeAssistantBridge(runtime, o.version) : null;
+  // Pushes from scripts (push-api.ts): token-authenticated, kept in Kiosko's folder.
+  const push = pushApi({ runtime, json, ...(runtime.demoMode ? {} : { file: pushFile(home) }) });
+  const fullStatus = () => ({ ...runtime.status(), homeassistant: bridge?.status() ?? { enabled: false, state: 'off', error: null }, push: push.status() });
   const statusTimer = setInterval(() => send('status', fullStatus()), 3000);
 
   const allowedHosts = new Set([`127.0.0.1:${o.port}`, `localhost:${o.port}`, `[::1]:${o.port}`, `${o.host}:${o.port}`]);
@@ -316,12 +337,15 @@ export function startServer(o: ServerOptions) {
       restartNeeded,
       official: OFFICIAL_PLUGINS,
       demo: runtime.demoMode,
+      sandbox: sandboxInfo,
       platform: process.platform,
     };
   }
 
   const remote = remoteApi({
     runtime,
+    version: o.version,
+    ...(o.firmwareFetch ? { fetch: o.firmwareFetch } : {}),
     json,
     body,
     commit: (cfg) => {
@@ -335,7 +359,7 @@ export function startServer(o: ServerOptions) {
 
   // The network-screens server (screens-server.ts): a server of its own, started and stopped with the config.
   const screens = (o.networkScreens ?? !runtime.demoMode) ? new ScreensServer({ hub: runtime.browsers, viewerDir: join(root, 'viewer'), log: (m) => runtime.log('network-screens', m) }) : null;
-  const net = { enabled: false, host: '', port: 0, listening: false, error: null as string | null };
+  const net: { enabled: boolean; host: string; port: number; listening: boolean; error: string | null; sandboxed?: boolean } = { enabled: false, host: '', port: 0, listening: false, error: null };
   let netSync: Promise<void> = Promise.resolve();
   let netClosed = false;
   /** Stopped while an update hands over to the new Kiosko (which listens there instead). */
@@ -345,17 +369,22 @@ export function startServer(o: ServerOptions) {
       if (!screens) return;
       const want = runtime.config.networkScreens;
       const on = !netClosed && !netPaused && !!want?.enabled;
+      // A sandbox opens nothing to the LAN unless it may (--sandbox-allow-lan): the browsers on this machine only.
+      const confined = !!want && !!sb && !sb.allow.has('lan') && !isLoopback(want.host);
+      const host = confined ? '127.0.0.1' : (want?.host ?? '');
       const at = screens.listening;
-      if (on && at && at.host === want!.host && at.port === want!.port) return;
+      if (on && at && at.host === host && at.port === want!.port) return;
       if (!on && !at && !net.error && !net.enabled) return;
-      Object.assign(net, { enabled: on, host: want?.host ?? '', port: want?.port ?? 0, listening: false, error: null });
+      Object.assign(net, { enabled: on, host, port: want?.port ?? 0, listening: false, error: null, ...(confined ? { sandboxed: true } : {}) });
+      if (!confined) delete (net as { sandboxed?: boolean }).sandboxed;
       if (!on) return screens.close();
+      if (confined) runtime.log('network-screens', `sandbox: listening on 127.0.0.1, not ${want!.host} (--sandbox-allow-lan to open it to the network)`);
       try {
-        await screens.listen(want!.host, want!.port);
+        await screens.listen(host, want!.port);
         net.listening = true;
       } catch (err) {
         net.error = err instanceof Error ? err.message : String(err);
-        runtime.log('network-screens', `could not listen on ${want!.host}:${want!.port}: ${net.error}`);
+        runtime.log('network-screens', `could not listen on ${host}:${want!.port}: ${net.error}`);
       }
       send('config', { rev, by: null });
     });
@@ -385,6 +414,8 @@ export function startServer(o: ServerOptions) {
   async function api(req: IncomingMessage, res: ServerResponse, url: URL): Promise<void> {
     const p = url.pathname;
     const m = req.method ?? 'GET';
+    // Before the X-Kiosko check: a push carries its own token instead (see push-api.ts).
+    if (p.startsWith('/api/push/') && (await push.handle(req, res, url))) return;
     if (m !== 'GET' && req.headers['x-kiosko'] !== '1') return json(res, 403, { error: 'missing X-Kiosko header' });
 
     if (p === '/api/state' && m === 'GET') return json(res, 200, state(req));
@@ -515,7 +546,11 @@ export function startServer(o: ServerOptions) {
       return json(res, 200, { ok: true });
     }
 
-    if ((p.startsWith('/api/remote/') || /^\/api\/screens\/[^/]+\/remote\//.test(p)) && (await remote(req, res, p, m))) return;
+    if (p.startsWith('/api/remote/') || /^\/api\/screens\/[^/]+\/remote\//.test(p)) {
+      // A sandbox pairs with, updates or asks no real remote screen unless it may.
+      if (sb && !sb.allow.has('remote')) return json(res, 403, { error: 'sandbox: remote screens are off here (--sandbox-allow-remote)', code: 'sandboxRemote' });
+      if (await remote(req, res, p, m)) return;
+    }
     if ((p === '/api/browser' || p.startsWith('/api/browser/') || /^\/api\/screens\/[^/]+\/browser\//.test(p)) && (await browser(req, res, p, m))) return;
 
     if (p === '/api/devices/discover' && m === 'GET') {
@@ -523,8 +558,17 @@ export function startServer(o: ServerOptions) {
       return json(res, 200, await (o.discover ?? realDiscover)(url0, url.searchParams.get('tokenFile') ?? undefined));
     }
 
+    // The USB devices with a VID:PID plugged in now, serials included, read only (never opened on Linux, never
+    // claimed): for a Frame file screen's presence, whose panel another process (its sender) holds.
+    if (p === '/api/devices/usb' && m === 'GET') {
+      const vendorId = hexId(url.searchParams.get('vendorId') ?? '0416');
+      const productId = hexId(url.searchParams.get('productId') ?? '5408');
+      if (!Number.isFinite(vendorId) || !Number.isFinite(productId)) return json(res, 400, { error: 'vendorId and productId: 4 hex digits each' });
+      return json(res, 200, await (o.usbDevices ?? listUsbDevices)(vendorId, [productId]));
+    }
+
     // Who answers here: the update's handover tells the new Kiosko from the old one by it.
-    if (p === '/api/version' && m === 'GET') return json(res, 200, { version: o.version, instance });
+    if (p === '/api/version' && m === 'GET') return json(res, 200, { version: o.version, instance, ...(sandboxInfo ? { sandbox: sandboxInfo } : {}) });
 
     // Updating Kiosko itself: how it was installed, what to do, and the button's steps.
     if (p === '/api/kiosko/update' && m === 'GET') return json(res, 200, kioskoUpdateState());
@@ -555,11 +599,30 @@ export function startServer(o: ServerOptions) {
 
     if (p === '/api/logs' && m === 'GET') return json(res, 200, runtime.logs.slice(-200));
 
-    // Values to offer for an option, from a source's live data (or its demo data before there is any).
+    // Values to offer for an option, from a source's live data (or its demo data before there is any):
+    // of the widget's source profile (`profile`), when it reads one.
     if (p === '/api/choices' && m === 'GET') {
       const source = url.searchParams.get('source') ?? '';
       const list = url.searchParams.get('list') ?? '';
-      return json(res, 200, runtime.registry.choices(source, list, runtime.hub.data(source), uiLocale(req)));
+      const key = resolveSourceKey(runtime.config, source, url.searchParams.get('profile'), runtime.registry.source(source));
+      return json(res, 200, runtime.registry.choices(source, list, runtime.hub.data(key), uiLocale(req)));
+    }
+
+    // A source's data paths with a value each, for a context rule (live data, or the demo's before there is any).
+    if (p === '/api/source-paths' && m === 'GET') {
+      const source = url.searchParams.get('source') ?? '';
+      const def = runtime.registry.source(source);
+      if (!def) return json(res, 404, { error: `no source ${source}`, code: 'noSource' });
+      const live = runtime.hub.data(source);
+      let data = live;
+      if (data === undefined && def.demo) {
+        try {
+          data = def.demo({ now: Date.now(), locale: uiLocale(req) });
+        } catch {
+          data = undefined;
+        }
+      }
+      return json(res, 200, { paths: dataPaths(data), from: live !== undefined ? 'live' : data !== undefined ? 'demo' : 'none' });
     }
 
     if (p === '/api/plugins/install' && m === 'POST') {
@@ -742,6 +805,7 @@ export function startServer(o: ServerOptions) {
   function close() {
     clearInterval(statusTimer);
     bridge?.stop();
+    push.close();
     for (const t of updateTimers) clearTimeout(t);
     for (const t of storeTimers) clearTimeout(t);
     // The runtime outlives the server (tests, a restart of the editor only): stop hearing it.

@@ -78,6 +78,7 @@
           "description": { "$ref": "#/$defs/localized" },
           "polled": { "type": "boolean" },
           "intervalMs": { "type": "number", "minimum": 0 },
+          "profiles": { "const": true, "description": "It may have several named configurations (source profiles): several accounts, news by topic." },
           "options": { "type": ["object", "null"] }
         }
       }

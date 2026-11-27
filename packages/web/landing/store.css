@@ -175,3 +175,14 @@ html.js .results-bar { display: flex; }
 .guide :is(th, td) { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--line); }
 .guide th { color: var(--ink); white-space: nowrap; }
 .doc > .fine { color: var(--faint); font-size: 13px; }
+
+/* The screen firmware's web installer (flash.mjs). */
+.flash-lede { font-size: 18px; color: var(--ink); }
+.flash-board { margin: 1.6em 0; padding: 18px 20px 20px; border: 1px solid var(--line-2); border-radius: 16px; background: var(--panel); }
+.guide .flash-board h2 { margin: 0 0 0.3em; padding: 0; border: 0; font-size: 20px; }
+.flash-board p { margin: 0 0 0.6em; }
+.flash-version { font-size: 14px; }
+.flash-sha { font-size: 13px; color: var(--faint); }
+.flash-sha span { margin-right: 4px; }
+.flash-board esp-web-install-button { display: block; margin-top: 14px; }
+.flash-warn { padding: 10px 14px; border-radius: 10px; border: 1px solid rgba(251, 191, 36, 0.35); background: rgba(251, 191, 36, 0.08); color: var(--ink); }

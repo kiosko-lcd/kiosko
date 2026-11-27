@@ -1,6 +1,6 @@
 {
   "name": "@kiosko/core",
-  "version": "0.2.11",
+  "version": "0.2.14",
   "description": "Kiosko runtime: grid layout engine, plugin host, compositor and panel drivers.",
   "type": "module",
   "license": "MIT",
@@ -35,6 +35,11 @@
       "types": "./dist/store/index.d.ts",
       "default": "./dist/store/index.js"
     },
+    "./sandbox": {
+      "source": "./src/sandbox.ts",
+      "types": "./dist/sandbox.d.ts",
+      "default": "./dist/sandbox.js"
+    },
     "./release-notes": {
       "source": "./src/release-notes-md.ts",
       "types": "./dist/release-notes-md.d.ts",
@@ -47,11 +52,11 @@
     }
   },
   "dependencies": {
-    "@loksly/lcd-canvas-kit": "0.2.11",
-    "@loksly/trcc-client": "0.2.11",
-    "@loksly/usb-ly": "0.2.11",
+    "@loksly/lcd-canvas-kit": "0.2.14",
+    "@loksly/trcc-client": "0.2.14",
+    "@loksly/usb-ly": "0.2.14",
     "@napi-rs/canvas": "^1.0.10",
-    "@kiosko/sdk": "0.2.11",
+    "@kiosko/sdk": "0.2.14",
     "dejavu-fonts-ttf": "^2.37.3"
   },
   "scripts": {

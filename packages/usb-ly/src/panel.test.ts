@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import type { Device } from 'usb';
 import { LyPanel } from './panel.ts';
 import { CHUNK_SIZE, MAX_FRAME_BYTES, PID_LY, PID_LY1 } from './protocol.ts';
-import { findPanels, openTransport, PanelNotFound, type Transport, type UsbModule } from './transport.ts';
+import { DeviceLister, findPanels, openTransport, PanelNotFound, sysfsDevices, type SysfsFs, type Transport, type UsbModule } from './transport.ts';
 
 /** A panel's firmware, as far as the protocol goes: answers the hello, reassembles frames, ACKs. */
 class FakeFirmware implements Transport {
@@ -196,4 +196,67 @@ test('open and close hand the kernel driver back on Linux, and leave it alone el
   const win = fakeDevice({ serial: 'A', kernelDriver: true });
   await (await openTransport({ usb: usbOf(win), os: 'win32' })).transport.close();
   assert.ok(!win.log.includes('detach') && !win.log.includes('attach'), 'Windows has no kernel driver to detach');
+});
+
+/** A /sys/bus/usb/devices of three identical panels (one without a serial), a mouse, a hub and their interfaces. */
+function sysfs(tree: Record<string, Record<string, string>>): SysfsFs & { reads: string[] } {
+  const reads: string[] = [];
+  return {
+    reads,
+    readdirSync: () => Object.keys(tree),
+    readFileSync: (p: string) => {
+      reads.push(p);
+      const [, dir, file] = /\/([^/]+)\/([^/]+)$/.exec(p)!;
+      const v = tree[dir!]?.[file!];
+      if (v === undefined) throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+      return `${v}\n`;
+    },
+  };
+}
+
+const TREE = {
+  usb3: { idVendor: '1d6b', idProduct: '0002', busnum: '3', devnum: '1' },
+  '3-4': { idVendor: '0416', idProduct: '5408', serial: '2025ECF47BED', busnum: '3', devnum: '4' },
+  '3-4:1.0': { bInterfaceClass: 'ff' },
+  '3-5': { idVendor: '0416', idProduct: '5408', busnum: '3', devnum: '7' },
+  '3-9': { idVendor: '0416', idProduct: '5408', serial: '202592047DAE', busnum: '3', devnum: '6' },
+  '1-2': { idVendor: '046d', idProduct: 'c534', serial: 'MOUSE', busnum: '1', devnum: '2' },
+};
+
+test('sysfsDevices: the matching devices with serial and bus-address, from files only (nothing opened)', () => {
+  const fs = sysfs(TREE);
+  const seen = sysfsDevices({ vendorId: 0x0416, productIds: [PID_LY] }, '/sys/bus/usb/devices', fs);
+  assert.deepEqual(seen, [
+    { vid: 0x0416, pid: PID_LY, location: '3-4', serial: '2025ECF47BED' },
+    { vid: 0x0416, pid: PID_LY, location: '3-7' },
+    { vid: 0x0416, pid: PID_LY, location: '3-6', serial: '202592047DAE' },
+  ]);
+  assert.ok(!fs.reads.some((p) => p.includes(':')), 'interfaces are skipped');
+  assert.equal(sysfsDevices({ vendorId: 1, productIds: [1] }, '/nope', { readdirSync: () => { throw new Error('ENOENT'); }, readFileSync: () => '' }), null, 'no sysfs: null');
+});
+
+test('DeviceLister: Linux reads sysfs and never loads libusb', async () => {
+  const lister = new DeviceLister({ platform: 'linux', fs: sysfs(TREE), usb: () => Promise.reject(new Error('libusb must not be loaded')) });
+  const seen = await lister.list({ vendorId: 0x0416, productIds: [PID_LY] }, { serials: true });
+  assert.deepEqual(seen.map((d) => d.serial ?? null), ['2025ECF47BED', null, '202592047DAE']);
+  assert.ok(lister.listSync({ vendorId: 0x0416, productIds: [PID_LY] }));
+});
+
+test('DeviceLister: elsewhere libusb, opened only to read a serial (never claimed), once per plugged device; an unreadable one says why and is tried again', async () => {
+  const a = fakeDevice({ serial: 'AAA', location: 5 });
+  const b = fakeDevice({ unreadable: true, location: 9 });
+  const mouse = fakeDevice({ serial: 'M', vid: 0x046d, pid: 0xc534, location: 2 });
+  const lister = new DeviceLister({ platform: 'win32', usb: usbOf(a, b, mouse) });
+  const filter = { vendorId: 0x0416, productIds: [PID_LY] };
+  assert.equal(lister.listSync(filter), null);
+  // Without serials asked for: nothing is opened at all.
+  const bare = await lister.list(filter);
+  assert.deepEqual(bare.map((d) => [d.location, d.serial]), [['3-5', undefined], ['3-9', undefined]]);
+  assert.equal(a.log.length, 0);
+  const seen = await lister.list(filter, { serials: true });
+  assert.deepEqual(seen.map((d) => [d.location, d.serial, d.error]), [['3-5', 'AAA', undefined], ['3-9', undefined, 'LIBUSB_ERROR_NOT_SUPPORTED']]);
+  assert.deepEqual(a.log, ['open', 'close']);
+  await lister.list(filter, { serials: true });
+  assert.deepEqual(a.log, ['open', 'close'], 'the serial is remembered for that bus-address');
+  assert.ok(!a.log.includes('claim') && !mouse.log.length);
 });

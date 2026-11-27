@@ -90,8 +90,8 @@ The screen rejects messages over its `max` (98 304 bytes on the C6), and over
 | 0B | PAIR_OK | S→K | `{}` |
 | 10 | FRAME | K→S | `u32 BE frame number`, then a baseline JPEG |
 | 11 | ACK | S→K | `{"n","ok","rx":ms,"dec":ms,"err"?}` |
-| 12 | SET | K→S | `{"rot"?,"id"?,"tz"?,"lang"?,"idle"?,"bright"?}`; answered with STATE |
-| 13 | STATE | S→K | `{"uid","id","model","w","h","rot","fw","max","last","up","heap","rssi","ip","part","resend"?,"bright"?,"tempC"?,"heapMin"?,"heapLargest"?}` |
+| 12 | SET | K→S | `{"rot"?,"id"?,"tz"?,"lang"?,"idle"?,"bright"?,"dim"?}`; answered with STATE |
+| 13 | STATE | S→K | `{"uid","id","model","w","h","rot","fw","max","last","up","heap","rssi","ip","part","resend"?,"bright"?,"dim"?,"tempC"?,"heapMin"?,"heapLargest"?}` |
 | 14 | LED | K→S | `{"rgb":"rrggbb","blink":ms}` (`000000` = off) |
 | 15/16 | PING/PONG | both | `{}` |
 | 17 | UNPAIR | K→S | `{}`; the screen forgets the key, answers UNPAIR and closes |
@@ -199,10 +199,47 @@ and don't read `tempC`, and firmware 0.1.1 ignores a `bright` in `SET`.
   decimal. It reads it every 5 s and sends `STATE` every 30 s on its own, so
   Kiosko sees it change. `status.json` has it too.
 
-For a future night dimming, the screen keeps the shown brightness apart
-from the saved one (`display_set_brightness`). A temporary dim would be
-another optional `SET` field that changes only the first, not this one,
-which writes to flash.
+### Dimming (firmware 0.1.4)
+
+The screen keeps the shown brightness apart from the saved one. Kiosko dims
+it for a while without writing to flash:
+
+- **`SET dim`**: 0–100 (0 = backlight off) for now, or `-1` to go back to
+  the saved brightness. It lasts as long as the session: when Kiosko goes
+  away the screen lights up again at its own brightness, and on every
+  connection Kiosko sends it again if it still applies. The screen's own
+  pages (a pairing code, the BOOT hint, an update) always show at the saved
+  brightness, even while dimmed.
+- **`STATE dim`**: the dimming in force, `-1` for none. Firmware that says
+  it can dim; Kiosko only offers night mode for screens that say it.
+
+Kiosko dims a screen (`packages/core/src/remote/backlight.ts`):
+
+- to **0 while it shows the screen black**: switched off from Home
+  Assistant or the API, asleep (`sleepWhenIdle`), or disabled;
+- to the **night brightness** in the screen's night window
+  (`device.night: {"start":"22:30","end":"07:00","brightness":10}`, local
+  time, start after end goes across midnight, like an alert's quiet hours);
+- never while an alert has the panel: it shows at the saved brightness.
+
+Firmware 0.1.3 and older ignore `dim`: a paused screen still gets the black
+picture, with the backlight on, and there is no night mode.
+
+## Firmware updates
+
+Every Kiosko release carries the firmware built from the same commit, as
+`kiosko-screen-<fw>-<board>.bin` (the app, for an OTA) and `…-full.bin`
+(everything, for USB at 0x0), each with a `.sha256`. Kiosko knows the
+firmware version it brings (`SCREEN_FIRMWARE` in
+`packages/core/src/remote/firmware.ts`, kept equal to
+`firmware/esp32-screen/version.txt` by a test). When a paired screen says an
+older `fw` for a board it has an image for, the editor offers *Update
+firmware to X*. On that click, and only then, Kiosko downloads the app image
+from **its own version's** GitHub release, checks it against the release's
+`.sha256` and sends it with `OTA_BEGIN`/`OTA_DATA`/`OTA_END` like a file
+chosen by hand. Without GitHub (offline, a development build without a
+release) it says so and nothing is sent; *Update firmware…* with a file from
+the release page still works.
 
 ## Resync
 
@@ -213,6 +250,10 @@ The screen is not always there: unplugged, off the Wi-Fi, rebooting.
   pause at once.
 - While the screen is away, the editor shows it as *offline*, not as an
   error, and the log gets one line per change, not one per retry.
+- While it is away (offline after a try, or not paired) its `presence` is
+  `absent` and the runtime pauses the screen: nothing is composed, painted
+  nor encoded for it until the session is up again (see presence.ts and
+  docs/usb.md). Before the first try it is `unknown` and painted as usual.
 - On every (re)connection:
   1. The screen reports its state.
   2. Kiosko pushes its settings: **Kiosko's screen config is the truth** for

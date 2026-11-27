@@ -4,6 +4,15 @@ import { ApiError } from './errors.ts';
 import type { StoreIndex, StorePluginFile } from '@kiosko/core/store';
 
 /** The plugin store as this Kiosko sees it (GET /api/store). */
+/** A USB device as listed for presence: ids, serial (when readable) and where. */
+export interface UsbSeen {
+  vid: number;
+  pid: number;
+  serial?: string;
+  location: string;
+  error?: string;
+}
+
 export interface StoreState {
   index: StoreIndex | null;
   /** Where the catalogue came from: the copy that comes with Kiosko, the one kept, or just downloaded. */
@@ -150,8 +159,11 @@ export interface PluginInfo {
   origin: string;
   enabled: boolean;
   widgets: WidgetInfo[];
-  /** `options` include Kiosko's `intervalMs` and `timeoutMs` for polled sources, and `background` for those that may run with no widget. */
-  sources: { type: string; name: string; description: string; options: JsonSchema | null; intervalMs: number | null; polled: boolean; background?: boolean }[];
+  /**
+   * `options` include Kiosko's `intervalMs` and `timeoutMs` for polled sources, and `background` for those that may run with no widget.
+   * `profiles`: it may have several named configurations (`Config.sourceProfiles`); missing from older servers.
+   */
+  sources: { type: string; name: string; description: string; options: JsonSchema | null; intervalMs: number | null; polled: boolean; background?: boolean; profiles?: boolean }[];
   /** `input`: it can be played from the Play page. */
   interludes: { type: string; name: string; description: string; icon?: string; fps: number; input?: boolean; options: JsonSchema | null }[];
 }
@@ -271,21 +283,40 @@ export interface RemoteLink {
   tempC?: number | null;
   /** Its backlight, 0-100 (screen firmware 0.1.2 on; null: an older one). */
   bright?: number | null;
+  /** The dimming Kiosko asks for now (night, a black screen), 0-100; null: none. */
+  dim?: number | null;
+  /** Whether its firmware dims (0.1.4 on); null until it says. */
+  dimmable?: boolean | null;
+  /** A newer firmware this Kiosko brings for it; null: none. */
+  firmwareOffer?: string | null;
+}
+
+/** The context page that has a screen, and why (core's context.ts). */
+export interface ContextInfo {
+  page: string;
+  reason: { label?: string; app?: string; source?: string; path?: string; value?: string; time?: string; urgent?: string };
+  priority: number;
+  since: number;
+  /** Its rule stopped holding: it stays for the anti-flicker margin only. */
+  leaving: boolean;
 }
 
 export interface Status {
-  screens: { id: string; name: string; page: string | null; pinned: string | null; interlude: string | null; playing?: boolean; device: { driver: string; ok: boolean; message: string; code?: string; params?: Record<string, string | number>; framesSent: number; lastSentAt: number | null; detected?: { width: number; height: number; rotate?: number }; remote?: RemoteLink; browser?: BrowserLink }; lastFrameAt: number | null; sleeping: boolean; alert?: string | null; frames?: ScreenFrames; thread?: ScreenThread }[];
+  screens: { id: string; name: string; page: string | null; pinned: string | null; context?: ContextInfo | null; interlude: string | null; playing?: boolean; device: { driver: string; ok: boolean; message: string; code?: string; params?: Record<string, string | number>; framesSent: number; lastSentAt: number | null; detected?: { width: number; height: number; rotate?: number }; remote?: RemoteLink; browser?: BrowserLink }; lastFrameAt: number | null; sleeping: boolean; paused?: boolean; presence?: { state: 'present' | 'absent' | 'unknown'; why: string } | null; alert?: string | null; frames?: ScreenFrames; thread?: ScreenThread }[];
   /** Painting in threads: the setting, the cores, the main thread's heap and the whole process' memory. */
   threads?: { mode: 'auto' | 'always' | 'never'; cores: number; heapBytes: number; rssBytes: number };
   /** How busy the main thread is (0–1). */
   mainLoad?: number;
-  sources: { type: string; ok: boolean; error: string | null; updatedAt: number | null; intervalMs?: number }[];
+  /** `key`: `type`, or `type#profile` for a source profile (missing from older servers). */
+  sources: { type: string; key?: string; profile?: string | null; ok: boolean; error: string | null; updatedAt: number | null; intervalMs?: number }[];
   fetches: { id: string; type: string; ok: boolean; error: string | null; updatedAt: number | null }[];
   /** How long each widget instance takes to paint on the panels, slowest first. */
   paint?: { instance: string; type: string; lastMs: number; avgMs: number; maxMs: number; paints: number }[];
   problems: { origin: string; message: string }[];
   /** Kiosko as a device in Home Assistant, over MQTT. */
   homeassistant?: { enabled: boolean; state: 'off' | 'connecting' | 'connected' | 'error' | 'closed'; error: string | null; broker?: string };
+  /** Push names (POST /api/push/<name>) and when each last got something. */
+  push?: { name: string; at: number | null }[];
 }
 
 /** What a screen really does: frames sent per second, ms painting (on its thread) and encoding each one. */
@@ -347,6 +378,8 @@ export interface AppState {
   /** `bundled: false`: offered here, not installed with Kiosko. */
   official: { id: string; npm: string; bundled?: boolean }[];
   demo: boolean;
+  /** A sandboxed Kiosko (`kiosko start --sandbox`): its folder, when its time to live ends it, what it may touch. */
+  sandbox?: { dir: string; expires: number | null; allow: string[] } | null;
   platform: string;
 }
 
@@ -398,6 +431,8 @@ export const api = {
   testAlert: (screenId: string, level: AlertInfo['level']) => fetch(`/api/screens/${encodeURIComponent(screenId)}/test-alert`, { method: 'POST', headers: H, body: JSON.stringify({ level }) }).then((r) => ok<{ ok: true; alert: AlertInfo }>(r)),
   refreshWidget: (id: string) => fetch(`/api/widgets/${encodeURIComponent(id)}/refresh`, { method: 'POST', headers: H, body: '{}' }).then((r) => ok(r)),
   discover: (url?: string) => fetch(`/api/devices/discover${url ? `?url=${encodeURIComponent(url)}` : ''}`).then((r) => ok<{ trcc: { key: string; width: number; height: number }[]; usb: { serial: string; key: string; width: number; height: number; rotate?: number; location: string; error?: string }[]; remote?: RemoteFound[] }>(r)),
+  /** USB devices with this VID:PID plugged in now, with their serials (read only), for a Frame file screen's presence. */
+  usbDevices: (vendorId: string, productId: string) => fetch(`/api/devices/usb?vendorId=${encodeURIComponent(vendorId)}&productId=${encodeURIComponent(productId)}`).then((r) => ok<{ ok: boolean; devices: UsbSeen[]; error?: string }>(r)),
   /** Remote screens: the screen shows a code… */
   pairStart: (uid: string, host?: string) => fetch('/api/remote/pair', { method: 'POST', headers: H, body: JSON.stringify({ uid, ...(host ? { host } : {}) }) }).then((r) => ok<{ pairId: string; ttl: number; screen: { uid: string; id: string; model: string; w: number; h: number; rot: number; fw: string } }>(r)),
   /** …which is typed here: the key goes into that screen's config (or a new screen's). */
@@ -409,10 +444,13 @@ export const api = {
   browserState: () => fetch('/api/browser').then((r) => ok<BrowserState>(r)),
   browserPair: (uid: string, code: string, screenId?: string) => fetch('/api/browser/pair', { method: 'POST', headers: H, body: JSON.stringify({ uid, code, ...(screenId ? { screenId } : {}) }) }).then((r) => ok<{ ok: true; screenId: string }>(r)),
   unpairBrowser: (screenId: string) => fetch(`/api/screens/${encodeURIComponent(screenId)}/browser/unpair`, { method: 'POST', headers: H }).then((r) => ok<{ ok: true; told: boolean }>(r)),
+  remoteFirmware: (screenId: string) => fetch(`/api/screens/${encodeURIComponent(screenId)}/remote/firmware`, { method: 'POST', headers: { 'x-kiosko': '1' } }).then((r) => ok<{ ok: true; version: string; sha256: string }>(r)),
   remoteLogs: (screenId: string) => fetch(`/api/screens/${encodeURIComponent(screenId)}/remote/logs`).then((r) => ok<{ text: string }>(r)),
   logs: () => fetch('/api/logs').then((r) => ok<{ at: number; scope: string; message: string }[]>(r)),
-  /** Values a source offers for an option, from its live data (or its demo data before there is any). */
-  choices: (source: string, list: string) => fetch(`/api/choices?source=${encodeURIComponent(source)}&list=${encodeURIComponent(list)}`).then((r) => ok<{ choices: { value: string; label?: string; group?: string }[]; from: 'live' | 'demo' | 'none'; error?: string }>(r)),
+  /** A source's data paths, each with a short value, for a context rule. */
+  sourcePaths: (source: string) => fetch(`/api/source-paths?source=${encodeURIComponent(source)}`).then((r) => ok<{ paths: { path: string; value: string }[]; from: 'live' | 'demo' | 'none' }>(r)),
+  /** Values a source offers for an option, from its live data (or its demo data before there is any); of the widget's source `profile`, if it reads one. */
+  choices: (source: string, list: string, profile?: string) => fetch(`/api/choices?source=${encodeURIComponent(source)}&list=${encodeURIComponent(list)}${profile ? `&profile=${encodeURIComponent(profile)}` : ''}`).then((r) => ok<{ choices: { value: string; label?: string; group?: string }[]; from: 'live' | 'demo' | 'none'; error?: string }>(r)),
   install: (name: string) => fetch('/api/plugins/install', { method: 'POST', headers: H, body: JSON.stringify({ name }) }).then((r) => ok<{ ok: boolean; output: string; ids: string[]; problem: string | null; restartNeeded: boolean; state: AppState }>(r)),
   /** Installs the newest version of a plugin that fits this Kiosko. */
   updatePlugin: (id: string) => fetch(`/api/plugins/${encodeURIComponent(id)}/update`, { method: 'POST', headers: H }).then((r) => ok<{ ok: boolean; problem: string | null; rolledBack: boolean; addedPermissions: PluginPermissions | null; version: string; state: AppState }>(r)),

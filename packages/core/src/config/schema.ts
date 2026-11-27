@@ -23,7 +23,8 @@
  * Pure (no Node).
  */
 import { localize, THEMES, TIME_FORMATS, toJsonSchema, type Field, type Localized, type PluginDefinition } from '@kiosko/sdk';
-import { CONFIG_SCHEMA_ID, CONFIG_VERSION, DEFAULT_CONFIG, ZOOM } from './model.ts';
+import { CONFIG_SCHEMA_ID, CONFIG_VERSION, DEFAULT_CONFIG, PUSH_NAME_PATTERN, ZOOM } from './model.ts';
+import { PROFILE_ID_PATTERN, acceptsProfiles } from './profiles.ts';
 import { sourceOptionsField } from './sources.ts';
 
 type S = Record<string, unknown>;
@@ -68,6 +69,8 @@ function sizeHint(size: { min?: { w: number; h: number }; preferred?: { w: numbe
 
 /** Builds the schema of the whole config from the plugins' definitions (`registry.list().map(p => p.def)`). */
 export function configSchema(plugins: readonly PluginDefinition[]): S {
+  // The sources that accept profiles (see config/profiles.ts): their widgets get a `profile`.
+  const withProfiles = new Set(plugins.flatMap((p) => (p.sources ?? []).filter((s) => acceptsProfiles(s)).map((s) => `${p.id}/${s.id}`)));
   const sourceUsers = new Map<string, string[]>();
   for (const p of plugins) for (const w of p.widgets ?? []) for (const s of w.sources ?? []) sourceUsers.set(s, [...(sourceUsers.get(s) ?? []), `${p.id}/${w.id}`]);
   for (const p of plugins) for (const i of p.interludes ?? []) for (const s of i.sources ?? []) sourceUsers.set(s, [...(sourceUsers.get(s) ?? []), `${p.id}/${i.id}`]);
@@ -92,6 +95,7 @@ export function configSchema(plugins: readonly PluginDefinition[]): S {
           zoom: { $ref: '#/$defs/zoom' },
           ...(w.urgent ? { takeOver: { ...TAKE_OVER, default: w.takeOver ?? true } } : {}),
           ...(w.empty ? { hideWhenEmpty: { ...HIDE_WHEN_EMPTY, default: w.hideWhenEmpty ?? false } } : {}),
+          ...(w.sources?.some((x) => withProfiles.has(x)) ? { profile: { $ref: '#/$defs/profile', description: `The profile of ${w.sources.filter((x) => withProfiles.has(x)).join(', ')} it reads, by id (see "sourceProfiles"). Missing, or one that isn't there: the default one, "sources".` } } : {}),
         },
         'x-plugin': p.id,
         'x-category': w.category ?? 'info',
@@ -141,6 +145,33 @@ export function configSchema(plugins: readonly PluginDefinition[]): S {
           },
         ];
       }),
+    ),
+  );
+
+  const profiles: S = Object.fromEntries(
+    plugins.flatMap((p) =>
+      (p.sources ?? [])
+        .filter((s) => acceptsProfiles(s))
+        .map((s) => {
+          const type = `${p.id}/${s.id}`;
+          return [
+            type,
+            {
+              type: 'object',
+              description: `Profiles of ${en(s.name)} (${type}) besides the default one, by id.`,
+              propertyNames: { $ref: '#/$defs/profile' },
+              additionalProperties: {
+                type: 'object',
+                additionalProperties: false,
+                required: ['name'],
+                properties: {
+                  name: { type: 'string', description: 'What it is called in the editor: "Technology", "Work account".' },
+                  options: { ...options(sourceOptionsField(s), 'source'), description: `Its options, as "sources" has them for the default one.` },
+                },
+              },
+            },
+          ];
+        }),
     ),
   );
 
@@ -201,6 +232,13 @@ export function configSchema(plugins: readonly PluginDefinition[]): S {
         propertyNames: { pattern: TYPE_PATTERN, 'x-pattern-hint': 'a source type such as "weather/current"' },
         additionalProperties: { type: 'object' },
       },
+      sourceProfiles: {
+        type: 'object',
+        description: 'More named configurations ("profiles") of the sources that accept them, by "plugin/source" and then by profile id: { "news/deck": { "tech": { "name": "Technology", "options": { "feeds": [ … ] } } } }. Each is read on its own; a widget picks one with its "profile". The default profile is still "sources".',
+        properties: profiles,
+        propertyNames: { pattern: TYPE_PATTERN, 'x-pattern-hint': 'a source type such as "news/deck"' },
+        additionalProperties: { type: 'object' },
+      },
       plugins: {
         type: 'object',
         additionalProperties: false,
@@ -252,9 +290,30 @@ export function configSchema(plugins: readonly PluginDefinition[]): S {
           nodeId: { type: 'string', pattern: '^[a-z0-9_-]+$', description: "This Kiosko's id in the topics, so several machines don't collide. Default: kiosko." },
         },
       },
+      push: {
+        type: 'object',
+        additionalProperties: false,
+        description: 'Names scripts may push to with POST /api/push/<name> (a value, a text, a level), for the Push and JSON widgets. Each has its own token. See docs/rest-webhook.md.',
+        properties: {
+          hooks: {
+            type: 'array',
+            default: [],
+            items: {
+              type: 'object',
+              additionalProperties: false,
+              required: ['name', 'token'],
+              properties: {
+                name: { type: 'string', pattern: PUSH_NAME_PATTERN, 'x-pattern-hint': 'lowercase letters, digits, "-" and "_", up to 40', description: 'Goes in the URL: /api/push/<name>.' },
+                token: { type: 'string', 'x-secret': true, description: 'Sent as "Authorization: Bearer <token>" (or ?token=). At least 16 characters; the editor makes a random one.' },
+              },
+            },
+          },
+        },
+      },
     },
     $defs: {
       id: { type: 'string', pattern: ID_PATTERN, 'x-pattern-hint': 'an id of letters, digits, ".", "_" or "-" (no spaces, at most 80)', description: 'Stable id, unique among its siblings (widget ids: unique in the whole config). Generated when missing.' },
+      profile: { type: 'string', pattern: PROFILE_ID_PATTERN, 'x-pattern-hint': 'a profile id: lowercase letters, digits, "-" or "_" (at most 40)' },
       time: { type: 'string', pattern: TIME_PATTERN, 'x-pattern-hint': 'a time as HH:MM (24 h)' },
       when: { enum: ['always', 'work', 'off'], default: 'always', description: 'When it shows: always, only in work hours, or only outside them (see "workday").' },
       zoom: {
@@ -322,6 +381,13 @@ export function configSchema(plugins: readonly PluginDefinition[]): S {
               host: { type: 'string', description: 'Address to use instead of finding it by mDNS (another subnet, a network without multicast).', 'x-risk': 'network' },
               port: { type: 'integer', minimum: 1, maximum: 65535, default: 7428 },
               brightness: { type: 'integer', minimum: 0, maximum: 100, description: 'Backlight brightness, 0-100 (perceived; 0 = off), pushed to the screen on every connection. Screen firmware 0.1.2 or later; older ones ignore it. Empty: the screen keeps its own (70 % unless set on its setup page).' },
+              night: {
+                type: 'object',
+                additionalProperties: false,
+                required: ['start', 'end', 'brightness'],
+                description: 'Night mode: from start to end (local time; start after end goes across midnight) the backlight goes to this brightness (0 = off), and back at the end. Alerts that take the panel over still show at full brightness. Screen firmware 0.1.4 or later; older ones ignore it. Whatever this says, the backlight goes off while Kiosko shows the screen black (switched off, asleep).',
+                properties: { start: { $ref: '#/$defs/time' }, end: { $ref: '#/$defs/time' }, brightness: { type: 'integer', minimum: 0, maximum: 100 } },
+              },
             },
           },
           {
@@ -349,6 +415,44 @@ export function configSchema(plugins: readonly PluginDefinition[]): S {
               dir: { type: 'string', description: 'Folder where frame.jpg is written (created if missing).', 'x-risk': 'path' },
               format: { enum: ['jpeg', 'png'], default: 'jpeg' },
               quality: { type: 'integer', minimum: 1, maximum: 100, default: 90 },
+              presence: {
+                type: 'object',
+                additionalProperties: false,
+                description: 'How to tell that the sender\'s panel is plugged in. While it is not, the screen is paused: nothing is composed, painted nor encoded for it (no CPU), and it resumes with a fresh frame as soon as the panel is back. Several: paused if any says the panel is missing. Without this, the screen is always painted.',
+                properties: {
+                  usb: {
+                    type: 'object',
+                    additionalProperties: false,
+                    required: ['vendorId', 'productId'],
+                    description: 'A USB device with these ids (and serial) is plugged in. Looked up read only (sysfs on Linux): never opened nor claimed, so the sender keeps it. Without a serial, with several identical panels, the screen is paused only when none is plugged in.',
+                    properties: {
+                      vendorId: { type: 'string', pattern: '^(0x)?[0-9a-fA-F]{4}$', description: 'USB vendor id, 4 hex digits ("0416" for Thermalright LY panels).' },
+                      productId: { type: 'string', pattern: '^(0x)?[0-9a-fA-F]{4}$', description: 'USB product id, 4 hex digits ("5408").' },
+                      serial: { type: 'string', description: 'USB serial number of this screen\'s panel: with several identical panels it is the only way to know which one is missing. `kiosko doctor` lists them.' },
+                    },
+                  },
+                  heartbeat: {
+                    type: 'object',
+                    additionalProperties: false,
+                    required: ['path'],
+                    description: 'A file the sender touches while it drives the panel (contrib/usb-sender writes `.heartbeat` in the folder it shows). Missing or older than maxAgeMs: the panel is missing.',
+                    properties: {
+                      path: { type: 'string', description: 'The file; a relative path is inside `dir`.', 'x-risk': 'path' },
+                      maxAgeMs: { type: 'integer', minimum: 500, default: 5000 },
+                    },
+                  },
+                  command: {
+                    type: 'object',
+                    additionalProperties: false,
+                    required: ['argv'],
+                    description: 'A program that exits 0 while the panel is there. Run now and then (everyMs), killed after 10 s.',
+                    properties: {
+                      argv: { type: 'array', minItems: 1, items: { type: 'string' }, description: 'The program and its arguments (no shell).', 'x-risk': 'exec' },
+                      everyMs: { type: 'integer', minimum: 5000, default: 30000 },
+                    },
+                  },
+                },
+              },
             },
           },
         ],
@@ -388,6 +492,32 @@ export function configSchema(plugins: readonly PluginDefinition[]): S {
           chrome: { enum: ['auto', 'card', 'bare'], default: 'auto', description: 'card: framed with an optional title; bare: edge to edge; auto: what the shown widget prefers.' },
         },
       },
+      showWhenRule: {
+        type: 'object',
+        additionalProperties: false,
+        description: 'A context rule: every condition it has must hold (app, source, time, urgent); a page comes up when any of its rules holds.',
+        properties: {
+          label: { type: 'string', description: 'What it means ("game open"), shown in the editor as the reason the page is on screen.' },
+          priority: { type: 'integer', default: 0, description: 'Higher wins when several pages want the screen.' },
+          app: { type: 'string', description: 'A program running: its process name as a glob, case-insensitive ("steam*", "obs*", "zoom*"); several separated by commas. Linux: the kernel name or argv[0]; macOS: the executable or its .app; Windows: the image name, with or without .exe.' },
+          source: { type: 'string', description: 'A source, "plugin/source" (e.g. "calls/active"): it runs even with no widget showing it.' },
+          path: { type: 'string', description: 'Where in the source\'s data: dots and brackets ("active", "items[0].price"). Empty: the data itself.' },
+          op: { enum: ['truthy', 'falsy', 'eq', 'ne', 'gt', 'gte', 'lt', 'lte', 'contains'], description: 'How the value compares: default eq with a "value", truthy without. No data yet (or no such path) never matches.' },
+          value: { type: ['string', 'number', 'boolean'], description: 'What the value is compared with.' },
+          time: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['start', 'end'],
+            description: 'A local time window; start after end goes across midnight.',
+            properties: {
+              start: { $ref: '#/$defs/time' },
+              end: { $ref: '#/$defs/time' },
+              days: { type: 'array', items: { type: 'integer', minimum: 0, maximum: 6 }, description: 'The days it starts on, 0 = Sunday … 6 = Saturday. Missing: every day.' },
+            },
+          },
+          urgent: { type: 'boolean', description: 'A widget on this page is urgent (a meeting about to start, a permission waiting).' },
+        },
+      },
       page: {
         type: 'object',
         additionalProperties: false,
@@ -398,6 +528,12 @@ export function configSchema(plugins: readonly PluginDefinition[]): S {
           enabled: { type: 'boolean', default: true },
           durationMs: { type: 'integer', minimum: 10_000, default: 10 * 60_000, description: 'Time on screen when pages take turns, in ms.' },
           when: { $ref: '#/$defs/when' },
+          showWhen: {
+            type: 'array',
+            items: { $ref: '#/$defs/showWhenRule' },
+            description: 'Context rules: while one holds (a program running, a source\'s value, a time window, an urgent widget on this page), this page takes the screen over from the rotation; when none holds any more, the rotation comes back. The highest priority wins; equals take turns. A pinned page and alerts still go first.',
+          },
+          inRotation: { type: 'boolean', default: false, description: 'With "showWhen": also take a turn in the normal rotation. Pages without rules always do.' },
           grid: { $ref: '#/$defs/grid', description: 'Missing: a grid of square-ish cells of about 80 px for the screen size.' },
           gravity: { enum: ['none', 'up', 'left'], default: 'none', description: 'How the editor closes gaps after a move: none (free placement), up (masonry), left (wide strips).' },
           background: {
@@ -426,6 +562,15 @@ export function configSchema(plugins: readonly PluginDefinition[]): S {
           device: { $ref: '#/$defs/device' },
           pages: { type: 'array', items: { $ref: '#/$defs/page' }, default: [] },
           pinnedPage: { type: 'string', description: 'Id of a page to show all the time (no turns).' },
+          context: {
+            type: 'object',
+            additionalProperties: false,
+            description: 'Anti-flicker for context pages ("showWhen"), in ms. Missing: 20 s and 10 s.',
+            properties: {
+              minMs: { type: 'integer', minimum: 0, maximum: 3_600_000, default: 20_000, description: 'Least time a context page stays once it came up (a higher priority one doesn\'t wait).' },
+              holdMs: { type: 'integer', minimum: 0, maximum: 3_600_000, default: 10_000, description: 'How long it stays after its rule stopped holding, in case it holds again.' },
+            },
+          },
           interludes: { type: 'array', items: { $ref: '#/$defs/interlude' }, default: [] },
           pixelShift: {
             type: 'object',

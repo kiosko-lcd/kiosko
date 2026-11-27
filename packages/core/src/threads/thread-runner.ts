@@ -16,6 +16,7 @@ import { Worker } from 'node:worker_threads';
 import { PAD_KEYS, type PadEvent } from '@kiosko/sdk';
 import type { ShownAlert } from '../alerts.ts';
 import { widgetsOf, type Config, type Page, type Screen } from '../config/model.ts';
+import type { ContextPick } from '../context.ts';
 import type { Device } from '../devices.ts';
 import type { LogFn } from '../env.ts';
 import type { ScreenFrameStats } from '../frame-stats.ts';
@@ -36,7 +37,10 @@ export interface ThreadOwner {
   readonly editorUrl?: string | undefined;
   log: LogFn;
   dataOf(instanceId: string): unknown;
-  sourceData(type: string): unknown;
+  /** The latest data of a source key (see config/profiles.ts). */
+  sourceData(key: string): unknown;
+  /** The source keys a widget with `profile` reads. */
+  sourceKeys(types: readonly string[] | undefined, profile?: string | null): string[];
   paintTime(instance: string, type: string, ms: number, now: number): void;
   frame(info: FrameInfo): void;
   pageChanged(): void;
@@ -57,7 +61,10 @@ export class ThreadRunner implements Runner {
   device: Device;
   private deviceKey: string;
   pinned: string | null;
+  context: ContextPick | null = null;
   off = false;
+  /** Its panel is missing (presence.ts): the thread paints nothing and is sent no data meanwhile. */
+  paused = false;
   alert: ShownAlert | null = null;
   lastInfo: FrameInfo | null = null;
   visibleIds = new Set<string>();
@@ -83,6 +90,8 @@ export class ThreadRunner implements Runner {
     this.pinned = screen.pinnedPage ?? null;
     this.deviceKey = JSON.stringify(screen.device);
     this.device = device ?? owner.openDevice(screen, (m) => owner.log(`screen:${screen.name}`, m));
+    // A panel already known to be missing: the thread starts paused (a message would come after its first paint).
+    this.paused = screen.enabled && this.device.presence?.state === 'absent';
     this.start();
   }
 
@@ -117,7 +126,9 @@ export class ThreadRunner implements Runner {
       startedAt: this.owner.startedAt,
       ...(this.owner.editorUrl ? { editorUrl: this.owner.editorUrl } : {}),
       pinned: this.pinned,
+      context: this.context,
       off: this.off,
+      paused: this.paused,
     };
     const w = new Worker(this.entry, { workerData: init, name: `kiosko screen ${this.screen.id}` } as ConstructorParameters<typeof Worker>[1]);
     this.worker = w;
@@ -142,7 +153,7 @@ export class ThreadRunner implements Runner {
       const def = reg.widget(widget.type);
       if (!def || widget.disabled) continue;
       ids.add(widget.id);
-      for (const s of def.sources ?? []) sources.add(s);
+      for (const s of this.owner.sourceKeys(def.sources, widget.profile)) sources.add(s);
     }
     for (const slot of this.screen.interludes) for (const s of reg.interlude(slot.type)?.sources ?? []) sources.add(s);
     return { ids, sources };
@@ -284,6 +295,7 @@ export class ThreadRunner implements Runner {
   }
 
   dataChanged(change: { source?: string; instance?: string }): void {
+    if (this.paused) return;
     if ((change.instance && this.need.ids.has(change.instance)) || (change.source && this.need.sources.has(change.source))) this.sendData(change);
   }
 
@@ -300,14 +312,32 @@ export class ThreadRunner implements Runner {
     this.post({ t: 'pin', page: pageId });
   }
 
+  setContext(pick: ContextPick | null): void {
+    const same = JSON.stringify(pick) === JSON.stringify(this.context);
+    this.context = pick;
+    if (!same) this.post({ t: 'context', pick });
+  }
+
   setOff(off: boolean): void {
     this.off = off;
     if (off) this.state = { ...this.state, interlude: null };
     this.post({ t: 'off', off });
   }
 
+  setPaused(paused: boolean): void {
+    if (paused === this.paused) return;
+    this.paused = paused;
+    if (paused) this.state = { ...this.state, interlude: null, animating: null };
+    this.post({ t: 'paused', paused });
+    // Back: the data it missed meanwhile, all of it again.
+    if (!paused) {
+      this.need = { ids: new Set(), sources: new Set() };
+      this.sendNeeded();
+    }
+  }
+
   async playNow(slotId: string, play = false): Promise<void> {
-    if (this.off || this.alert) return;
+    if (this.off || this.alert || this.paused) return;
     this.post({ t: 'play', slot: slotId, play });
   }
 

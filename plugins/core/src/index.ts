@@ -6,6 +6,8 @@
  */
 import { readdir, readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
+import { jsonList, jsonText, jsonValue } from './json.ts';
+import { push, pushSource } from './push.ts';
 import { createFormatters, definePlugin, hanScript, expandPath, defineWidget, drawEmpty, drawMore, listLayout, listOptions, t, type Graphics, type RenderContext } from '@kiosko/sdk';
 
 /** The largest size at which `text` fits `w×h` (one line). */
@@ -77,7 +79,9 @@ export const clock = defineWidget({
     color: t.enum(['ink', 'accent', 'dim'] as const, { label: { en: 'Colour', es: 'Color', de: 'Farbe', 'zh-Hant': '顏色', 'zh-Hans': '颜色' }, labels: { ink: { en: 'Text', es: 'Texto', de: 'Text', 'zh-Hant': '文字', 'zh-Hans': '文字' }, accent: { en: 'Accent', es: 'Acento', de: 'Akzent', 'zh-Hant': '強調色', 'zh-Hans': '强调色' }, dim: { en: 'Dim', es: 'Tenue', de: 'Gedämpft', 'zh-Hant': '淡色', 'zh-Hans': '暗淡' } } }),
     align: t.enum(['center', 'left', 'right'] as const, { label: { en: 'Alignment', es: 'Alineación', de: 'Ausrichtung', 'zh-Hant': '對齊', 'zh-Hans': '对齐' } }),
   }),
-  redraw: 'second',
+  // Without seconds it changes once a minute: repainting it every second only
+  // made the same picture (and the whole screen's frame encoded) again.
+  redraw: ({ options }) => (options.showSeconds ? 'second' : 'minute'),
   render(g, { box, now, options, theme, locale, fmt }) {
     const at = wallClock(now, options.timeZone);
     const clock = options.timeFormat === 'inherit' ? fmt : createFormatters({ locale, timeFormat: options.timeFormat, now });
@@ -429,14 +433,18 @@ export const image = defineWidget({
 export default definePlugin({
   id: 'core',
   name: { en: 'Essentials', es: 'Básicos', de: 'Grundlagen', 'zh-Hant': '基本工具', 'zh-Hans': '基础组件' },
-  version: '0.2.11',
+  version: '0.2.14',
   languages: ['en', 'es', 'de', 'zh-Hant', 'zh-Hans'],
   sdk: '^0.2.0',
-  // The picture widget reads the image (or folder, or URL) you give it.
+  // The picture widget reads the image (or folder, or URL) you give it; the JSON ones ask the URL you give them.
   permissions: { files: ['user'], network: ['user'] },
-  description: { en: 'Clock, date, notes, lists and pictures.', es: 'Reloj, fecha, notas, listas e imágenes.', de: 'Uhr, Datum, Notizen, Listen und Bilder.', 'zh-Hant': '時鐘、日期、便條、清單和圖片。', 'zh-Hans': '时钟、日期、便签、列表和图片。' },
+  description: { en: 'Clock, date, notes, lists, pictures, any JSON and pushes from your scripts.', es: 'Reloj, fecha, notas, listas, imágenes, cualquier JSON y los push de tus scripts.', de: 'Uhr, Datum, Notizen, Listen, Bilder, beliebiges JSON und Pushes deiner Skripte.', 'zh-Hant': '時鐘、日期、便條、清單、圖片、任何 JSON，以及腳本傳來的推送。', 'zh-Hans': '时钟、日期、便签、列表、图片、任何 JSON，以及脚本发来的推送。' },
   author: 'Kiosko',
   license: 'MIT',
   icon: 'box',
-  widgets: [clock, date, text, list, image],
+  widgets: [clock, date, text, list, image, jsonValue, jsonList, jsonText, push],
+  sources: [pushSource],
 });
+
+export { jsonList, jsonText, jsonValue, push, pushSource };
+export { pushes, PushStore, PUSH_LIMITS, PUSH_NAME, type PushData, type PushEntry } from './push-store.ts';

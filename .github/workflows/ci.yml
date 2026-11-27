@@ -28,6 +28,9 @@ jobs:
       - run: npm test
         env:
           KIOSKO_QUIET: '1'
+      - name: USB sender tests (Linux only, like the sender)
+        if: runner.os == 'Linux'
+        run: python3 -m unittest discover -s contrib/usb-sender
       - name: Package and smoke-test the CLI
         shell: bash
         run: |
