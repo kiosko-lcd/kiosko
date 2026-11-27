@@ -28,7 +28,7 @@ import { runService, servicePlan } from './service.ts';
 import { realDiscover, startServer } from './server.ts';
 import { agentTraces, starterConfig, starterPanels } from './starter.ts';
 
-const VERSION = '0.2.12';
+const VERSION = '0.2.13';
 const USAGE = `Kiosko ${VERSION}: a widget mosaic for USB LCD panels
 
   kiosko start [--port 7420] [--host 127.0.0.1] [--config file] [--open] [--demo]
