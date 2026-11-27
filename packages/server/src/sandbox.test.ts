@@ -79,7 +79,10 @@ function files(dir: string): string[] {
     if (!existsSync(d)) return;
     for (const name of readdirSync(d)) {
       const p = join(d, name);
-      if (statSync(p).isDirectory()) walk(p);
+      // Gone since the listing: a frame or cache written to a temporary name, then renamed.
+      const st = statSync(p, { throwIfNoEntry: false });
+      if (!st) continue;
+      if (st.isDirectory()) walk(p);
       else out.push(relative(dir, p).split('\\').join('/'));
     }
   };
