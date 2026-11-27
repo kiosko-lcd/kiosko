@@ -195,6 +195,8 @@ pantalla vuelve sola al anterior.
   emparejó con otro. Usa *Volver a emparejar* en su tarjeta.
 - **Desconectada.** La pantalla está desenchufada o fuera de la Wi-Fi. Kiosko
   se reconecta solo en cuanto vuelve, y mientras tanto no llena el registro.
+  Mientras no está no se pinta nada para ella (*Panel desconectado · en
+  pausa*): no gasta CPU, y vuelve con una imagen nueva.
 - **Imágenes lentas.** Decodificar cada imagen cuesta unos 60–90 ms, así que
   las animaciones vivas llegan a unos 8–10 fps. Las páginas quietas no se
   ven afectadas.

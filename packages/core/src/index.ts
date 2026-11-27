@@ -21,6 +21,7 @@ export * from './licenses.ts';
 export * from './plugin-updates.ts';
 export * from './kiosko-release.ts';
 export * from './devices.ts';
+export * from './presence.ts';
 export * from './fonts.ts';
 export * from './paths.ts';
 export * from './env.ts';

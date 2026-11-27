@@ -10,7 +10,7 @@ import { READING_CM, legibleCjkPx, mmPerPx, newTile, newWidget, zoomOf, type Pag
 import { api } from '../api.ts';
 import { Icon } from '../icons.tsx';
 import { t as fill, tr } from '../i18n.ts';
-import { config, draftPage, edit, lastFrame, liveMode, notify, page, redo, screen, selectedTile, selectedWidget, showGrid, trueSize, undo, widgets } from '../store.ts';
+import { config, draftPage, edit, lastFrame, liveMode, notify, page, redo, screen, selectedTile, selectedWidget, showGrid, status, trueSize, undo, widgets } from '../store.ts';
 
 /** Type of the widget being dragged from the library (DnD can't read data during dragover). */
 export const dragging = { type: null as string | null };
@@ -351,6 +351,7 @@ export function Stage() {
           )}
           {live && frame?.interlude && <div class="live-badge"><Icon name="clapperboard" size={14} /> {tr('stage.interlude')}</div>}
           {live && frame?.sleeping && <div class="live-badge"><Icon name="moon" size={14} /> {tr('stage.sleeping')}</div>}
+          {live && status.value?.screens.find((x) => x.id === scr.id)?.paused && <div class="live-badge"><Icon name="usb" size={14} /> {tr('screens.paused')}</div>}
         </div>
       </div>
       <div class="stage-caption">

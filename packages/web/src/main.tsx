@@ -69,7 +69,7 @@ function TopBar() {
                 pageId.value = s.pages[0]?.id ?? null;
                 selectedTile.value = null;
               }}>
-                <span class={`dot ${!s.enabled ? 'off' : st?.device.ok ? 'ok' : 'bad'}`} />
+                <span class={`dot ${!s.enabled || st?.paused ? 'off' : st?.device.ok ? 'ok' : 'bad'}`} title={st?.paused ? tr('screens.paused') : undefined} />
                 {s.name}
                 <small>
                   {s.width}×{s.height}

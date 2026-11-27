@@ -250,6 +250,10 @@ The screen is not always there: unplugged, off the Wi-Fi, rebooting.
   pause at once.
 - While the screen is away, the editor shows it as *offline*, not as an
   error, and the log gets one line per change, not one per retry.
+- While it is away (offline after a try, or not paired) its `presence` is
+  `absent` and the runtime pauses the screen: nothing is composed, painted
+  nor encoded for it until the session is up again (see presence.ts and
+  docs/usb.md). Before the first try it is `unknown` and painted as usual.
 - On every (re)connection:
   1. The screen reports its state.
   2. Kiosko pushes its settings: **Kiosko's screen config is the truth** for

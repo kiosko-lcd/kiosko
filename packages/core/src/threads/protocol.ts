@@ -26,6 +26,8 @@ export interface ThreadInit {
   pinned: string | null;
   context: ContextPick | null;
   off: boolean;
+  /** Its panel is missing (presence.ts): it paints nothing until told otherwise. */
+  paused?: boolean;
 }
 
 export type ToThread =
@@ -37,6 +39,7 @@ export type ToThread =
   /** The context page it must show (see context.ts). */
   | { t: 'context'; pick: ContextPick | null }
   | { t: 'off'; off: boolean }
+  | { t: 'paused'; paused: boolean }
   | { t: 'play'; slot: string; play: boolean }
   | { t: 'stop' }
   | { t: 'press'; e: PadEvent }

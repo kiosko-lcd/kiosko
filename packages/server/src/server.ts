@@ -25,7 +25,7 @@ import { HomeAssistantBridge } from './homeassistant.ts';
 import { remoteApi, type RemoteApiContext } from './remote-api.ts';
 import { pushApi, pushFile } from './push-api.ts';
 import { ALERT_LEVELS, type AlertLevel } from '@kiosko/sdk';
-import { AlertError, DEFAULT_SNOOZE_MS, PANEL_PRESETS, checkUpdates, discoverRemote, discoverTrcc, discoverUsb, normalize, npmRegistry, paths, resolveLocale, resolveSourceKey, saveConfig, type Config, type FrameInfo, type Runtime, type Screen, type UpdateCheck, dataPaths } from '@kiosko/core';
+import { AlertError, DEFAULT_SNOOZE_MS, PANEL_PRESETS, checkUpdates, discoverRemote, discoverTrcc, discoverUsb, hexId, listUsbDevices, normalize, npmRegistry, paths, resolveLocale, resolveSourceKey, saveConfig, type Config, type FrameInfo, type Runtime, type Screen, type UpdateCheck, dataPaths } from '@kiosko/core';
 import { currentInstall, updateBlocker, updateInstructions, type InstallInfo } from './install-kind.ts';
 import { KioskoUpdater, UpdateError, readMarker, realRun, restartHow, writeMarker, type Handover, type UpdaterDeps } from './self-update.ts';
 
@@ -75,6 +75,8 @@ export interface ServerOptions {
    * without touching real ones). Default: ask `trcc serve` at `url` and libusb.
    */
   discover?: (url: string, tokenFile?: string) => Promise<Discovered>;
+  /** How "Detect panels" of a Frame file screen lists USB devices by VID:PID (tests). Default: read only, sysfs or libusb (listUsbDevices). */
+  usbDevices?: typeof listUsbDevices;
 }
 
 /** The panels "Detect panels" finds: those `trcc serve` drives, the LY ones on USB, the remote screens on the LAN. */
@@ -473,6 +475,15 @@ export function startServer(o: ServerOptions) {
     if (p === '/api/devices/discover' && m === 'GET') {
       const url0 = url.searchParams.get('url') ?? 'http://127.0.0.1:8099';
       return json(res, 200, await (o.discover ?? realDiscover)(url0, url.searchParams.get('tokenFile') ?? undefined));
+    }
+
+    // The USB devices with a VID:PID plugged in now, serials included, read only (never opened on Linux, never
+    // claimed): for a Frame file screen's presence, whose panel another process (its sender) holds.
+    if (p === '/api/devices/usb' && m === 'GET') {
+      const vendorId = hexId(url.searchParams.get('vendorId') ?? '0416');
+      const productId = hexId(url.searchParams.get('productId') ?? '5408');
+      if (!Number.isFinite(vendorId) || !Number.isFinite(productId)) return json(res, 400, { error: 'vendorId and productId: 4 hex digits each' });
+      return json(res, 200, await (o.usbDevices ?? listUsbDevices)(vendorId, [productId]));
     }
 
     // Who answers here: the update's handover tells the new Kiosko from the old one by it.

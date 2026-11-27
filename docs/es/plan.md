@@ -379,6 +379,23 @@ Lo que cambia en el camino:
   paquete.
 - Documentación: README (en), guía de plugins (en), este plan (es),
   CONTRIBUTING, plantillas de issues y PR.
+- **Presencia: sin panel, sin CPU** (2026-11-27). Una pantalla cuyo panel no
+  está (desenchufado, remota desconectada) se pausa: no se compone, pinta ni
+  codifica nada para ella, sus interludios, animaciones y alertas esperan, y
+  las fuentes y consultas que solo ella usa se paran (la misma lógica de
+  `retain`); también en las pantallas pintadas en su propio hilo. Se vuelve a
+  mirar con espera creciente (2 s → 30 s) o al momento con un evento USB
+  (inotify en `/dev/bus/usb`, hotplug de libusb) o el anuncio mDNS, y vuelve
+  con un fotograma nuevo completo. `usb` y `remote` lo hacen solos; `file`
+  acepta `device.presence` con `usb` (VID:PID y número de serie, solo lectura:
+  sysfs en Linux, nunca se reclama), `heartbeat` (el emisor de
+  `contrib/usb-sender` toca `.heartbeat` en la carpeta que enseña, también con
+  la rueda) y `command`. Sin número de serie y con paneles gemelos, solo se
+  pausa cuando no queda ninguno. El editor dice «Panel desconectado · en pausa
+  (ahorrando CPU)» y su «Detectar números de serie» rellena el de cada
+  pantalla; `kiosko doctor` dice la presencia. Medido con tres pantallas
+  Fichero de frame y un solo panel enchufado: de ~18 % a ~6 % de un núcleo.
+  Guía en docs/usb.md (y es, de, zh-Hans, zh-Hant).
 
 ### Pendiente
 

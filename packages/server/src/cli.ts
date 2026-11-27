@@ -14,7 +14,7 @@
 import { spawn } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { Registry, Runtime, cjkFontStatus, discoverRemote, installSdkResolver, scriptFontStatus, systemLocale, listUsb, loadConfig, paths, resolveLocale, saveConfig, type Config } from '@kiosko/core';
+import { Registry, Runtime, cjkFontStatus, discoverRemote, installSdkResolver, presenceNow, scriptFontStatus, systemLocale, listUsb, loadConfig, paths, resolveLocale, saveConfig, type Config } from '@kiosko/core';
 import { hanScript } from '@kiosko/sdk';
 import { BUILTIN_PLUGINS, OFFICIAL_PLUGINS } from './builtin.ts';
 import { configCommand } from './config-cli.ts';
@@ -257,6 +257,11 @@ async function main(): Promise<void> {
       for (const s of cfg.screens) {
         const missing = s.pages.flatMap((p) => p.tiles.flatMap((t) => t.widgets.filter((w) => !reg.widget(w.type)).map((w) => w.type)));
         console.log(`screen  ${s.name} ${s.width}×${s.height} ${s.device.driver}${missing.length ? `  ✗ unknown widgets: ${[...new Set(missing)].join(', ')}` : ''}`);
+        // A Frame file screen's presence: whether its sender's panel is plugged in now (paused while it isn't).
+        if (s.device.driver === 'file' && s.device.presence) {
+          const p = await presenceNow(s.device.presence, s.device.dir);
+          console.log(`        presence ${p.state === 'absent' ? '✗ absent: paused' : p.state}: ${p.why}`);
+        }
       }
       return;
     }

@@ -23,6 +23,87 @@ anything bigger **silently**; Kiosko reads the panel's acknowledgement and
 says so in the screen's status ("the panel dropped a … KB frame: lower the
 JPEG quality").
 
+## Unplugged panels pause their screen (presence)
+
+A screen whose panel is not there costs CPU for nobody: its page is composed,
+its widgets painted and its frames encoded all the same. So Kiosko **pauses a
+screen whose panel is missing**: nothing is composed, painted nor encoded for
+it, its interludes, animations and alerts wait, and the sources and fetches
+only that screen shows stop. It is looked for again cheaply (after 2 s, 4 s,
+8 s… up to every 30 s, and at once on a USB hotplug event: inotify on
+`/dev/bus/usb` on Linux, libusb's hotplug events elsewhere) and the screen
+**resumes with a fresh, full frame** as soon as the panel is back. The editor
+says *Panel disconnected · paused (saving CPU)*, and `kiosko doctor` shows
+each Frame file screen's presence. A screen you switched off stays off:
+presence is not the screen's on/off switch.
+
+- **USB** connection: automatic. The panel is absent when no LY panel with its
+  `serial` (any LY panel, without one) is plugged in. Looked up without
+  opening it.
+- **Remote screen**: automatic. Offline (no session, no mDNS announcement) or
+  not paired is absent; its announcement brings it back at once.
+- **Frame file**: Kiosko can't see the panel its sender drives, so tell it how
+  with `presence` (without it the screen is always painted, as before):
+
+```json
+"device": {
+  "driver": "file",
+  "dir": "$XDG_RUNTIME_DIR/kiosko/left",
+  "presence": {
+    "usb": { "vendorId": "0416", "productId": "5408", "serial": "202592047DAE" },
+    "heartbeat": { "path": ".heartbeat", "maxAgeMs": 5000 }
+  }
+}
+```
+
+- `usb`: a USB device with this vendor and product id (and serial) is plugged
+  in. Read only: on Linux from sysfs, without opening the device at all;
+  elsewhere libusb opens it for a moment to read the serial, once per plug,
+  and never claims it. The sender keeps the panel undisturbed.
+- `heartbeat`: a file the sender touches while it drives the panel; missing or
+  older than `maxAgeMs` (default 5000) means absent. A relative path is inside
+  `dir`. The sender in `contrib/usb-sender` touches `.heartbeat` in the folder
+  it is showing every second while its panel is connected.
+- `command`: `{ "argv": ["lsusb", "-d", "0416:5408"], "everyMs": 30000 }`: a
+  program (no shell) that exits 0 while the panel is there; run every
+  `everyMs` (at least 5 s), killed after 10 s. Listed for review when a config
+  is imported, like any value that runs a program.
+
+Several probes: absent if **any** says absent. A probe that can't tell (libusb
+missing, a twin whose serial can't be read) says *unknown*, and unknown
+screens are painted as always.
+
+In the editor: **Screens → (the screen) → Frame file → Pause when its panel is
+unplugged**, and **Detect serials** lists the devices with that VID:PID and
+their serials (read only), saying which screen already uses each.
+
+**Identical panels need the serial.** Several Trofeo Vision panels all report
+`0416:5408`. Without a `serial`, Kiosko can only tell that *some* panel is
+plugged in, never *which*, so it pauses the screen only when **none** is
+plugged in. With two of three unplugged and no serials, nothing pauses: that
+is on purpose, since pausing a screen whose panel is in fact there would leave
+it frozen. `kiosko doctor` lists the serials (`lsusb -v -d 0416:5408 | grep
+iSerial` too).
+
+### With the trcc sender (`contrib/usb-sender`)
+
+Each sender drives one panel, chosen by serial, and shows the `frame.jpg` of
+one folder. Give each Frame file screen the presence of *its* sender:
+
+- Without `wheel` in the senders' config: either probe works. `usb` with the
+  sender's `serial` needs nothing from the sender; `heartbeat` also notices a
+  sender that is not running.
+- **With `wheel`** (the panels take turns showing each folder every few hours)
+  the folder a panel shows changes, so its serial says nothing about which
+  screen it shows: use **`heartbeat`** only (`{ "path": ".heartbeat" }`). The
+  sender touches the heartbeat of the folder it shows *now*, so exactly the
+  screens some connected panel is showing are painted; at a turn the new
+  folder's heartbeat is touched within a second and its screen resumes.
+
+The heartbeat needs the updated `kiosko-sender.py` (it touches `.heartbeat`
+unless its config says `"heartbeat": false`). An older sender never touches
+it, and the screen would stay paused: update the sender first.
+
 ## What each system needs
 
 **Linux.** Your user must be allowed to open the device. If `kiosko doctor`

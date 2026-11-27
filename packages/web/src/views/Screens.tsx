@@ -11,7 +11,7 @@ import { DemoFrame, dt, exportScreen } from '../demo/ui.tsx';
 import { threadText } from './Others.tsx';
 import { openWizard } from '../wizard/Wizard.tsx';
 import { RemoteFoundItem, RemoteSettings } from './Remote.tsx';
-import type { RemoteFound } from '../api.ts';
+import type { RemoteFound, UsbSeen } from '../api.ts';
 
 export function Screens() {
   const cfg = config.value!;
@@ -173,9 +173,15 @@ function ScreenCard({ s }: { s: Screen }) {
       <div class="card-head">
         <PanelGlyph w={s.width} h={s.height} />
         <input class="title-input" value={s.name} {...typed((text) => set((x) => (x.name = text), `sname-${s.id}`))} aria-label={tr('screens.name')} />
-        <span class={`status-pill ${st?.device.ok ? 'ok' : 'bad'}`}>
-          <span class="dot" /> {st ? deviceText(st.device) : '—'}
-        </span>
+        {st?.paused ? (
+          <span class="status-pill paused" title={st.presence?.why ?? ''}>
+            <span class="dot" /> {tr('screens.paused')}
+          </span>
+        ) : (
+          <span class={`status-pill ${st?.device.ok ? 'ok' : 'bad'}`}>
+            <span class="dot" /> {st ? deviceText(st.device) : '—'}
+          </span>
+        )}
         <div class="tb-spacer" />
         <button class="btn ghost small" onClick={() => {
           screenId.value = s.id;
@@ -270,6 +276,7 @@ function ScreenCard({ s }: { s: Screen }) {
             <div class="sub-form">
               <label class="field-label">{tr('screens.dir')}</label>
               <input class="input mono" value={dev.dir} onInput={(e) => setDevice({ ...dev, dir: (e.target as HTMLInputElement).value })} />
+              <FilePresence s={s} dev={dev} setDevice={setDevice} />
             </div>
           )}
         </div>
@@ -501,7 +508,121 @@ function LiveThumb({ s }: { s: Screen }) {
       {f?.alert && <span class="live-badge alert"><Icon name="siren" size={13} /> {tr('stage.alert')}</span>}
       {f?.interlude && <span class="live-badge"><Icon name="clapperboard" size={13} /> {tr('stage.interlude')}</span>}
       {f?.sleeping && <span class="live-badge"><Icon name="moon" size={13} /> {tr('stage.sleeping')}</span>}
+      {status.value?.screens.find((x) => x.id === s.id)?.paused && <span class="live-badge"><Icon name="usb" size={13} /> {tr('screens.paused')}</span>}
     </div>
+  );
+}
+
+type FileDevice = Extract<DeviceConfig, { driver: 'file' }>;
+
+/**
+ * A Frame file screen's `presence`: how Kiosko knows its sender's panel is
+ * plugged in, so the screen is paused (no CPU) while it isn't. "Detect
+ * serials" lists the USB devices with that VID:PID, read only, and fills the
+ * serial; the ones other screens already use say so.
+ */
+function FilePresence({ s, dev, setDevice }: { s: Screen; dev: FileDevice; setDevice: (d: DeviceConfig) => void }) {
+  const [found, setFound] = useState<UsbSeen[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  const pr = dev.presence;
+  type Presence = NonNullable<FileDevice['presence']>;
+  const set = (next: Presence | undefined) => {
+    const { presence: _, ...rest } = dev;
+    setDevice(next && Object.keys(next).length ? { ...rest, presence: next } : rest);
+  };
+  /** The presence with one probe set, or taken out (not left as undefined). */
+  const withProbe = <K extends keyof Presence>(k: K, v: Presence[K] | undefined): Presence => {
+    const { [k]: _, ...rest } = pr ?? {};
+    return v === undefined ? rest : { ...rest, [k]: v };
+  };
+  const usb = pr?.usb;
+  const hb = pr?.heartbeat;
+  const others = (config.value?.screens ?? []).filter((x) => x.id !== s.id);
+  const usedBy = (serial: string) => others.find((x) => x.device.driver === 'file' && x.device.presence?.usb?.serial === serial)?.name;
+  const detect = async () => {
+    if (!usb) return;
+    setBusy(true);
+    try {
+      const r = await api.usbDevices(usb.vendorId, usb.productId);
+      setFound(r.devices);
+    } catch (err) {
+      notify(errorText(err), 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <>
+      <div class="field field-row">
+        <Toggle checked={!!pr} onChange={(v) => set(v ? { usb: { vendorId: '0416', productId: '5408' } } : undefined)} />
+        <span>{tr('screens.presence')}</span>
+      </div>
+      {pr && (
+        <>
+          <p class="muted small">{tr('screens.presenceHelp')}</p>
+          <div class="field field-row">
+            <Toggle checked={!!usb} onChange={(v) => set(withProbe('usb', v ? { vendorId: '0416', productId: '5408' } : undefined))} />
+            <span>{tr('screens.presenceUsb')}</span>
+          </div>
+          {usb && (
+            <>
+              <div class="row">
+                <input class="input mono num" value={usb.vendorId} aria-label="VID" maxLength={6} onInput={(e) => set({ ...pr, usb: { ...usb, vendorId: (e.target as HTMLInputElement).value.trim() } })} />
+                <span class="muted">:</span>
+                <input class="input mono num" value={usb.productId} aria-label="PID" maxLength={6} onInput={(e) => set({ ...pr, usb: { ...usb, productId: (e.target as HTMLInputElement).value.trim() } })} />
+              </div>
+              <label class="field-label">{tr('screens.serial')}</label>
+              <div class="row">
+                <input class="input mono" value={usb.serial ?? ''} onInput={(e) => {
+                  const v = (e.target as HTMLInputElement).value.trim();
+                  const { serial: _, ...rest } = usb;
+                  set({ ...pr, usb: v ? { ...rest, serial: v } : rest });
+                }} />
+                {!KIOSKO_DEMO && (
+                  <button class="btn ghost small" disabled={busy} onClick={() => void detect()}>
+                    <Icon name="usb" size={14} /> {tr('screens.detectSerials')}
+                  </button>
+                )}
+              </div>
+              {found && !found.length && <p class="muted small">{t('screens.noUsbDevices', { id: `${usb.vendorId}:${usb.productId}` })}</p>}
+              {found && found.length > 0 && (
+                <div class="menu-list">
+                  {found.map((d) => {
+                    const by = d.serial ? usedBy(d.serial) : undefined;
+                    return (
+                      <button class={`menu-item ${d.serial && d.serial === usb.serial ? 'on' : ''}`} disabled={!d.serial} title={d.error ?? d.location} onClick={() => d.serial && set({ ...pr, usb: { ...usb, serial: d.serial } })}>
+                        <Icon name="usb" size={14} /> <span class="mono">{d.serial ?? '?'}</span>
+                        <small>{[d.location, by && t('screens.serialUsedBy', { screen: by })].filter(Boolean).join(' · ')}</small>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              <p class="muted small">{tr('screens.presenceUsbHelp')}</p>
+            </>
+          )}
+          <div class="field field-row">
+            <Toggle checked={!!hb} onChange={(v) => set(withProbe('heartbeat', v ? { path: '.heartbeat' } : undefined))} />
+            <span>{tr('screens.presenceHeartbeat')}</span>
+          </div>
+          {hb && (
+            <>
+              <div class="row">
+                <input class="input mono" value={hb.path} onInput={(e) => set({ ...pr, heartbeat: { ...hb, path: (e.target as HTMLInputElement).value } })} />
+                <span class="muted small">{tr('screens.presenceMaxAge')}</span>
+                <input class="input num" type="number" min={1} step={1} value={Math.round((hb.maxAgeMs ?? 5000) / 1000)} onChange={(e) => {
+                  const v = Math.max(1, Math.round(Number((e.target as HTMLInputElement).value) || 5));
+                  const { maxAgeMs: _, ...rest } = hb;
+                  set({ ...pr, heartbeat: v === 5 ? rest : { ...rest, maxAgeMs: v * 1000 } });
+                }} />
+              </div>
+              <p class="muted small">{tr('screens.presenceHeartbeatHelp')}</p>
+            </>
+          )}
+          {pr.command && <p class="muted small mono">{t('screens.presenceCommand', { cmd: pr.command.argv.join(' ') })}</p>}
+        </>
+      )}
+    </>
   );
 }
 

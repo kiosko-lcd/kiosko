@@ -391,6 +391,44 @@ export function configSchema(plugins: readonly PluginDefinition[]): S {
               dir: { type: 'string', description: 'Folder where frame.jpg is written (created if missing).', 'x-risk': 'path' },
               format: { enum: ['jpeg', 'png'], default: 'jpeg' },
               quality: { type: 'integer', minimum: 1, maximum: 100, default: 90 },
+              presence: {
+                type: 'object',
+                additionalProperties: false,
+                description: 'How to tell that the sender\'s panel is plugged in. While it is not, the screen is paused: nothing is composed, painted nor encoded for it (no CPU), and it resumes with a fresh frame as soon as the panel is back. Several: paused if any says the panel is missing. Without this, the screen is always painted.',
+                properties: {
+                  usb: {
+                    type: 'object',
+                    additionalProperties: false,
+                    required: ['vendorId', 'productId'],
+                    description: 'A USB device with these ids (and serial) is plugged in. Looked up read only (sysfs on Linux): never opened nor claimed, so the sender keeps it. Without a serial, with several identical panels, the screen is paused only when none is plugged in.',
+                    properties: {
+                      vendorId: { type: 'string', pattern: '^(0x)?[0-9a-fA-F]{4}$', description: 'USB vendor id, 4 hex digits ("0416" for Thermalright LY panels).' },
+                      productId: { type: 'string', pattern: '^(0x)?[0-9a-fA-F]{4}$', description: 'USB product id, 4 hex digits ("5408").' },
+                      serial: { type: 'string', description: 'USB serial number of this screen\'s panel: with several identical panels it is the only way to know which one is missing. `kiosko doctor` lists them.' },
+                    },
+                  },
+                  heartbeat: {
+                    type: 'object',
+                    additionalProperties: false,
+                    required: ['path'],
+                    description: 'A file the sender touches while it drives the panel (contrib/usb-sender writes `.heartbeat` in the folder it shows). Missing or older than maxAgeMs: the panel is missing.',
+                    properties: {
+                      path: { type: 'string', description: 'The file; a relative path is inside `dir`.', 'x-risk': 'path' },
+                      maxAgeMs: { type: 'integer', minimum: 500, default: 5000 },
+                    },
+                  },
+                  command: {
+                    type: 'object',
+                    additionalProperties: false,
+                    required: ['argv'],
+                    description: 'A program that exits 0 while the panel is there. Run now and then (everyMs), killed after 10 s.',
+                    properties: {
+                      argv: { type: 'array', minItems: 1, items: { type: 'string' }, description: 'The program and its arguments (no shell).', 'x-risk': 'exec' },
+                      everyMs: { type: 'integer', minimum: 5000, default: 30000 },
+                    },
+                  },
+                },
+              },
             },
           },
         ],

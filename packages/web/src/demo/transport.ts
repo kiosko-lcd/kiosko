@@ -184,6 +184,7 @@ export const api: typeof httpApi = {
   },
   refreshWidget: async () => ({ ok: true }),
   discover: async () => ({ trcc: [], usb: [] }),
+  usbDevices: async () => ({ ok: true, devices: [] }),
   pairStart: async () => {
     throw notHere();
   },
