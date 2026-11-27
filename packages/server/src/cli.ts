@@ -33,7 +33,7 @@ import { agentTraces, starterConfig, starterPanels } from './starter.ts';
 import { SandboxRefusal, sandboxBanner, sandboxCommand, sandboxConfig, sandboxListen, sandboxTtl } from './sandbox-cli.ts';
 import { listSandboxes, registerSandbox, sandboxLifetime, sandboxRegistryDir, unregisterSandbox } from '@kiosko/core/sandbox';
 
-const VERSION = '0.2.14';
+const VERSION = '0.2.15';
 const USAGE = `Kiosko ${VERSION}: a widget mosaic for USB LCD panels
 
   kiosko start [--port 7420] [--host 127.0.0.1] [--config file] [--open] [--demo]
