@@ -94,6 +94,14 @@ export interface ComposeResult {
   nextAt: number;
   /** The shown widgets that can animate. */
   animatable: Animatable[];
+  /**
+   * What the frame looks like, told by the tiles it was made of (each
+   * painting of a tile in the cache has a number of its own): the same key
+   * means the same pixels as the frame that had it, so it need not be
+   * encoded or sent again. Null when a tile was painted outside the cache
+   * (an animation frame) or there is no cache (previews).
+   */
+  sameAs: string | null;
 }
 
 const images = new Map<string, Image | null>();
@@ -197,8 +205,15 @@ export function chromeMetrics(theme: Theme, screenH: number, rect: PxRect) {
   return { pad, title, titleBar: Math.round(title * 1.55) };
 }
 
-/** Rendered tiles kept between frames of one screen, so a frame only repaints what changed. */
-export type TileCache = Map<string, { key: string; refs: unknown[]; canvas: Canvas; error?: string }>;
+/**
+ * Rendered tiles kept between frames of one screen, so a frame only repaints
+ * what changed. `gen` tells one painting of a tile from the next (see
+ * `ComposeResult.sameAs`).
+ */
+export type TileCache = Map<string, { key: string; refs: unknown[]; canvas: Canvas; error?: string; gen?: number }>;
+
+/** Numbers each tile painted into a cache, so a frame's look can be told by its tiles' `gen`. */
+let tileGen = 0;
 
 function drawCard(g: SKRSContext2D, rect: PxRect, theme: Theme): void {
   roundRect(g, rect.x, rect.y, rect.w, rect.h, theme.radius);
@@ -210,7 +225,13 @@ function drawCard(g: SKRSContext2D, rect: PxRect, theme: Theme): void {
   g.stroke();
 }
 
-function paintTile(g: SKRSContext2D, input: ComposeInput, tile: Tile, rect: PxRect, out: TileResult, nextAt: { v: number }, idles: boolean[], animatable: Animatable[]): void {
+/**
+ * Paints a tile; returns what it painted, for `ComposeResult.sameAs`: the
+ * `gen` of the painting in the cache (reused or just made), a string for an
+ * empty tile (its card depends only on the theme and the rect, both in the
+ * key), or null when painted outside the cache.
+ */
+function paintTile(g: SKRSContext2D, input: ComposeInput, tile: Tile, rect: PxRect, out: TileResult, nextAt: { v: number }, idles: boolean[], animatable: Animatable[]): number | string | null {
   const { theme, now, working } = input;
   const candidates = tile.widgets
     .filter((w) => !w.disabled && whenMatches(w.when, working))
@@ -234,7 +255,7 @@ function paintTile(g: SKRSContext2D, input: ComposeInput, tile: Tile, rect: PxRe
       g.stroke();
       g.setLineDash([]);
     }
-    return;
+    return `empty:${chrome}`;
   }
   const state = stateCtx(r, now, working, input.cfg);
   idles.push(safe(() => r.def.idle?.(state) ?? false, false));
@@ -262,7 +283,7 @@ function paintTile(g: SKRSContext2D, input: ComposeInput, tile: Tile, rect: PxRe
   const draw = (tg: SKRSContext2D) => drawTileContent(tg, input, r, rect, chrome, out, frame);
   if (frame || !input.cache) {
     draw(g);
-    return;
+    return null;
   }
   // Same widget, options, size, data and sources (by reference: they're
   // replaced, never mutated, when they change) and same redraw slot: reuse.
@@ -273,14 +294,16 @@ function paintTile(g: SKRSContext2D, input: ComposeInput, tile: Tile, rect: PxRe
   if (hit && hit.key === key && hit.refs.length === refs.length && hit.refs.every((x, i) => x === refs[i])) {
     g.drawImage(hit.canvas, rect.x, rect.y);
     if (hit.error) out.error = hit.error;
-    return;
+    return hit.gen ?? null;
   }
   const canvas = createCanvas(rect.w, rect.h);
   const tg = canvas.getContext('2d');
   tg.translate(-rect.x, -rect.y);
   draw(tg);
   g.drawImage(canvas, rect.x, rect.y);
-  input.cache.set(tile.id, { key, refs, canvas, ...(out.error ? { error: out.error } : {}) });
+  const gen = ++tileGen;
+  input.cache.set(tile.id, { key, refs, canvas, gen, ...(out.error ? { error: out.error } : {}) });
+  return gen;
 }
 
 /**
@@ -383,16 +406,21 @@ export function composePage(input: ComposeInput): ComposeResult {
   const idles: boolean[] = [];
   const tiles: TileResult[] = [];
   const animatable: Animatable[] = [];
+  // The frame's look, by the paintings of its tiles (see `ComposeResult.sameAs`).
+  let painted: (number | string)[] | null = input.cache && !input.preview ? [] : null;
   for (const tile of page.tiles) {
     const rect = toPx(tile, page.grid, screen.width, screen.height);
     const out: TileResult = { id: tile.id, rect, shown: null };
     tiles.push(out);
-    paintTile(g, input, tile, rect, out, nextAt, idles, animatable);
+    const look = paintTile(g, input, tile, rect, out, nextAt, idles, animatable);
+    if (painted && look === null) painted = null;
+    else painted?.push(tile.id, look!);
   }
   if (input.cache) for (const id of input.cache.keys()) if (!page.tiles.some((t) => t.id === id)) input.cache.delete(id);
   g.restore();
   if (screen.pixelShift.enabled && !input.preview) nextAt.v = Math.min(nextAt.v, (Math.floor(now / screen.pixelShift.periodMs) + 1) * screen.pixelShift.periodMs);
-  return { canvas, tiles, idle: idles.length > 0 && idles.every(Boolean), nextAt: nextAt.v, animatable };
+  const sameAs = painted && JSON.stringify([canvas.width, canvas.height, rotate, page.id, page.background, !!(page.background.image && images.get(page.background.image)), theme.id, theme.colors.bg, theme.colors.surface, theme.colors.surfaceEdge, theme.radius, shift, painted]);
+  return { canvas, tiles, idle: idles.length > 0 && idles.every(Boolean), nextAt: nextAt.v, animatable, sameAs };
 }
 
 /** A canvas rotated for a panel mounted at `rotate` degrees. */

@@ -490,3 +490,53 @@ test('runtime: widgets and sources say their alerts from their data; a switched-
     rt.stop();
   }
 });
+
+test('runtime: an unchanged page encodes and writes nothing, however often data it does not show changes', async () => {
+  let version = 0;
+  const painted: string[] = [];
+  const reg = new Registry();
+  reg.add(
+    definePlugin({
+      id: 't',
+      name: 'T',
+      version: '1',
+      widgets: [
+        defineWidget({ id: 'still', name: 'Still', chrome: 'bare', render: (g, ctx) => (painted.push('still'), (g.fillStyle = '#0f0'), g.fillRect(ctx.box.x, ctx.box.y, ctx.box.w, ctx.box.h)) }),
+        // Behind it in the same tile: its data changes, but it is not the one shown.
+        defineWidget({ id: 'busy', name: 'Busy', chrome: 'bare', fetch: async () => ({ version: ++version }), intervalMs: 60_000, render: () => void painted.push('busy') }),
+      ],
+    }),
+  );
+  const cfg = norm({
+    screens: [
+      {
+        id: 's1',
+        name: 'S',
+        width: 160,
+        height: 80,
+        device: { driver: 'virtual' },
+        pages: [{ id: 'p', name: 'p', grid: { cols: 1, rows: 1, gap: 0, padding: 0 }, tiles: [{ id: 'tile', x: 0, y: 0, w: 1, h: 1, chrome: 'bare', rotateMs: 0, widgets: [{ id: 'a', type: 't/still', options: {} }, { id: 'b', type: 't/busy', options: {} }] }] }],
+      },
+    ],
+  });
+  const rt = new Runtime(reg, cfg);
+  const encoded = () => rt.status().screens[0]!.frames.frames;
+  rt.start();
+  try {
+    await until(() => sent(rt) === 1 && version >= 1);
+    await sleep(300);
+    const [e0, s0] = [encoded(), sent(rt)];
+    for (let i = 0; i < 4; i++) {
+      const v = version;
+      rt.refreshWidget('b');
+      await until(() => version > v);
+      await sleep(300);
+    }
+    assert.ok(version >= 5);
+    assert.deepEqual(painted.filter((p) => p === 'busy'), [], 'the hidden widget was never painted');
+    assert.equal(encoded(), e0, 'no frame encoded');
+    assert.equal(sent(rt), s0, 'no frame sent');
+  } finally {
+    rt.stop();
+  }
+});

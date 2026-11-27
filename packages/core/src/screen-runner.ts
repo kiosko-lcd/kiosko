@@ -179,6 +179,12 @@ export class ScreenRunner implements Runner {
   device: Device;
   private deviceKey: string;
   private last: Buffer | null = null;
+  /**
+   * What `last` shows, when it was a page painted all from the tile cache or
+   * a black one (see `ComposeResult.sameAs`): a frame with the same look is
+   * neither encoded nor sent again. Only good while `last` is that frame.
+   */
+  private lastLook: { look: string; frame: Buffer } | null = null;
   lastInfo: FrameInfo | null = null;
   dirty = true;
   private nextAt = 0;
@@ -385,6 +391,12 @@ export class ScreenRunner implements Runner {
       this.nextAt = now + 60_000;
     }
     const sleeping = this.off || !!(screen.sleepWhenIdle && result?.idle);
+    // The same picture the panel already has (every tile from the cache, or
+    // black again): no encoding, no sending, nothing new for the editor.
+    // A page whose widgets didn't change used to be encoded every time some
+    // data of the page changed, only to find the JPEG equal and drop it.
+    const look = sleeping || !result ? JSON.stringify(['black', canvas.width, canvas.height]) : result.sameAs;
+    if (look !== null && this.last && this.lastLook?.look === look && this.lastLook.frame === this.last) return;
     if (sleeping || !result) {
       const g = canvas.getContext('2d');
       g.save();
@@ -398,9 +410,11 @@ export class ScreenRunner implements Runner {
     const out = await this.fit(canvas, kind, screen.jpegQuality, screen, performance.now() - t0);
     this.lastInfo = { screenId: screen.id, pageId: page?.id ?? null, at: now, image: lazyJpeg(canvas, paintTurn(screen)), tiles: result?.tiles ?? [], interlude: null, sleeping };
     this.rt.frame(this.lastInfo);
-    if (this.last?.equals(out)) return;
-    this.last = out;
-    await this.send(out);
+    if (!this.last?.equals(out)) {
+      this.last = out;
+      await this.send(out);
+    }
+    this.lastLook = look === null ? null : { look, frame: this.last };
   }
 
   /**
