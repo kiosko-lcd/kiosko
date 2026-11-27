@@ -307,14 +307,27 @@ function paintTile(g: SKRSContext2D, input: ComposeInput, tile: Tile, rect: PxRe
 }
 
 /**
+ * The smallest text a widget can be expected to draw, in px (the floor the
+ * widgets' own layouts and tests use), and the height of one line of it.
+ */
+export const MIN_TEXT_PX = 11;
+export const MIN_LINE_PX = Math.ceil(MIN_TEXT_PX * 1.25);
+
+/**
  * Where a widget paints inside its tile: `outer` is the area left by the
  * card's padding and title, and `box` is what the widget sees: the same area
  * `zoom` times smaller when zoomed (it keeps its top-left corner).
+ *
+ * `title`: whether the card's title is drawn. A title that would leave the
+ * widget less than one line of the smallest text (`MIN_LINE_PX`) is dropped,
+ * whatever the widget: on a strip (200×36) the widget's own content is worth
+ * more than its name. Tiles where both fit are exactly as before.
  */
-export function tileBoxes(theme: Theme, screenH: number, inst: WidgetInstance, rect: PxRect, chrome: 'card' | 'bare', textScale = 1): { outer: Box; box: Box; zoom: number } {
+export function tileBoxes(theme: Theme, screenH: number, inst: WidgetInstance, rect: PxRect, chrome: 'card' | 'bare', textScale = 1): { outer: Box; box: Box; zoom: number; title: boolean } {
   const m = chromeMetrics(theme, screenH, rect);
   const pad = chrome === 'card' ? m.pad : 0;
-  const top = rect.y + pad + (inst.title?.trim() && chrome === 'card' ? m.titleBar : 0);
+  const title = !!inst.title?.trim() && chrome === 'card' && rect.h - 2 * pad - m.titleBar >= MIN_LINE_PX;
+  const top = rect.y + pad + (title ? m.titleBar : 0);
   const outer: Box = { x: rect.x + pad, y: top, w: Math.max(1, rect.w - 2 * pad), h: Math.max(1, rect.y + rect.h - pad - top) };
   // Zoom: the widget gets a box `zoom` times smaller and is painted `zoom`
   // times bigger, so it fills the same space with bigger (or smaller) type.
@@ -322,7 +335,7 @@ export function tileBoxes(theme: Theme, screenH: number, inst: WidgetInstance, r
   // The screen's text size multiplies every widget's own zoom.
   const zoom = Math.round(zoomOf(inst) * textScale * 100) / 100;
   const box: Box = zoom === 1 ? outer : { x: outer.x, y: outer.y, w: Math.max(1, outer.w / zoom), h: Math.max(1, outer.h / zoom) };
-  return { outer, box, zoom };
+  return { outer, box, zoom, title };
 }
 
 function drawTileContent(g: SKRSContext2D, input: ComposeInput, r: Resolved, rect: PxRect, chrome: 'card' | 'bare', out: TileResult, anim?: AnimationFrame): void {
@@ -330,14 +343,13 @@ function drawTileContent(g: SKRSContext2D, input: ComposeInput, r: Resolved, rec
   const m = chromeMetrics(theme, input.screen.height, rect);
   if (chrome === 'card') drawCard(g, rect, theme);
   const pad = chrome === 'card' ? m.pad : 0;
-  const title = r.inst.title?.trim();
-  if (title && chrome === 'card') {
+  const { outer, box, zoom, title } = tileBoxes(theme, input.screen.height, r.inst, rect, chrome, input.screen.textScale);
+  if (title) {
     g.font = `${m.title}px "${theme.fonts.sans}"`;
     g.fillStyle = theme.colors.inkDim;
     g.textBaseline = 'alphabetic';
-    g.fillText(fitText(g, title, rect.w - 2 * pad), rect.x + pad, rect.y + pad + m.title * 0.8);
+    g.fillText(fitText(g, r.inst.title!.trim(), rect.w - 2 * pad), rect.x + pad, rect.y + pad + m.title * 0.8);
   }
-  const { outer, box, zoom } = tileBoxes(theme, input.screen.height, r.inst, rect, chrome, input.screen.textScale);
   const [plugin] = r.inst.type.split('/');
   const ctx: RenderContext<any, any> = {
     ...baseContext(input.cfg, plugin!, input.log ?? (() => undefined), now),
