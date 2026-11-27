@@ -701,6 +701,12 @@ that throws shows its error in its tile without breaking the rest of the frame.
 Activity names a widget that takes over 50 ms to paint, and the inspector shows
 its paint time: keep heavy work in `fetch` or a source, `render` only paints.
 
+To try it without touching the Kiosko you use every day, run a
+[sandbox](sandbox.md): `KIOSKO_SANDBOX=/tmp/try kiosko plugins link .`, then
+`KIOSKO_SANDBOX=/tmp/try kiosko start --port 37491` (and `kiosko plugins dev`
+with the same variable). Its `cacheDir`, `dataDir`, `~` and temp folder are
+all inside `/tmp/try`, and it ends by itself after two hours.
+
 ## Publishing
 
 Name the package `kiosko-plugin-<name>`. Its package.json says

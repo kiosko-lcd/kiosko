@@ -2,7 +2,7 @@
  * Writes examples/showcase.json: two screens that show off the built-in
  * plugins. Try it without any setup:
  *
- *   node --conditions=source packages/server/src/cli.ts start --config examples/showcase.json --demo
+ *   node --conditions=source packages/server/src/cli.ts start --sandbox --sandbox-config examples/showcase.json --demo
  */
 import { writeFileSync } from 'node:fs';
 import { CONFIG_SCHEMA_ID, normalize, type Page, type Screen, type Tile, type WidgetInstance } from '@kiosko/core';
