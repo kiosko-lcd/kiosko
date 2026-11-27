@@ -231,6 +231,12 @@ export interface RemoteLink {
   tempC?: number | null;
   /** Its backlight, 0-100 (screen firmware 0.1.2 on; null: an older one). */
   bright?: number | null;
+  /** The dimming Kiosko asks for now (night, a black screen), 0-100; null: none. */
+  dim?: number | null;
+  /** Whether its firmware dims (0.1.4 on); null until it says. */
+  dimmable?: boolean | null;
+  /** A newer firmware this Kiosko brings for it; null: none. */
+  firmwareOffer?: string | null;
 }
 
 export interface Status {
@@ -365,6 +371,7 @@ export const api = {
   pairCancel: (pairId: string) => fetch(`/api/remote/pair/${pairId}`, { method: 'DELETE', headers: H }).then((r) => ok(r)),
   unpairRemote: (screenId: string) => fetch(`/api/screens/${encodeURIComponent(screenId)}/remote/unpair`, { method: 'POST', headers: H }).then((r) => ok<{ ok: true; told: boolean }>(r)),
   remoteOta: (screenId: string, image: Blob) => fetch(`/api/screens/${encodeURIComponent(screenId)}/remote/ota`, { method: 'POST', headers: { 'x-kiosko': '1', 'content-type': 'application/octet-stream' }, body: image }).then((r) => ok<{ ok: true }>(r)),
+  remoteFirmware: (screenId: string) => fetch(`/api/screens/${encodeURIComponent(screenId)}/remote/firmware`, { method: 'POST', headers: { 'x-kiosko': '1' } }).then((r) => ok<{ ok: true; version: string; sha256: string }>(r)),
   remoteLogs: (screenId: string) => fetch(`/api/screens/${encodeURIComponent(screenId)}/remote/logs`).then((r) => ok<{ text: string }>(r)),
   logs: () => fetch('/api/logs').then((r) => ok<{ at: number; scope: string; message: string }[]>(r)),
   /** Values a source offers for an option, from its live data (or its demo data before there is any). */

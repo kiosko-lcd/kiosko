@@ -28,7 +28,7 @@ import { dirname, join, win32 } from 'node:path';
 import { Readable, Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { compareVersions, parseVersion } from '@kiosko/sdk';
-import { REGISTRY, releaseAsset, windowsInstallerName } from '@kiosko/core';
+import { REGISTRY, parseSha256File, releaseAsset, windowsInstallerName } from '@kiosko/core';
 import type { InstallInfo } from './install-kind.ts';
 
 export type UpdateState = 'idle' | 'working' | 'ready' | 'restarting' | 'done' | 'failed';
@@ -181,14 +181,8 @@ export function judgeSelfCheck(now: { ids: string[]; problems: string[] }, next:
   return { ok: true, warnings };
 }
 
-/** `abc…  Kiosko-Setup-0.2.9-x64.exe` → the hash, if it names that file (or no file). */
-export function parseSha256File(text: string, name: string): string | null {
-  for (const line of text.split(/\r?\n/)) {
-    const m = /^([a-f0-9]{64})(?:\s+\*?(.+?))?\s*$/i.exec(line.trim());
-    if (m && (!m[2] || m[2] === name)) return m[1]!.toLowerCase();
-  }
-  return null;
-}
+/** Where it always was (tests import it from here); it lives in core now, for the screens' firmware too. */
+export { parseSha256File };
 
 export async function sha256File(file: string): Promise<string> {
   const h = createHash('sha256');

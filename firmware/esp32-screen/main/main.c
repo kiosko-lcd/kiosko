@@ -187,6 +187,9 @@ static void ui_loop(void)
         // Kiosko's frames stay while it is connected, and a while after it goes.
         if (showing_frames && !si.online && si.last_frame_us && now - si.last_frame_us > app_settings.idle * 1000000LL) showing_frames = false;
         bool overlay = si.pairing || hold_ms >= 1500 || (flash_msg && now < flash_until_us) || si.ota || now < si.window_until_us;
+        // The backlight: Kiosko's dimming (night, a paused screen) while it holds the session,
+        // but never over the screen's own pages (a pairing code must be readable at night).
+        display_set_brightness(si.online && si.dim >= 0 && !overlay ? si.dim : app_settings.bright);
         if (showing_frames && !overlay) {
             if (frames_overdrawn) { frames_overdrawn = false; session_request_resend(); }
             last_sig[0] = 0;

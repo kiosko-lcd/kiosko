@@ -3,9 +3,11 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { Registry, Runtime } from '@kiosko/core';
+import { createHash } from 'node:crypto';
+import { Registry, Runtime, SCREEN_FIRMWARE } from '@kiosko/core';
 import core from '@kiosko/plugin-core';
 import { FakeScreen } from '../../core/src/remote/fake-screen.test-helper.ts';
+import { remoteScreen } from './remote-api.ts';
 import { startServer } from './server.ts';
 import { starterConfig } from './starter.ts';
 
@@ -79,6 +81,78 @@ test('remote screens: pair from the editor, the key goes to the config, the scre
     assert.deepEqual(un.body, { ok: true, told: true });
     assert.equal(fake.key, null);
     assert.equal(JSON.parse(readFileSync(configPath, 'utf8')).screens.find((x: any) => x.id === s.id).device.key, undefined);
+  } finally {
+    srv.close();
+    rt.stop();
+    await fake.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+/**
+ * Night mode and the firmware this Kiosko brings, against a fake screen that says firmware 0.1.3
+ * of the Waveshare board: switched off, its backlight goes off (and back); the editor offers the
+ * newer firmware, which comes from this version's release (a fake GitHub), checked, and sent.
+ */
+test('remote screens: backlight off while switched off; the firmware offered is downloaded, checked and sent', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'kiosko-remote-fw-'));
+  const reg = new Registry();
+  reg.add(core);
+  const key = Buffer.alloc(32, 9);
+  const fake = new FakeScreen({ key, bright: 70, dims: true, model: 'waveshare-esp32c6-lcd-1.47', fw: '0.1.3' });
+  const fport = await fake.listen();
+  const cfg = starterConfig(reg, { locale: 'en' });
+  const s = remoteScreen(reg, { uid: fake.uid, id: fake.id, w: 172, h: 320, rot: 90, max: 98_000 }, key.toString('hex'), 'en', '127.0.0.1');
+  if (s.device.driver === 'remote') s.device.port = fport;
+  cfg.screens = [s];
+  const rt = new Runtime(reg, cfg);
+  const image = Buffer.concat([Buffer.from([0xe9]), Buffer.alloc(40_000, 3)]);
+  const name = `kiosko-screen-${SCREEN_FIRMWARE.version}-waveshare-esp32c6-lcd-1.47.bin`;
+  const url = `https://github.com/kiosko-lcd/kiosko/releases/download/v9.8.7/${name}`;
+  const asked: string[] = [];
+  let online = true;
+  const firmwareFetch = async (u: string) => {
+    asked.push(u);
+    if (!online) throw new TypeError('fetch failed');
+    const body = u === url ? image : u === `${url}.sha256` ? Buffer.from(`${createHash('sha256').update(image).digest('hex')}  ${name}\n`) : null;
+    return { ok: !!body, status: body ? 200 : 404, arrayBuffer: async () => new Uint8Array(body ?? []).buffer, text: async () => String(body ?? '') };
+  };
+  const port = 20_000 + Math.floor(Math.random() * 20_000);
+  const srv = startServer({ runtime: rt, host: '127.0.0.1', port, configPath: join(dir, 'config.json'), webDir: dir, version: '9.8.7', checkUpdates: false, homeassistant: false, firmwareFetch });
+  rt.start();
+  const call = async (method: string, path: string) => {
+    const r = await fetch(`http://127.0.0.1:${port}${path}`, { method, headers: { 'x-kiosko': '1' } });
+    return { status: r.status, body: (await r.json()) as any };
+  };
+  const remote = async () => (await call('GET', '/api/state')).body.status.screens.find((x: any) => x.id === s.id).device.remote;
+  try {
+    await until(async () => (await remote())?.online === true && fake.frames.length > 0);
+    assert.equal(fake.dim, -1);
+    rt.setOff(s.id, true);
+    await until(() => fake.dim === 0);
+    assert.equal(fake.bright, 70, 'the saved brightness stays');
+    rt.setOff(s.id, false);
+    await until(() => fake.dim === -1);
+    const r = await remote();
+    assert.equal(r.dimmable, true);
+    assert.equal(r.firmwareOffer, SCREEN_FIRMWARE.version);
+    // GitHub out of reach: a clear error, nothing sent.
+    online = false;
+    const off = await call('POST', `/api/screens/${s.id}/remote/firmware`);
+    assert.equal(off.body.code, 'remote.downloadFailed');
+    assert.equal(fake.ota, null);
+    online = true;
+    const ok = await call('POST', `/api/screens/${s.id}/remote/firmware`);
+    assert.equal(ok.status, 200, JSON.stringify(ok.body));
+    assert.equal(ok.body.version, SCREEN_FIRMWARE.version);
+    assert.ok((fake.ota as Buffer | null)?.equals(image));
+    assert.deepEqual(asked.slice(-2), [`${url}.sha256`, url]);
+    // Up to date: nothing to offer, and nothing is sent on a call anyway.
+    fake.fw = SCREEN_FIRMWARE.version;
+    fake.drop();
+    await until(async () => (await remote())?.online === true && (await remote()).fw === SCREEN_FIRMWARE.version);
+    assert.equal((await remote()).firmwareOffer, null);
+    assert.equal((await call('POST', `/api/screens/${s.id}/remote/firmware`)).body.code, 'remote.upToDate');
   } finally {
     srv.close();
     rt.stop();

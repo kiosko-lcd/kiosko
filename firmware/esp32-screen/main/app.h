@@ -56,7 +56,8 @@ void display_flush_wait(void);          // waits for the bands still on their wa
 // last band may still be on its way when it returns.
 esp_err_t display_jpeg(const uint8_t *jpeg, size_t len, uint32_t *decode_ms);
 // Backlight 0..100 (perceived brightness; 0 = off), as shown now. It does not save:
-// app_settings.bright is the saved one (a future night dimming changes only this).
+// app_settings.bright is the saved one; Kiosko's dimming (night, a paused screen) changes
+// only this, and main.c's UI loop picks which applies.
 void display_set_brightness(int pct);
 int display_brightness(void);
 typedef enum { TXT_TINY, TXT_SMALL, TXT_BIG, TXT_HUGE } txt_size_t;
@@ -114,6 +115,7 @@ typedef struct {
     float fps;
     uint32_t last_dec_ms, last_rx_ms;
     bool ota;
+    int dim;              // Kiosko's temporary backlight while it holds the session, 0..100; -1: none
 } session_info_t;
 void session_start(void);
 void session_get(session_info_t *out);

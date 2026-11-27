@@ -11,6 +11,7 @@
     "@preact/signals": "^2.11.4",
     "@types/three": "^0.170.0",
     "esbuild": "^0.25.0",
+    "esp-web-tools": "10.5.2",
     "lucide": "^1.70.0",
     "preact": "^10.27.0",
     "three": "^0.170.0"

@@ -7,6 +7,9 @@
  *   DELETE /api/remote/pair/:pairId                          gives up
  *   POST   /api/screens/:id/remote/unpair                    the screen forgets this Kiosko, and the key is dropped here
  *   POST   /api/screens/:id/remote/ota   (the .bin as body)  firmware update over the session
+ *   POST   /api/screens/:id/remote/firmware                  the firmware this Kiosko brings (when newer than
+ *                                                           the screen's): downloaded from this version's
+ *                                                           GitHub release, checked by SHA-256, sent the same way
  *   GET    /api/screens/:id/remote/logs                      its recent log
  *
  * The pairing key is written by the server, never typed or shown.
@@ -14,7 +17,7 @@
 import { randomBytes } from 'node:crypto';
 import { hostname } from 'node:os';
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { Pairing, RemoteDevice, ScreenError, newScreen, otaUpdate, remoteBrowser, screenLogs, starterPage, unpairScreen, type Config, type Registry, type Rotation, type Runtime, type Screen } from '@kiosko/core';
+import { Pairing, RemoteDevice, ScreenError, downloadFirmware, firmwareOffer, newScreen, otaUpdate, remoteBrowser, screenLogs, starterPage, unpairScreen, type Config, type Registry, type Rotation, type Runtime, type Screen } from '@kiosko/core';
 
 export interface RemoteApiContext {
   runtime: Runtime;
@@ -24,6 +27,10 @@ export interface RemoteApiContext {
   body(req: IncomingMessage, limit?: number): Promise<unknown>;
   /** Tests: where a screen is, instead of mDNS. */
   locate?: (uid: string) => { host: string; port: number } | undefined;
+  /** This Kiosko's version: its GitHub release has the firmware it offers. */
+  version: string;
+  /** Tests: GitHub. */
+  fetch?: Parameters<typeof downloadFirmware>[0]['fetch'];
 }
 
 const PAIR_TTL_MS = 3 * 60_000;
@@ -137,7 +144,7 @@ export function remoteApi(ctx: RemoteApiContext) {
       return ctx.json(res, 200, { ok: true, screenId: s.id }), true;
     }
 
-    mm = /^\/api\/screens\/([^/]+)\/remote\/(unpair|ota|logs)$/.exec(p);
+    mm = /^\/api\/screens\/([^/]+)\/remote\/(unpair|ota|logs|firmware)$/.exec(p);
     if (mm) {
       const id = decodeURIComponent(mm[1]!);
       const r = remoteOf(id);
@@ -173,6 +180,16 @@ export function remoteApi(ctx: RemoteApiContext) {
           const image = await raw(req, 4 * 1024 * 1024);
           await run((h, port) => otaUpdate(h, port, key, r.device.uid, image));
           return ctx.json(res, 200, { ok: true }), true;
+        }
+        if (mm[2] === 'firmware' && m === 'POST') {
+          // Only what the editor offered: newer than what the screen says now (never a downgrade).
+          const st = r.driver?.status.remote;
+          if (!st?.online) throw new ScreenError('offline', 'that screen is not connected now');
+          const version = firmwareOffer(st.model, st.fw);
+          if (!version) return ctx.json(res, 409, { error: `no newer firmware for ${st.model} ${st.fw} in this Kiosko`, code: 'remote.upToDate' }), true;
+          const fw = await downloadFirmware({ kioskoVersion: ctx.version, model: st.model, ...(ctx.fetch ? { fetch: ctx.fetch } : {}) });
+          await run((h, port) => otaUpdate(h, port, key, r.device.uid, fw.image));
+          return ctx.json(res, 200, { ok: true, version: fw.version, sha256: fw.sha256 }), true;
         }
       } catch (err) {
         return fail(res, err), true;
