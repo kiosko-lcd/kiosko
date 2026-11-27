@@ -11,3 +11,4 @@ dist-demo/
 
 # Personal notes, never committed
 /temas.md
+__pycache__/
