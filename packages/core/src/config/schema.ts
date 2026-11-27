@@ -24,6 +24,7 @@
  */
 import { localize, THEMES, TIME_FORMATS, toJsonSchema, type Field, type Localized, type PluginDefinition } from '@kiosko/sdk';
 import { CONFIG_SCHEMA_ID, CONFIG_VERSION, DEFAULT_CONFIG, ZOOM } from './model.ts';
+import { PROFILE_ID_PATTERN, acceptsProfiles } from './profiles.ts';
 import { sourceOptionsField } from './sources.ts';
 
 type S = Record<string, unknown>;
@@ -68,6 +69,8 @@ function sizeHint(size: { min?: { w: number; h: number }; preferred?: { w: numbe
 
 /** Builds the schema of the whole config from the plugins' definitions (`registry.list().map(p => p.def)`). */
 export function configSchema(plugins: readonly PluginDefinition[]): S {
+  // The sources that accept profiles (see config/profiles.ts): their widgets get a `profile`.
+  const withProfiles = new Set(plugins.flatMap((p) => (p.sources ?? []).filter((s) => acceptsProfiles(s)).map((s) => `${p.id}/${s.id}`)));
   const sourceUsers = new Map<string, string[]>();
   for (const p of plugins) for (const w of p.widgets ?? []) for (const s of w.sources ?? []) sourceUsers.set(s, [...(sourceUsers.get(s) ?? []), `${p.id}/${w.id}`]);
   for (const p of plugins) for (const i of p.interludes ?? []) for (const s of i.sources ?? []) sourceUsers.set(s, [...(sourceUsers.get(s) ?? []), `${p.id}/${i.id}`]);
@@ -92,6 +95,7 @@ export function configSchema(plugins: readonly PluginDefinition[]): S {
           zoom: { $ref: '#/$defs/zoom' },
           ...(w.urgent ? { takeOver: { ...TAKE_OVER, default: w.takeOver ?? true } } : {}),
           ...(w.empty ? { hideWhenEmpty: { ...HIDE_WHEN_EMPTY, default: w.hideWhenEmpty ?? false } } : {}),
+          ...(w.sources?.some((x) => withProfiles.has(x)) ? { profile: { $ref: '#/$defs/profile', description: `The profile of ${w.sources.filter((x) => withProfiles.has(x)).join(', ')} it reads, by id (see "sourceProfiles"). Missing, or one that isn't there: the default one, "sources".` } } : {}),
         },
         'x-plugin': p.id,
         'x-category': w.category ?? 'info',
@@ -141,6 +145,33 @@ export function configSchema(plugins: readonly PluginDefinition[]): S {
           },
         ];
       }),
+    ),
+  );
+
+  const profiles: S = Object.fromEntries(
+    plugins.flatMap((p) =>
+      (p.sources ?? [])
+        .filter((s) => acceptsProfiles(s))
+        .map((s) => {
+          const type = `${p.id}/${s.id}`;
+          return [
+            type,
+            {
+              type: 'object',
+              description: `Profiles of ${en(s.name)} (${type}) besides the default one, by id.`,
+              propertyNames: { $ref: '#/$defs/profile' },
+              additionalProperties: {
+                type: 'object',
+                additionalProperties: false,
+                required: ['name'],
+                properties: {
+                  name: { type: 'string', description: 'What it is called in the editor: "Technology", "Work account".' },
+                  options: { ...options(sourceOptionsField(s), 'source'), description: `Its options, as "sources" has them for the default one.` },
+                },
+              },
+            },
+          ];
+        }),
     ),
   );
 
@@ -201,6 +232,13 @@ export function configSchema(plugins: readonly PluginDefinition[]): S {
         propertyNames: { pattern: TYPE_PATTERN, 'x-pattern-hint': 'a source type such as "weather/current"' },
         additionalProperties: { type: 'object' },
       },
+      sourceProfiles: {
+        type: 'object',
+        description: 'More named configurations ("profiles") of the sources that accept them, by "plugin/source" and then by profile id: { "news/deck": { "tech": { "name": "Technology", "options": { "feeds": [ … ] } } } }. Each is read on its own; a widget picks one with its "profile". The default profile is still "sources".',
+        properties: profiles,
+        propertyNames: { pattern: TYPE_PATTERN, 'x-pattern-hint': 'a source type such as "news/deck"' },
+        additionalProperties: { type: 'object' },
+      },
       plugins: {
         type: 'object',
         additionalProperties: false,
@@ -245,6 +283,7 @@ export function configSchema(plugins: readonly PluginDefinition[]): S {
     },
     $defs: {
       id: { type: 'string', pattern: ID_PATTERN, 'x-pattern-hint': 'an id of letters, digits, ".", "_" or "-" (no spaces, at most 80)', description: 'Stable id, unique among its siblings (widget ids: unique in the whole config). Generated when missing.' },
+      profile: { type: 'string', pattern: PROFILE_ID_PATTERN, 'x-pattern-hint': 'a profile id: lowercase letters, digits, "-" or "_" (at most 40)' },
       time: { type: 'string', pattern: TIME_PATTERN, 'x-pattern-hint': 'a time as HH:MM (24 h)' },
       when: { enum: ['always', 'work', 'off'], default: 'always', description: 'When it shows: always, only in work hours, or only outside them (see "workday").' },
       zoom: {

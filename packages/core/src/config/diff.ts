@@ -102,6 +102,16 @@ export function diffConfigs(before: Config, after: Config): DiffLine[] {
     else if (b && !a) out.push({ depth: 0, op: '-', kind: 'source', text: `source ${k}` });
     else if (a && b && !same(a, b)) out.push({ depth: 0, op: '~', kind: 'source', text: `source ${k}: ${changedKeys(b, a).join(', ')} changed` });
   }
+  const profiles = (c: Config) => Object.entries(c.sourceProfiles ?? {}).flatMap(([type, list]) => Object.entries(list).map(([id, p]) => [`${type}#${id}`, p] as const));
+  const pb = new Map(profiles(before));
+  const pa = new Map(profiles(after));
+  for (const k of [...new Set([...pb.keys(), ...pa.keys()])].sort()) {
+    const b = pb.get(k);
+    const a = pa.get(k);
+    if (!b && a) out.push({ depth: 0, op: '+', kind: 'source', text: `source profile ${k} ${q(a.name)}` });
+    else if (b && !a) out.push({ depth: 0, op: '-', kind: 'source', text: `source profile ${k} ${q(b.name)}` });
+    else if (a && b && !same(a, b)) out.push({ depth: 0, op: '~', kind: 'source', text: `source profile ${k}: ${[...(a.name !== b.name ? [`renamed from ${q(b.name)} to ${q(a.name)}`] : []), ...(same(a.options, b.options) ? [] : [`${changedKeys(b.options, a.options).join(', ')} changed`])].join('; ')}` });
+  }
   const m = match(before.screens, after.screens, (s) => s.name);
   for (const s of m.removed) out.push({ depth: 0, op: '-', kind: 'screen', text: `screen ${q(s.name)} ${s.width}×${s.height} (${plural(s.pages.length, 'page')})` });
   for (const s of m.added) {

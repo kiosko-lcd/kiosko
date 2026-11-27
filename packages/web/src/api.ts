@@ -150,8 +150,11 @@ export interface PluginInfo {
   origin: string;
   enabled: boolean;
   widgets: WidgetInfo[];
-  /** `options` include Kiosko's `intervalMs` and `timeoutMs` for polled sources, and `background` for those that may run with no widget. */
-  sources: { type: string; name: string; description: string; options: JsonSchema | null; intervalMs: number | null; polled: boolean; background?: boolean }[];
+  /**
+   * `options` include Kiosko's `intervalMs` and `timeoutMs` for polled sources, and `background` for those that may run with no widget.
+   * `profiles`: it may have several named configurations (`Config.sourceProfiles`); missing from older servers.
+   */
+  sources: { type: string; name: string; description: string; options: JsonSchema | null; intervalMs: number | null; polled: boolean; background?: boolean; profiles?: boolean }[];
   /** `input`: it can be played from the Play page. */
   interludes: { type: string; name: string; description: string; icon?: string; fps: number; input?: boolean; options: JsonSchema | null }[];
 }
@@ -245,7 +248,8 @@ export interface Status {
   threads?: { mode: 'auto' | 'always' | 'never'; cores: number; heapBytes: number; rssBytes: number };
   /** How busy the main thread is (0–1). */
   mainLoad?: number;
-  sources: { type: string; ok: boolean; error: string | null; updatedAt: number | null; intervalMs?: number }[];
+  /** `key`: `type`, or `type#profile` for a source profile (missing from older servers). */
+  sources: { type: string; key?: string; profile?: string | null; ok: boolean; error: string | null; updatedAt: number | null; intervalMs?: number }[];
   fetches: { id: string; type: string; ok: boolean; error: string | null; updatedAt: number | null }[];
   /** How long each widget instance takes to paint on the panels, slowest first. */
   paint?: { instance: string; type: string; lastMs: number; avgMs: number; maxMs: number; paints: number }[];
@@ -374,8 +378,8 @@ export const api = {
   remoteFirmware: (screenId: string) => fetch(`/api/screens/${encodeURIComponent(screenId)}/remote/firmware`, { method: 'POST', headers: { 'x-kiosko': '1' } }).then((r) => ok<{ ok: true; version: string; sha256: string }>(r)),
   remoteLogs: (screenId: string) => fetch(`/api/screens/${encodeURIComponent(screenId)}/remote/logs`).then((r) => ok<{ text: string }>(r)),
   logs: () => fetch('/api/logs').then((r) => ok<{ at: number; scope: string; message: string }[]>(r)),
-  /** Values a source offers for an option, from its live data (or its demo data before there is any). */
-  choices: (source: string, list: string) => fetch(`/api/choices?source=${encodeURIComponent(source)}&list=${encodeURIComponent(list)}`).then((r) => ok<{ choices: { value: string; label?: string; group?: string }[]; from: 'live' | 'demo' | 'none'; error?: string }>(r)),
+  /** Values a source offers for an option, from its live data (or its demo data before there is any); of the widget's source `profile`, if it reads one. */
+  choices: (source: string, list: string, profile?: string) => fetch(`/api/choices?source=${encodeURIComponent(source)}&list=${encodeURIComponent(list)}${profile ? `&profile=${encodeURIComponent(profile)}` : ''}`).then((r) => ok<{ choices: { value: string; label?: string; group?: string }[]; from: 'live' | 'demo' | 'none'; error?: string }>(r)),
   install: (name: string) => fetch('/api/plugins/install', { method: 'POST', headers: H, body: JSON.stringify({ name }) }).then((r) => ok<{ ok: boolean; output: string; ids: string[]; problem: string | null; restartNeeded: boolean; state: AppState }>(r)),
   /** Installs the newest version of a plugin that fits this Kiosko. */
   updatePlugin: (id: string) => fetch(`/api/plugins/${encodeURIComponent(id)}/update`, { method: 'POST', headers: H }).then((r) => ok<{ ok: boolean; problem: string | null; rolledBack: boolean; addedPermissions: PluginPermissions | null; version: string; state: AppState }>(r)),

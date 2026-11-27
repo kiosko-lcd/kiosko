@@ -122,8 +122,8 @@ export interface RunnerHost {
   working(now: number): boolean;
   /** Data of a widget instance's own fetch. */
   dataOf(instanceId: string): unknown;
-  /** Latest data of shared sources. */
-  sourcesOf(types: readonly string[] | undefined): Record<string, unknown>;
+  /** Latest data of shared sources, by type: of the source profile `profile` where it has one (see config/profiles.ts). */
+  sourcesOf(types: readonly string[] | undefined, profile?: string | null): Record<string, unknown>;
   /** How long a widget took to paint on the panel. */
   paintTime(instance: string, type: string, ms: number, now: number): void;
   /** A frame painted, for the editor. */
@@ -352,7 +352,7 @@ export class ScreenRunner implements Runner {
         now,
         working: this.rt.working(now),
         dataOf: (inst) => this.rt.dataOf(inst.id),
-        sourcesOf: (types) => this.rt.sourcesOf(types),
+        sourcesOf: (types, profile) => this.rt.sourcesOf(types, profile),
         log: this.rt.log,
         demo: this.rt.demoMode,
         cache: this.tiles,
@@ -699,9 +699,9 @@ export class ScreenRunner implements Runner {
           if (!memoData.has(inst.id)) memoData.set(inst.id, this.rt.dataOf(inst.id));
           return memoData.get(inst.id);
         },
-        sourcesOf: (types) => {
-          const k = JSON.stringify(types ?? []);
-          if (!memoSources.has(k)) memoSources.set(k, this.rt.sourcesOf(types));
+        sourcesOf: (types, profile) => {
+          const k = JSON.stringify([types ?? [], profile ?? null]);
+          if (!memoSources.has(k)) memoSources.set(k, this.rt.sourcesOf(types, profile));
           return memoSources.get(k)!;
         },
         log: this.rt.log,

@@ -475,7 +475,9 @@ Some settings work the same for every widget: in the editor's Inspector,
 **Text size** (`zoom`, 0.5–2×), **Keep the tile while urgent** and **Hide when
 empty**; in Settings, the **time format** (24 h, 12 h or as the language),
 the working week (hours due, days with other hours, holidays) and, under
-Data sources, how often each source is read.
+Data sources, how often each source is read. A source with **profiles** (news
+by topic, several accounts) can have several named configurations, and each
+tile picks one: see [Data sources and profiles](docs/data-sources.md).
 
 ## Command line
 
