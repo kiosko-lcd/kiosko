@@ -20,6 +20,7 @@ import * as kit from '@loksly/lcd-canvas-kit';
 import { FONT_FAMILIES, hanScript, type HanScript } from '@kiosko/sdk';
 import { FontFallback, OTHER_SCRIPTS, cjkFamiliesFor, hookFont } from './font-fallback.ts';
 import { paths } from './paths.ts';
+import { maybeSaveTextWidths, textWidthsFor } from './text-widths.ts';
 
 const require = createRequire(import.meta.url);
 let done = false;
@@ -159,7 +160,11 @@ const fallback = new FontFallback();
  */
 export function setFontLocale(locale: string): void {
   // A character's width depends on which font draws it.
-  if (fallback.setFamilies([...new Set([...cjkFonts(locale).families, ...otherScriptFonts().map((f) => f.family)])])) kit.clearTextCache();
+  const families = [...new Set([...cjkFonts(locale).families, ...otherScriptFonts().map((f) => f.family)])];
+  if (fallback.setFamilies(families)) kit.clearTextCache();
+  // The widths measured with these fonts before (another thread, the last start), and what is new here.
+  textWidthsFor(families);
+  void maybeSaveTextWidths();
 }
 
 let others: { script: string; family: string }[] | null = null;

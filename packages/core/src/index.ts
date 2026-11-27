@@ -44,3 +44,4 @@ export { BrowserHub, BrowserError, ViewerSession, type ViewerLink, type ViewerIn
 export { BrowserDevice, type BrowserStatus } from './browser/device.ts';
 export { BROWSER_PORT, BROWSER_PROTO, MAX_VIEWER_MESSAGE } from './browser/protocol.ts';
 export * from './sandbox.ts';
+export * from './text-widths.ts';

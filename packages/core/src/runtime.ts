@@ -29,6 +29,7 @@ import { resolveLocale, type LogFn } from './env.ts';
 import type { Registry } from './registry.ts';
 import { PLAY_IDLE_MS, ScreenRunner, TICK_MS, type FrameInfo, type Runner, type RunnerHost } from './screen-runner.ts';
 import { planThreads, threadsMode, type ThreadWhy } from './threads/plan.ts';
+import { keepTextWidths } from './text-widths.ts';
 import { PARK_AFTER_MS, ThreadRunner, defaultThreadEntry, type ThreadOwner } from './threads/thread-runner.ts';
 
 export { PLAY_IDLE_MS, encodeFit, type FrameInfo } from './screen-runner.ts';
@@ -153,6 +154,8 @@ export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
   private threadless = new Map<string, { reason: string; key: string }>();
   /** The entry point of the screens' threads (the server brings one with the built-in plugins). */
   private readonly threadEntry: URL | undefined;
+  /** Where the measured text widths are kept (see text-widths.ts); null: nowhere. */
+  readonly textWidthsDir: string | null;
 
   readonly registry: Registry;
   /**
@@ -167,13 +170,16 @@ export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
   /** When this runtime was made: the boot animation plays only soon after. */
   readonly startedAt = Date.now();
   /** `processes`: who lists the running programs for `app` rules (tests pass a fake); null: nobody. Default: this system's (none in demo mode). */
-  constructor(registry: Registry, config: Config, o: { demo?: boolean; threadEntry?: URL; welcome?: boolean; editorUrl?: string; processes?: ProcessLister | null; appsEveryMs?: number } = {}) {
+  constructor(registry: Registry, config: Config, o: { demo?: boolean; threadEntry?: URL; welcome?: boolean; editorUrl?: string; processes?: ProcessLister | null; appsEveryMs?: number; textWidths?: string | null } = {}) {
     super();
     this.registry = registry;
     this.demoMode = !!o.demo;
     this.welcome = !!o.welcome && !o.demo;
     this.editorUrl = o.editorUrl;
     this.threadEntry = o.threadEntry;
+    // The text widths measured before, here and in the screens' threads (see text-widths.ts).
+    this.textWidthsDir = o.textWidths ?? null;
+    if (this.textWidthsDir) keepTextWidths(this.textWidthsDir);
     this.setMaxListeners(100);
     this.config = config;
     this.hub = new SourceHub(registry, this.log, (type) => this.onData({ source: type }));

@@ -38,6 +38,8 @@ export interface ThreadOwner {
   readonly config: Config;
   /** See `PARK_AFTER_MS` (tests shorten it). */
   readonly parkAfterMs?: number;
+  /** Where the measured text widths are kept (see text-widths.ts). */
+  readonly textWidthsDir?: string | null;
   readonly registry: Registry;
   readonly demoMode: boolean;
   readonly maxConcurrent: number;
@@ -143,6 +145,7 @@ export class ThreadRunner implements Runner {
       context: this.context,
       off: this.off,
       paused: this.paused,
+      ...(this.owner.textWidthsDir ? { textWidths: this.owner.textWidthsDir } : {}),
     };
     const w = new Worker(this.entry, { workerData: init, name: `kiosko screen ${this.screen.id}` } as ConstructorParameters<typeof Worker>[1]);
     this.worker = w;
