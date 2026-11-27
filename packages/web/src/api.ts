@@ -338,6 +338,8 @@ export interface AppState {
   /** `bundled: false`: offered here, not installed with Kiosko. */
   official: { id: string; npm: string; bundled?: boolean }[];
   demo: boolean;
+  /** A sandboxed Kiosko (`kiosko start --sandbox`): its folder, when its time to live ends it, what it may touch. */
+  sandbox?: { dir: string; expires: number | null; allow: string[] } | null;
   platform: string;
 }
 

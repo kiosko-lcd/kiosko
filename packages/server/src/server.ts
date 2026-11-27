@@ -25,6 +25,7 @@ import { HomeAssistantBridge } from './homeassistant.ts';
 import { remoteApi, type RemoteApiContext } from './remote-api.ts';
 import { pushApi, pushFile } from './push-api.ts';
 import { ALERT_LEVELS, type AlertLevel } from '@kiosko/sdk';
+import { currentSandbox, type Sandbox } from '@kiosko/core';
 import { AlertError, DEFAULT_SNOOZE_MS, PANEL_PRESETS, checkUpdates, discoverRemote, discoverTrcc, discoverUsb, hexId, listUsbDevices, normalize, npmRegistry, paths, resolveLocale, resolveSourceKey, saveConfig, type Config, type FrameInfo, type Runtime, type Screen, type UpdateCheck, dataPaths } from '@kiosko/core';
 import { currentInstall, updateBlocker, updateInstructions, type InstallInfo } from './install-kind.ts';
 import { KioskoUpdater, UpdateError, readMarker, realRun, restartHow, writeMarker, type Handover, type UpdaterDeps } from './self-update.ts';
@@ -77,6 +78,12 @@ export interface ServerOptions {
   discover?: (url: string, tokenFile?: string) => Promise<Discovered>;
   /** How "Detect panels" of a Frame file screen lists USB devices by VID:PID (tests). Default: read only, sysfs or libusb (listUsbDevices). */
   usbDevices?: typeof listUsbDevices;
+  /**
+   * The sandbox this Kiosko runs in (sandbox.ts; default: the environment's), and when its time to
+   * live ends it: shown by /api/version and the editor, and no updating Kiosko, no Home Assistant
+   * and no remote screens in it (unless allowed).
+   */
+  sandbox?: (Sandbox & { expires: number | null }) | null;
 }
 
 /** The panels "Detect panels" finds: those `trcc serve` drives, the LY ones on USB, the remote screens on the LAN. */
@@ -155,7 +162,13 @@ export function startServer(o: ServerOptions) {
   const home = o.home ?? paths.home;
   const install = o.install ?? currentInstall();
   const registryUrl = o.selfUpdate?.registry ?? npmRegistry();
-  const blocker = updateBlocker(install, { demo: runtime.demoMode });
+  const sb = o.sandbox !== undefined ? o.sandbox : (() => {
+    const c = currentSandbox();
+    return c && { ...c, expires: null };
+  })();
+  const sandboxInfo = sb && { dir: sb.dir, expires: sb.expires, allow: [...sb.allow] };
+  // A sandbox never replaces the Kiosko installed on the machine.
+  const blocker = sb ? 'sandbox' : updateBlocker(install, { demo: runtime.demoMode });
   const instance = randomBytes(8).toString('hex');
   const how = o.selfUpdate?.restartHow ?? restartHow(install, { tty: !!process.stdout.isTTY, pid: process.pid });
   const probeHost = o.host === '0.0.0.0' || o.host === '::' ? '127.0.0.1' : o.host.includes(':') ? `[${o.host}]` : o.host;
@@ -271,7 +284,8 @@ export function startServer(o: ServerOptions) {
   runtime.on('log', onLog);
   runtime.on('config', () => thumbs.clear());
   // Home Assistant, over MQTT: connects only when the config has it switched on.
-  const bridge = (o.homeassistant ?? !runtime.demoMode) ? new HomeAssistantBridge(runtime, o.version) : null;
+  // Not from a sandbox (unless it may use the LAN): it would show up in the real Home Assistant.
+  const bridge = (o.homeassistant ?? (!runtime.demoMode && (!sb || sb.allow.has('lan')))) ? new HomeAssistantBridge(runtime, o.version) : null;
   // Pushes from scripts (push-api.ts): token-authenticated, kept in Kiosko's folder.
   const push = pushApi({ runtime, json, ...(runtime.demoMode ? {} : { file: pushFile(home) }) });
   const fullStatus = () => ({ ...runtime.status(), homeassistant: bridge?.status() ?? { enabled: false, state: 'off', error: null }, push: push.status() });
@@ -312,6 +326,7 @@ export function startServer(o: ServerOptions) {
       restartNeeded,
       official: OFFICIAL_PLUGINS,
       demo: runtime.demoMode,
+      sandbox: sandboxInfo,
       platform: process.platform,
     };
   }
@@ -470,7 +485,11 @@ export function startServer(o: ServerOptions) {
       return json(res, 200, { ok: true });
     }
 
-    if ((p.startsWith('/api/remote/') || /^\/api\/screens\/[^/]+\/remote\//.test(p)) && (await remote(req, res, p, m))) return;
+    if (p.startsWith('/api/remote/') || /^\/api\/screens\/[^/]+\/remote\//.test(p)) {
+      // A sandbox pairs with, updates or asks no real remote screen unless it may.
+      if (sb && !sb.allow.has('remote')) return json(res, 403, { error: 'sandbox: remote screens are off here (--sandbox-allow-remote)', code: 'sandboxRemote' });
+      if (await remote(req, res, p, m)) return;
+    }
 
     if (p === '/api/devices/discover' && m === 'GET') {
       const url0 = url.searchParams.get('url') ?? 'http://127.0.0.1:8099';
@@ -487,7 +506,7 @@ export function startServer(o: ServerOptions) {
     }
 
     // Who answers here: the update's handover tells the new Kiosko from the old one by it.
-    if (p === '/api/version' && m === 'GET') return json(res, 200, { version: o.version, instance });
+    if (p === '/api/version' && m === 'GET') return json(res, 200, { version: o.version, instance, ...(sandboxInfo ? { sandbox: sandboxInfo } : {}) });
 
     // Updating Kiosko itself: how it was installed, what to do, and the button's steps.
     if (p === '/api/kiosko/update' && m === 'GET') return json(res, 200, kioskoUpdateState());

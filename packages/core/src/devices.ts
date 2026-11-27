@@ -18,6 +18,7 @@ import { expandPath } from './paths.ts';
 import { PresenceMonitor, probesFor, usbProbe, type Clock, type PresenceInfo, type Probe, type ProbeDeps } from './presence.ts';
 import { RemoteDevice, type RemoteDeps, type RemoteStatus } from './remote/device.ts';
 import { browser } from './remote/mdns.ts';
+import { confinePath, sandboxAllows } from './sandbox.ts';
 
 export interface DeviceStatus {
   driver: DeviceConfig['driver'];
@@ -91,6 +92,19 @@ class VirtualDevice implements Device {
   close(): void {}
 }
 
+/** A real panel's screen in a sandbox that may not touch real panels: painted in the editor only. */
+class SandboxedDevice implements Device {
+  status: DeviceStatus;
+  constructor(driver: DeviceConfig['driver'], allow: string) {
+    this.status = { driver, ok: true, message: `sandbox: ${driver} panels are off here (shown only in the editor; --sandbox-allow-${allow} turns them on)`, code: 'sandboxOff', params: { driver, flag: `--sandbox-allow-${allow}` }, framesSent: 0, lastSentAt: null };
+  }
+  async send(): Promise<void> {
+    this.status.framesSent++;
+    this.status.lastSentAt = Date.now();
+  }
+  close(): void {}
+}
+
 /**
  * `rename` over a file another process has open fails on Windows with
  * EPERM/EBUSY/EACCES (the sender is reading it right now): it passes in a few
@@ -115,7 +129,8 @@ export class FileDevice implements Device {
   /** Its `presence` probes, when the config has any: the sender's panel can't be seen from here otherwise. */
   private readonly monitor: PresenceMonitor | null;
   constructor(cfg: Extract<DeviceConfig, { driver: 'file' }>, deps: ProbeDeps = {}) {
-    this.dir = expandPath(cfg.dir);
+    // In a sandbox, a folder outside it (a real sender's) is moved inside: its panel never shows the sandbox's frames.
+    this.dir = confinePath(expandPath(cfg.dir));
     this.status = { driver: 'file', ok: true, message: `writing ${join(this.dir, 'frame.jpg')}`, code: 'fileWriting', params: { path: join(this.dir, 'frame.jpg') }, framesSent: 0, lastSentAt: null };
     const probes = cfg.presence ? probesFor(cfg.presence, this.dir, deps) : [];
     this.monitor = probes.length ? new PresenceMonitor(probes, deps.clock ? { clock: deps.clock } : {}) : null;
@@ -370,6 +385,7 @@ export async function listUsb(): Promise<{ ok: boolean; panels: { serial?: strin
 
 /** The LY panels libusb sees right now, for the "add screen" menu. Never throws. */
 export async function discoverUsb(): Promise<{ serial: string; key: string; width: number; height: number; rotate?: number; location: string; error?: string }[]> {
+  if (!sandboxAllows('usb')) return [];
   try {
     const found = await findPanels(await loadUsb());
     const out = [];
@@ -394,6 +410,9 @@ export async function discoverUsb(): Promise<{ serial: string; key: string; widt
 }
 
 export function openDevice(cfg: DeviceConfig, log: (m: string) => void, rotate?: number, remote?: RemoteDeps): Device {
+  // A sandbox leaves the real panels alone: those on USB, those `trcc serve` drives, the remote screens.
+  if ((cfg.driver === 'usb' || cfg.driver === 'trcc') && !sandboxAllows('usb')) return new SandboxedDevice(cfg.driver, 'usb');
+  if (cfg.driver === 'remote' && !sandboxAllows('remote')) return new SandboxedDevice(cfg.driver, 'remote');
   switch (cfg.driver) {
     case 'remote':
       return new RemoteDevice(cfg, log, rotate ?? 0, remote);
@@ -410,6 +429,7 @@ export function openDevice(cfg: DeviceConfig, log: (m: string) => void, rotate?:
 
 /** Panels `trcc serve` can see right now (for the "add screen" dialog). */
 export async function discoverTrcc(url = 'http://127.0.0.1:8099', tokenFile?: string): Promise<{ key: string; width: number; height: number }[]> {
+  if (!sandboxAllows('usb')) return [];
   const o = { url, ...(tokenFile ? { tokenFile: expandPath(tokenFile) } : {}), timeoutMs: 3000, deviceKey: '' } as TrccOptions;
   try {
     if (!(await serverAlive(o))) return [];
@@ -422,6 +442,7 @@ export async function discoverTrcc(url = 'http://127.0.0.1:8099', tokenFile?: st
 
 /** The remote screens on the LAN right now (mDNS), for "Detect panels" and `kiosko doctor`. Never throws. */
 export async function discoverRemote(ms = 1500): Promise<{ uid: string; id: string; model: string; width: number; height: number; rotate: number; fw: string; paired: boolean; address: string; port: number; hostname: string }[]> {
+  if (!sandboxAllows('remote')) return [];
   try {
     const found = await browser().browse(ms);
     return found.map((f) => ({ uid: f.uid, id: f.id, model: f.model, width: f.w, height: f.h, rotate: f.rot, fw: f.fw, paired: f.paired, address: f.address, port: f.port, hostname: f.hostname }));

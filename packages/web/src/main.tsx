@@ -81,6 +81,7 @@ function TopBar() {
       )}
       <div class="tb-spacer" />
       {!KIOSKO_DEMO && app.value?.demo && <span class="demo-pill" title="kiosko start --demo">DEMO</span>}
+      {app.value?.sandbox && <span class="demo-pill sandbox-pill" title={`kiosko start --sandbox: ${app.value.sandbox.dir}`}>SANDBOX</span>}
       <KioskoNotice />
       <SaveState />
       <LanguageMenu />
@@ -166,6 +167,13 @@ effect(() => {
   const lang = uiLanguage();
   document.documentElement.lang = lang;
   document.documentElement.dir = UI_LANGUAGES.find((l) => l.id === lang)?.dir ?? 'ltr';
+});
+
+// A sandboxed Kiosko says so in its tab too, so nobody takes it for the real one.
+effect(() => {
+  const sandboxed = !!app.value?.sandbox;
+  const base = document.title.replace(/^SANDBOX · /, '');
+  document.title = sandboxed ? `SANDBOX · ${base}` : base;
 });
 
 // The store's parts (store-kit) show what needs a script only on `html.js`, as on the site.

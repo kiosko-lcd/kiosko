@@ -63,11 +63,13 @@ line, for a plugin's README.
 git clone https://github.com/kiosko-lcd/kiosko && cd kiosko
 npm install
 npm run web:build
-node --conditions=source packages/server/src/cli.ts start --config examples/showcase.json --demo --open
+node --conditions=source packages/server/src/cli.ts start --sandbox --sandbox-config examples/showcase.json --demo --open
 ```
 
 `--demo` paints every widget with sample data and reads nothing from your
-machine, so you can explore the editor before connecting a panel.
+machine, so you can explore the editor before connecting a panel. `--sandbox`
+keeps everything it writes in a temp folder of its own, away from a Kiosko
+you may already run (see [Sandbox mode](docs/sandbox.md)).
 
 ## Quick start
 
@@ -503,6 +505,9 @@ kiosko doctor
 kiosko plugins [list|add <id>|link <folder>|remove <id>]
 kiosko service install      # start with your session (systemd / launchd / Task Scheduler)
 kiosko self-check [--json]  # load the plugins as start would and say what loads
+kiosko start --sandbox [dir] [--port N] [--sandbox-config file] [--sandbox-ttl 2h] [--sandbox-exit-with-parent]
+                            # a throwaway Kiosko that never touches the real one (docs/sandbox.md)
+kiosko sandbox list|stop [all|pid]   # the sandboxes running on this machine
 ```
 
 ## Coming from aimonitor

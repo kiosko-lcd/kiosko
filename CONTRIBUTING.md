@@ -13,6 +13,14 @@ Thanks for wanting to make Kiosko better.
   at the PNGs at their smallest declared size; `--widget`, `--size WxH`,
   `--options '{"rows":2}'`, `--empty` and `--data`/`--sources` files try
   other sizes, options and data (see the script's header).
+- **A throwaway Kiosko** (tests, e2e runs, trying a change on a machine where
+  Kiosko already runs for real): start it with `--sandbox`, never with just
+  another `KIOSKO_HOME` or `XDG_CONFIG_HOME`, which leave the plugins' RAM
+  caches, Frame files, `~` and the temp folder shared with the real one.
+  `node --conditions=source packages/server/src/cli.ts start --sandbox --port 37491 --sandbox-ttl 30m --sandbox-exit-with-parent`
+  keeps everything inside one folder, leaves USB panels, remote screens and the
+  default port alone, and ends by itself; `kiosko sandbox list|stop` finds the
+  ones left behind. See [docs/sandbox.md](docs/sandbox.md).
 - **README screenshots:** `scripts/screenshots-docker.sh` retakes
   `docs/img/*.jpg` from the showcase config in demo mode, inside the official
   Playwright container (needs Docker; nothing is installed on your machine).
@@ -176,8 +184,9 @@ knowledge of the code beyond finding the texts.
 the installed plugins in your language. A plugin you are translating must
 be built (`npm run build`) and linked (`kiosko plugins link <folder>`), or
 the gallery shows its previous build without a word; to leave your own
-Kiosko's config alone, run both with `KIOSKO_HOME=/tmp/kiosko-try` (a
-throwaway home; ignore the hint to restart the service). Look at the pictures: no check sees
+Kiosko alone, run both in a sandbox: `KIOSKO_SANDBOX=/tmp/kiosko-try` (a
+throwaway folder for everything, see [docs/sandbox.md](docs/sandbox.md);
+ignore the hint to restart the service). Look at the pictures: no check sees
 a text that is cut, crowded or still in English. In the editor, pick the
 language in Settings, or set `"locale": "fr"` in the config; **Real size**
 on the stage shows the panel as big as it is.
