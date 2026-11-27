@@ -12,6 +12,7 @@
  * settings (Kiosko's rotation is the truth) and the current frame.
  */
 import type { DeviceStatus } from '../devices.ts';
+import type { PresenceInfo } from '../presence.ts';
 import { PORT } from './crypto.ts';
 import { ScreenError, T, nextSealed, openSession, sendSealed, type ScreenInfo, type Wire } from './link.ts';
 import { browser, type FoundScreen } from './mdns.ts';
@@ -277,6 +278,7 @@ export class RemoteDevice {
         this.wire = null;
         this.connected = false;
         this.status.remote.online = false;
+        this.looked = true;
         this.status.remote.fps = 0;
       }
       if (!this.closed && !this.paused) await this.backoff();
@@ -294,7 +296,11 @@ export class RemoteDevice {
     else this.offline(`${this.name()} is offline (${why})`, 'remoteOffline');
   }
 
+  /** It was looked for at least once (and found offline). */
+  private looked = false;
+
   private offline(message: string, code: string, params: Record<string, string | number> = {}): void {
+    this.looked = true;
     this.status.remote.online = false;
     this.status.remote.since = null;
     this.say(message, false, code, { id: this.name(), ...params });
@@ -443,6 +449,19 @@ export class RemoteDevice {
 
   get isConnected(): boolean {
     return this.connected;
+  }
+
+  /**
+   * Online: present. Not paired, or offline once it was looked for: absent,
+   * and the runtime stops painting for it (presence.ts) until its session is
+   * up again, which an mDNS announcement brings about at once. Before the
+   * first try: unknown (painted as always).
+   */
+  get presence(): PresenceInfo {
+    if (!this.key) return { state: 'absent', why: `${this.name()} is not paired` };
+    if (this.status.remote.online) return { state: 'present', why: `${this.name()} online` };
+    if (this.looked) return { state: 'absent', why: this.status.message };
+    return { state: 'unknown', why: 'connecting' };
   }
 }
 

@@ -230,6 +230,8 @@ export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
     for (const r of this.runners.values()) {
       r.visibleIds.clear();
       r.sourceTypes.clear();
+      // A screen whose panel is missing needs nothing: what only it shows stops (presence.ts).
+      if (r.paused) continue;
       for (const { page, widget } of widgetsOf(r.screen)) {
         const def = this.registry.widget(widget.type);
         if (!def || widget.disabled) continue;
@@ -296,6 +298,7 @@ export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
     this.placeRunners();
     // A device kept across the change (same connection) still has to hear a new rotation.
     for (const s of config.screens) this.runners.get(s.id)?.device.setRotation?.(s.rotate);
+    this.refreshPresence(false);
     this.refreshWanted();
     this.emit('config', config);
   }
@@ -328,6 +331,11 @@ export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
       else taken.close();
     }
     const r = thread ? new ThreadRunner(s, this, this.threadEntry ?? defaultThreadEntry(), device) : new ScreenRunner(s, this, device);
+    // A panel known to be missing from the start (a probe that answers at once): not one frame for it.
+    if (isPaused(r)) {
+      if (old?.paused) r.setPaused(true);
+      else this.setPaused(r, true);
+    }
     if (old) {
       if (old.pinned !== r.pinned) r.setPinned(old.pinned);
       if (old.context) r.setContext(old.context);
@@ -358,6 +366,7 @@ export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
       this.hub.tick(this.config, now);
       this.fetches.tick(this.config, now);
       if (this.alertsDirty || now - this.alertsAskedAt >= ALERTS_EVERY_MS) this.askAlerts(now);
+      this.refreshPresence();
       this.refreshAlerts(now);
       this.refreshContext(now);
       await Promise.all([...this.runners.values()].map((r) => r.update(now)));
@@ -412,6 +421,35 @@ export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
     this.emit('screen', { screenId, off });
   }
 
+  /**
+   * Pauses the screens whose panel is missing (`Device.presence` absent, see
+   * presence.ts) and resumes those whose panel is back: a paused screen
+   * composes, paints and encodes nothing, its interludes, animations and
+   * alerts wait, and the sources and fetches only it needed stop. A screen
+   * the user disabled stays as it is: presence is not `enabled`.
+   * `rewant`: start or stop the data at once (false: the caller does).
+   */
+  refreshPresence(rewant = true): void {
+    let changed = false;
+    for (const r of this.runners.values()) {
+      const pause = isPaused(r);
+      if (pause === r.paused) continue;
+      this.setPaused(r, pause);
+      changed = true;
+    }
+    if (!changed) return;
+    this.alertsDirty = true;
+    this.contextDirty = true;
+    if (rewant) this.refreshWanted();
+  }
+
+  private setPaused(r: Runner, pause: boolean): void {
+    r.setPaused(pause);
+    const why = r.device.presence?.why;
+    this.log(`screen:${r.screen.name}`, pause ? `panel not connected${why ? ` (${why})` : ''}: paused, painting nothing until it is back` : `panel connected${why ? ` (${why})` : ''}: painting again`);
+    this.emit('screen', { screenId: r.screen.id, paused: pause });
+  }
+
   refreshWidget(instanceId: string): void {
     this.fetches.refresh(instanceId);
   }
@@ -440,7 +478,7 @@ export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
       const cfg = this.config;
       const done = new Set<string>();
       for (const r of this.runners.values()) {
-        if (!r.screen.enabled) continue;
+        if (!r.screen.enabled || r.paused) continue;
         for (const { widget } of widgetsOf(r.screen)) {
           const def = this.registry.widget(widget.type);
           if (!def?.alerts || widget.disabled || done.has(widget.id)) continue;
@@ -481,7 +519,7 @@ export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
     };
     this.contextEngine.retain(new Set(this.config.screens.map((s) => s.id)));
     for (const r of this.runners.values()) {
-      const has = r.screen.enabled && r.screen.pages.some((p) => p.showWhen?.length);
+      const has = r.screen.enabled && !r.paused && r.screen.pages.some((p) => p.showWhen?.length);
       const pick = has ? this.contextEngine.step(r.screen, matchingPages(r.screen, env, working), now) : null;
       const was = r.context;
       r.setContext(pick);
@@ -608,6 +646,10 @@ export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
         lastFrameAt: r.lastInfo?.at ?? null,
         sleeping: r.lastInfo?.sleeping ?? false,
         off: r.off,
+        /** Its panel is missing (presence.ts): nothing is painted for it until it is back. */
+        paused: r.paused,
+        /** What its driver says of the panel being there: present, absent, unknown (none: it can't tell). */
+        presence: r.device.presence ?? null,
         /** The alert that has the screen, if any. */
         alert: r.alert?.top.id ?? null,
         /** Real fps, paint and encode times. */
@@ -686,6 +728,11 @@ function memory(): { heapBytes: number; rssBytes: number } {
   } catch {
     return { heapBytes: 0, rssBytes: 0 };
   }
+}
+
+/** A screen is paused when it is enabled and its panel is known to be missing. */
+function isPaused(r: Runner): boolean {
+  return r.screen.enabled && r.device.presence?.state === 'absent';
 }
 
 /** A context page's reason, in a line for the log. */

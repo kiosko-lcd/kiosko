@@ -180,6 +180,7 @@ export async function runScreenThread(builtins: PluginDefinition[] = []): Promis
   if (init.pinned !== runner.pinned) runner.setPinned(init.pinned);
   if (init.context) runner.setContext(init.context);
   if (init.off) runner.setOff(true);
+  if (init.paused) runner.setPaused(true);
   host.visible();
 
   let lastState = '';
@@ -248,6 +249,10 @@ export async function runScreenThread(builtins: PluginDefinition[] = []): Promis
         return;
       case 'off':
         runner.setOff(m.off);
+        return;
+      case 'paused':
+        runner.setPaused(m.paused);
+        tellState();
         return;
       case 'play':
         void runner.playNow(m.slot, m.play).then(tellState);

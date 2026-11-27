@@ -29,14 +29,37 @@ export const CONFIG_SCHEMA_ID = 'https://kioskolcd.dev/schema/v1/config.json';
 
 export type Rotation = 0 | 90 | 180 | 270;
 
+/**
+ * How a Frame file screen tells its panel is there (presence.ts). Several:
+ * absent if any says absent.
+ *
+ * - `usb`: a USB device with this vendor and product id (4 hex digits, e.g.
+ *   "0416" and "5408") and, with several identical panels, this serial, is
+ *   plugged in. Looked up read only (sysfs on Linux), never opened nor claimed:
+ *   the sender keeps the device. Without a serial the screen is only paused when
+ *   no such device is plugged in at all.
+ * - `heartbeat`: a file the sender touches while it drives the panel; absent when
+ *   missing or older than `maxAgeMs` (default 5000). Relative: inside `dir`.
+ * - `command`: exit 0 = present; run every `everyMs` (default 30000, at least 5000).
+ */
+export interface PresenceConfig {
+  usb?: { vendorId: string; productId: string; serial?: string };
+  heartbeat?: { path: string; maxAgeMs?: number };
+  command?: { argv: string[]; everyMs?: number };
+}
+
 export type DeviceConfig =
   | { driver: 'virtual' }
   /** `trcc serve` REST API (thermalright-trcc-linux). */
   | { driver: 'trcc'; url: string; tokenFile?: string; deviceKey?: string; serial?: string; keepalive?: boolean }
   /** Straight over USB from Node (LY panels, Trofeo Vision…): no trcc, no Python. */
   | { driver: 'usb'; serial?: string; keepalive?: number }
-  /** Writes `frame.jpg` atomically to `dir`; a sender (e.g. by USB serial) takes it to the panel. */
-  | { driver: 'file'; dir: string; format?: 'jpeg' | 'png'; quality?: number }
+  /**
+   * Writes `frame.jpg` atomically to `dir`; a sender (e.g. by USB serial) takes it to the panel.
+   * `presence`: how to tell the sender's panel is plugged in; while it isn't, the screen is
+   * paused (nothing painted). Without it the screen is always painted (see presence.ts).
+   */
+  | { driver: 'file'; dir: string; format?: 'jpeg' | 'png'; quality?: number; presence?: PresenceConfig }
   /**
    * A Kiosko remote screen on the network (firmware/esp32-screen, docs/remote-screen.md):
    * found by `uid` over mDNS (or at `host`), paired with `key` (secret), turned by the

@@ -144,6 +144,8 @@ export interface Runner {
   /** The context page that has the screen now, and why (see context.ts); null: none. */
   readonly context: ContextPick | null;
   readonly off: boolean;
+  /** Its panel is not there (presence.ts): nothing is painted until it is back. */
+  readonly paused: boolean;
   readonly interlude: { type: string; play: boolean } | null;
   readonly animating: string | null;
   readonly alert: ShownAlert | null;
@@ -165,6 +167,8 @@ export interface Runner {
   setPinned(pageId: string | null): void;
   setContext(pick: ContextPick | null): void;
   setOff(off: boolean): void;
+  /** Pauses the screen while its panel is missing, or resumes it with a fresh, full frame. */
+  setPaused(paused: boolean): void;
   playNow(slotId: string, play?: boolean): Promise<void>;
   stopInterlude(): void;
   press(e: PadEvent): boolean;
@@ -187,6 +191,8 @@ export class ScreenRunner implements Runner {
   private pad: { send(e: PadEvent): void } | null = null;
   /** Switched off from outside (Home Assistant, the API): black until switched on. Not saved. */
   off = false;
+  /** Its panel is missing (presence.ts): no composing, painting nor encoding until it is back. */
+  paused = false;
   /** An interlude asked for now (the editor, Home Assistant): played as soon as the screen is free. */
   private wanted: string | null = null;
   private wantedPlay = false;
@@ -296,7 +302,7 @@ export class ScreenRunner implements Runner {
   }
 
   async update(now: number): Promise<void> {
-    if (this.busy || !this.screen.enabled) return;
+    if (this.busy || !this.screen.enabled || this.paused) return;
     this.busy = true;
     try {
       // An alert is above everything: pages, interludes, animations, sleep.
@@ -483,7 +489,7 @@ export class ScreenRunner implements Runner {
     const canvas = CANVAS.createCanvas(screen.width, screen.height);
     const g = canvas.getContext('2d');
     const start = Date.now();
-    for (let i = 0; i < frames && !this.alert && !this.closed; i++) {
+    for (let i = 0; i < frames && !this.alert && !this.closed && !this.paused; i++) {
       const ms = Math.min(BOOT_MS, Date.now() - start);
       if (ms >= BOOT_MS) break;
       const t0 = performance.now();
@@ -580,7 +586,7 @@ export class ScreenRunner implements Runner {
     let start = Date.now();
     // maxSeconds is a time: a screen slower than the interlude's fps plays fewer frames, not longer.
     const until = playing ? Infinity : Date.now() + due.maxSeconds * 1000;
-    for (let i = 0; i < frames && this.interlude && !this.alert; i++) {
+    for (let i = 0; i < frames && this.interlude && !this.alert && !this.paused; i++) {
       if (Date.now() >= until) break;
       if (playing && Date.now() - lastPress > this.rt.playIdleMs) {
         this.rt.log(`screen:${this.screen.name}`, `${due.type}: nobody playing, back to the pages`);
@@ -632,7 +638,7 @@ export class ScreenRunner implements Runner {
    * `Runtime.maxConcurrent` (one by default); the rest wait their turn.
    */
   private async maybeAnimate(now: number): Promise<void> {
-    if (!this.screen.enabled || this.closed || this.lastInfo?.sleeping || !this.animatable.length) return;
+    if (!this.screen.enabled || this.closed || this.paused || this.lastInfo?.sleeping || !this.animatable.length) return;
     const due = this.scheduler.next(this.animatable, now, this.screen.maxFps, this.rt.maxConcurrent);
     if (!due.length) return;
     this.animating = due.map((d) => d.animatable.type).join(', ');
@@ -669,7 +675,7 @@ export class ScreenRunner implements Runner {
     // A hold has a meaning for a single animation: with several it is ignored.
     const hold = items.length === 1 ? items[0]!.play.hold : undefined;
     // An alert stops any of them, interruptible or not.
-    const abort = () => this.closed || !!this.alert || (interruptible && this.dirty) || !this.screen.enabled;
+    const abort = () => this.closed || !!this.alert || this.paused || (interruptible && this.dirty) || !this.screen.enabled;
     this.dirty = false;
     // The page as it was at the start: same clock, same data for every frame, so
     // only the animated tiles move (a changing clock would flicker) and, if it
@@ -753,7 +759,7 @@ export class ScreenRunner implements Runner {
    * used to be dropped without a word).
    */
   async playNow(slotId: string, play = false): Promise<void> {
-    if (this.off || this.alert) return;
+    if (this.off || this.alert || this.paused) return;
     this.wanted = slotId;
     this.wantedPlay = play;
     if (this.busy) return;
@@ -789,6 +795,24 @@ export class ScreenRunner implements Runner {
   setOff(off: boolean): void {
     this.off = off;
     if (off) this.stopInterlude();
+    this.dirty = true;
+  }
+
+  setPaused(paused: boolean): void {
+    if (paused === this.paused) return;
+    this.paused = paused;
+    if (paused) {
+      // What plays stops at its next frame; nothing is asked for meanwhile.
+      this.stopInterlude();
+      this.wanted = null;
+      this.animatable = [];
+      return;
+    }
+    // Back: whatever the panel shows (its logo, an old picture) is replaced by a full frame painted from scratch.
+    this.tiles.clear();
+    this.last = null;
+    this.alertKey = null;
+    this.cardKey = null;
     this.dirty = true;
   }
 

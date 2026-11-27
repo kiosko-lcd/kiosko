@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { LyPanel, MAX_FRAME_BYTES, PID_LY, PanelNotFound, type Transport } from '@loksly/usb-ly';
 import { UsbDevice, encodeFor } from './devices.ts';
+import { usbProbe } from './presence.ts';
 
 /** A panel's USB pipe: answers the hello and ACKs frames; counts what it gets. */
 class Pipe implements Transport {
@@ -150,4 +151,33 @@ test('usb: a frame over the firmware limit is reported instead of silently showi
 test('usb: always JPEG, whatever the quality setting says', () => {
   assert.equal(encodeFor({ driver: 'usb' }, 0), 'jpeg');
   assert.equal(encodeFor({ driver: 'usb' }, 90), 'jpeg');
+});
+
+test('usb: an unplugged panel (presence by enumeration) is not knocked on; plugged in, it connects at once and the device says present', async () => {
+  let calls = 0;
+  const pipe = new Pipe();
+  let plugged = false;
+  let poke: (() => void) | null = null;
+  const presence = usbProbe({ vendorId: 0x0416, productIds: [PID_LY], serial: 'SER1' }, { list: () => (plugged ? [{ vid: 0x0416, pid: PID_LY, serial: 'SER1', location: '3-4' }] : [{ vid: 0x0416, pid: PID_LY, serial: 'OTHER', location: '3-5' }]), watch: (p) => ((poke = p), () => undefined) });
+  const dev = new UsbDevice({ driver: 'usb', serial: 'SER1', keepalive: 0.1 }, () => undefined, { open: () => (calls++, panelOver(pipe)), retryMs: 20, presence });
+  assert.equal(dev.presence?.state, 'absent');
+  assert.equal(dev.status.code, 'usbAbsent');
+  assert.match(dev.status.message, /serial SER1.*waiting for it/);
+  await dev.send(jpeg(1000));
+  await new Promise((r) => setTimeout(r, 300));
+  assert.equal(calls, 0, 'never opened while it is not plugged in');
+  plugged = true;
+  poke!();
+  assert.equal(dev.presence?.state, 'present');
+  await dev.send(jpeg(1000));
+  await until(() => pipe.frames >= 1);
+  assert.equal(calls, 1);
+  assert.equal(dev.status.ok, true);
+  dev.close();
+});
+
+test('usb: with a fake open and no probe given, presence is not looked at (unknown: painted as always)', () => {
+  const dev = new UsbDevice({ driver: 'usb' }, () => undefined, { open: () => panelOver(new Pipe()) });
+  assert.equal(dev.presence, undefined);
+  dev.close();
 });

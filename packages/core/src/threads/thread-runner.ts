@@ -63,6 +63,8 @@ export class ThreadRunner implements Runner {
   pinned: string | null;
   context: ContextPick | null = null;
   off = false;
+  /** Its panel is missing (presence.ts): the thread paints nothing and is sent no data meanwhile. */
+  paused = false;
   alert: ShownAlert | null = null;
   lastInfo: FrameInfo | null = null;
   visibleIds = new Set<string>();
@@ -88,6 +90,8 @@ export class ThreadRunner implements Runner {
     this.pinned = screen.pinnedPage ?? null;
     this.deviceKey = JSON.stringify(screen.device);
     this.device = device ?? owner.openDevice(screen, (m) => owner.log(`screen:${screen.name}`, m));
+    // A panel already known to be missing: the thread starts paused (a message would come after its first paint).
+    this.paused = screen.enabled && this.device.presence?.state === 'absent';
     this.start();
   }
 
@@ -124,6 +128,7 @@ export class ThreadRunner implements Runner {
       pinned: this.pinned,
       context: this.context,
       off: this.off,
+      paused: this.paused,
     };
     const w = new Worker(this.entry, { workerData: init, name: `kiosko screen ${this.screen.id}` } as ConstructorParameters<typeof Worker>[1]);
     this.worker = w;
@@ -290,6 +295,7 @@ export class ThreadRunner implements Runner {
   }
 
   dataChanged(change: { source?: string; instance?: string }): void {
+    if (this.paused) return;
     if ((change.instance && this.need.ids.has(change.instance)) || (change.source && this.need.sources.has(change.source))) this.sendData(change);
   }
 
@@ -318,8 +324,20 @@ export class ThreadRunner implements Runner {
     this.post({ t: 'off', off });
   }
 
+  setPaused(paused: boolean): void {
+    if (paused === this.paused) return;
+    this.paused = paused;
+    if (paused) this.state = { ...this.state, interlude: null, animating: null };
+    this.post({ t: 'paused', paused });
+    // Back: the data it missed meanwhile, all of it again.
+    if (!paused) {
+      this.need = { ids: new Set(), sources: new Set() };
+      this.sendNeeded();
+    }
+  }
+
   async playNow(slotId: string, play = false): Promise<void> {
-    if (this.off || this.alert) return;
+    if (this.off || this.alert || this.paused) return;
     this.post({ t: 'play', slot: slotId, play });
   }
 
