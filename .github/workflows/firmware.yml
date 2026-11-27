@@ -59,7 +59,7 @@ jobs:
       contents: write # to attach the images to the release
       actions: write # to rebuild the site, whose web installer serves the newest full image
     steps:
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           name: kiosko-screen-firmware
           path: out
