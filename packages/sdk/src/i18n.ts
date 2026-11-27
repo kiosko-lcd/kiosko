@@ -93,20 +93,44 @@ export type PluralForms = Partial<Record<Intl.LDMLPluralRule, string>> & { other
 export function plural(n: number, forms: Record<string, PluralForms>, locale = 'en'): string {
   const key = pickLocale(Object.keys(forms), locale) ?? (forms.en ? 'en' : Object.keys(forms)[0]!);
   const f = forms[key]!;
-  let rule: Intl.LDMLPluralRule = 'other';
-  try {
-    rule = new Intl.PluralRules(key).select(n);
-  } catch {
-    /* an odd tag: other */
+  const text = f[pluralRules(key)?.select(n) ?? 'other'] ?? f.other;
+  return text.replaceAll('{n}', numberFormat(key)?.format(n) ?? String(n));
+}
+
+/*
+ * The rules and number formats of each language, made once: a new
+ * Intl.PluralRules and Intl.NumberFormat on every call took some 100 µs,
+ * and widgets ask for plurals on every paint. null: a tag Intl refuses.
+ */
+const rules = new Map<string, Intl.PluralRules | null>();
+const numbers = new Map<string, Intl.NumberFormat | null>();
+
+function pluralRules(tag: string): Intl.PluralRules | null {
+  let r = rules.get(tag);
+  if (r === undefined) {
+    try {
+      r = new Intl.PluralRules(tag);
+    } catch {
+      r = null;
+    }
+    if (rules.size > 100) rules.clear();
+    rules.set(tag, r);
   }
-  const text = f[rule] ?? f.other;
-  let num = String(n);
-  try {
-    num = new Intl.NumberFormat(key).format(n);
-  } catch {
-    /* as is */
+  return r;
+}
+
+function numberFormat(tag: string): Intl.NumberFormat | null {
+  let r = numbers.get(tag);
+  if (r === undefined) {
+    try {
+      r = new Intl.NumberFormat(tag);
+    } catch {
+      r = null;
+    }
+    if (numbers.size > 100) numbers.clear();
+    numbers.set(tag, r);
   }
-  return text.replaceAll('{n}', num);
+  return r;
 }
 
 export function localize(text: Localized | undefined, locale = 'en'): string {
