@@ -159,7 +159,7 @@ test('a widget can set its own fetch interval from its options or data; the user
     const t0 = Date.now();
     host.tick(normalize({}), t0);
     await flush();
-    return (host as unknown as { states: Map<string, { nextAt: number }> }).states.get(inst.id)!.nextAt - t0;
+    return (host as unknown as { of(id: string): { nextAt: number } }).of(inst.id)!.nextAt - t0;
   };
   // From the data (1 s), raised to the 5 s floor.
   assert.ok(Math.abs((await next({ id: 'a', type: 't/paced', options: {} })) - 5_000) < 50);
@@ -202,5 +202,50 @@ test('a widget whose every fetch brings a new image is repainted every time', as
   host.tick(normalize({}), Date.now());
   await flush();
   assert.deepEqual(changes, ['w', 'w']);
+  host.stop();
+});
+
+test('instances of a widget with the same options share one fetch, and each is told when its data changes', async () => {
+  let calls = 0;
+  const changes: string[] = [];
+  const r = new Registry();
+  r.add(
+    definePlugin({
+      id: 'n',
+      name: 'N',
+      version: '1',
+      widgets: [defineWidget({ id: 'col', name: 'Col', options: t.object({ offset: t.integer({ default: 0 }) }), fetch: async ({ options }) => ({ call: ++calls, offset: options.offset }), intervalMs: 60_000, render: () => undefined })],
+    }),
+  );
+  const def = r.widget('n/col')!;
+  const hub = new SourceHub(r, quiet, () => undefined);
+  const host = new FetchHost(hub, quiet, (id) => changes.push(id));
+  // The same column on two screens, and one with other options.
+  host.retain([
+    { inst: { id: 'left', type: 'n/col', options: {} }, def },
+    { inst: { id: 'right', type: 'n/col', options: {} }, def },
+    { inst: { id: 'other', type: 'n/col', options: { offset: 2 } }, def },
+  ]);
+  host.tick(normalize({}), Date.now());
+  await flush();
+  assert.equal(calls, 2, 'one fetch for the two alike, one for the other');
+  assert.deepEqual(host.data('left'), host.data('right'));
+  assert.deepEqual((host.data('other') as { offset: number }).offset, 2);
+  assert.deepEqual(changes.sort(), ['left', 'other', 'right']);
+  // Refreshing one refreshes what both show.
+  changes.length = 0;
+  host.refresh('right');
+  host.tick(normalize({}), Date.now());
+  await flush();
+  assert.equal(calls, 3);
+  assert.deepEqual(changes.sort(), ['left', 'right']);
+  assert.deepEqual(host.status().map((x) => x.id).sort(), ['left', 'other', 'right']);
+  // One goes away: the other keeps the fetch and its data, with no new request.
+  host.retain([{ inst: { id: 'left', type: 'n/col', options: {} }, def }]);
+  host.tick(normalize({}), Date.now());
+  await flush();
+  assert.equal(calls, 3);
+  assert.equal((host.data('left') as { call: number }).call, 3);
+  assert.equal(host.data('right'), undefined);
   host.stop();
 });
