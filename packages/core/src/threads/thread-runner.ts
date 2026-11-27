@@ -39,6 +39,9 @@ export interface ThreadOwner {
   dataOf(instanceId: string): unknown;
   /** The latest data of a source key (see config/profiles.ts). */
   sourceData(key: string): unknown;
+  /** Whether an instance's fetch, or a source key, is failing now (sent along with the data). Missing: never. */
+  instanceFailed?(instanceId: string): boolean;
+  sourceFailed?(key: string): boolean;
   /** The source keys a widget with `profile` reads. */
   sourceKeys(types: readonly string[] | undefined, profile?: string | null): string[];
   paintTime(instance: string, type: string, ms: number, now: number): void;
@@ -172,7 +175,8 @@ export class ThreadRunner implements Runner {
   private sendData(change: { instance?: string; source?: string }, fresh = false): void {
     if (this.failed) return;
     const value = change.instance ? this.owner.dataOf(change.instance) : this.owner.sourceData(change.source!);
-    if (value === undefined && fresh) return;
+    const failed = !!(change.instance ? this.owner.instanceFailed?.(change.instance) : this.owner.sourceFailed?.(change.source!));
+    if (value === undefined && !failed && fresh) return;
     let packed: unknown;
     try {
       packed = pack(value);
@@ -181,7 +185,7 @@ export class ThreadRunner implements Runner {
       this.fail(`the data of ${change.instance ? `widget ${change.instance}` : change.source} can't go to another thread: ${err.message}`);
       return;
     }
-    this.post({ t: 'data', ...change, value: packed });
+    this.post({ t: 'data', ...change, value: packed, ...(failed ? { failed } : {}) });
   }
 
   private onMessage(m: FromThread): void {

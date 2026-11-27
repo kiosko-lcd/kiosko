@@ -42,7 +42,7 @@ const sentences = (...parts: (string | number | false | undefined)[]) =>
 export const TYPE_PATTERN = '^[a-z0-9][a-z0-9-]*/[A-Za-z0-9_.-]+$';
 const ID_PATTERN = '^[A-Za-z0-9_.-]{1,80}$';
 
-/** Instance switches over the widget's `urgent` and `empty` hooks, described only where the widget has them. */
+/** Instance switches over the widget's hooks: `takeOver` only where the widget can be urgent; `hideWhenEmpty` on every widget. */
 const TAKE_OVER = {
   type: 'boolean',
   description: 'Keep the tile while the widget is urgent (a meeting about to start, a permission waiting), even if others share it. Off: it takes its turn like the rest.',
@@ -50,8 +50,8 @@ const TAKE_OVER = {
 };
 const HIDE_WHEN_EMPTY = {
   type: 'boolean',
-  description: 'Skip the widget in its tile\'s rotation while it has nothing to list, instead of showing its empty message.',
-  'x-ui': { label: { en: 'Hide when empty', es: 'Ocultar si está vacío', de: 'Ausblenden, wenn leer', 'zh-Hant': '沒有內容時隱藏', 'zh-Hans': '没有内容时隐藏' } },
+  description: 'Whether the widget passes its turn when it has nothing to show. Missing (the default): in a tile with other widgets it is skipped while it is empty, has no data yet or its source is failing; alone, or when none of its tile has anything, it is shown. false: never skipped. true: also hidden while empty when it is alone in its tile (the tile then shows nothing).',
+  'x-ui': { label: { en: 'Pass its turn when empty', es: 'Ceder el turno si está vacío', de: 'Runde abgeben, wenn leer', 'zh-Hant': '沒有內容時讓出輪播', 'zh-Hans': '没有内容时让出轮播' } },
 };
 const TIME_PATTERN = '^([01][0-9]|2[0-3]):[0-5][0-9]$';
 
@@ -94,7 +94,7 @@ export function configSchema(plugins: readonly PluginDefinition[]): S {
           disabled: { type: 'boolean', default: false, description: 'Kept in the tile but never shown.' },
           zoom: { $ref: '#/$defs/zoom' },
           ...(w.urgent ? { takeOver: { ...TAKE_OVER, default: w.takeOver ?? true } } : {}),
-          ...(w.empty ? { hideWhenEmpty: { ...HIDE_WHEN_EMPTY, default: w.hideWhenEmpty ?? false } } : {}),
+          hideWhenEmpty: { ...HIDE_WHEN_EMPTY, ...(w.hideWhenEmpty !== undefined ? { default: w.hideWhenEmpty } : {}) },
           ...(w.sources?.some((x) => withProfiles.has(x)) ? { profile: { $ref: '#/$defs/profile', description: `The profile of ${w.sources.filter((x) => withProfiles.has(x)).join(', ')} it reads, by id (see "sourceProfiles"). Missing, or one that isn't there: the default one, "sources".` } } : {}),
         },
         'x-plugin': p.id,

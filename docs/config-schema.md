@@ -57,7 +57,7 @@ Settings every widget or source shares, whatever its plugin:
 | `workday` | `byDay` | other hours on some weekdays: `{ "5": { "end": "15:00", "hours": 6 } }` |
 | a widget | `zoom` | 0.5–2, default 1: the widget painted bigger (1.25: bigger letters, fewer rows) or denser (0.8); the tile must be its minimum size times the zoom |
 | a widget | `takeOver` | only on widgets that can be urgent: keep the tile while urgent (the widget's default, usually `true`) |
-| a widget | `hideWhenEmpty` | only on widgets that list things: skip the widget in its tile while it has nothing to list |
+| a widget | `hideWhenEmpty` | what the widget does when it has nothing to show (empty, no data yet, its source failing). Missing (the default since 0.2.15): passes its turn when its tile has another widget with something to show; `false`: never skipped; `true`: also hidden while empty when alone in its tile (see [Pages](pages.md#widgets-in-a-tile-take-turns)) |
 | a widget | `profile` | only on widgets that read a source with profiles: the id of the profile it reads (`sourceProfiles`); missing or gone: the default one |
 | `sources["plugin/source"]` | `intervalMs` | how often a polled source is read, at least its own minimum (`minimum` in the schema) |
 | `sources["plugin/source"]` | `timeoutMs` | how long one read may take before it counts as failed (default 2 min) |

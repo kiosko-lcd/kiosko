@@ -32,8 +32,8 @@ export interface ThreadInit {
 
 export type ToThread =
   | { t: 'apply'; config: Config; screen: Screen }
-  /** New data of a widget instance's fetch or of a source, packed (see clone.ts); `undefined`: none any more. */
-  | { t: 'data'; instance?: string; source?: string; value: unknown }
+  /** New data of a widget instance's fetch or of a source, packed (see clone.ts); `undefined`: none any more. `failed`: its last fetch or read failed. */
+  | { t: 'data'; instance?: string; source?: string; value: unknown; failed?: boolean }
   | { t: 'alert'; shown: ShownAlert | null }
   | { t: 'pin'; page: string | null }
   /** The context page it must show (see context.ts). */

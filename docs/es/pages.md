@@ -16,6 +16,34 @@ momento.
 - Los **interludios** salen cada cierto tiempo sobre la página que esté, y las
   **alertas** se quedan el panel por encima de todo.
 
+## Los widgets de una tesela se turnan
+
+Una tesela puede tener una **pila** de widgets (en el editor, suelta uno
+sobre otro). Se turnan cada *Duración del turno* (`rotateMs`, 30 s si no se dice),
+contra el reloj como las páginas; uno urgente (una reunión a punto de
+empezar) se queda la tesela mientras lo sea.
+
+- **Sin nada que mostrar, sin turno.** Un widget que no tiene nada que
+  mostrar cede su turno a los demás de su tesela: una lista vacía (sin
+  revisiones, sin tareas), uno cuyos datos aún no han llegado o uno cuya
+  fuente está fallando. El error sigue en el editor y en el estado del widget.
+- **Nunca una tesela en blanco.** Solo en su tesela, o si ninguno de su tesela
+  tiene nada, un widget sale como siempre: su mensaje de vacío, *cargando* o
+  el error. En el primer arranque, una tesela cuyos widgets están todos
+  cargando enseña el primero hasta que otro tenga algo.
+- **Sin parpadeos.** Los turnos siguen cambiando al compás del reloj. Un
+  widget que se queda sin nada cede como pronto a la media vuelta, uno que
+  vuelve espera al turno siguiente, y el que llega se queda al menos medio
+  turno.
+- **Tú decides.** En los ajustes del widget, *Cuando no tenga nada que
+  mostrar*: **Ceder el turno** (lo normal), **Ocultar** (también oculto si
+  está solo en su tesela, que entonces no muestra nada; solo en widgets que
+  saben cuándo están vacíos) o **Mostrar siempre** (`hideWhenEmpty`: sin
+  poner, `true`, `false`).
+
+Un widget que no sale tampoco se pinta: la pila no gasta CPU en los widgets
+que se saltan.
+
 ## Mostrar esta página cuando…
 
 Una página también puede salir **sola** mientras pasa algo: hay un juego

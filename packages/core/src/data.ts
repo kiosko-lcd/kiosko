@@ -147,8 +147,13 @@ export class SourceHub {
 
   private set(st: SourceState, data: unknown): void {
     st.updatedAt = Date.now();
+    const recovered = st.error !== undefined;
     st.error = undefined;
-    if (same(st.data, data)) return;
+    if (same(st.data, data)) {
+      // Same data, but it isn't failing any more: what is shown may change (see `failed`).
+      if (recovered) this.onChange(st.key);
+      return;
+    }
     st.data = data;
     this.onChange(st.key);
   }
@@ -165,9 +170,12 @@ export class SourceHub {
       st.inflight = true;
       const d = deadline(st.abort.signal, st.timeoutMs);
       const fail = (err: unknown) => {
+        const was = st.error !== undefined;
         st.error = d.timedOut() ? timedOutMsg(st.timeoutMs) : msg(err, cfg);
         this.log(st.key, `read failed: ${st.error}`);
         st.nextAt = Date.now() + Math.min(RETRY_MS, st.intervalMs);
+        // Its widgets pass their turn while it fails (see compositor's `tileState`).
+        if (!was) this.onChange(st.key);
       };
       // Report a timeout when it happens, not when (or if) the read gives up.
       d.signal.addEventListener('abort', () => d.timedOut() && fail(null), { once: true });
@@ -197,6 +205,11 @@ export class SourceHub {
   /** The latest data of a source key (a bare type: its default profile). */
   data(key: string): unknown {
     return this.states.get(key)?.data;
+  }
+
+  /** Whether a source key's last read (or its watch) failed. */
+  failed(key: string): boolean {
+    return this.states.get(key)?.error !== undefined;
   }
 
   /** The sources running now, with their options. */
@@ -339,19 +352,23 @@ export class FetchHost {
       run
         .then((data: unknown) => {
           st.updatedAt = Date.now();
+          const recovered = st.error !== undefined;
           st.error = undefined;
           if (st.userIntervalMs === undefined && st.def.intervalOf) st.intervalMs = ownInterval(st, data);
           st.nextAt = Date.now() + st.intervalMs;
           if (!same(data, st.data)) {
             st.data = data;
             for (const id of st.ids) this.onChange(id);
-          }
+          } else if (recovered) for (const id of st.ids) this.onChange(id);
         })
         .catch((err: unknown) => {
           if (st.abort.signal.aborted) return;
+          const was = st.error !== undefined;
           st.error = d.timedOut() ? timedOutMsg(st.timeoutMs) : msg(err, cfg);
           this.log(st.type, `fetch failed: ${st.error}`);
           st.nextAt = Date.now() + Math.min(RETRY_MS, st.intervalMs);
+          // Its instances pass their turn while it fails (see compositor's `tileState`).
+          if (!was) for (const id of st.ids) this.onChange(id);
         })
         .finally(() => {
           d.done();
@@ -367,6 +384,11 @@ export class FetchHost {
 
   data(id: string): unknown {
     return this.of(id)?.data;
+  }
+
+  /** Whether the instance's last fetch failed. */
+  failed(id: string): boolean {
+    return this.of(id)?.error !== undefined;
   }
 
   /** Ask for fresh data on the next tick (the editor's "refresh" button). */

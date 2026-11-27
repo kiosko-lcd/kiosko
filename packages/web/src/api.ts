@@ -58,8 +58,10 @@ export interface WidgetInfo {
   intervalMs: number | null;
   /** Default of the "keep the tile while urgent" switch; null when the widget is never urgent. */
   takeOver: boolean | null;
-  /** Default of the "hide when empty" switch; null when the widget can't tell it's empty. */
+  /** The widget's own default of the "pass its turn" switch (`hideWhenEmpty`); null: Kiosko's (skip while there's nothing to show, when the tile has others). */
   hideWhenEmpty: boolean | null;
+  /** The widget can tell it's empty (`empty`), so "hide even alone" means something. */
+  empty?: boolean;
 }
 
 /** What a plugin declares it does on the machine (see the SDK's `Permissions`). */
