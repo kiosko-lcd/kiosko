@@ -65,6 +65,11 @@ obere rechte Ecke) für ihr Menü: Vollbild und Kopplung vergessen.
 Um einen Browser mit einem bestehenden statt einem neuen Bildschirm zu
 koppeln, nimm **Neu koppeln** auf der Karte dieses Bildschirms.
 
+Solange kein Browser einen Bildschirm zeigt (Tab geschlossen, Tablet im
+Ruhezustand oder nicht im Netz), zeichnet Kiosko nichts dafür, wie bei
+einem abgesteckten Panel; kommt ein Browser zurück, bekommt er sofort ein
+neues Bild.
+
 ## Größe und Ausrichtung
 
 Mit **Der Browsergröße folgen** (Standard) übernimmt der Bildschirm die Größe

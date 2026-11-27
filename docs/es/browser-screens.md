@@ -66,6 +66,11 @@ completa y olvidar el emparejamiento.
 Para emparejar un navegador con una pantalla que ya existe en vez de con una
 nueva, usa **Volver a emparejar** en la tarjeta de esa pantalla.
 
+Mientras ningún navegador muestra una pantalla (la pestaña cerrada, la
+tableta dormida o fuera de la red), Kiosko no pinta nada para ella, como
+con un panel desenchufado; cuando vuelve un navegador, recibe al momento
+una imagen nueva.
+
 ## Tamaño y orientación
 
 Con **Seguir el tamaño del navegador** activado (lo predeterminado), la

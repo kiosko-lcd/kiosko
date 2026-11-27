@@ -458,6 +458,7 @@ export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
 
   private setPaused(r: Runner, pause: boolean): void {
     r.setPaused(pause);
+    r.device.pausedChanged?.(pause);
     const why = r.device.presence?.why;
     this.log(`screen:${r.screen.name}`, pause ? `panel not connected${why ? ` (${why})` : ''}: paused, painting nothing until it is back` : `panel connected${why ? ` (${why})` : ''}: painting again`);
     this.emit('screen', { screenId: r.screen.id, paused: pause });

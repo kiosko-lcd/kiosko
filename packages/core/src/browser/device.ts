@@ -9,9 +9,17 @@
  * gets the current frame at once. It never connects anywhere: it waits for
  * its viewer. The viewer's size follows the device (STATE); the server turns
  * the screen when it changes (`onResize`).
+ *
+ * Presence (presence.ts): absent while no paired browser is connected, so
+ * nothing is composed, painted or encoded for nobody; present while a
+ * session is live. A viewer that comes back within a tick gets the frame
+ * kept here at once (an unchanged picture is not painted again, so it must
+ * not wait for a new one); after a pause the kept frame is dropped and the
+ * runtime's resume brings a full, fresh one.
  */
 import type { DeviceConfig } from '../config/model.ts';
 import type { DeviceStatus } from '../devices.ts';
+import type { PresenceInfo } from '../presence.ts';
 import type { BrowserHub, ViewerSession, ViewerSink } from './hub.ts';
 import { BT } from './protocol.ts';
 
@@ -200,5 +208,20 @@ export class BrowserDevice implements ViewerSink {
 
   get isConnected(): boolean {
     return !!this.session;
+  }
+
+  get presence(): PresenceInfo {
+    if (!this.paired) return { state: 'absent', why: `${this.name()} is not paired` };
+    if (this.session) return { state: 'present', why: `${this.name()} showing in a browser at ${this.status.browser.address}` };
+    if (!this.hub || !this.status.browser.server) return { state: 'absent', why: 'network screens are off' };
+    return { state: 'absent', why: `no browser showing ${this.name()}` };
+  }
+
+  pausedChanged(paused: boolean): void {
+    // Nothing is painted from now on: what is kept would be old when a viewer comes.
+    if (paused && !this.session) {
+      this.latest = null;
+      this.fresh = false;
+    }
   }
 }

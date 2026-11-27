@@ -76,6 +76,12 @@ export interface Device {
    * `unknown`: painted as always.
    */
   readonly presence?: PresenceInfo;
+  /**
+   * The runtime paused its screen (presence absent) or resumed it, which it
+   * does with a full frame. A driver that keeps the last frame for a viewer
+   * to come (browser screens) forgets it on pausing: it would be old.
+   */
+  pausedChanged?(paused: boolean): void;
   /** Panels that turn the picture themselves (remote screens): the screen's rotation changed. */
   setRotation?(rotate: number): void;
   /** Panels with a backlight Kiosko can dim (remote screens): 0-100 for now, null back to its own (remote/backlight.ts). */

@@ -41,7 +41,7 @@ class MemStore implements KeyStore {
 }
 
 /** A Kiosko with the network-screens server on (or not), and a way to call the editor's API. */
-function kiosko(t: TestContext, net?: Config['networkScreens']) {
+function kiosko(t: TestContext, net?: Config['networkScreens'], sandbox?: Parameters<typeof startServer>[0]['sandbox']) {
   const dir = mkdtempSync(join(tmpdir(), 'kiosko-browser-'));
   mkdirSync(join(dir, 'viewer'));
   writeFileSync(join(dir, 'viewer', 'index.html'), '<!doctype html><title>viewer</title>');
@@ -56,7 +56,7 @@ function kiosko(t: TestContext, net?: Config['networkScreens']) {
   const p = ports();
   const configPath = join(dir, 'config.json');
   writeFileSync(configPath, JSON.stringify(cfg));
-  const srv = startServer({ runtime: rt, host: '127.0.0.1', port: p.editor, configPath, webDir: dir, version: '0', checkUpdates: false, homeassistant: false });
+  const srv = startServer({ runtime: rt, host: '127.0.0.1', port: p.editor, configPath, webDir: dir, version: '0', checkUpdates: false, homeassistant: false, ...(sandbox !== undefined ? { sandbox } : {}) });
   rt.start();
   const viewers: ViewerClient[] = [];
   t.after(async () => {
@@ -285,3 +285,50 @@ test('followViewer: turns on a change of orientation, resizes on a real change o
 function viewer(k: ReturnType<typeof kiosko>, store?: MemStore, size?: { w: number; h: number }) {
   return k.viewer(store, size);
 }
+
+test('browser screens: paused (nothing painted) while no browser shows it, a full frame when one comes back', async (t) => {
+  const k = kiosko(t, { enabled: true, host: '127.0.0.1', port: ports().net });
+  await k.srv.networkScreensReady();
+  const v = viewer(k);
+  await until(() => state(v).kind === 'pairing');
+  const w = (await k.call('GET', '/api/browser')).body.waiting[0];
+  const ok = await k.call('POST', '/api/browser/pair', { uid: w.uid, code: (state(v) as { code: string }).code });
+  assert.equal(ok.status, 200, JSON.stringify(ok.body));
+  const id = ok.body.screenId as string;
+  const screen = async () => (await k.call('GET', '/api/state')).body.status.screens.find((x: any) => x.id === id);
+  await until(() => v.frames.length > 0);
+  assert.equal((await screen()).presence.state, 'present');
+  assert.equal((await screen()).paused, false);
+
+  // Gone: absent, and the screen is paused; nothing is painted for it.
+  v.client.stop();
+  await until(async () => (await screen()).paused === true);
+  assert.equal((await screen()).presence.state, 'absent');
+  const painted: string[] = [];
+  const onFrame = (f: { screenId: string }) => void (f.screenId === id && painted.push(f.screenId));
+  k.rt.on('frame', onFrame);
+  t.after(() => k.rt.off('frame', onFrame));
+  await new Promise((r) => setTimeout(r, 600));
+  assert.equal(painted.length, 0, 'nothing painted while no browser shows it');
+
+  // Back (the same storage): resumed, and a full frame comes although the page looks the same.
+  const again = viewer(k, v.store);
+  await until(() => state(again).kind === 'live');
+  await until(() => again.frames.length > 0);
+  assert.ok(again.frames[0]!.jpeg);
+  await until(async () => (await screen()).paused === false);
+  assert.equal((await screen()).presence.state, 'present');
+});
+
+test('network screens in a sandbox: on 127.0.0.1 whatever the config says, unless it may use the LAN', async (t) => {
+  const sb = (allow: ('usb' | 'remote' | 'lan')[]) => ({ dir: tmpdir(), allow: new Set(allow), registry: tmpdir(), expires: null });
+  const shut = kiosko(t, { enabled: true, host: '0.0.0.0', port: ports().net }, sb([]));
+  await shut.srv.networkScreensReady();
+  const a = (await shut.call('GET', '/api/browser')).body;
+  assert.deepEqual([a.listening, a.host, a.sandboxed], [true, '127.0.0.1', true]);
+  assert.deepEqual(shut.srv.screens?.listening?.host, '127.0.0.1');
+  const open = kiosko(t, { enabled: true, host: '0.0.0.0', port: ports().net }, sb(['lan']));
+  await open.srv.networkScreensReady();
+  const b = (await open.call('GET', '/api/browser')).body;
+  assert.deepEqual([b.listening, b.host, b.sandboxed], [true, '0.0.0.0', undefined]);
+});

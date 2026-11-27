@@ -62,6 +62,10 @@ for its menu: full screen, and forgetting the pairing.
 To pair a browser to an existing screen instead of a new one, use **Pair
 again** on that screen's card.
 
+While no browser shows a screen (the tab closed, the tablet asleep or off
+the network), Kiosko paints nothing for it, as for a panel that is
+unplugged; when a browser comes back it gets a fresh picture at once.
+
 ## Size and orientation
 
 With **Follow the browser's size** on (the default), the screen takes the
