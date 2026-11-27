@@ -87,19 +87,39 @@ test('frames: one in flight, the newest wins, the rotation goes first, nothing p
   const d = cleanup(new RemoteDevice({ driver: 'remote', uid: fake.uid, key: key.toString('hex'), host: '127.0.0.1', port }, () => {}, 90, { browser: noMdns(), settings: () => ({ lang: 'es', tz: 'CET-1CEST,M3.5.0,M10.5.0/3' }) }));
   await until(() => d.status.code === 'remoteOnline' && fake.sets.length > 0);
   assert.deepEqual(fake.sets[0], { rot: 90, lang: 'es', tz: 'CET-1CEST,M3.5.0,M10.5.0/3' });
-  for (let i = 1; i <= 30; i++) {
-    await d.send(Buffer.from(`frame ${i}`));
-    await new Promise((r) => setTimeout(r, 5));
+  // Ten bursts of three new pictures. Each burst lands in one go, so only its last can go;
+  // and while the screen holds a frame (not ACKed yet) nothing else may leave.
+  let n = 0;
+  const burst = () => {
+    for (let k = 0; k < 3; k++) void d.send(Buffer.from(`frame ${++n}`));
+    return n;
+  };
+  fake.held = true;
+  let showing = burst();
+  await until(() => fake.received.at(-1) === showing);
+  for (let b = 1; b < 10; b++) {
+    const next = burst();
+    // A broken flow control would send now: give it the chance (a pause can only hide a bug here, not invent one).
+    await new Promise((r) => setTimeout(r, 10));
+    assert.equal(fake.received.at(-1), showing, 'nothing leaves while a frame is in flight');
+    assert.equal(fake.queued, 0, 'nothing piles up on the screen');
+    if (b === 9) fake.held = false;
+    fake.step();
+    await until(() => fake.received.at(-1) === next);
+    showing = next;
   }
   await until(() => fake.frames.at(-1)?.jpeg.toString() === 'frame 30');
   assert.equal(fake.inflightMax, 1);
-  assert.ok(fake.frames.length < 15, `only some of 30 went (${fake.frames.length})`);
-  assert.ok(d.status.remote.dropped > 10);
-  assert.ok(d.status.remote.rttMs! >= 40);
+  assert.deepEqual(
+    fake.frames.map((f) => f.jpeg.toString()),
+    Array.from({ length: 10 }, (_, b) => `frame ${3 * b + 3}`),
+    'the newest of each burst, and only it',
+  );
+  assert.equal(d.status.remote.dropped, 20);
+  assert.ok(d.status.remote.rttMs! >= 40, `the round trip covers the decode (${d.status.remote.rttMs} ms)`);
   // An unchanged picture is not sent again.
-  const n = fake.frames.length;
   await new Promise((r) => setTimeout(r, 150));
-  assert.equal(fake.frames.length, n);
+  assert.equal(fake.frames.length, 10);
   // The rotation changed in Kiosko's config: pushed at once, and again on a reconnection.
   d.setRotation(0);
   await until(() => fake.rot === 0);

@@ -27,6 +27,9 @@ export interface FakeOptions {
   fw?: string;
 }
 
+/** Messages a Wire has read off the socket and nobody has taken yet. */
+const queueOf = (w: Wire): number => (w as unknown as { queue: unknown[] }).queue.length;
+
 export class FakeScreen {
   uid: string;
   id: string;
@@ -46,12 +49,19 @@ export class FakeScreen {
   readonly leds: Record<string, unknown>[] = [];
   readonly events: string[] = [];
   ota: Buffer | null = null;
+  /** Every frame number as it arrives, before its decode (`frames` has them once decoded). */
+  readonly received: number[] = [];
   inflightMax = 0;
   sessions = 0;
+  /** Held: each frame waits for `step()` before its ACK, so a test decides when the screen is busy. */
+  held = false;
+  private steps: (() => void)[] = [];
+  private stepsAhead = 0;
   /** Drops every connection at once (a screen that is away). */
   away = false;
   private server: Server;
   private current: Socket | null = null;
+  private wire: Wire | null = null;
   private socks = new Set<Socket>();
   port = 0;
 
@@ -73,6 +83,18 @@ export class FakeScreen {
 
   listen(port = 0): Promise<number> {
     return new Promise((r) => this.server.listen(port, '127.0.0.1', () => r((this.port = (this.server.address() as { port: number }).port))));
+  }
+
+  /** Lets the frame held (or the next one, if it is still decoding) finish. */
+  step(): void {
+    const go = this.steps.shift();
+    if (go) go();
+    else this.stepsAhead++;
+  }
+
+  /** Messages that came in and are still waiting to be read: what would pile up on the screen. */
+  get queued(): number {
+    return this.wire ? queueOf(this.wire) : 0;
   }
 
   /** Drops the session, as a screen losing its Wi-Fi would. */
@@ -106,6 +128,7 @@ export class FakeScreen {
       if (!equal(Buffer.from(a.mac, 'hex'), authMac(this.key, LABEL_AUTH_K, nk, nd, this.uid))) return this.refuse(w, 'badKey');
       this.current?.destroy();
       this.current = sock;
+      this.wire = w;
       this.sessions++;
       this.events.push('session');
       w.sendPlain(T.AUTH_OK, { mac: authMac(this.key, LABEL_AUTH_D, nk, nd, this.uid).toString('hex') });
@@ -155,11 +178,18 @@ export class FakeScreen {
       const m = open(s.rx, hdr, body); // throws on a replayed or forged message: the session ends
       if (m.type === T.FRAME) {
         // Frames waiting behind this one were sent before its ACK: flow control broken.
-        const queued = (w as unknown as { queue: { body: Buffer }[] }).queue.length;
+        const queued = queueOf(w);
         decoding++;
         this.inflightMax = Math.max(this.inflightMax, decoding + queued);
         const num = m.payload.readUInt32BE(0);
-        if (this.decodeMs) await new Promise((r) => setTimeout(r, this.decodeMs));
+        this.received.push(num);
+        // At least decodeMs on Date.now(), the clock Kiosko times the round trip with: a timer
+        // alone counts from libuv's cached, whole-millisecond loop time and can come back after
+        // 39.x ms, which Date.now() reads as 39.
+        const start = Date.now();
+        for (let left = this.decodeMs; left > 0; left = this.decodeMs - (Date.now() - start)) await new Promise((r) => setTimeout(r, left));
+        if (this.held && this.stepsAhead) this.stepsAhead--;
+        else if (this.held) await new Promise<void>((r) => this.steps.push(r));
         this.frames.push({ num, jpeg: m.payload.subarray(4), at: Date.now() });
         decoding--;
         this.sealed(w, s, T.ACK, { n: num, ok: true, rx: 1, dec: this.decodeMs });
