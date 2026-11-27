@@ -261,12 +261,13 @@ test('with --sandbox-exit-with-parent a sandbox ends when the process that start
   const registry = tmp(t, 'reg');
   const sb = join(tmp(t, 'sb'), 'box');
   const log = join(tmp(t, 'log'), 'kiosko.log');
-  // A parent that starts the sandbox, says its pid, and waits to be killed.
+  // A parent that starts the sandbox, says its pid, and waits to be killed. Detached: on Windows,
+  // libuv's job object would otherwise end the child with it, and this would test nothing.
   const parentCode = `
     const { spawn } = require('node:child_process');
     const fs = require('node:fs');
     const out = fs.openSync(${JSON.stringify(log)}, 'a');
-    const c = spawn(process.execPath, ['--conditions=source', ${JSON.stringify(CLI)}, 'start', '--sandbox', ${JSON.stringify(sb)}, '--port', '37485', '--sandbox-exit-with-parent'], { stdio: ['ignore', out, out] });
+    const c = spawn(process.execPath, ['--conditions=source', ${JSON.stringify(CLI)}, 'start', '--sandbox', ${JSON.stringify(sb)}, '--port', '37485', '--sandbox-exit-with-parent'], { stdio: ['ignore', out, out], detached: true });
     console.log(c.pid);
     setInterval(() => {}, 1000);
   `;
