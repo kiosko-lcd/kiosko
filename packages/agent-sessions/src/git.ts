@@ -67,6 +67,31 @@ export function headCache(run: Runner, ttlMs = 60_000, now: () => number = Date.
   };
 }
 
+/**
+ * How long a repository's `git status` is kept. Every reload of the sessions
+ * (each time the hook writes, and every poll) enriches every session, and
+ * each `git status` is a program started from the reader's (often busy)
+ * thread: five sessions in one repository asked it five times per reload.
+ */
+export const STATUS_TTL_MS = 15_000;
+
+/**
+ * `git status --porcelain` of each repository (or directory), asked at most
+ * once per `ttlMs`; sessions asking at the same moment share one run.
+ */
+export function statusCache(run: Runner, ttlMs = STATUS_TTL_MS, now: () => number = Date.now) {
+  const known = new Map<string, { out: Promise<string | null>; at: number }>();
+  return (dir: string): Promise<string | null> => {
+    const t = now();
+    const hit = known.get(dir);
+    if (hit && t - hit.at < ttlMs && t >= hit.at) return hit.out;
+    if (known.size > 200) known.clear();
+    const out = run(dir);
+    known.set(dir, { out, at: t });
+    return out;
+  };
+}
+
 /** A session record plus what git says about its working directory. */
 export interface EnrichedSession extends SessionRecord {
   /** Root of the git repository containing `cwd`; `project` is then its name. */
@@ -102,12 +127,14 @@ export function parseStatus(out: string): { count: number; files: string[] } {
 
 /**
  * An enricher with its own caches: repository roots (forever), HEAD (one
- * minute), first commit (six hours) and long definitions (per file version).
- * `git status` runs on every call, since it is what changes.
+ * minute), first commit (six hours), long definitions (per file version) and
+ * `git status`, what changes, for `STATUS_TTL_MS` per repository (its paths
+ * are relative to the repository's root, wherever in it it runs).
  */
-export function createGitEnricher(run: (args: string[]) => Runner = (args) => git(args)) {
-  const repoRoot = repoRootCache(run(['rev-parse', '--show-toplevel']));
-  const headOf = headCache(run(['log', '-1', '--format=%ct%n%D']));
+export function createGitEnricher(run: (args: string[]) => Runner = (args) => git(args), now: () => number = Date.now) {
+  const repoRoot = repoRootCache(run(['rev-parse', '--show-toplevel']), now);
+  const headOf = headCache(run(['log', '-1', '--format=%ct%n%D']), 60_000, now);
+  const statusOf = statusCache(run(['status', '--porcelain']), STATUS_TTL_MS, now);
   const born = new Map<string, { born: number | null; at: number }>();
   const long = new Map<string, { mtime: number; long: boolean }>();
 
@@ -154,7 +181,7 @@ export function createGitEnricher(run: (args: string[]) => Runner = (args) => gi
       if (b) out.repoBorn = b;
     }
     if (rec.files?.some(isSpaghetti)) out.spaghetti = true;
-    const status = await run(['status', '--porcelain'])(rec.cwd);
+    const status = await statusOf(root ?? rec.cwd);
     if (status !== null) {
       const s = parseStatus(status);
       out.dirty = s.count;
