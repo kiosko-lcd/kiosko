@@ -317,6 +317,7 @@ export const en = {
   'threads.never': 'Never',
   'settings.threadsNow': '{cores} cores · main thread {load} % busy · Kiosko uses {mem}',
   'threads.own': 'own thread, {mem}',
+  'threads.parked': 'own thread, stopped while its panel is missing',
   'threads.main': 'main thread',
   'threads.why.never': 'main thread (its own setting)',
   'threads.why.fewScreens': 'main thread (only one screen on)',

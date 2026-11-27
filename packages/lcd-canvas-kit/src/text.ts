@@ -19,7 +19,7 @@ export function setDefaultFamily(family: string): void {
  */
 export function registerFontFiles(fonts: Record<string, string>): string[] {
   // A family may now draw with another file: measure it again.
-  widths.clear();
+  clearTextCache();
   return Object.entries(fonts).filter(([family, path]) => !GlobalFonts.registerFromPath(path, family)).map(([, path]) => path);
 }
 
@@ -37,7 +37,10 @@ const MAX_FONTS = 400;
 function widthOf(ctx: SKRSContext2D, font: string, ch: string): number {
   let byChar = widths.get(font);
   if (!byChar) {
-    if (widths.size >= MAX_FONTS) widths.clear();
+    if (widths.size >= MAX_FONTS) {
+      widths.clear();
+      measured = 0;
+    }
     byChar = new Map();
     widths.set(font, byChar);
   }
@@ -46,6 +49,7 @@ function widthOf(ctx: SKRSContext2D, font: string, ch: string): number {
     if (ctx.font !== font) ctx.font = font;
     w = ctx.measureText(ch).width;
     byChar.set(ch, w);
+    measured++;
   }
   return w;
 }
@@ -53,6 +57,46 @@ function widthOf(ctx: SKRSContext2D, font: string, ch: string): number {
 /** Forgets the measured widths (tests, or fonts replaced under the same name). */
 export function clearTextCache(): void {
   widths.clear();
+  measured = 0;
+}
+
+/** Widths measured (not added) since the cache started again. */
+let measured = 0;
+
+/**
+ * The widths measured so far, by font and character: to carry them to
+ * another thread or to the next start (Kiosko keeps them in its RAM cache),
+ * where `addTextWidths` takes them. They are only good for the same fonts.
+ */
+export function textWidths(): Record<string, Record<string, number>> {
+  const out: Record<string, Record<string, number>> = {};
+  for (const [font, byChar] of widths) out[font] = Object.fromEntries(byChar);
+  return out;
+}
+
+/** Takes widths measured elsewhere (see `textWidths`); what is measured here already stays. Returns how many were new. */
+export function addTextWidths(from: Record<string, Record<string, number>>): number {
+  let added = 0;
+  for (const [font, chars] of Object.entries(from)) {
+    if (!chars || typeof chars !== 'object') continue;
+    let byChar = widths.get(font);
+    if (!byChar) {
+      if (widths.size >= MAX_FONTS) break;
+      byChar = new Map();
+      widths.set(font, byChar);
+    }
+    for (const [ch, w] of Object.entries(chars)) {
+      if (typeof w !== 'number' || !Number.isFinite(w) || byChar.has(ch)) continue;
+      byChar.set(ch, w);
+      added++;
+    }
+  }
+  return added;
+}
+
+/** How many widths were measured here (not added) since the cache started again: what is new to keep. */
+export function textWidthsMeasured(): number {
+  return measured;
 }
 
 export interface TextOpts {
@@ -96,7 +140,7 @@ let minCjkPx = 0;
 let enlarged = Infinity;
 
 export function setMinCjkPx(px: number): void {
-  if (px !== minCjkPx) widths.clear();
+  // The widths stay: they are by font, and a raised CJK character has a font of its own size.
   minCjkPx = Math.max(0, px);
 }
 

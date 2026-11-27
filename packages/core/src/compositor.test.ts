@@ -505,3 +505,55 @@ test('card title: a strip with a title paints the widget in the whole strip and 
   assert.deepEqual(titled.box, bare.box);
   assert.ok(titled.png.equals(bare.png), 'byte-identical to the same tile without a title');
 });
+
+test('a page painted on a canvas used before, and tiles repainted on their old canvases, look exactly as on new ones', () => {
+  const reg2 = new Registry();
+  reg2.add(
+    definePlugin({
+      id: 'r',
+      name: 'R',
+      version: '1',
+      widgets: [
+        // Leaves a mess behind on purpose: a transform, alpha, a clip and a save it never restores.
+        defineWidget({
+          id: 'messy',
+          name: 'Messy',
+          render: (g, { box, data }) => {
+            g.save();
+            g.globalAlpha = 0.6;
+            g.beginPath();
+            g.rect(box.x, box.y, box.w / 2, box.h);
+            g.clip();
+            g.translate(7, 3);
+            g.fillStyle = (data as { color?: string } | undefined)?.color ?? '#123456';
+            g.fillRect(box.x, box.y, box.w, box.h);
+          },
+        }),
+        defineWidget({ id: 'text', name: 'Text', render: (g, { box, data, theme }) => {
+          g.fillStyle = theme.colors.ink;
+          g.font = `20px "${theme.fonts.sans}"`;
+          g.fillText(String((data as { n?: number } | undefined)?.n ?? 0), box.x + 4, box.y + 30);
+        } }),
+      ],
+    }),
+  );
+  const p = page([
+    { id: 'a', x: 0, y: 0, w: 2, h: 2, widgets: [W('m', 'r/messy')], rotateMs: 0, chrome: 'card' },
+    { id: 'b', x: 2, y: 0, w: 2, h: 2, widgets: [W('t', 'r/text')], rotateMs: 0, chrome: 'card' },
+  ]);
+  const scr = { width: 400, height: 200, pixelShift: { enabled: false, amplitude: 0, periodMs: 1 } };
+  const paint = (data: Record<string, unknown>, o: { into?: Canvas; cache?: Map<string, any> } = {}) =>
+    composePage({ cfg, screen: scr, page: p, theme: DEFAULT_THEME, registry: reg2, now: 0, working: true, dataOf: (inst) => data[inst.id], sourcesOf: () => ({}), rotate: 180, ...(o.cache ? { cache: o.cache } : {}), ...(o.into ? { into: o.into } : {}) });
+  const pixels = (c: Canvas) => Buffer.from(c.getContext('2d').getImageData(0, 0, c.width, c.height).data);
+  const into = createCanvas(400, 200);
+  const cache = new Map();
+  for (const [i, data] of [{ m: { color: '#ff0000' }, t: { n: 1 } }, { m: { color: '#00ff00' }, t: { n: 1 } }, { m: { color: '#00ff00' }, t: { n: 22 } }, { m: { color: '#0000ff' }, t: { n: 333 } }].entries()) {
+    const reused = paint(data, { into, cache });
+    assert.equal(reused.canvas, into, 'painted on the canvas it was given');
+    // As before: a new page canvas, and each tile painted on a new canvas of its own.
+    assert.ok(pixels(reused.canvas).equals(pixels(paint(data, { cache: new Map() }).canvas)), `frame ${i}: the same pixels as on new canvases`);
+  }
+  // Another size: a new canvas, the one given is left alone.
+  const small = createCanvas(10, 10);
+  assert.notEqual(paint({}, { into: small }).canvas, small);
+});

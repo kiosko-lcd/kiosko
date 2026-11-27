@@ -335,6 +335,8 @@ export interface ScreenThread {
   why: 'always' | 'never' | 'setting' | 'auto' | 'fewScreens' | 'fewCores' | 'off' | 'failed';
   error: string | null;
   heapBytes: number | null;
+  /** Its thread is stopped while its panel is missing (started again when it is back). */
+  parked?: boolean;
 }
 
 /** A full-screen alert (see core's alerts.ts). */

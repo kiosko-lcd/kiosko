@@ -39,6 +39,11 @@ panel. El editor dice *Panel desconectado · en pausa (ahorrando CPU)* y
 fotograma. Una pantalla que apagaste sigue apagada: la presencia no es su
 interruptor.
 
+Una pantalla que se pinta en un hilo propio devuelve además ese hilo cuando
+lleva un minuto en pausa (su memoria: sus plugins, tipos de letra, imágenes y
+teselas pintadas, decenas de MB), y recibe uno nuevo, que pinta el fotograma
+entero desde cero, cuando vuelve el panel.
+
 - Conexión **USB**: automática. El panel falta cuando no hay enchufado ningún
   panel LY con su `serial` (ninguno en absoluto, si no tiene). Se mira sin abrirlo.
 - **Pantalla remota**: automática. Desconectada (sin sesión ni anuncio mDNS) o

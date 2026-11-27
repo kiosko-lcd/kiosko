@@ -72,3 +72,32 @@ test('plural: the forms the language has, and its digits', () => {
   assert.equal(plural(1, files, 'zh-TW'), '1 個檔案');
   assert.equal(plural(3, files, 'fr'), '3 files');
 });
+
+test('plural: each language\'s rules and number format are made once, not on every call', () => {
+  const forms = { en: { one: '{n} file', other: '{n} files' }, pl: { one: '{n} plik', few: '{n} pliki', many: '{n} plików', other: '{n} pliku' }, 'x-bad': { other: '{n} x' } };
+  const RealRules = Intl.PluralRules;
+  const RealNumbers = Intl.NumberFormat;
+  let made = 0;
+  // Counted from here on (a language asked before this test is already made).
+  const Rules = function (this: unknown, ...a: ConstructorParameters<typeof Intl.PluralRules>) {
+    made++;
+    return new RealRules(...a);
+  } as unknown as typeof Intl.PluralRules;
+  const Numbers = function (this: unknown, ...a: ConstructorParameters<typeof Intl.NumberFormat>) {
+    made++;
+    return new RealNumbers(...a);
+  } as unknown as typeof Intl.NumberFormat;
+  Object.assign(Intl, { PluralRules: Rules, NumberFormat: Numbers });
+  try {
+    const once = [plural(1, forms, 'pl'), plural(3, forms, 'pl'), plural(5, forms, 'pl'), plural(1234.5, forms, 'pl')];
+    assert.deepEqual(once, ['1 plik', '3 pliki', '5 plików', `${new RealNumbers('pl').format(1234.5)} pliku`]);
+    const after = made;
+    assert.ok(after <= 2);
+    for (let i = 0; i < 50; i++) plural(i, forms, 'pl');
+    assert.equal(made, after, 'no new Intl objects');
+    // A tag Intl refuses: `other`, the number as is, and asked once.
+    assert.equal(plural(2, { 'x-bad': forms['x-bad'] }, 'x-bad'), '2 x');
+  } finally {
+    Object.assign(Intl, { PluralRules: RealRules, NumberFormat: RealNumbers });
+  }
+});

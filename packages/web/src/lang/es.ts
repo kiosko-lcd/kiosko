@@ -319,6 +319,7 @@ export const es: Dictionary = {
   'threads.never': 'Nunca',
   'settings.threadsNow': '{cores} núcleos · hilo principal ocupado al {load} % · Kiosko usa {mem}',
   'threads.own': 'hilo propio, {mem}',
+  'threads.parked': 'hilo propio, parado mientras falta su panel',
   'threads.main': 'hilo principal',
   'threads.why.never': 'hilo principal (lo pide la pantalla)',
   'threads.why.fewScreens': 'hilo principal (solo hay una pantalla encendida)',

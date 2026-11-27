@@ -63,6 +63,13 @@ export interface ComposeInput {
    * many the runtime plays together is its decision (`MAX_CONCURRENT`).
    */
   animate?: { tileId: string; instanceId: string; frame: AnimationFrame }[];
+  /**
+   * A canvas of the frame's size to paint on instead of a new one (the
+   * screen runner's, reused from frame to frame: a 1920×462 canvas per frame
+   * kept V8's garbage collector busy). It is cleared first. Of another size,
+   * it is ignored.
+   */
+  into?: Canvas;
 }
 
 /**
@@ -338,8 +345,11 @@ function paintTile(g: SKRSContext2D, input: ComposeInput, tile: Tile, rect: PxRe
     if (hit.error) out.error = hit.error;
     return hit.gen ?? null;
   }
-  const canvas = createCanvas(rect.w, rect.h);
+  // The tile's old picture is replaced: its canvas is painted again (drawImage
+  // copies what it draws, so frames that showed it keep their pixels).
+  const canvas = hit && hit.canvas.width === rect.w && hit.canvas.height === rect.h ? hit.canvas : createCanvas(rect.w, rect.h);
   const tg = canvas.getContext('2d');
+  if (canvas === hit?.canvas) tg.reset();
   tg.translate(-rect.x, -rect.y);
   draw(tg);
   g.drawImage(canvas, rect.x, rect.y);
@@ -436,8 +446,12 @@ export function composePage(input: ComposeInput): ComposeResult {
   const { screen, page, theme, now } = input;
   const rotate = ((input.rotate ?? 0) % 360 + 360) % 360;
   const swap = rotate === 90 || rotate === 270;
-  const canvas = createCanvas(swap ? screen.height : screen.width, swap ? screen.width : screen.height);
+  const w = swap ? screen.height : screen.width;
+  const h = swap ? screen.width : screen.height;
+  const canvas = input.into && input.into.width === w && input.into.height === h ? input.into : createCanvas(w, h);
   const g = canvas.getContext('2d');
+  // A canvas painted before: blank, with no transform, clip or state left from that frame.
+  if (canvas === input.into) g.reset();
   if (rotate) {
     // Everything below draws in the page's own coordinates.
     g.translate(canvas.width / 2, canvas.height / 2);

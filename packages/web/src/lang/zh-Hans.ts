@@ -319,6 +319,7 @@ export const zhHans: Dictionary = {
   'threads.never': '从不',
   'settings.threadsNow': '{cores} 个核心 · 主线程占用 {load}% · Kiosko 使用 {mem}',
   'threads.own': '独立线程，{mem}',
+  'threads.parked': '独立线程，面板不在时已停止',
   'threads.main': '主线程',
   'threads.why.never': '主线程（屏幕设置）',
   'threads.why.fewScreens': '主线程（只有一个屏幕开启）',

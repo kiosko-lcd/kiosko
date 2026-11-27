@@ -540,3 +540,80 @@ test('runtime: an unchanged page encodes and writes nothing, however often data 
     rt.stop();
   }
 });
+
+test('runtime: a screen paints its frames, and its animations, on the same two canvases; the editor still gets each frame as it is', async () => {
+  const { loadImage, createCanvas } = await import('@napi-rs/canvas');
+  const { FrameCanvases } = await import('./screen-runner.ts');
+  // Never the canvas the editor may still ask for; two of each size, taking turns.
+  const pool = new FrameCanvases();
+  const a = pool.take(10, 10);
+  const b = pool.take(10, 10, a);
+  assert.notEqual(a, b);
+  for (let i = 0; i < 4; i++) {
+    assert.equal(pool.take(10, 10, a), b);
+    assert.equal(pool.take(10, 10, b), a);
+  }
+  assert.equal(pool.made, 2);
+  assert.notEqual(pool.take(20, 10, null).width, 10, 'another size: another canvas');
+
+  const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff'];
+  let n = 0;
+  let anims = 0;
+  const reg = new Registry();
+  reg.add(
+    definePlugin({
+      id: 't',
+      name: 'T',
+      version: '1',
+      widgets: [
+        defineWidget({
+          id: 'anim',
+          name: 'Anim',
+          chrome: 'bare',
+          fetch: async () => ({ n: n++ }),
+          intervalMs: 60_000,
+          render: (g, ctx) => {
+            g.fillStyle = ctx.anim ? '#ffffff' : colors[((ctx.data as { n: number } | undefined)?.n ?? 0) % colors.length]!;
+            g.fillRect(ctx.box.x, ctx.box.y, ctx.box.w, ctx.box.h);
+          },
+          animationGap: { minMs: 0, maxMs: 0 },
+          animation: ({ trigger }) => (trigger === 'idle' && anims++ < 2 ? { id: 'flash', frames: 12, fps: 30 } : null),
+        }),
+      ],
+    }),
+  );
+  const cfg = norm({
+    screens: [{ id: 's1', name: 'S', width: 160, height: 80, maxFps: 30, rotate: 180, device: { driver: 'virtual' }, pages: [{ id: 'p', name: 'p', grid: { cols: 1, rows: 1, gap: 0, padding: 0 }, tiles: [{ id: 'tile', x: 0, y: 0, w: 1, h: 1, chrome: 'bare', widgets: [{ id: 'w', type: 't/anim', options: {} }] }] }] }],
+  });
+  const rt = new Runtime(reg, cfg);
+  rt.rnd = () => 0;
+  const pixel = async (jpeg: Buffer) => {
+    const img = await loadImage(jpeg);
+    const c = createCanvas(img.width, img.height);
+    c.getContext('2d').drawImage(img, 0, 0);
+    return [...c.getContext('2d').getImageData(80, 40, 1, 1).data.slice(0, 3)].map((v) => Math.round(v / 255));
+  };
+  const rgb = (hex: string) => [1, 3, 5].map((i) => Math.round(parseInt(hex.slice(i, i + 2), 16) / 255));
+  const animPictures: Promise<Buffer>[] = [];
+  rt.on('frame', (f: FrameInfo) => void (f.animation && animPictures.push(Promise.resolve(f.image()))));
+  rt.start();
+  try {
+    await until(() => sent(rt) >= 1 && anims >= 2 && rt.status().screens[0]!.animation === null, 8000);
+    for (let i = 1; i <= 5; i++) {
+      const before = sent(rt);
+      const want = n;
+      rt.refreshWidget('w');
+      await until(() => sent(rt) > before && rt.lastFrame('s1')?.animation === undefined && rt.lastFrame('s1')!.at > 0);
+      await sleep(50);
+      assert.deepEqual(await pixel(await rt.lastFrame('s1')!.image()), rgb(colors[want % colors.length]!), `frame ${i}: the editor's picture is that frame`);
+    }
+    assert.ok(animPictures.length >= 2, 'frames of the animations went to the editor');
+    for (const p of animPictures) assert.deepEqual(await pixel(await p), [1, 1, 1], 'an animation frame, as painted');
+    const runner = (rt as unknown as { runners: Map<string, { canvases: { made: number }; animCanvases: { made: number } }> }).runners.get('s1')!;
+    assert.ok(sent(rt) >= 10);
+    assert.equal(runner.canvases.made, 2, 'every page frame on two canvases');
+    assert.equal(runner.animCanvases.made, 2, 'every animation frame on two others');
+  } finally {
+    rt.stop();
+  }
+});

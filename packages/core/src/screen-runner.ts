@@ -58,6 +58,57 @@ function lazyJpeg(c: Canvas, turned = 0): () => Buffer {
 }
 
 /**
+ * The editor's picture of an animation frame, made only if it asks for it
+ * from what was sent to the panel: the canvas it was painted on is painted
+ * over by the next frames (see `FrameCanvases`).
+ */
+function lazyFromFrame(out: Buffer, kind: 'png' | 'jpeg', turned = 0): () => Promise<Buffer> {
+  let b: Promise<Buffer> | null = null;
+  const make = async () => {
+    if (!turned && kind === 'jpeg') return out;
+    const img = await CANVAS.loadImage(out);
+    const c = CANVAS.createCanvas(img.width, img.height);
+    c.getContext('2d').drawImage(img, 0, 0);
+    return (turned ? rotateCanvas(c, (360 - turned) % 360) : c).toBuffer('image/jpeg', 88);
+  };
+  return () => (b ??= make());
+}
+
+/**
+ * The canvases a screen paints its frames on, reused from one frame to the
+ * next: a new 1920×462 canvas (3.5 MB outside V8's heap) for every frame
+ * kept V8's garbage collector busy, some 2.4 % of a core with three
+ * screens. Encoding takes a snapshot of the canvas when it starts and
+ * `drawImage` copies what it draws, so a canvas can be painted again as
+ * soon as its frame is on its way. The only one that must not be is the
+ * frame the editor may still ask for (`FrameInfo.image` paints it lazily):
+ * `take` never gives that one, so there are two of each size.
+ */
+export class FrameCanvases {
+  private pool: Canvas[] = [];
+  /** Canvases made so far (tests). */
+  made = 0;
+  /** A canvas of `w`×`h`, not `keep`; as painted last time (clear it). */
+  take(w: number, h: number, keep: Canvas | null = null): Canvas {
+    this.pool = this.pool.filter((c) => c.width === w && c.height === h);
+    const free = this.pool.find((c) => c !== keep);
+    if (free) {
+      // The other one goes to the back: they take turns.
+      this.pool = [...this.pool.filter((c) => c !== free), free];
+      return free;
+    }
+    const c = CANVAS.createCanvas(w, h);
+    this.made++;
+    this.pool.push(c);
+    if (this.pool.length > 2) this.pool.shift();
+    return c;
+  }
+  clear(): void {
+    this.pool = [];
+  }
+}
+
+/**
  * Encodes on libuv's thread pool, not on the JS thread: a 1920×462 JPEG takes
  * ~35 ms, so two screens playing at 12 fps took most of the only thread there
  * is, and they ended up taking turns (one froze while the other played).
@@ -213,6 +264,11 @@ export class ScreenRunner implements Runner {
   page: Page | null = null;
   /** Rendered tiles reused between frames (see compositor's TileCache). */
   private tiles: TileCache = new Map();
+  /** The page frames' canvases, and the animations' (see `FrameCanvases`). */
+  readonly canvases = new FrameCanvases();
+  private readonly animCanvases = new FrameCanvases();
+  /** The canvas `lastInfo` paints its picture from, if it is one of ours: never painted over. */
+  private shown: Canvas | null = null;
   /** What each tile showed last, so its rotation doesn't flicker (see `pickTurn`). */
   private turns: TurnMemos = new Map();
   /** The widgets of the last painted page that can animate, and when to ask them (see animation.ts). */
@@ -361,6 +417,9 @@ export class ScreenRunner implements Runner {
     const t0 = performance.now();
     let result: ComposeResult | null = null;
     let canvas: Canvas;
+    const turn = paintTurn(screen);
+    const swap = turn === 90 || turn === 270;
+    const into = this.canvases.take(swap ? screen.height : screen.width, swap ? screen.width : screen.height, this.shown);
     if (page && !this.off) {
       result = composePage({
         cfg: this.rt.config,
@@ -377,7 +436,8 @@ export class ScreenRunner implements Runner {
         demo: this.rt.demoMode,
         cache: this.tiles,
         turns: this.turns,
-        rotate: paintTurn(screen),
+        rotate: turn,
+        into,
       });
       canvas = result.canvas;
       this.animatable = result.animatable;
@@ -391,9 +451,8 @@ export class ScreenRunner implements Runner {
       // Pages and work hours change by the clock: check at least every minute.
     } else {
       // Black: already the panel's way round (it looks the same either way).
-      const turn = paintTurn(screen);
-      const swap = turn === 90 || turn === 270;
-      canvas = CANVAS.createCanvas(swap ? screen.height : screen.width, swap ? screen.width : screen.height);
+      canvas = into;
+      canvas.getContext('2d').reset();
       this.animatable = [];
       this.nextAt = now + 60_000;
     }
@@ -415,7 +474,8 @@ export class ScreenRunner implements Runner {
     const kind = encodeFor(screen.device, screen.jpegQuality);
     // Painted the panel's way round already (composePage's `rotate`): no turning here.
     const out = await this.fit(canvas, kind, screen.jpegQuality, screen, performance.now() - t0);
-    this.lastInfo = { screenId: screen.id, pageId: page?.id ?? null, at: now, image: lazyJpeg(canvas, paintTurn(screen)), tiles: result?.tiles ?? [], interlude: null, sleeping };
+    this.lastInfo = { screenId: screen.id, pageId: page?.id ?? null, at: now, image: lazyJpeg(canvas, turn), tiles: result?.tiles ?? [], interlude: null, sleeping };
+    this.shown = canvas;
     this.rt.frame(this.lastInfo);
     if (!this.last?.equals(out)) {
       this.last = out;
@@ -705,7 +765,10 @@ export class ScreenRunner implements Runner {
     const memoSources = new Map<string, Record<string, unknown>>();
     const working = this.rt.working(now);
     const kind = encodeFor(screen.device, screen.jpegQuality || 85);
-    const sent: { out: Promise<Buffer>; snap: Canvas | null }[] = [];
+    const sent: { out: Promise<Buffer>; snap: boolean }[] = [];
+    const turn = paintTurn(screen);
+    const swap = turn === 90 || turn === 270;
+    let into: Canvas | null = null;
     const t0 = Date.now();
     // Every frame is painted before the first is sent: painting and sending
     // at once is slower than either, and the panel drops what comes late.
@@ -740,10 +803,12 @@ export class ScreenRunner implements Runner {
         cache: this.tiles,
         turns: this.turns,
         animate,
-        rotate: paintTurn(screen),
+        rotate: turn,
+        // The two canvases take turns: the next frame is painted while this one is encoded.
+        into: (into = this.animCanvases.take(swap ? screen.height : screen.width, swap ? screen.width : screen.height, into)),
       });
       // Encoding goes on in the thread pool while the next frame is painted.
-      sent.push({ out: this.fit(result.canvas, kind, screen.jpegQuality || 85, screen, performance.now() - t0), snap: s % 3 === 1 ? result.canvas : null });
+      sent.push({ out: this.fit(result.canvas, kind, screen.jpegQuality || 85, screen, performance.now() - t0), snap: s % 3 === 1 });
       // Let the loop breathe: a long animation must not freeze the timers and the other screens.
       await new Promise((r) => setImmediate(r));
     }
@@ -758,9 +823,9 @@ export class ScreenRunner implements Runner {
       const due = Math.floor(((Date.now() - start) * fps) / 1000);
       if (k < due - 1 && k !== holdAt && k < sent.length - 1) continue;
       await this.send(outs[k]!);
-      const snap = sent[k]!.snap;
-      if (snap) {
-        this.lastInfo = { screenId: screen.id, pageId: page.id, at: Date.now(), image: lazyJpeg(snap, paintTurn(screen)), tiles: [], interlude: null, animation: items.map((x) => x.animatable.type).join(', '), sleeping: false };
+      if (sent[k]!.snap) {
+        this.lastInfo = { screenId: screen.id, pageId: page.id, at: Date.now(), image: lazyFromFrame(outs[k]!, kind, turn), tiles: [], interlude: null, animation: items.map((x) => x.animatable.type).join(', '), sleeping: false };
+        this.shown = null;
         this.rt.frame(this.lastInfo);
       }
       if (hold && k === holdAt) {

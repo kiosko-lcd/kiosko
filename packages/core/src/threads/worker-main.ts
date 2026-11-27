@@ -17,6 +17,7 @@ import type { LogFn } from '../env.ts';
 import { Registry } from '../registry.ts';
 import { ScreenRunner, TICK_MS, type FrameInfo, type RunnerHost } from '../screen-runner.ts';
 import { installSdkResolver } from '../sdk-resolver.ts';
+import { keepTextWidths } from '../text-widths.ts';
 import { unpack } from './clone.ts';
 import type { FromThread, ThreadInit, ThreadState, ToThread } from './protocol.ts';
 
@@ -178,6 +179,7 @@ export async function runScreenThread(builtins: PluginDefinition[] = []): Promis
   let handle: ((m: ToThread) => void) | null = null;
   port.on('message', (m: ToThread) => (handle ? handle(m) : early.push(m)));
 
+  if (init.textWidths) keepTextWidths(init.textWidths);
   const { registry, problems } = await loadThreadPlugins(init.plugins, builtins);
   registry.setDisabled(init.config.plugins.disabled);
   const host = new Host(init, registry, post);

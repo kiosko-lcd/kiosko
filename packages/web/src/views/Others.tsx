@@ -534,6 +534,7 @@ export const megabytes = (bytes: number) => `${new Intl.NumberFormat(uiLanguage(
 
 /** Where a screen is painted, in words: its own thread (and its memory) or the main one, and why. */
 export function threadText(th: NonNullable<NonNullable<AppState['status']['screens'][number]['thread']>>): string {
+  if (th.on && th.parked) return tr('threads.parked');
   if (th.on) return t('threads.own', { mem: th.heapBytes ? megabytes(th.heapBytes) : '…' });
   if (th.why === 'never' || th.why === 'fewScreens' || th.why === 'fewCores' || th.why === 'off') return tr(`threads.why.${th.why}`);
   if (th.why === 'failed') return t('threads.why.failed', { error: th.error ?? '' });

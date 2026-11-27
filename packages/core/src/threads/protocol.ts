@@ -28,6 +28,8 @@ export interface ThreadInit {
   off: boolean;
   /** Its panel is missing (presence.ts): it paints nothing until told otherwise. */
   paused?: boolean;
+  /** Where the measured text widths are kept (see text-widths.ts). */
+  textWidths?: string;
 }
 
 export type ToThread =

@@ -41,6 +41,12 @@ zeigt *Panel getrennt · pausiert (spart CPU)*, und `kiosko doctor` zeigt die
 Anwesenheit jedes Bilddatei-Bildschirms. Ein Bildschirm, den du ausgeschaltet
 hast, bleibt aus: Anwesenheit ist nicht sein Schalter.
 
+Ein Bildschirm, der in einem eigenen Thread gemalt wird, gibt diesen Thread
+außerdem zurück, sobald er eine Minute pausiert ist (der Speicher des
+Threads: seine Plugins, Schriften, Bilder und gemalten Kacheln, einige zehn
+MB), und bekommt einen neuen, der das ganze Bild von vorn malt, wenn das
+Panel wieder da ist.
+
 - **USB**-Verbindung: automatisch. Das Panel fehlt, wenn kein LY-Panel mit
   seiner `serial` eingesteckt ist (ohne Seriennummer: gar keins). Nachgeschaut,
   ohne es zu öffnen.

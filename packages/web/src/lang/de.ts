@@ -319,6 +319,7 @@ export const de: Dictionary = {
   'threads.never': 'Nie',
   'settings.threadsNow': '{cores} Kerne · Hauptthread zu {load} % ausgelastet · Kiosko belegt {mem}',
   'threads.own': 'eigener Thread, {mem}',
+  'threads.parked': 'eigener Thread, angehalten, solange das Panel fehlt',
   'threads.main': 'Hauptthread',
   'threads.why.never': 'Hauptthread (so eingestellt)',
   'threads.why.fewScreens': 'Hauptthread (nur ein Bildschirm an)',
