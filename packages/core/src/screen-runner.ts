@@ -14,6 +14,7 @@ import { AnimationScheduler, type PlayablePlan } from './animation.ts';
 import { composePage, rotateCanvas, type Animatable, type ComposeResult, type TileCache } from './compositor.ts';
 import { legibleCjkPx, paintTurn, type Config, type Page, type Screen } from './config/model.ts';
 import { choosePage, type ContextPick } from './context.ts';
+import type { TurnMemos } from './layout/stack.ts';
 import { encodeFor, type Device } from './devices.ts';
 import { CANVAS, baseContext, kit, resolveLocale, type LogFn } from './env.ts';
 import { offersSetup } from './config/starter.ts';
@@ -175,6 +176,8 @@ export interface RunnerHost {
   dataOf(instanceId: string): unknown;
   /** Latest data of shared sources, by type: of the source profile `profile` where it has one (see config/profiles.ts). */
   sourcesOf(types: readonly string[] | undefined, profile?: string | null): Record<string, unknown>;
+  /** Whether the instance's fetch, or a source it reads, is failing (it then passes its turn; see compositor's `tileState`). */
+  failedOf?(instanceId: string, types: readonly string[] | undefined, profile?: string | null): boolean;
   /** How long a widget took to paint on the panel. */
   paintTime(instance: string, type: string, ms: number, now: number): void;
   /** A frame painted, for the editor. */
@@ -266,6 +269,8 @@ export class ScreenRunner implements Runner {
   private readonly animCanvases = new FrameCanvases();
   /** The canvas `lastInfo` paints its picture from, if it is one of ours: never painted over. */
   private shown: Canvas | null = null;
+  /** What each tile showed last, so its rotation doesn't flicker (see `pickTurn`). */
+  private turns: TurnMemos = new Map();
   /** The widgets of the last painted page that can animate, and when to ask them (see animation.ts). */
   private animatable: Animatable[] = [];
   private scheduler: AnimationScheduler;
@@ -426,9 +431,11 @@ export class ScreenRunner implements Runner {
         working: this.rt.working(now),
         dataOf: (inst) => this.rt.dataOf(inst.id),
         sourcesOf: (types, profile) => this.rt.sourcesOf(types, profile),
+        failedOf: (inst, types) => this.rt.failedOf?.(inst.id, types, inst.profile) ?? false,
         log: this.rt.log,
         demo: this.rt.demoMode,
         cache: this.tiles,
+        turns: this.turns,
         rotate: turn,
         into,
       });
@@ -790,9 +797,11 @@ export class ScreenRunner implements Runner {
           if (!memoSources.has(k)) memoSources.set(k, this.rt.sourcesOf(types, profile));
           return memoSources.get(k)!;
         },
+        failedOf: (inst, types) => this.rt.failedOf?.(inst.id, types, inst.profile) ?? false,
         log: this.rt.log,
         demo: this.rt.demoMode,
         cache: this.tiles,
+        turns: this.turns,
         animate,
         rotate: turn,
         // The two canvases take turns: the next frame is painted while this one is encoded.

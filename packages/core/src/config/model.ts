@@ -110,7 +110,13 @@ export interface WidgetInstance {
   zoom?: number;
   /** Keeps its tile while it's urgent. Missing = the widget's default (`WidgetDefinition.takeOver`, true unless it says otherwise). */
   takeOver?: boolean;
-  /** Skipped in its tile's rotation while it has nothing to list. Missing = the widget's default (`WidgetDefinition.hideWhenEmpty`, false unless it says otherwise). */
+  /**
+   * Whether it passes its turn when it has nothing to show (see compositor's
+   * `tileState`). Missing = the widget's default (`WidgetDefinition.hideWhenEmpty`),
+   * and missing there too: skipped while empty, loading or failing when its
+   * tile has another widget to show. false: never skipped. true: also hidden
+   * while `empty` when alone in its tile.
+   */
   hideWhenEmpty?: boolean;
   /**
    * The profile of its shared sources it reads (`Config.sourceProfiles`), by

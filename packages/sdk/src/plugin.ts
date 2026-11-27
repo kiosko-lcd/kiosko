@@ -371,7 +371,7 @@ export interface WidgetDefinition<OF extends ObjectField<any> = ObjectField<any>
   animationCooldownMs?: number;
   /** Also a function, when the cadence depends on the options or the data (a carousel every `rotateMs`). */
   redraw?: Redraw | ((ctx: StateContext<Infer<OF>, D>) => Redraw);
-  /** Has nothing to show right now (nothing playing, no rain): skipped in its cell's rotation. */
+  /** Shouldn't be shown at all right now (nothing playing, no rain): out of its cell's rotation, even alone in it. For "nothing to list" prefer `empty`, which the user can overrule. */
   visible?: (ctx: StateContext<Infer<OF>, D>) => boolean;
   /**
    * Needs the user now (a meeting about to start): takes its cell over while
@@ -391,14 +391,32 @@ export interface WidgetDefinition<OF extends ObjectField<any> = ObjectField<any>
    */
   alerts?: (ctx: StateContext<Infer<OF>, D>) => Alert[];
   /**
-   * Has nothing to list right now (no reviews, no tasks). Declaring it gives
-   * the widget a "hide when empty" switch (`hideWhenEmpty`): when on, an
-   * empty widget is skipped in its tile's rotation like `visible: false`;
-   * when off, it paints its empty message (`drawEmpty`). Unlike `visible`,
-   * which is the widget's own decision, this one is the user's.
+   * Has nothing useful to show right now (no reviews, no tasks, no prices
+   * because the provider is down). Declare it whenever your widget can have
+   * nothing to show: in a tile with other widgets, an empty one passes its
+   * turn to them (Kiosko 0.2.15 and later; before, only when its
+   * `hideWhenEmpty` was on). Alone in its tile, or when none of the tile's
+   * widgets has anything, it is shown and paints its empty message
+   * (`drawEmpty`). Mean "nothing to show", not "nothing urgent": an idle but
+   * healthy thing worth seeing is not empty.
+   *
+   * Kiosko also skips a widget, in a tile with others, while nothing it
+   * reads has come yet (its `fetch` and its `sources`) or while its fetch or
+   * a source it reads is failing: no need to declare that.
+   *
+   * Unlike `visible`, which is the widget's own decision, this one the user
+   * can overrule with the instance's `hideWhenEmpty` switch.
    */
   empty?: (ctx: StateContext<Infer<OF>, D>) => boolean;
-  /** Default of the instance's `hideWhenEmpty` switch. Default false. */
+  /**
+   * Default of the instance's `hideWhenEmpty` switch, which says what the
+   * widget does when it has nothing to show (empty, loading, failing):
+   * - missing (the default, and what nearly every widget wants): passes its
+   *   turn when its tile has another widget with something to show;
+   * - `false`: never passes its turn, whatever it has;
+   * - `true`: as missing, and also hidden while `empty` when it is alone in
+   *   its tile (like `visible: false`: the tile then shows nothing).
+   */
   hideWhenEmpty?: boolean;
   /**
    * Nothing worth lighting the panel for. When every widget of the page is

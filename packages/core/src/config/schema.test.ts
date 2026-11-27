@@ -120,8 +120,8 @@ test('config schema stays in sync with the types and with normalize', () => {
   assert.deepEqual(keysOf(d.tile), keys(TILE_KEYS));
   assert.deepEqual(keysOf(branch(d.widget, 'demo/list')), keys(WIDGET_KEYS).filter((k) => k !== 'profile'));
   // The switches only where the widget has the hooks behind them; the profile only where it reads a source that has profiles.
-  assert.deepEqual(keysOf(branch(d.widget, 'demo/clock')), keys(WIDGET_KEYS).filter((k) => k !== 'takeOver' && k !== 'hideWhenEmpty' && k !== 'profile'));
-  assert.deepEqual(keysOf(branch(d.widget, 'demo/feed')), keys(WIDGET_KEYS).filter((k) => k !== 'takeOver' && k !== 'hideWhenEmpty'));
+  assert.deepEqual(keysOf(branch(d.widget, 'demo/clock')), keys(WIDGET_KEYS).filter((k) => k !== 'takeOver' && k !== 'profile'));
+  assert.deepEqual(keysOf(branch(d.widget, 'demo/feed')), keys(WIDGET_KEYS).filter((k) => k !== 'takeOver'));
   assert.deepEqual(keysOf(branch(d.interlude, 'demo/blink')), keys(INTERLUDE_KEYS));
   assert.deepEqual(keysOf(d.grid), keys(GRID_KEYS));
   // Every described field survives normalize, and normalize adds nothing undescribed.
@@ -284,7 +284,7 @@ test('shared settings: time format, zoom, the widget switches and source timing'
   assert.equal(list.properties.zoom.$ref, '#/$defs/zoom');
   assert.deepEqual([schema.$defs.zoom.minimum, schema.$defs.zoom.maximum, schema.$defs.zoom['x-ui'].step], [0.5, 2, 0.1]);
   assert.equal(list.properties.takeOver.default, false, 'the widget declares takeOver: false');
-  assert.equal(list.properties.hideWhenEmpty.default, false);
+  assert.equal(list.properties.hideWhenEmpty.default, undefined, 'missing: the default skip (0.2.15)');
   assert.equal(list.properties.takeOver['x-ui'].label.es, 'Quedarse la tesela mientras sea urgente');
   assert.equal(list.properties.options.properties.projects['x-filter'], true);
   assert.deepEqual(list.properties.options.properties.layout.enum, ['auto', 'one-line', 'detailed']);

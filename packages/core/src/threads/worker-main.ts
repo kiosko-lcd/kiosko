@@ -91,6 +91,9 @@ class Host implements RunnerHost {
   rnd = Math.random;
   readonly data = new Map<string, unknown>();
   readonly sources = new Map<string, unknown>();
+  /** Instance ids and source keys whose last fetch or read failed. */
+  readonly failedInstances = new Set<string>();
+  readonly failedSources = new Set<string>();
   /** Pictures already made from the bytes they came as (see clone.ts). */
   readonly pictures = new Map<number, Image | Canvas>();
   runner: ScreenRunner | null = null;
@@ -126,6 +129,9 @@ class Host implements RunnerHost {
     const out: Record<string, unknown> = {};
     for (const [t, key] of this.sourceKeys(types, profile)) out[t] = this.sources.get(key);
     return out;
+  }
+  failedOf(instanceId: string, types: readonly string[] | undefined, profile?: string | null): boolean {
+    return this.failedInstances.has(instanceId) || this.sourceKeys(types, profile).some(([, key]) => this.failedSources.has(key));
   }
   /** The source keys a widget with `profile` reads, by type (see config/profiles.ts). */
   sourceKeys(types: readonly string[] | undefined, profile?: string | null): [string, string][] {
@@ -232,10 +238,14 @@ export async function runScreenThread(builtins: PluginDefinition[] = []): Promis
         if (m.instance) {
           if (value === undefined) host.data.delete(m.instance);
           else host.data.set(m.instance, value);
+          if (m.failed) host.failedInstances.add(m.instance);
+          else host.failedInstances.delete(m.instance);
         }
         if (m.source) {
           if (value === undefined) host.sources.delete(m.source);
           else host.sources.set(m.source, value);
+          if (m.failed) host.failedSources.add(m.source);
+          else host.failedSources.delete(m.source);
         }
         runner.dataChanged({ ...(m.instance ? { instance: m.instance } : {}), ...(m.source ? { source: m.source } : {}) });
         return;

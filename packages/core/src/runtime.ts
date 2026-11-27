@@ -214,6 +214,16 @@ export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
   sourcesOf(types: readonly string[] | undefined, profile?: string | null): Record<string, unknown> {
     return this.hub.pick(types, this.config, profile);
   }
+  failedOf(instanceId: string, types: readonly string[] | undefined, profile?: string | null): boolean {
+    return this.fetches.failed(instanceId) || this.sourceKeys(types, profile).some((k) => this.hub.failed(k));
+  }
+  // What a screen's thread is told along with the data (see threads/).
+  instanceFailed(instanceId: string): boolean {
+    return this.fetches.failed(instanceId);
+  }
+  sourceFailed(key: string): boolean {
+    return this.hub.failed(key);
+  }
   /** The source keys a widget with `profile` reads (see config/profiles.ts). */
   sourceKeys(types: readonly string[] | undefined, profile?: string | null): string[] {
     return sourceKeysOf(this.config, types, profile, (t) => this.registry.source(t)).map(([, key]) => key);
@@ -717,6 +727,7 @@ export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
       working: this.working(o.now ?? Date.now()),
       dataOf: (inst) => this.fetches.data(inst.id),
       sourcesOf: (types, profile) => this.hub.pick(types, this.config, profile),
+      failedOf: (inst, types) => this.failedOf(inst.id, types, inst.profile),
       preview: true,
       demo: o.demo ?? true,
       ...(o.forceShown ? { forceShown: o.forceShown } : {}),

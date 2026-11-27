@@ -8,7 +8,7 @@ import { createCanvas, loadImage, type Canvas, type Image, type SKRSContext2D } 
 import { pixelShift } from '@loksly/lcd-canvas-kit';
 import { errorMessage, localize, validate, type AnimationFrame, type AnimationPlan, type Box, type Redraw, type RenderContext, type Theme, type WidgetDefinition } from '@kiosko/sdk';
 import { toPx, type PxRect } from './layout/grid.ts';
-import { nextTurnAt, pickInStack } from './layout/stack.ts';
+import { pickTurn, type TurnMemos } from './layout/stack.ts';
 import { legibleCjkPx, whenMatches, zoomOf, type Config, type Page, type Screen, type Tile, type WidgetInstance } from './config/model.ts';
 import { CANVAS, baseContext, kit, resolveLocale, type LogFn } from './env.ts';
 import { registerFonts, setFontLocale } from './fonts.ts';
@@ -26,6 +26,12 @@ export interface ComposeInput {
   dataOf: (inst: WidgetInstance) => unknown;
   /** Latest data of shared sources, by type: of the source profile `profile` where it has one (see config/profiles.ts). */
   sourcesOf: (types: readonly string[] | undefined, profile?: string | null) => Record<string, unknown>;
+  /**
+   * Whether the instance's own fetch, or one of the sources it reads, is
+   * failing now: it then passes its turn in a tile with others to show (see
+   * `tileState`). Missing: none fails.
+   */
+  failedOf?: (inst: WidgetInstance, sources: readonly string[] | undefined) => boolean;
   /** Painted for the editor, not for the panel. */
   preview?: boolean;
   /** Use each widget's demo data where there's no real data yet. */
@@ -45,6 +51,12 @@ export interface ComposeInput {
   rotate?: number;
   /** Reuse tiles whose inputs didn't change (the panel; not previews). */
   cache?: TileCache;
+  /**
+   * What each tile showed last, so its rotation doesn't flicker when widgets
+   * become empty or come back (the panel; see `pickTurn`). Without it every
+   * frame picks from the wall clock alone (previews).
+   */
+  turns?: TurnMemos;
   /**
    * Paint these frames of animations, each in its own tile (see
    * `AnimationFrame`); every other tile as usual. Any number at once: how
@@ -157,16 +169,36 @@ function stateCtx(r: Resolved, now: number, working: boolean, cfg: Config) {
 }
 
 /**
- * The instance's switches over the widget's hooks: `takeOver` (keep the tile
- * while urgent) and `hideWhenEmpty` (skip it in the rotation while `empty`).
- * Each defaults to what the widget declares.
+ * Where a widget stands in its tile's rotation, from the instance's switches
+ * over the widget's hooks:
+ * - `visible`: takes part at all. False when the widget says so (`visible`),
+ *   or when it is `empty` and its `hideWhenEmpty` is true: then it is hidden
+ *   even alone in its tile (which then shows nothing), as before 0.2.15.
+ * - `live`: has something to show. False when it is `empty`, has no data yet
+ *   (`loading`: none of what it reads has come) or is failing (`failing`:
+ *   its fetch or a source it reads has an error), unless its `hideWhenEmpty`
+ *   is false ("never skip"). A widget that isn't live passes its turn to
+ *   the others of its tile; if none has anything, the first is shown, so a
+ *   tile alone, or with only loading widgets, shows what it always did.
+ * - `urgent`: takes the tile over (unless `takeOver` is off).
+ * Each switch defaults to what the widget declares; `hideWhenEmpty` missing
+ * everywhere is the default: skip while not live, when there are others.
  */
-export function tileState(def: WidgetDefinition<any, any>, inst: Pick<WidgetInstance, 'takeOver' | 'hideWhenEmpty'>, state: Parameters<NonNullable<WidgetDefinition['visible']>>[0]): { visible: boolean; urgent: boolean } {
+export function tileState(def: WidgetDefinition<any, any>, inst: Pick<WidgetInstance, 'takeOver' | 'hideWhenEmpty'>, state: Parameters<NonNullable<WidgetDefinition['visible']>>[0], status: { loading?: boolean; failing?: boolean } = {}): { visible: boolean; urgent: boolean; live: boolean } {
   const takeOver = inst.takeOver ?? def.takeOver ?? true;
-  const hideEmpty = inst.hideWhenEmpty ?? def.hideWhenEmpty ?? false;
-  const visible = safe(() => def.visible?.(state) ?? true, true) && !(hideEmpty && def.empty && safe(() => def.empty!(state), false));
+  const hideEmpty = inst.hideWhenEmpty ?? def.hideWhenEmpty;
+  const empty = !!def.empty && safe(() => def.empty!(state), false);
+  const visible = safe(() => def.visible?.(state) ?? true, true) && !(hideEmpty === true && empty);
+  const live = hideEmpty === false || !(empty || status.loading || status.failing);
   const urgent = takeOver && safe(() => def.urgent?.(state) ?? false, false);
-  return { visible, urgent };
+  return { visible, urgent, live };
+}
+
+/** Nothing the widget reads has come yet: it has a fetch or sources, and neither has delivered. */
+function loadingOf(r: Resolved): boolean {
+  const sources = r.def.sources ?? [];
+  if (!r.def.fetch && !sources.length) return false;
+  return (!r.def.fetch || r.data === undefined) && sources.every((s) => r.sources[s] === undefined);
 }
 
 function safe<T>(fn: (() => T) | undefined, fallback: T): T {
@@ -244,10 +276,20 @@ function paintTile(g: SKRSContext2D, input: ComposeInput, tile: Tile, rect: PxRe
     .filter((w) => !w.disabled && whenMatches(w.when, working))
     .map((w) => resolve(input, w))
     .filter((r): r is Resolved => !!r);
-  const entries = candidates.map((r) => ({ id: r.inst.id, ...tileState(r.def, r.inst, stateCtx(r, now, working, input.cfg)) }));
+  // Only the state hooks of the others run (`visible`, `empty`, `urgent`): a widget whose turn it isn't is never painted.
+  const entries = candidates.map((r) => ({ id: r.inst.id, ...tileState(r.def, r.inst, stateCtx(r, now, working, input.cfg), { loading: loadingOf(r), failing: !!input.failedOf?.(r.inst, r.def.sources) }) }));
   const forced = input.forceShown?.[tile.id];
-  const shownId = forced && candidates.some((c) => c.inst.id === forced) ? forced : pickInStack(entries, now, tile.rotateMs);
-  if (entries.filter((e) => e.visible).length > 1 && !forced) nextAt.v = Math.min(nextAt.v, nextTurnAt(now, tile.rotateMs));
+  let shownId: string | null;
+  if (forced && candidates.some((c) => c.inst.id === forced)) shownId = forced;
+  else {
+    const pick = pickTurn(entries, now, tile.rotateMs, input.turns?.get(tile.id));
+    shownId = pick.id;
+    nextAt.v = Math.min(nextAt.v, pick.wakeAt);
+    if (input.turns) {
+      if (pick.memo) input.turns.set(tile.id, pick.memo);
+      else input.turns.delete(tile.id);
+    }
+  }
   out.shown = shownId;
   const r = candidates.find((c) => c.inst.id === shownId);
 
@@ -443,6 +485,8 @@ export function composePage(input: ComposeInput): ComposeResult {
     else painted?.push(tile.id, look!);
   }
   if (input.cache) for (const id of input.cache.keys()) if (!page.tiles.some((t) => t.id === id)) input.cache.delete(id);
+  // A tile of another page starts afresh, from the wall clock, when its page comes back.
+  if (input.turns) for (const id of input.turns.keys()) if (!page.tiles.some((t) => t.id === id)) input.turns.delete(id);
   g.restore();
   if (screen.pixelShift.enabled && !input.preview) nextAt.v = Math.min(nextAt.v, (Math.floor(now / screen.pixelShift.periodMs) + 1) * screen.pixelShift.periodMs);
   const sameAs = painted && JSON.stringify([canvas.width, canvas.height, rotate, page.id, page.background, !!(page.background.image && images.get(page.background.image)), theme.id, theme.colors.bg, theme.colors.surface, theme.colors.surfaceEdge, theme.radius, shift, painted]);
