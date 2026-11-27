@@ -1,6 +1,6 @@
 {
   "name": "@kiosko/web",
-  "version": "0.2.13",
+  "version": "0.2.14",
   "description": "Kiosko visual editor (static files served by @kiosko/server).",
   "type": "module",
   "license": "MIT",

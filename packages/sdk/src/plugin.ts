@@ -430,7 +430,7 @@ export interface SourceContext<O> extends BaseContext {
    * The source profile being read (see `SourceDefinition.profiles`): its id,
    * or undefined for the default one. Each profile is read on its own, with
    * its own options; use it to keep files of each apart in `cacheDir`.
-   * Kiosko 0.2.13 and later.
+   * Kiosko 0.2.14 and later.
    */
   profile?: string;
 }
@@ -497,7 +497,7 @@ export interface SourceDefinition<OF extends ObjectField<any> = ObjectField<any>
    * config, nothing changes: the source's options are
    * `sources["plugin/source"]`, the default profile. Off unless declared:
    * a source that reads hardware or the local machine (a battery, a
-   * Bluetooth sensor) has one thing to read. Kiosko 0.2.13 and later; older
+   * Bluetooth sensor) has one thing to read. Kiosko 0.2.14 and later; older
    * ones ignore it (one configuration).
    */
   profiles?: boolean;
@@ -587,7 +587,7 @@ export interface InterludeDefinition<OF extends ObjectField<any> = ObjectField<a
  * package.json, `"kiosko": { "sdk": "^0.2.0" }`, so it can be refused before
  * it runs); the registry compares them with `satisfies`.
  */
-export const SDK_VERSION = '0.2.13';
+export const SDK_VERSION = '0.2.14';
 
 /**
  * What a plugin does on the machine, declared for the person who installs
