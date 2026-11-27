@@ -62,3 +62,13 @@ turning the heartbeat on in Kiosko: an older one never touches it, and the
 screen would stay paused.
 
 Then `systemctl --user enable --now kiosko-sender@left`.
+
+## What it costs
+
+At rest (the same frame, resent every second so the firmware keeps it) the
+sender sleeps until the next resend: inotify wakes it the moment Kiosko
+writes a new frame, and the frame is cut into the panel's 512-byte chunks
+once, not on every resend. Without inotify it falls back to looking at the
+file every 5 ms.
+
+Tests (no trcc or panel needed): `python3 -m unittest discover -s contrib/usb-sender`.
