@@ -27,6 +27,8 @@ leen algo único de esta máquina (una batería, un sensor) no.
 - **En una tesela**: el inspector muestra **Perfil de la fuente**. Elige uno, o
   **Nuevo perfil…**, que copia el que lee ahora el widget, le pone nombre y
   deja cambiar sus opciones allí mismo (**Editar perfil**).
+- **En una página de contexto**: una condición de *valor de una fuente* sobre
+  una fuente con perfiles tiene su propio **Perfil** (ver [Páginas](pages.md)).
 
 Cada perfil tiene sus datos, su intervalo y su estado: en el inspector de un
 widget la línea de datos dice `news/deck#tecnologia`. Las opciones de un perfil

@@ -294,7 +294,7 @@ export interface RemoteLink {
 /** The context page that has a screen, and why (core's context.ts). */
 export interface ContextInfo {
   page: string;
-  reason: { label?: string; app?: string; source?: string; path?: string; value?: string; time?: string; urgent?: string };
+  reason: { label?: string; app?: string; source?: string; profile?: string; path?: string; value?: string; time?: string; urgent?: string };
   priority: number;
   since: number;
   /** Its rule stopped holding: it stays for the anti-flicker margin only. */
@@ -448,7 +448,7 @@ export const api = {
   remoteLogs: (screenId: string) => fetch(`/api/screens/${encodeURIComponent(screenId)}/remote/logs`).then((r) => ok<{ text: string }>(r)),
   logs: () => fetch('/api/logs').then((r) => ok<{ at: number; scope: string; message: string }[]>(r)),
   /** A source's data paths, each with a short value, for a context rule. */
-  sourcePaths: (source: string) => fetch(`/api/source-paths?source=${encodeURIComponent(source)}`).then((r) => ok<{ paths: { path: string; value: string }[]; from: 'live' | 'demo' | 'none' }>(r)),
+  sourcePaths: (source: string, profile?: string) => fetch(`/api/source-paths?source=${encodeURIComponent(source)}${profile ? `&profile=${encodeURIComponent(profile)}` : ''}`).then((r) => ok<{ paths: { path: string; value: string }[]; from: 'live' | 'demo' | 'none' }>(r)),
   /** Values a source offers for an option, from its live data (or its demo data before there is any); of the widget's source `profile`, if it reads one. */
   choices: (source: string, list: string, profile?: string) => fetch(`/api/choices?source=${encodeURIComponent(source)}&list=${encodeURIComponent(list)}${profile ? `&profile=${encodeURIComponent(profile)}` : ''}`).then((r) => ok<{ choices: { value: string; label?: string; group?: string }[]; from: 'live' | 'demo' | 'none'; error?: string }>(r)),
   install: (name: string) => fetch('/api/plugins/install', { method: 'POST', headers: H, body: JSON.stringify({ name }) }).then((r) => ok<{ ok: boolean; output: string; ids: string[]; problem: string | null; restartNeeded: boolean; state: AppState }>(r)),

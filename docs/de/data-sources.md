@@ -29,6 +29,8 @@ ein Sensor), haben keine.
   eines oder **Neues Profil…**: Das kopiert das Profil, das das Widget gerade
   liest, gibt ihm einen Namen und lässt dich seine Optionen direkt dort ändern
   (**Profil bearbeiten**).
+- **In einer Kontextseite**: Eine Bedingung *Wert einer Quelle* auf einer
+  Quelle mit Profilen hat ihr eigenes **Profil** (siehe [Seiten](pages.md)).
 
 Jedes Profil hat eigene Daten, ein eigenes Intervall und einen eigenen Status:
 Im Inspektor eines Widgets heißt die Datenzeile `news/deck#technik`. Die

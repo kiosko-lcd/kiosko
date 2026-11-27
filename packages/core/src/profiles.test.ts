@@ -12,6 +12,7 @@ import { planImport } from './config/review.ts';
 import { backgroundSources } from './config/sources.ts';
 import { normalize } from './config/store.ts';
 import { Registry } from './registry.ts';
+import { ruleSources } from './context.ts';
 import { Runtime } from './runtime.ts';
 
 process.env.KIOSKO_QUIET = '1';
@@ -221,4 +222,63 @@ test('profiles: editing them, check, diff and import', () => {
   const plan = planImport({ screens: withTech.screens }, withTech, [plugin]);
   assert.deepEqual(plan.config.sourceProfiles, TECH);
   assert.ok(plan.carried.includes('sourceProfiles["nw/deck"]["tech"]'));
+});
+
+// ---------------------------------------------------------------- context rules on a profile
+
+/** A config with no widget reading the deck, and a context page on a profile of it (or its default one). */
+function ruleConfig(profile: string | undefined, profiles: unknown = TECH) {
+  const grid = { cols: 1, rows: 1, gap: 0, padding: 0 };
+  const tile = (id: string) => [{ id: `t-${id}`, x: 0, y: 0, w: 1, h: 1, widgets: [{ id: `w-${id}`, type: 'nw/clock', options: {} }] }];
+  return normalize({
+    threads: 'never',
+    sources: { 'nw/deck': { feed: 'general' } },
+    ...(profiles ? { sourceProfiles: profiles } : {}),
+    screens: [{
+      id: 's', name: 'S', width: 64, height: 32, pixelShift: { enabled: false }, device: { driver: 'virtual' }, context: { minMs: 0, holdMs: 0 },
+      pages: [
+        { id: 'main', name: 'main', grid, tiles: tile('main') },
+        { id: 'tech', name: 'tech', grid, tiles: tile('tech'), showWhen: [{ source: 'nw/deck', path: 'feed', value: 'tech', ...(profile ? { profile } : {}) }] },
+      ],
+    }],
+  });
+}
+
+test('profiles: a context rule reads the profile it names, which runs with no widget on it; a gone one reads the default', async () => {
+  const reg = registry();
+  const find = (x: string) => reg.source(x);
+  assert.deepEqual([...ruleSources(ruleConfig('tech'), find)], ['nw/deck#tech']);
+  assert.deepEqual([...ruleSources(ruleConfig(undefined), find)], ['nw/deck']);
+  assert.deepEqual([...ruleSources(ruleConfig('gone'), find)], ['nw/deck'], 'a profile that is gone: the default one');
+  assert.deepEqual([...ruleSources(ruleConfig('tech'))], ['nw/deck'], 'without knowing which sources accept profiles: the default one');
+  const rt = new Runtime(reg, ruleConfig('tech'));
+  rt.start();
+  try {
+    const shown = () => rt.status().screens[0]!;
+    assert.deepEqual(rt.hub.running().map((r) => r.key), ['nw/deck#tech'], 'only the profile the rule reads');
+    await until(() => shown().page === 'tech', 4000, 'the profile\'s data brings its page up');
+    assert.deepEqual(shown().context?.reason, { source: 'nw/deck', profile: 'tech', path: 'feed', value: 'tech' });
+    // On the default one ("general"), the rule does not hold.
+    rt.apply(ruleConfig(undefined));
+    assert.deepEqual(rt.hub.running().map((r) => r.key), ['nw/deck']);
+    await until(() => shown().page === 'main', 4000, 'the default one\'s data does not hold');
+  } finally {
+    rt.stop();
+  }
+});
+
+test('profiles: a context rule\'s profile in normalize, check and when the profile is deleted', () => {
+  const page = (rules: unknown) => normalize({ screens: [{ id: 's', name: 'S', width: 64, height: 32, device: { driver: 'virtual' }, pages: [{ id: 'p', name: 'p', grid: { cols: 1, rows: 1, gap: 0, padding: 0 }, tiles: [], showWhen: rules }] }] }).screens[0]!.pages[0]!.showWhen;
+  assert.deepEqual(page([{ source: 'nw/deck', profile: 'tech' }, { source: 'nw/deck', profile: 'Not An Id' }, { app: 'x', profile: 'tech' }]), [{ source: 'nw/deck', profile: 'tech' }, { source: 'nw/deck' }, { app: 'x' }], 'only with a source, and only a profile id');
+
+  const warned = (cfg: ReturnType<typeof ruleConfig>) => validateConfig(cfg, [plugin]).warnings.filter((w) => w.path.endsWith('.profile')).map((w) => w.message);
+  assert.deepEqual(warned(ruleConfig('tech')), []);
+  assert.ok(warned(ruleConfig('tec')).some((m) => /no profile "tec".*did you mean "tech"/.test(m)), JSON.stringify(warned(ruleConfig('tec'))));
+  const battery = ruleConfig(undefined, null);
+  battery.screens[0]!.pages[1]!.showWhen = [{ source: 'nw/battery', profile: 'tech', path: 'device' }];
+  assert.ok(warned(battery).some((m) => /has no profiles/.test(m)), JSON.stringify(warned(battery)));
+
+  const cfg = ruleConfig('tech');
+  deleteProfile(cfg, 'nw/deck', 'tech', (type) => type === 'nw/headline');
+  assert.deepEqual(cfg.screens[0]!.pages[1]!.showWhen, [{ source: 'nw/deck', path: 'feed', value: 'tech' }], 'the rule reads the default one now');
 });

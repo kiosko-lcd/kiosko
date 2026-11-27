@@ -17,7 +17,7 @@ import { MAX_CONCURRENT } from './animation.ts';
 import { composePage, composeWidget, type ComposeResult, tileState } from './compositor.ts';
 import { isWorking, widgetsOf, type Config, type Page, type Screen, type WidgetInstance, whenMatches } from './config/model.ts';
 import { ContextEngine, matchingPages, needsApps, ruleSources, type ContextEnv, type ContextPick, type ContextReason } from './context.ts';
-import { sourceKeysOf } from './config/profiles.ts';
+import { parseSourceKey, resolveSourceKey, sourceKeysOf } from './config/profiles.ts';
 import { backgroundSources } from './config/sources.ts';
 import { FetchHost, SourceHub } from './data.ts';
 import { ledFor, openDevice, type Device, type DeviceStatus } from './devices.ts';
@@ -259,7 +259,7 @@ export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
     // And those the user turned on to watch for alerts with no widget.
     for (const s of backgroundSources(this.config, (type) => this.registry.source(type))) sources.add(s);
     // And those the context pages' rules read.
-    for (const s of ruleSources(this.config)) if (this.registry.source(s)) sources.add(s);
+    for (const s of ruleSources(this.config, (type) => this.registry.source(type))) if (this.registry.source(parseSourceKey(s).type)) sources.add(s);
     this.paintTimes.retain(new Set(instances.map((i) => i.inst.id)));
     if (this.demoMode) {
       sources.clear();
@@ -528,7 +528,7 @@ export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
     const env: ContextEnv = {
       now,
       apps: wantApps ? (this.apps?.names ?? null) : null,
-      source: (type) => this.hub.data(type),
+      source: (type, profile) => this.hub.data(resolveSourceKey(this.config, type, profile, this.registry.source(type))),
       urgent: (page) => this.urgentOn(page, now, working),
     };
     this.contextEngine.retain(new Set(this.config.screens.map((s) => s.id)));
@@ -751,7 +751,7 @@ function isPaused(r: Runner): boolean {
 
 /** A context page's reason, in a line for the log. */
 function describeReason(r: ContextReason): string {
-  const parts = [r.app && `${r.app} running`, r.source && `${r.source}${r.path ? ` ${r.path}` : ''} = ${r.value}`, r.time && `time ${r.time}`, r.urgent && `${r.urgent} urgent`].filter(Boolean);
+  const parts = [r.app && `${r.app} running`, r.source && `${r.source}${r.profile ? `#${r.profile}` : ''}${r.path ? ` ${r.path}` : ''} = ${r.value}`, r.time && `time ${r.time}`, r.urgent && `${r.urgent} urgent`].filter(Boolean);
   return [r.label, parts.join(', ')].filter(Boolean).join(': ');
 }
 

@@ -114,11 +114,14 @@ export function profileUsers(cfg: Pick<Config, 'screens'>, id: string, readsSour
 
 /**
  * Removes a profile from a config being edited (in place) and sends the
- * widgets that read it back to the default one. Returns how many it moved.
+ * widgets (and context rules) that read it back to the default one. Returns
+ * how many widgets it moved.
  */
 export function deleteProfile(cfg: Config, type: string, id: string, readsSource: (widgetType: string) => boolean): number {
   const users = profileUsers(cfg, id, readsSource);
   for (const u of users) delete u.widget.profile;
+  // Context rules on it read the default one too.
+  for (const screen of cfg.screens) for (const page of screen.pages) for (const r of page.showWhen ?? []) if (r.source === type && r.profile === id) delete r.profile;
   const list = cfg.sourceProfiles?.[type];
   if (list) {
     delete list[id];

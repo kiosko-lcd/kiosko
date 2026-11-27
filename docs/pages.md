@@ -64,6 +64,12 @@ that has sent no data yet, or a path that isn't there, never holds. The
 source runs even if no widget shows it. The screen's margins are
 `"context": { "minMs": 20000, "holdMs": 10000 }`.
 
+A source with [profiles](data-sources.md#profiles-one-source-several-configurations) (two news decks, two GitHub
+accounts) shows a **Profile** next to it: the condition looks at that
+profile's data, and that profile keeps running for it. In the file,
+`"profile": "tech"` next to `"source"`; without it, or if the profile is
+deleted, the default one.
+
 ### Programs on each system
 
 Kiosko lists the running programs every 3 seconds, and only while some

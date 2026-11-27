@@ -6,7 +6,7 @@
 import { TIME_FORMATS } from '@kiosko/sdk/format';
 import { DEFAULT_WORKDAY } from '@kiosko/sdk/workday';
 import { suggestGrid } from '../layout/grid.ts';
-import { normalizeProfiles } from './profiles.ts';
+import { isProfileId, normalizeProfiles } from './profiles.ts';
 import { ALERT_THRESHOLDS, CONFIG_VERSION, PUSH_NAME_PATTERN, DEFAULT_CONFIG, DEFAULT_NETWORK_SCREENS, DEFAULT_MAX_BYTES, TEXT_SCALE, SETUP_STATES, THREADS_MODES, type Config, type NetworkScreens, type Screen, type ScreenAlerts, COMPARE_OPS, type ContextTiming, type ShowWhenRule } from './model.ts';
 
 /**
@@ -135,6 +135,7 @@ export function normalizeShowWhen(raw: unknown, inRotation: unknown): { showWhen
     if (typeof r.app === 'string' && r.app.trim()) out.app = r.app.trim();
     if (typeof r.source === 'string' && r.source.trim()) {
       out.source = r.source.trim();
+      if (isProfileId(r.profile)) out.profile = r.profile;
       if (typeof r.path === 'string' && r.path.trim()) out.path = r.path.trim();
       if (COMPARE_OPS.includes(r.op as never)) out.op = r.op!;
       if (['string', 'number', 'boolean'].includes(typeof r.value)) out.value = r.value!;

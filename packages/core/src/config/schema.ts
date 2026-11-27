@@ -501,6 +501,7 @@ export function configSchema(plugins: readonly PluginDefinition[]): S {
           priority: { type: 'integer', default: 0, description: 'Higher wins when several pages want the screen.' },
           app: { type: 'string', description: 'A program running: its process name as a glob, case-insensitive ("steam*", "obs*", "zoom*"); several separated by commas. Linux: the kernel name or argv[0]; macOS: the executable or its .app; Windows: the image name, with or without .exe.' },
           source: { type: 'string', description: 'A source, "plugin/source" (e.g. "calls/active"): it runs even with no widget showing it.' },
+          profile: { $ref: '#/$defs/profile', description: 'Which profile of the source to read (an id of "sourceProfiles" for it). Missing, or a profile that no longer exists: its default one.' },
           path: { type: 'string', description: 'Where in the source\'s data: dots and brackets ("active", "items[0].price"). Empty: the data itself.' },
           op: { enum: ['truthy', 'falsy', 'eq', 'ne', 'gt', 'gte', 'lt', 'lte', 'contains'], description: 'How the value compares: default eq with a "value", truthy without. No data yet (or no such path) never matches.' },
           value: { type: ['string', 'number', 'boolean'], description: 'What the value is compared with.' },

@@ -85,6 +85,10 @@ test('context: a rule needs every condition it has; the reason says what held', 
   const src: ShowWhenRule = { source: 'calls/active', path: 'active', op: 'eq', value: true };
   assert.deepEqual(evalRule(src, page, env({ source: (t) => (t === 'calls/active' ? { active: true } : undefined) })), { source: 'calls/active', path: 'active', value: 'true' });
   assert.equal(evalRule(src, page, env({ source: () => undefined })), null, 'no data yet');
+  const onProfile: ShowWhenRule = { ...src, profile: 'work' };
+  const byProfile = (t: string, profile?: string) => (t === 'calls/active' ? { active: profile === 'work' } : undefined);
+  assert.deepEqual(evalRule(onProfile, page, env({ source: byProfile })), { source: 'calls/active', profile: 'work', path: 'active', value: 'true' }, 'a rule on a profile reads that profile');
+  assert.equal(evalRule(src, page, env({ source: byProfile })), null, 'without one: the default profile');
   assert.equal(evalRule(src, page, env({ source: () => ({}) })), null, 'no such path');
   assert.deepEqual(evalRule({ urgent: true }, page, env({ urgent: () => 'cal/next' })), { urgent: 'cal/next' });
   assert.equal(evalRule({ urgent: true }, page, env()), null);

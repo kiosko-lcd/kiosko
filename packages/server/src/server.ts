@@ -613,7 +613,7 @@ export function startServer(o: ServerOptions) {
       const source = url.searchParams.get('source') ?? '';
       const def = runtime.registry.source(source);
       if (!def) return json(res, 404, { error: `no source ${source}`, code: 'noSource' });
-      const live = runtime.hub.data(source);
+      const live = runtime.hub.data(resolveSourceKey(runtime.config, source, url.searchParams.get('profile'), def));
       let data = live;
       if (data === undefined && def.demo) {
         try {

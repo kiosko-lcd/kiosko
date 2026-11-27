@@ -80,6 +80,8 @@ export const zhHans: Dictionary = {
   'ctx.appHint': "进程名，* 代表任意字符：steam*、obs*、zoom*。多个用逗号分隔。仅在有规则需要时每 3 秒检查一次。",
   'ctx.source': "数据源",
   'ctx.sourceNone': "选择数据源…",
+  'ctx.profile': "配置",
+  'ctx.profileHint': "规则查看数据源的哪个配置。即使没有格子显示它，它也会继续运行。",
   'ctx.path': "取值路径",
   'ctx.pathHint': "在其数据中的位置，用点号：active、items[0].price。留空：整个值。尚无数据时永不满足。",
   'ctx.pathNow': "当前：{value}",
