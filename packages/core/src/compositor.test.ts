@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 import { createCanvas, type Canvas } from '@napi-rs/canvas';
 import { DEFAULT_THEME, definePlugin, defineWidget, t } from '@kiosko/sdk';
-import { composePage, composeWidget, rotateCanvas } from './compositor.ts';
+import { MIN_LINE_PX, chromeMetrics, composePage, composeWidget, rotateCanvas, tileBoxes } from './compositor.ts';
 import type { Page } from './config/model.ts';
 import { normalize as norm } from './config/store.ts';
 import { openDevice } from './devices.ts';
@@ -355,4 +355,36 @@ test('rotate: the page painted already turned is the page turned afterwards (but
     // A quarter turn moves the rounded corners' antialiasing by a hair: a few edge pixels, nothing more.
     assert.ok(differ <= a.length / 10_000, `${r}°: ${differ} of ${a.length} channel values differ`);
   }
+});
+
+test('card title: dropped when it would leave the widget less than one line; kept where both fit, exactly as before', () => {
+  const inst = { id: 'w', type: 'test/probe', options: {}, title: 'Runners' };
+  // A 200×36 strip on the 1920×462 panel: with the title the widget had 1 px.
+  const strip = tileBoxes(DEFAULT_THEME, 462, inst, { x: 0, y: 0, w: 200, h: 36 }, 'card');
+  assert.equal(strip.title, false);
+  assert.ok(strip.box.h >= MIN_LINE_PX, `the widget gets a line (${strip.box.h} px)`);
+  assert.deepEqual(strip.box, tileBoxes(DEFAULT_THEME, 462, { ...inst, title: undefined }, { x: 0, y: 0, w: 200, h: 36 }, 'card').box, 'as if it had no title');
+  // Common sizes: the same boxes the title always left.
+  for (const [screenH, w, h] of [[462, 200, 72], [462, 320, 480], [462, 480, 231], [462, 172, 320], [462, 640, 154], [240, 320, 240], [240, 160, 60], [480, 480, 160]] as const) {
+    const rect = { x: 10, y: 20, w, h };
+    const m = chromeMetrics(DEFAULT_THEME, screenH, rect);
+    const b = tileBoxes(DEFAULT_THEME, screenH, inst, rect, 'card');
+    assert.equal(b.title, true, `${w}×${h} on a ${screenH} px panel keeps its title`);
+    assert.deepEqual(b.outer, { x: 10 + m.pad, y: 20 + m.pad + m.titleBar, w: w - 2 * m.pad, h: h - 2 * m.pad - m.titleBar });
+  }
+  // Bare tiles never had a title.
+  assert.equal(tileBoxes(DEFAULT_THEME, 462, inst, { x: 0, y: 0, w: 200, h: 36 }, 'bare').title, false);
+});
+
+test('card title: a strip with a title paints the widget in the whole strip and no title', () => {
+  const strip = { width: 200, height: 36, pixelShift: { enabled: false, amplitude: 0, periodMs: 1 } };
+  const one = (title?: string) => {
+    probes.length = 0;
+    const r = composePage({ cfg, screen: strip, page: { ...page([{ id: 'a', x: 0, y: 0, w: 4, h: 2, rotateMs: 0, chrome: 'card', widgets: [{ ...W('1', 'test/probe'), ...(title ? { title } : {}) }] }]) }, theme: DEFAULT_THEME, registry: reg, now: 0, working: true, dataOf: () => undefined, sourcesOf: () => ({}) });
+    return { box: probes[0]!.box, png: r.canvas.toBuffer('image/png') };
+  };
+  const titled = one('Runners');
+  const bare = one();
+  assert.deepEqual(titled.box, bare.box);
+  assert.ok(titled.png.equals(bare.png), 'byte-identical to the same tile without a title');
 });
