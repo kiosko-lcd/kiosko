@@ -10,7 +10,6 @@
  */
 import { parentPort, workerData } from 'node:worker_threads';
 import { PAD_KEYS, themeById, type PluginDefinition, type Theme } from '@kiosko/sdk';
-import type { Image, Canvas } from '@napi-rs/canvas';
 import { isWorking, sourceKeysOf, widgetsOf, type Config, type Screen } from '../config/model.ts';
 import type { Device, DeviceStatus } from '../devices.ts';
 import type { LogFn } from '../env.ts';
@@ -18,7 +17,7 @@ import { Registry } from '../registry.ts';
 import { ScreenRunner, TICK_MS, type FrameInfo, type RunnerHost } from '../screen-runner.ts';
 import { installSdkResolver } from '../sdk-resolver.ts';
 import { keepTextWidths } from '../text-widths.ts';
-import { unpack } from './clone.ts';
+import { PictureCache } from './clone.ts';
 import type { FromThread, ThreadInit, ThreadState, ToThread } from './protocol.ts';
 
 /** How often the thread tells its memory, at most. */
@@ -94,8 +93,8 @@ class Host implements RunnerHost {
   /** Instance ids and source keys whose last fetch or read failed. */
   readonly failedInstances = new Set<string>();
   readonly failedSources = new Set<string>();
-  /** Pictures already made from the bytes they came as (see clone.ts). */
-  readonly pictures = new Map<number, Image | Canvas>();
+  /** Pictures already made from the bytes they came as, while some data shows them (see clone.ts). */
+  readonly pictures = new PictureCache();
   runner: ScreenRunner | null = null;
   /** Called after each frame: the state may have changed with it (an interlude starting). */
   afterFrame: () => void = () => undefined;
@@ -234,7 +233,7 @@ export async function runScreenThread(builtins: PluginDefinition[] = []): Promis
         return;
       }
       case 'data': {
-        const value = unpack(m.value, host.pictures);
+        const value = host.pictures.unpack(m.value, [...(m.instance ? [`instance:${m.instance}`] : []), ...(m.source ? [`source:${m.source}`] : [])]);
         if (m.instance) {
           if (value === undefined) host.data.delete(m.instance);
           else host.data.set(m.instance, value);
