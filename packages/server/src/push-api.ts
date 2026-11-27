@@ -45,15 +45,19 @@ export interface PushApiOptions {
 class TooLarge extends Error {}
 
 async function rawBody(req: IncomingMessage, limit: number): Promise<Buffer> {
+  // Past the limit the rest is read and dropped (up to a hard cap) before answering:
+  // cutting the upload short makes some clients (Windows) see a reset, not the 413.
+  const hardCap = limit * 16;
   const declared = Number(req.headers['content-length']);
-  if (Number.isFinite(declared) && declared > limit) throw new TooLarge();
+  if (Number.isFinite(declared) && declared > hardCap) throw new TooLarge();
   const chunks: Buffer[] = [];
   let size = 0;
   for await (const c of req) {
     size += (c as Buffer).length;
-    if (size > limit) throw new TooLarge();
-    chunks.push(c as Buffer);
+    if (size > hardCap) break;
+    if (size <= limit) chunks.push(c as Buffer);
   }
+  if (size > limit) throw new TooLarge();
   return Buffer.concat(chunks);
 }
 
@@ -193,7 +197,6 @@ export function pushApi(o: PushApiOptions) {
     } catch (err) {
       if (!(err instanceof TooLarge)) throw err;
       res.setHeader('connection', 'close');
-      res.once('finish', () => req.destroy());
       o.json(res, 413, { error: `body larger than ${PUSH_LIMITS.maxBytes / 1024} KB`, code: 'tooLarge' });
       return true;
     }
