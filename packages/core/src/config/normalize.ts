@@ -7,7 +7,7 @@ import { TIME_FORMATS } from '@kiosko/sdk/format';
 import { DEFAULT_WORKDAY } from '@kiosko/sdk/workday';
 import { suggestGrid } from '../layout/grid.ts';
 import { normalizeProfiles } from './profiles.ts';
-import { ALERT_THRESHOLDS, CONFIG_VERSION, PUSH_NAME_PATTERN, DEFAULT_CONFIG, DEFAULT_MAX_BYTES, TEXT_SCALE, SETUP_STATES, THREADS_MODES, type Config, type Screen, type ScreenAlerts } from './model.ts';
+import { ALERT_THRESHOLDS, CONFIG_VERSION, PUSH_NAME_PATTERN, DEFAULT_CONFIG, DEFAULT_MAX_BYTES, TEXT_SCALE, SETUP_STATES, THREADS_MODES, type Config, type Screen, type ScreenAlerts, COMPARE_OPS, type ContextTiming, type ShowWhenRule } from './model.ts';
 
 /**
  * Fills gaps of a config written by hand or by an older version. Never throws.
@@ -84,12 +84,14 @@ function normalizeScreen(s: Partial<Screen>, i: number): Screen {
       enabled: p.enabled ?? true,
       durationMs: p.durationMs ?? 10 * 60_000,
       when: p.when ?? 'always',
+      ...normalizeShowWhen(p.showWhen, p.inRotation),
       grid: p.grid ?? suggestGrid(width, height),
       gravity: p.gravity ?? 'none',
       background: p.background ?? {},
       tiles: (p.tiles ?? []).map((t, k) => ({ id: t.id ?? `tile-${k + 1}`, x: t.x ?? 0, y: t.y ?? 0, w: t.w ?? 1, h: t.h ?? 1, ...(t.locked ? { locked: true } : {}), widgets: (t.widgets ?? []).map((w, n) => ({ ...w, id: w.id ?? `w-${i + 1}-${j + 1}-${k + 1}-${n + 1}`, options: w.options ?? {} })), rotateMs: t.rotateMs ?? 30_000, chrome: t.chrome ?? 'auto' })),
     })),
     ...(s.pinnedPage ? { pinnedPage: s.pinnedPage } : {}),
+    ...normalizeContextTiming(s.context),
     interludes: (s.interludes ?? []).map((x, k) => ({ id: x.id ?? `interlude-${k + 1}`, type: x.type, enabled: x.enabled ?? true, everyMs: x.everyMs ?? 15 * 60_000, maxSeconds: x.maxSeconds ?? 30, options: x.options ?? {} })),
     pixelShift: { enabled: true, amplitude: 2, periodMs: 8 * 60_000, ...(s.pixelShift ?? {}) },
     sleepWhenIdle: s.sleepWhenIdle ?? false,
@@ -106,6 +108,48 @@ function normalizeScreen(s: Partial<Screen>, i: number): Screen {
 }
 
 const HHMM = /^([01][0-9]|2[0-3]):[0-5][0-9]$/;
+
+/**
+ * A page's context rules (see context.ts): rules with nothing to check, and
+ * fields of the wrong kind, are left out; no rules left, no `showWhen` (the
+ * page rotates as it always did). `inRotation` is kept only with rules.
+ */
+export function normalizeShowWhen(raw: unknown, inRotation: unknown): { showWhen?: ShowWhenRule[]; inRotation?: boolean } {
+  if (!Array.isArray(raw)) return {};
+  const rules: ShowWhenRule[] = [];
+  for (const r of raw as Partial<ShowWhenRule>[]) {
+    if (!r || typeof r !== 'object') continue;
+    const out: ShowWhenRule = {};
+    if (typeof r.label === 'string' && r.label.trim()) out.label = r.label.trim();
+    if (typeof r.priority === 'number' && Number.isFinite(r.priority) && r.priority !== 0) out.priority = Math.round(r.priority);
+    if (typeof r.app === 'string' && r.app.trim()) out.app = r.app.trim();
+    if (typeof r.source === 'string' && r.source.trim()) {
+      out.source = r.source.trim();
+      if (typeof r.path === 'string' && r.path.trim()) out.path = r.path.trim();
+      if (COMPARE_OPS.includes(r.op as never)) out.op = r.op!;
+      if (['string', 'number', 'boolean'].includes(typeof r.value)) out.value = r.value!;
+    }
+    const t = r.time;
+    if (t && typeof t === 'object' && HHMM.test(String(t.start)) && HHMM.test(String(t.end)) && t.start !== t.end) {
+      const days = Array.isArray(t.days) ? [...new Set(t.days.filter((d) => Number.isInteger(d) && d >= 0 && d <= 6))].sort() : [];
+      out.time = { start: t.start, end: t.end, ...(days.length && days.length < 7 ? { days } : {}) };
+    }
+    if (r.urgent === true) out.urgent = true;
+    if (out.app || out.source || out.time || out.urgent) rules.push(out);
+  }
+  if (!rules.length) return {};
+  return { showWhen: rules, ...(inRotation === true ? { inRotation: true } : {}) };
+}
+
+/** A screen's anti-flicker for context pages; left out when it is the default. */
+export function normalizeContextTiming(raw: unknown): { context?: ContextTiming } {
+  if (!raw || typeof raw !== 'object') return {};
+  const c = raw as ContextTiming;
+  const ms = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? Math.min(3_600_000, Math.round(v)) : undefined);
+  const minMs = ms(c.minMs), holdMs = ms(c.holdMs);
+  if (minMs === undefined && holdMs === undefined) return {};
+  return { context: { ...(minMs !== undefined ? { minMs } : {}), ...(holdMs !== undefined ? { holdMs } : {}) } };
+}
 
 /** A screen's alert settings; left out when they are the defaults (every level, no quiet hours). */
 export function normalizeAlerts(raw: unknown): { alerts?: ScreenAlerts } {

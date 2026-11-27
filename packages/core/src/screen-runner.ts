@@ -12,14 +12,14 @@ import { alertIntensity, alertStepMs, paintAlert } from './alert-paint.ts';
 import type { ShownAlert } from './alerts.ts';
 import { AnimationScheduler, type PlayablePlan } from './animation.ts';
 import { composePage, rotateCanvas, type Animatable, type ComposeResult, type TileCache } from './compositor.ts';
-import { legibleCjkPx, paintTurn, whenMatches, type Config, type Page, type Screen } from './config/model.ts';
+import { legibleCjkPx, paintTurn, type Config, type Page, type Screen } from './config/model.ts';
+import { choosePage, type ContextPick } from './context.ts';
 import { encodeFor, type Device } from './devices.ts';
 import { CANVAS, baseContext, kit, resolveLocale, type LogFn } from './env.ts';
 import { offersSetup } from './config/starter.ts';
 import { BOOT_FPS, BOOT_MS, CARD_EVERY_MS, CARD_MS, FIRST_CARD_MS, cardUrl, paintBoot, paintCard, welcomeDue } from './welcome.ts';
 import { registerFonts, setFontLocale } from './fonts.ts';
 import { FrameStats, type ScreenFrameStats } from './frame-stats.ts';
-import { pickPage } from './layout/stack.ts';
 import type { Registry } from './registry.ts';
 
 export interface FrameInfo {
@@ -141,6 +141,8 @@ export interface Runner {
   readonly screen: Screen;
   readonly page: Page | null;
   readonly pinned: string | null;
+  /** The context page that has the screen now, and why (see context.ts); null: none. */
+  readonly context: ContextPick | null;
   readonly off: boolean;
   readonly interlude: { type: string; play: boolean } | null;
   readonly animating: string | null;
@@ -161,6 +163,7 @@ export interface Runner {
   /** The panel, for whoever paints the screen next; closing this runner leaves it open. */
   takeDevice(): Device;
   setPinned(pageId: string | null): void;
+  setContext(pick: ContextPick | null): void;
   setOff(off: boolean): void;
   playNow(slotId: string, play?: boolean): Promise<void>;
   stopInterlude(): void;
@@ -177,6 +180,7 @@ export class ScreenRunner implements Runner {
   private nextAt = 0;
   private busy = false;
   pinned: string | null = null;
+  context: ContextPick | null = null;
   private playedSlot = new Map<string, number>();
   interlude: { slotId: string; type: string; stopAt: number; play: boolean } | null = null;
   /** The buttons of whoever plays the interlude now (Play page). */
@@ -268,9 +272,7 @@ export class ScreenRunner implements Runner {
   }
 
   currentPage(now: number): Page | null {
-    const working = this.rt.working(now);
-    const pages = this.screen.pages.filter((p) => whenMatches(p.when, working));
-    return pickPage(pages, now, this.pinned);
+    return choosePage(this.screen, now, this.rt.working(now), this.pinned, this.context?.page ?? null);
   }
 
   /**
@@ -529,7 +531,8 @@ export class ScreenRunner implements Runner {
   private async maybeInterlude(now: number, force?: string, play = false): Promise<boolean> {
     const due = this.screen.interludes.find((s) => {
       if (force) return s.id === force;
-      if (!s.enabled || s.everyMs < 60_000) return false;
+      // A context page (a game, a call) is not interrupted by a scheduled one.
+      if (!s.enabled || s.everyMs < 60_000 || this.context) return false;
       const slot = Math.floor(now / s.everyMs);
       // Only during the first minute of its slot, and once per slot.
       return now - slot * s.everyMs < 60_000 && this.playedSlot.get(s.id) !== slot;
@@ -776,6 +779,11 @@ export class ScreenRunner implements Runner {
   setPinned(pageId: string | null): void {
     this.pinned = pageId;
     this.dirty = true;
+  }
+
+  setContext(pick: ContextPick | null): void {
+    if (pick?.page !== this.context?.page) this.dirty = true;
+    this.context = pick;
   }
 
   setOff(off: boolean): void {

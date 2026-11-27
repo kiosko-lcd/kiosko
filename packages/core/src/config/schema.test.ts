@@ -21,8 +21,8 @@ const branch = (union: S, tag: string) => union.oneOf.find((b: S) => (b.properti
 // without listing it here fails `npm run check`; the test below then fails
 // until the schema describes it too.
 const CONFIG_KEYS = { $schema: 1, version: 1, locale: 1, timeFormat: 1, theme: 1, location: 1, workday: 1, sources: 1, plugins: 1, screens: 1, server: 1, homeassistant: 1, push: 1, threads: 1, setup: 1, bootAnimation: 1, sourceProfiles: 1 } satisfies Record<keyof Config, 1>;
-const SCREEN_KEYS = { id: 1, name: 1, enabled: 1, width: 1, height: 1, rotate: 1, device: 1, pages: 1, pinnedPage: 1, interludes: 1, pixelShift: 1, sleepWhenIdle: 1, jpegQuality: 1, maxBytes: 1, maxFps: 1, readingDistance: 1, textScale: 1, diagonalIn: 1, alerts: 1, thread: 1 } satisfies Record<keyof Screen, 1>;
-const PAGE_KEYS = { id: 1, name: 1, enabled: 1, durationMs: 1, when: 1, grid: 1, gravity: 1, background: 1, tiles: 1 } satisfies Record<keyof Page, 1>;
+const SCREEN_KEYS = { id: 1, name: 1, enabled: 1, width: 1, height: 1, rotate: 1, device: 1, pages: 1, pinnedPage: 1, interludes: 1, pixelShift: 1, sleepWhenIdle: 1, jpegQuality: 1, maxBytes: 1, maxFps: 1, readingDistance: 1, textScale: 1, diagonalIn: 1, alerts: 1, thread: 1, context: 1 } satisfies Record<keyof Screen, 1>;
+const PAGE_KEYS = { id: 1, name: 1, enabled: 1, durationMs: 1, when: 1, grid: 1, gravity: 1, background: 1, tiles: 1, showWhen: 1, inRotation: 1 } satisfies Record<keyof Page, 1>;
 const TILE_KEYS = { id: 1, x: 1, y: 1, w: 1, h: 1, locked: 1, widgets: 1, rotateMs: 1, chrome: 1 } satisfies Record<keyof Tile, 1>;
 const WIDGET_KEYS = { id: 1, type: 1, title: 1, options: 1, intervalMs: 1, when: 1, disabled: 1, zoom: 1, takeOver: 1, hideWhenEmpty: 1, profile: 1 } satisfies Record<keyof WidgetInstance, 1>;
 const INTERLUDE_KEYS = { id: 1, type: 1, enabled: 1, everyMs: 1, maxSeconds: 1, options: 1 } satisfies Record<keyof InterludeSlot, 1>;
@@ -61,6 +61,11 @@ const FULL: Config = {
           enabled: false,
           durationMs: 60_000,
           when: 'work',
+          showWhen: [
+            { label: 'Game open', priority: 5, app: 'steam*, obs*' },
+            { source: 'demo/remote', path: 'items[0].price', op: 'gt', value: 0.2, time: { start: '18:00', end: '08:00', days: [1, 5] }, urgent: true },
+          ],
+          inRotation: true,
           grid: { cols: 16, rows: 6, gap: 8, padding: 8 },
           gravity: 'left',
           background: { color: '#101010', image: '/tmp/bg.png' },
@@ -72,6 +77,7 @@ const FULL: Config = {
         },
       ],
       pinnedPage: 'p1',
+      context: { minMs: 5_000, holdMs: 0 },
       interludes: [{ id: 'i1', type: 'demo/blink', enabled: false, everyMs: 30 * 60_000, maxSeconds: 20, options: { color: '#ff0000' } }],
       pixelShift: { enabled: false, amplitude: 1, periodMs: 60_000 },
       sleepWhenIdle: true,

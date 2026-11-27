@@ -16,6 +16,7 @@ import { Worker } from 'node:worker_threads';
 import { PAD_KEYS, type PadEvent } from '@kiosko/sdk';
 import type { ShownAlert } from '../alerts.ts';
 import { widgetsOf, type Config, type Page, type Screen } from '../config/model.ts';
+import type { ContextPick } from '../context.ts';
 import type { Device } from '../devices.ts';
 import type { LogFn } from '../env.ts';
 import type { ScreenFrameStats } from '../frame-stats.ts';
@@ -60,6 +61,7 @@ export class ThreadRunner implements Runner {
   device: Device;
   private deviceKey: string;
   pinned: string | null;
+  context: ContextPick | null = null;
   off = false;
   alert: ShownAlert | null = null;
   lastInfo: FrameInfo | null = null;
@@ -120,6 +122,7 @@ export class ThreadRunner implements Runner {
       startedAt: this.owner.startedAt,
       ...(this.owner.editorUrl ? { editorUrl: this.owner.editorUrl } : {}),
       pinned: this.pinned,
+      context: this.context,
       off: this.off,
     };
     const w = new Worker(this.entry, { workerData: init, name: `kiosko screen ${this.screen.id}` } as ConstructorParameters<typeof Worker>[1]);
@@ -301,6 +304,12 @@ export class ThreadRunner implements Runner {
   setPinned(pageId: string | null): void {
     this.pinned = pageId;
     this.post({ t: 'pin', page: pageId });
+  }
+
+  setContext(pick: ContextPick | null): void {
+    const same = JSON.stringify(pick) === JSON.stringify(this.context);
+    this.context = pick;
+    if (!same) this.post({ t: 'context', pick });
   }
 
   setOff(off: boolean): void {

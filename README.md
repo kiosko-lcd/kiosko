@@ -154,7 +154,7 @@ what a script, cron or CI says on the panel, with no plugin to write: see
 
 ```
 screen      one physical panel (or a virtual one): size, rotation, connection
-└─ page     a layout; several pages take turns or one is pinned
+└─ page     a layout; several pages take turns, one is pinned, or one comes up by itself (a game open, a call)
    └─ tile  a rectangle of grid cells
       └─ widgets  a stack: they take turns; an urgent one keeps the tile (unless you say otherwise)
 interlude   a full-screen animation every N minutes (against the wall clock)
@@ -166,6 +166,11 @@ The grid is fixed (a panel doesn't scroll): 24×6 cells on a 1920×462 panel,
 (free, up, or left for wide strips); a move that would push something off the
 panel is refused rather than losing a tile. **Auto-arrange** packs everything
 masonry-style.
+
+**Pages that come up by themselves.** A page can take the screen over while a
+game or OBS is open, while you are in a call, in a time window or when one of
+its widgets is urgent, and give it back to the turns afterwards: *Show this
+page when…* in the page's settings. See [docs/pages.md](docs/pages.md).
 
 **Portrait panels.** Stand a strip on its side and pick *Screens → Orientation →
 Portrait*: you design a 462×1920 picture (6×24 cells) and Kiosko turns it for

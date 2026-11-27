@@ -820,6 +820,26 @@ ul.plain .pill { margin-left: 6px; }
 .remote-form .row.wrap { flex-wrap: wrap; gap: 6px; }
 .remote-logs pre { max-height: 260px; overflow: auto; white-space: pre-wrap; margin: 6px 0 0; }
 
+/* Context pages: "Show this page when…" (editor/ContextRules.tsx). */
+.ctx-rule { border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); padding: 8px 10px 10px; margin: 8px 0; }
+.ctx-rule-head { display: flex; align-items: center; gap: 6px; color: var(--accent); }
+.ctx-rule-head .ctx-label { flex: 1; min-width: 60px; padding: 5px 8px; font-size: 12.5px; color: var(--text); }
+.ctx-prio { display: inline-flex; align-items: center; gap: 3px; color: var(--text-3); }
+.ctx-prio .input { width: 52px; padding: 5px 6px; font-size: 12.5px; }
+.ctx-times { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ctx-times .input { width: 100%; min-width: 0; }
+.ctx-add { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 4px; }
+.ctx-examples, .ctx-days { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.ctx-examples .pill, .ctx-days .pill { margin: 0; cursor: pointer; font-family: inherit; }
+.ctx-examples .pill { font-family: var(--mono, ui-monospace, monospace); }
+.ctx-days .pill.on { background: var(--accent-soft); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+.ctx-timing { margin-top: 10px; }
+.ctx-timing summary { cursor: pointer; font-size: 12px; font-weight: 650; color: var(--text-2); }
+.ctx-status { display: inline-flex; align-items: center; gap: 5px; color: var(--accent); max-width: 46ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ctx-status b { font-weight: 700; }
+.ctx-status.leaving { color: var(--text-2); }
+.ctx-badge { display: inline-grid; place-items: center; color: var(--text-3); }
+.ctx-badge.on { color: var(--accent); }
 /* Settings → Push: one block per push name, with its URL, token and a curl to try it. */
 .push-hook { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin: 10px 0; display: grid; gap: 6px; }
 .push-head { flex-wrap: wrap; gap: 8px; }

@@ -242,8 +242,18 @@ export interface RemoteLink {
   firmwareOffer?: string | null;
 }
 
+/** The context page that has a screen, and why (core's context.ts). */
+export interface ContextInfo {
+  page: string;
+  reason: { label?: string; app?: string; source?: string; path?: string; value?: string; time?: string; urgent?: string };
+  priority: number;
+  since: number;
+  /** Its rule stopped holding: it stays for the anti-flicker margin only. */
+  leaving: boolean;
+}
+
 export interface Status {
-  screens: { id: string; name: string; page: string | null; pinned: string | null; interlude: string | null; playing?: boolean; device: { driver: string; ok: boolean; message: string; code?: string; params?: Record<string, string | number>; framesSent: number; lastSentAt: number | null; detected?: { width: number; height: number; rotate?: number }; remote?: RemoteLink }; lastFrameAt: number | null; sleeping: boolean; alert?: string | null; frames?: ScreenFrames; thread?: ScreenThread }[];
+  screens: { id: string; name: string; page: string | null; pinned: string | null; context?: ContextInfo | null; interlude: string | null; playing?: boolean; device: { driver: string; ok: boolean; message: string; code?: string; params?: Record<string, string | number>; framesSent: number; lastSentAt: number | null; detected?: { width: number; height: number; rotate?: number }; remote?: RemoteLink }; lastFrameAt: number | null; sleeping: boolean; alert?: string | null; frames?: ScreenFrames; thread?: ScreenThread }[];
   /** Painting in threads: the setting, the cores, the main thread's heap and the whole process' memory. */
   threads?: { mode: 'auto' | 'always' | 'never'; cores: number; heapBytes: number; rssBytes: number };
   /** How busy the main thread is (0–1). */
@@ -380,6 +390,8 @@ export const api = {
   remoteFirmware: (screenId: string) => fetch(`/api/screens/${encodeURIComponent(screenId)}/remote/firmware`, { method: 'POST', headers: { 'x-kiosko': '1' } }).then((r) => ok<{ ok: true; version: string; sha256: string }>(r)),
   remoteLogs: (screenId: string) => fetch(`/api/screens/${encodeURIComponent(screenId)}/remote/logs`).then((r) => ok<{ text: string }>(r)),
   logs: () => fetch('/api/logs').then((r) => ok<{ at: number; scope: string; message: string }[]>(r)),
+  /** A source's data paths, each with a short value, for a context rule. */
+  sourcePaths: (source: string) => fetch(`/api/source-paths?source=${encodeURIComponent(source)}`).then((r) => ok<{ paths: { path: string; value: string }[]; from: 'live' | 'demo' | 'none' }>(r)),
   /** Values a source offers for an option, from its live data (or its demo data before there is any); of the widget's source `profile`, if it reads one. */
   choices: (source: string, list: string, profile?: string) => fetch(`/api/choices?source=${encodeURIComponent(source)}&list=${encodeURIComponent(list)}${profile ? `&profile=${encodeURIComponent(profile)}` : ''}`).then((r) => ok<{ choices: { value: string; label?: string; group?: string }[]; from: 'live' | 'demo' | 'none'; error?: string }>(r)),
   install: (name: string) => fetch('/api/plugins/install', { method: 'POST', headers: H, body: JSON.stringify({ name }) }).then((r) => ok<{ ok: boolean; output: string; ids: string[]; problem: string | null; restartNeeded: boolean; state: AppState }>(r)),

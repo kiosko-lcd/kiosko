@@ -10,12 +10,12 @@
  * paint (no OffscreenCanvas or fonts there), the page imports it and uses
  * `DemoRenderer` directly. The editor side is src/demo/.
  */
-import { PANEL_PRESETS, Registry, Runtime, composeWidget, localizeSample, systemLocale, withLook, isWorking, normalize, pickPage, registerFonts, resolveLocale, whenMatches, type Config, type ThumbnailLook, type Screen } from '@kiosko/core';
+import { PANEL_PRESETS, Registry, Runtime, composeWidget, localizeSample, systemLocale, withLook, choosePage, dataPaths, isWorking, normalize, registerFonts, resolveLocale, type Config, type ThumbnailLook, type Screen } from '@kiosko/core';
 import { CATEGORIES, THEMES, localize, themeById } from '@kiosko/sdk';
 import serverPackage from '../../server/package.json' with { type: 'json' };
 import showcase from '../../../examples/showcase.json' with { type: 'json' };
 import { MISSING_OFFICIAL, OFFICIAL_PLUGINS, demoPlugins } from './plugins.ts';
-import type { ChoicesResult, FromWorker, LogEntry, PreviewResult, RendererApi, RendererEvent, RuntimeState, StageChannel, ToWorker } from './protocol.ts';
+import type { ChoicesResult, SourcePathsResult, FromWorker, LogEntry, PreviewResult, RendererApi, RendererEvent, RuntimeState, StageChannel, ToWorker } from './protocol.ts';
 import { fontsReady, toBlob } from './shims/canvas.ts';
 import { Stage } from './stage.ts';
 
@@ -146,6 +146,18 @@ export class DemoRenderer implements RendererApi {
     this.show.start(channels);
   }
 
+  async sourcePaths(source: string): Promise<SourcePathsResult> {
+    // No live sources here either: the paths of its demo data.
+    const def = this.registry.source(source);
+    let data: unknown;
+    try {
+      data = def?.demo?.({ now: Date.now(), locale: resolveLocale(this.rt.config) });
+    } catch {
+      data = undefined;
+    }
+    return { paths: dataPaths(data), from: data === undefined ? 'none' : 'demo' };
+  }
+
   async choices(source: string, list: string): Promise<ChoicesResult> {
     // The demo has no live sources: the lists come from their demo data.
     return this.registry.choices(source, list, undefined, resolveLocale(this.rt.config));
@@ -160,14 +172,12 @@ export class DemoRenderer implements RendererApi {
     const rt = this.rt;
     const now = Date.now();
     const working = isWorking(rt.config.workday, now);
+    // Context pages too (time windows: no program nor source runs in the demo).
+    rt.refreshContext(now);
     for (const s of rt.config.screens) {
       if (!s.enabled) continue;
       const pinned = this.pinned.has(s.id) ? this.pinned.get(s.id)! : (s.pinnedPage ?? null);
-      const page = pickPage(
-        s.pages.filter((p) => whenMatches(p.when, working)),
-        now,
-        pinned,
-      );
+      const page = choosePage(s, now, working, pinned, rt.contextOf(s.id)?.page ?? null);
       this.onPanel.set(s.id, { pageId: page?.id ?? null, at: now, frames: (this.onPanel.get(s.id)?.frames ?? 0) + 1 });
       this.emit({ name: 'frame', data: { screenId: s.id, pageId: page?.id ?? null, at: now, interlude: null, sleeping: false } });
     }

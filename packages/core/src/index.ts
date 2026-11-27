@@ -28,6 +28,8 @@ export * from './fsperm.ts';
 export * from './sdk-resolver.ts';
 export * from './frame-stats.ts';
 export * from './screen-runner.ts';
+export * from './context.ts';
+export * from './processes.ts';
 export * from './threads/plan.ts';
 export * from './threads/clone.ts';
 export { ThreadRunner, defaultThreadEntry, type ThreadOwner } from './threads/thread-runner.ts';

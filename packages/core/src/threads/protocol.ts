@@ -5,6 +5,7 @@
 import type { PadEvent } from '@kiosko/sdk';
 import type { ShownAlert } from '../alerts.ts';
 import type { Config, Screen } from '../config/model.ts';
+import type { ContextPick } from '../context.ts';
 import type { ScreenFrameStats } from '../frame-stats.ts';
 import type { FrameInfo } from '../screen-runner.ts';
 
@@ -23,6 +24,7 @@ export interface ThreadInit {
   /** The editor's real address (Runtime.editorUrl), if known. */
   editorUrl?: string;
   pinned: string | null;
+  context: ContextPick | null;
   off: boolean;
 }
 
@@ -32,6 +34,8 @@ export type ToThread =
   | { t: 'data'; instance?: string; source?: string; value: unknown }
   | { t: 'alert'; shown: ShownAlert | null }
   | { t: 'pin'; page: string | null }
+  /** The context page it must show (see context.ts). */
+  | { t: 'context'; pick: ContextPick | null }
   | { t: 'off'; off: boolean }
   | { t: 'play'; slot: string; play: boolean }
   | { t: 'stop' }
