@@ -253,7 +253,8 @@ function ownInterval(st: FetchState, data: unknown): number {
 }
 
 interface FetchState {
-  id: string;
+  /** The widget instances that show it: the same widget with the same options fetches once for all. */
+  ids: Set<string>;
   type: string;
   def: WidgetDefinition<any, any>;
   key: string;
@@ -275,9 +276,18 @@ interface FetchState {
 /** Shortest interval a widget may ask for with `intervalOf`. */
 const MIN_FETCH_MS = 5_000;
 
-/** Per-instance `fetch` of widgets, keyed by the instance id. */
+/**
+ * The `fetch` of widgets. Instances of the same widget with the same options
+ * (and interval and profile) share one: what `fetch` gets doesn't depend on
+ * the instance, so two screens showing the same news column, or the same
+ * system health in three stacks, made the same requests (and ran the same
+ * commands) two or three times for the same data.
+ */
 export class FetchHost {
+  /** By fetch key (`[type, options, intervalMs, profile]`). */
   private states = new Map<string, FetchState>();
+  /** Instance id → its fetch key. */
+  private keyOf = new Map<string, string>();
   private readonly hub: SourceHub;
   private readonly log: LogFn;
   private readonly onChange: (instanceId: string) => void;
@@ -288,21 +298,27 @@ export class FetchHost {
   }
 
   retain(instances: { inst: WidgetInstance; def: WidgetDefinition<any, any> }[]): void {
-    const keep = new Set<string>();
+    const keyOf = new Map<string, string>();
     for (const { inst, def } of instances) {
       if (!def.fetch) continue;
-      keep.add(inst.id);
       const key = JSON.stringify([inst.type, inst.options, inst.intervalMs, inst.profile ?? null]);
-      const old = this.states.get(inst.id);
-      if (old && old.key === key) continue;
-      old?.abort.abort();
+      keyOf.set(inst.id, key);
+      const st = this.states.get(key);
+      if (st) {
+        st.ids.add(inst.id);
+        continue;
+      }
+      // Its options changed: what it showed stays until the new fetch comes, if it is the same widget.
+      const old = this.states.get(this.keyOf.get(inst.id) ?? '');
       const options = def.options ? (validate(def.options, inst.options).value as Record<string, unknown>) : {};
-      this.states.set(inst.id, { id: inst.id, type: inst.type, def, key, profile: inst.profile, options, data: old?.type === inst.type ? old.data : undefined, nextAt: 0, inflight: false, intervalMs: inst.intervalMs ?? def.intervalMs ?? DEFAULT_FETCH_MS, userIntervalMs: inst.intervalMs, timeoutMs: def.timeoutMs ?? DEFAULT_TIMEOUT_MS, abort: new AbortController() });
+      this.states.set(key, { ids: new Set([inst.id]), type: inst.type, def, key, profile: inst.profile, options, data: old?.type === inst.type ? old.data : undefined, nextAt: 0, inflight: false, intervalMs: inst.intervalMs ?? def.intervalMs ?? DEFAULT_FETCH_MS, userIntervalMs: inst.intervalMs, timeoutMs: def.timeoutMs ?? DEFAULT_TIMEOUT_MS, abort: new AbortController() });
     }
-    for (const [id, st] of this.states) {
-      if (!keep.has(id)) {
+    this.keyOf = keyOf;
+    for (const [key, st] of this.states) {
+      for (const id of st.ids) if (keyOf.get(id) !== key) st.ids.delete(id);
+      if (!st.ids.size) {
         st.abort.abort();
-        this.states.delete(id);
+        this.states.delete(key);
       }
     }
   }
@@ -328,7 +344,7 @@ export class FetchHost {
           st.nextAt = Date.now() + st.intervalMs;
           if (!same(data, st.data)) {
             st.data = data;
-            this.onChange(st.id);
+            for (const id of st.ids) this.onChange(id);
           }
         })
         .catch((err: unknown) => {
@@ -344,31 +360,42 @@ export class FetchHost {
     }
   }
 
+  private of(id: string): FetchState | undefined {
+    const key = this.keyOf.get(id);
+    return key === undefined ? undefined : this.states.get(key);
+  }
+
   data(id: string): unknown {
-    return this.states.get(id)?.data;
+    return this.of(id)?.data;
   }
 
   /** Ask for fresh data on the next tick (the editor's "refresh" button). */
   refresh(id: string): void {
-    const st = this.states.get(id);
+    const st = this.of(id);
     if (st) st.nextAt = 0;
   }
 
+  /** One line per widget instance (those sharing a fetch say the same). */
   status() {
-    return [...this.states.values()].map((s) => ({ id: s.id, type: s.type, ok: !s.error, error: s.error ?? null, updatedAt: s.updatedAt ?? null }));
+    return [...this.keyOf].flatMap(([id, key]) => {
+      const s = this.states.get(key);
+      return s ? [{ id, type: s.type, ok: !s.error, error: s.error ?? null, updatedAt: s.updatedAt ?? null }] : [];
+    });
   }
 
   stop(): void {
     for (const st of this.states.values()) st.abort.abort();
     this.states.clear();
+    this.keyOf.clear();
   }
 
   /** Drops the fetches of a plugin whose code changed; the next `retain` starts them again. Their last data is lost. */
   forget(pluginId: string): void {
-    for (const [id, st] of this.states) {
+    for (const [key, st] of this.states) {
       if (st.type.split('/')[0] !== pluginId) continue;
       st.abort.abort();
-      this.states.delete(id);
+      this.states.delete(key);
+      for (const id of st.ids) this.keyOf.delete(id);
     }
   }
 }

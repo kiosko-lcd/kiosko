@@ -79,7 +79,9 @@ export const clock = defineWidget({
     color: t.enum(['ink', 'accent', 'dim'] as const, { label: { en: 'Colour', es: 'Color', de: 'Farbe', 'zh-Hant': '顏色', 'zh-Hans': '颜色' }, labels: { ink: { en: 'Text', es: 'Texto', de: 'Text', 'zh-Hant': '文字', 'zh-Hans': '文字' }, accent: { en: 'Accent', es: 'Acento', de: 'Akzent', 'zh-Hant': '強調色', 'zh-Hans': '强调色' }, dim: { en: 'Dim', es: 'Tenue', de: 'Gedämpft', 'zh-Hant': '淡色', 'zh-Hans': '暗淡' } } }),
     align: t.enum(['center', 'left', 'right'] as const, { label: { en: 'Alignment', es: 'Alineación', de: 'Ausrichtung', 'zh-Hant': '對齊', 'zh-Hans': '对齐' } }),
   }),
-  redraw: 'second',
+  // Without seconds it changes once a minute: repainting it every second only
+  // made the same picture (and the whole screen's frame encoded) again.
+  redraw: ({ options }) => (options.showSeconds ? 'second' : 'minute'),
   render(g, { box, now, options, theme, locale, fmt }) {
     const at = wallClock(now, options.timeZone);
     const clock = options.timeFormat === 'inherit' ? fmt : createFormatters({ locale, timeFormat: options.timeFormat, now });
