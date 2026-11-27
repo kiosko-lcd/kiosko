@@ -145,6 +145,11 @@ screen**, pick your panel model and its connection:
 MQTT), with its page to choose, a switch to turn it off and a button per
 interlude, for your automations: see [docs/homeassistant.md](docs/homeassistant.md).
 
+**Any JSON, and pushes from your scripts**: the JSON widgets show a value
+from any URL that answers JSON, and `curl -X POST … /api/push/<name>` puts
+what a script, cron or CI says on the panel, with no plugin to write: see
+[docs/rest-webhook.md](docs/rest-webhook.md).
+
 ## Concepts
 
 ```

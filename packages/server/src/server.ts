@@ -23,6 +23,7 @@ import { SDK_VERSION } from '@kiosko/sdk';
 import { installableRelease, releaseProblem, type StorePlugin } from '@kiosko/core';
 import { HomeAssistantBridge } from './homeassistant.ts';
 import { remoteApi, type RemoteApiContext } from './remote-api.ts';
+import { pushApi, pushFile } from './push-api.ts';
 import { ALERT_LEVELS, type AlertLevel } from '@kiosko/sdk';
 import { AlertError, DEFAULT_SNOOZE_MS, PANEL_PRESETS, checkUpdates, discoverRemote, discoverTrcc, discoverUsb, normalize, npmRegistry, paths, resolveLocale, resolveSourceKey, saveConfig, type Config, type FrameInfo, type Runtime, type Screen, type UpdateCheck } from '@kiosko/core';
 import { currentInstall, updateBlocker, updateInstructions, type InstallInfo } from './install-kind.ts';
@@ -269,7 +270,9 @@ export function startServer(o: ServerOptions) {
   runtime.on('config', () => thumbs.clear());
   // Home Assistant, over MQTT: connects only when the config has it switched on.
   const bridge = (o.homeassistant ?? !runtime.demoMode) ? new HomeAssistantBridge(runtime, o.version) : null;
-  const fullStatus = () => ({ ...runtime.status(), homeassistant: bridge?.status() ?? { enabled: false, state: 'off', error: null } });
+  // Pushes from scripts (push-api.ts): token-authenticated, kept in Kiosko's folder.
+  const push = pushApi({ runtime, json, ...(runtime.demoMode ? {} : { file: pushFile(home) }) });
+  const fullStatus = () => ({ ...runtime.status(), homeassistant: bridge?.status() ?? { enabled: false, state: 'off', error: null }, push: push.status() });
   const statusTimer = setInterval(() => send('status', fullStatus()), 3000);
 
   const allowedHosts = new Set([`127.0.0.1:${o.port}`, `localhost:${o.port}`, `[::1]:${o.port}`, `${o.host}:${o.port}`]);
@@ -333,6 +336,8 @@ export function startServer(o: ServerOptions) {
   async function api(req: IncomingMessage, res: ServerResponse, url: URL): Promise<void> {
     const p = url.pathname;
     const m = req.method ?? 'GET';
+    // Before the X-Kiosko check: a push carries its own token instead (see push-api.ts).
+    if (p.startsWith('/api/push/') && (await push.handle(req, res, url))) return;
     if (m !== 'GET' && req.headers['x-kiosko'] !== '1') return json(res, 403, { error: 'missing X-Kiosko header' });
 
     if (p === '/api/state' && m === 'GET') return json(res, 200, state(req));
@@ -691,6 +696,7 @@ export function startServer(o: ServerOptions) {
   function close() {
     clearInterval(statusTimer);
     bridge?.stop();
+    push.close();
     for (const t of updateTimers) clearTimeout(t);
     for (const t of storeTimers) clearTimeout(t);
     // The runtime outlives the server (tests, a restart of the editor only): stop hearing it.

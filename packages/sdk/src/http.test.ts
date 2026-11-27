@@ -65,3 +65,16 @@ test('errors: the status and the host, no body; GitHub-style reset headers', asy
   assert.equal(retryAtOf(new Headers({ 'retry-after': 'Wed, 21 Oct 2026 07:28:00 GMT' }), 0), Date.parse('Wed, 21 Oct 2026 07:28:00 GMT'));
   assert.equal(retryAtOf(new Headers(), 0), undefined);
 });
+
+test('maxBytes: a body over the limit throws, by its Content-Length or as it arrives', async () => {
+  const declared = createHttp({ fetch: fakeServer(() => new Response('x'.repeat(50), { headers: { 'content-length': '50' } })).fetch });
+  await assert.rejects(declared.text('https://a.dev/big', { maxBytes: 10 }), (e: unknown) => e instanceof HttpError && /larger than 10 bytes/.test(e.message));
+  // Streamed, with no length: cut while reading.
+  const stream = () => new ReadableStream({ start(c) { for (let i = 0; i < 5; i++) c.enqueue(new TextEncoder().encode('abcdef')); c.close(); } });
+  const streamed = createHttp({ fetch: fakeServer(() => new Response(stream())).fetch });
+  await assert.rejects(streamed.text('https://a.dev/s', { maxBytes: 20 }), /larger than 20 bytes/);
+  assert.equal((await streamed.text('https://a.dev/s', { maxBytes: 30 })).data, 'abcdef'.repeat(5));
+  // Multi-byte characters split across chunks come out whole.
+  const split = createHttp({ fetch: fakeServer(() => new Response(new ReadableStream({ start(c) { const b = new TextEncoder().encode('ñ€'); c.enqueue(b.slice(0, 1)); c.enqueue(b.slice(1)); c.close(); } }))).fetch });
+  assert.equal((await split.text('https://a.dev/u', { maxBytes: 100 })).data, 'ñ€');
+});

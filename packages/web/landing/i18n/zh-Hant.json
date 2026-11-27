@@ -16,6 +16,7 @@
   "plugins-all-the-way-down": "一切都是外掛。",
   "every-widget-data-source-and": "每個小工具、資料來源和動畫都是外掛，遵循同一份精簡的介面約定。內建 {{PLUGIN_COUNT}} 個（AI 代理、GitHub 與 GitLab、行事曆、天氣、新聞、顯示卡、本機 LLM），你自己的外掛一個檔案就寫得完。",
   "see-them-all": "查看全部 ↓",
+  "no-plugin-json-push": "不必寫外掛：任何 JSON API，或從你的腳本推送 →",
   "always-on": "全天候常亮",
   "made-for-screens-that-never": "為永不關閉的螢幕而設計。",
   "it-repaints-only-when-something": "只在內容變動時重繪，會微移像素避免烙印，沒有需要你注意的事時就全黑。平常保持暗色：它一亮起來，就值得看一眼。",

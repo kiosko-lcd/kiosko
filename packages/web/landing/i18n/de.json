@@ -16,6 +16,7 @@
   "plugins-all-the-way-down": "Plugins bis ganz unten.",
   "every-widget-data-source-and": "Jedes Widget, jede Datenquelle und jede Animation ist ein Plugin mit demselben kleinen Vertrag. {{PLUGIN_COUNT}} sind dabei (KI-Agenten, GitHub und GitLab, Kalender, Wetter, Nachrichten, GPUs, lokale LLMs), und deins passt in eine einzige Datei.",
   "see-them-all": "Alle ansehen ↓",
+  "no-plugin-json-push": "Ganz ohne Plugin: jede JSON-API oder ein Push aus deinen Skripten →",
   "always-on": "Immer an",
   "made-for-screens-that-never": "Gemacht für Bildschirme, die nie ausgehen.",
   "it-repaints-only-when-something": "Es zeichnet nur neu, wenn sich etwas ändert, verschiebt Pixel gegen Einbrennen und wird schwarz, wenn nichts deine Aufmerksamkeit braucht. Dunkel ist der Normalzustand: Wenn es aufleuchtet, lohnt sich ein Blick.",

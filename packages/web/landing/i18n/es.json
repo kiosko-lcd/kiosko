@@ -16,6 +16,7 @@
   "plugins-all-the-way-down": "Plugins de arriba abajo.",
   "every-widget-data-source-and": "Cada widget, fuente de datos y animación es un plugin con el mismo contrato mínimo. Vienen {{PLUGIN_COUNT}} (agentes de IA, GitHub y GitLab, agenda, el tiempo, noticias, GPU, LLM locales) y el tuyo cabe en un fichero.",
   "see-them-all": "Verlos todos ↓",
+  "no-plugin-json-push": "Sin escribir un plugin: cualquier API JSON, o un push desde tus scripts →",
   "always-on": "Siempre encendida",
   "made-for-screens-that-never": "Hecho para pantallas que no se apagan.",
   "it-repaints-only-when-something": "Solo repinta cuando algo cambia, desplaza píxeles contra el quemado y se queda en negro cuando nada te necesita. Lo normal es que esté a oscuras: si se enciende, merece una mirada.",
