@@ -16,6 +16,8 @@ import type { TimeFormat } from '@kiosko/sdk/format';
 import { DEFAULT_WORKDAY, isWorkingAt, type Workday } from '@kiosko/sdk/workday';
 import { rescale, suggestGrid, type Gravity, type GridSpec } from '../layout/grid.ts';
 
+export * from './profiles.ts';
+
 export const CONFIG_VERSION = 1;
 
 /**
@@ -39,9 +41,11 @@ export type DeviceConfig =
    * A Kiosko remote screen on the network (firmware/esp32-screen, docs/remote-screen.md):
    * found by `uid` over mDNS (or at `host`), paired with `key` (secret), turned by the
    * screen itself to the screen's `rotate`. `brightness` (0-100, perceived) is pushed to
-   * screens that support it (firmware 0.1.2 on); unset, the screen keeps its own.
+   * screens that support it (firmware 0.1.2 on); unset, the screen keeps its own. `night`: a
+   * window (`HH:MM` local time, start after end across midnight) when the backlight goes to its
+   * own `brightness` (0 = off), for as long as it lasts (firmware 0.1.4 on; see remote/backlight.ts).
    */
-  | { driver: 'remote'; uid: string; id?: string; key?: string; host?: string; port?: number; brightness?: number };
+  | { driver: 'remote'; uid: string; id?: string; key?: string; host?: string; port?: number; brightness?: number; night?: { start: string; end: string; brightness: number } };
 
 /** Whether the panel turns the picture itself (Kiosko then paints it the page's way round). */
 export function deviceRotates(d: DeviceConfig): boolean {
@@ -77,6 +81,12 @@ export interface WidgetInstance {
   takeOver?: boolean;
   /** Skipped in its tile's rotation while it has nothing to list. Missing = the widget's default (`WidgetDefinition.hideWhenEmpty`, false unless it says otherwise). */
   hideWhenEmpty?: boolean;
+  /**
+   * The profile of its shared sources it reads (`Config.sourceProfiles`), by
+   * id: news «Technology» instead of the general one. Missing, or a profile
+   * that isn't there: the default one (`sources["plugin/source"]`).
+   */
+  profile?: string;
 }
 
 /** Range and step of `WidgetInstance.zoom`. */
@@ -241,8 +251,16 @@ export interface Config {
   location?: { latitude: number; longitude: number; name?: string };
   /** Work schedule, for `when: work|off` and for plugins (`ctx.workday`). */
   workday: Workday;
-  /** Global options of shared sources, by `plugin/source`. */
+  /** Global options of shared sources, by `plugin/source`: each one's default profile. */
   sources: Record<string, Record<string, unknown>>;
+  /**
+   * More named configurations of the sources that accept them
+   * (`SourceDefinition.profiles`), by `plugin/source` and then by profile id:
+   * `{ "news/deck": { "tech": { "name": "Technology", "options": { … } } } }`.
+   * Each is read on its own; a widget picks one with its `profile`. Missing:
+   * one configuration per source, the default one (see config/profiles.ts).
+   */
+  sourceProfiles?: Record<string, Record<string, SourceProfile>>;
   plugins: { disabled: string[] };
   screens: Screen[];
   server: { host: string; port: number };
@@ -262,6 +280,14 @@ export interface Config {
   setup?: SetupState;
   /** The short animation on every panel when Kiosko starts (welcome.ts). Missing = on. */
   bootAnimation?: boolean;
+}
+
+/** One named configuration of a source (see `Config.sourceProfiles`). */
+export interface SourceProfile {
+  /** What the person calls it: «Technology», «Work account». */
+  name: string;
+  /** Its options, as `sources["plugin/source"]` has them for the default profile. */
+  options: Record<string, unknown>;
 }
 
 export type SetupState = 'pending' | 'done' | 'skipped';

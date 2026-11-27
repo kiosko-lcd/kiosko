@@ -19,6 +19,15 @@ export const windowsInstallerName = (version: string) => `Kiosko-Setup-${version
 /** Where GitHub serves a release's file (a redirect to its storage). */
 export const releaseAsset = (version: string, name: string) => `https://github.com/${GITHUB_REPO}/releases/download/v${version}/${name}`;
 
+/** `abc…  Kiosko-Setup-0.2.9-x64.exe` → the hash, if it names that file (or no file). */
+export function parseSha256File(text: string, name: string): string | null {
+  for (const line of text.split(/\r?\n/)) {
+    const m = /^([a-f0-9]{64})(?:\s+\*?(.+?))?\s*$/i.exec(line.trim());
+    if (m && (!m[2] || m[2] === name)) return m[1]!.toLowerCase();
+  }
+  return null;
+}
+
 /** How long one release's notes may be, and how many releases are kept: the notice is a summary, the page has the rest. */
 export const NOTES_MAX_CHARS = 3000;
 export const NOTES_MAX_RELEASES = 10;

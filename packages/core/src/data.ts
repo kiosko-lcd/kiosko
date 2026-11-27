@@ -5,6 +5,7 @@
  */
 import { errorMessage, validate, type SourceDefinition, type WidgetDefinition } from '@kiosko/sdk';
 import type { Config, WidgetInstance } from './config/model.ts';
+import { parseSourceKey, sourceKeysOf, sourceOptionsOf } from './config/profiles.ts';
 import { DEFAULT_TIMEOUT_MS, sourceOptionsField, sourceTimes } from './config/sources.ts';
 import { CANVAS, baseContext, resolveLocale, type LogFn } from './env.ts';
 import type { Registry } from './registry.ts';
@@ -67,9 +68,14 @@ export const same = (a: unknown, b: unknown) => {
 };
 
 interface SourceState {
-  type: string;
-  def: SourceDefinition<any, any>;
+  /** What it runs under: the type for the default profile, `type#profile` for another (see config/profiles.ts). */
   key: string;
+  type: string;
+  /** Its profile, or null for the default one. */
+  profile: string | null;
+  def: SourceDefinition<any, any>;
+  /** Its options as written, to restart it when they change. */
+  optionsKey: string;
   /** Validated options, Kiosko's `intervalMs` and `timeoutMs` included. */
   options: Record<string, unknown>;
   intervalMs: number;
@@ -83,6 +89,12 @@ interface SourceState {
   updatedAt?: number;
 }
 
+/**
+ * The shared sources that run, one per source key: a source's default
+ * profile runs under its type (`news/deck`), every other profile under a key
+ * of its own (`news/deck#tech`), with its own options, data, interval and
+ * errors (see config/profiles.ts).
+ */
 export class SourceHub {
   private states = new Map<string, SourceState>();
   private readonly registry: Registry;
@@ -94,42 +106,43 @@ export class SourceHub {
     this.onChange = onChange;
   }
 
-  /** Keeps exactly the sources in `wanted` running (with current options). */
+  /** Keeps exactly the source keys in `wanted` running (with current options). */
   retain(wanted: Set<string>, cfg: Config): void {
-    for (const [type, st] of this.states) {
-      if (!wanted.has(type) || this.optionsKey(cfg, type) !== st.key) {
+    for (const [key, st] of this.states) {
+      if (!wanted.has(key) || this.optionsKey(cfg, key) !== st.optionsKey) {
         st.stop?.();
         st.abort.abort();
-        this.states.delete(type);
+        this.states.delete(key);
       }
     }
-    for (const type of wanted) {
-      if (this.states.has(type)) continue;
+    for (const key of wanted) {
+      if (this.states.has(key)) continue;
+      const { type, profile } = parseSourceKey(key);
       const def = this.registry.source(type);
       if (!def) continue;
       const field = sourceOptionsField(def);
-      const options = field ? (validate(field, cfg.sources[type] ?? {}).value as Record<string, unknown>) : {};
+      const options = field ? (validate(field, sourceOptionsOf(cfg, key)).value as Record<string, unknown>) : {};
       const { intervalMs, timeoutMs } = sourceTimes(def, options);
-      const st: SourceState = { type, def, key: this.optionsKey(cfg, type), options, intervalMs, timeoutMs, data: undefined, nextAt: 0, inflight: false, abort: new AbortController() };
-      this.states.set(type, st);
+      const st: SourceState = { key, type, profile, def, optionsKey: this.optionsKey(cfg, key), options, intervalMs, timeoutMs, data: undefined, nextAt: 0, inflight: false, abort: new AbortController() };
+      this.states.set(key, st);
       if (def.watch) {
         try {
           st.stop = def.watch(this.ctx(cfg, st), (data) => this.set(st, data));
         } catch (err) {
           st.error = msg(err, cfg);
-          this.log(type, `watch failed: ${st.error}`);
+          this.log(key, `watch failed: ${st.error}`);
         }
       }
     }
   }
 
-  private optionsKey(cfg: Config, type: string): string {
-    return JSON.stringify(cfg.sources[type] ?? {});
+  private optionsKey(cfg: Config, key: string): string {
+    return JSON.stringify(sourceOptionsOf(cfg, key));
   }
 
   private ctx(cfg: Config, st: SourceState, signal = st.abort.signal) {
     const [plugin] = st.type.split('/');
-    return { ...baseContext(cfg, plugin!, this.log, Date.now()), options: st.options, signal, intervalMs: st.intervalMs, timeoutMs: st.timeoutMs };
+    return { ...baseContext(cfg, plugin!, st.profile ? (_scope, m) => this.log(st.key, m) : this.log, Date.now()), options: st.options, signal, intervalMs: st.intervalMs, timeoutMs: st.timeoutMs, ...(st.profile ? { profile: st.profile } : {}) };
   }
 
   private set(st: SourceState, data: unknown): void {
@@ -137,7 +150,7 @@ export class SourceHub {
     st.error = undefined;
     if (same(st.data, data)) return;
     st.data = data;
-    this.onChange(st.type);
+    this.onChange(st.key);
   }
 
   /**
@@ -153,7 +166,7 @@ export class SourceHub {
       const d = deadline(st.abort.signal, st.timeoutMs);
       const fail = (err: unknown) => {
         st.error = d.timedOut() ? timedOutMsg(st.timeoutMs) : msg(err, cfg);
-        this.log(st.type, `read failed: ${st.error}`);
+        this.log(st.key, `read failed: ${st.error}`);
         st.nextAt = Date.now() + Math.min(RETRY_MS, st.intervalMs);
       };
       // Report a timeout when it happens, not when (or if) the read gives up.
@@ -181,23 +194,32 @@ export class SourceHub {
     }
   }
 
-  data(type: string): unknown {
-    return this.states.get(type)?.data;
+  /** The latest data of a source key (a bare type: its default profile). */
+  data(key: string): unknown {
+    return this.states.get(key)?.data;
   }
 
   /** The sources running now, with their options. */
-  running(): { type: string; options: Record<string, unknown> }[] {
-    return [...this.states.values()].map((s) => ({ type: s.type, options: s.options }));
+  running(): { key: string; type: string; profile: string | null; options: Record<string, unknown> }[] {
+    return [...this.states.values()].map((s) => ({ key: s.key, type: s.type, profile: s.profile, options: s.options }));
   }
 
-  pick(types: readonly string[] | undefined): Record<string, unknown> {
+  /**
+   * The data a widget (or interlude) gets in `ctx.sources`, by type: of the
+   * profile `profile` where the source has it, else of the default one.
+   */
+  pick(types: readonly string[] | undefined, cfg?: Pick<Config, 'sourceProfiles'>, profile?: string | null): Record<string, unknown> {
     const out: Record<string, unknown> = {};
-    for (const t of types ?? []) out[t] = this.data(t);
+    if (!cfg || !profile) {
+      for (const t of types ?? []) out[t] = this.data(t);
+      return out;
+    }
+    for (const [t, key] of sourceKeysOf(cfg, types, profile, (x) => this.registry.source(x))) out[t] = this.data(key);
     return out;
   }
 
   status() {
-    return [...this.states.values()].map((s) => ({ type: s.type, ok: !s.error, error: s.error ?? null, updatedAt: s.updatedAt ?? null, ...(s.def.read ? { intervalMs: s.intervalMs } : {}) }));
+    return [...this.states.values()].map((s) => ({ type: s.type, key: s.key, profile: s.profile, ok: !s.error, error: s.error ?? null, updatedAt: s.updatedAt ?? null, ...(s.def.read ? { intervalMs: s.intervalMs } : {}) }));
   }
 
   stop(): void {
@@ -210,11 +232,11 @@ export class SourceHub {
 
   /** Stops the sources of a plugin whose code changed (reloaded, removed); the next `retain` starts them again with the new code. */
   forget(pluginId: string): void {
-    for (const [type, st] of this.states) {
-      if (type.split('/')[0] !== pluginId) continue;
+    for (const [key, st] of this.states) {
+      if (st.type.split('/')[0] !== pluginId) continue;
       st.stop?.();
       st.abort.abort();
-      this.states.delete(type);
+      this.states.delete(key);
     }
   }
 }
@@ -235,6 +257,8 @@ interface FetchState {
   type: string;
   def: WidgetDefinition<any, any>;
   key: string;
+  /** The source profile it reads (`WidgetInstance.profile`). */
+  profile: string | undefined;
   options: Record<string, unknown>;
   data: unknown;
   nextAt: number;
@@ -268,12 +292,12 @@ export class FetchHost {
     for (const { inst, def } of instances) {
       if (!def.fetch) continue;
       keep.add(inst.id);
-      const key = JSON.stringify([inst.type, inst.options, inst.intervalMs]);
+      const key = JSON.stringify([inst.type, inst.options, inst.intervalMs, inst.profile ?? null]);
       const old = this.states.get(inst.id);
       if (old && old.key === key) continue;
       old?.abort.abort();
       const options = def.options ? (validate(def.options, inst.options).value as Record<string, unknown>) : {};
-      this.states.set(inst.id, { id: inst.id, type: inst.type, def, key, options, data: old?.type === inst.type ? old.data : undefined, nextAt: 0, inflight: false, intervalMs: inst.intervalMs ?? def.intervalMs ?? DEFAULT_FETCH_MS, userIntervalMs: inst.intervalMs, timeoutMs: def.timeoutMs ?? DEFAULT_TIMEOUT_MS, abort: new AbortController() });
+      this.states.set(inst.id, { id: inst.id, type: inst.type, def, key, profile: inst.profile, options, data: old?.type === inst.type ? old.data : undefined, nextAt: 0, inflight: false, intervalMs: inst.intervalMs ?? def.intervalMs ?? DEFAULT_FETCH_MS, userIntervalMs: inst.intervalMs, timeoutMs: def.timeoutMs ?? DEFAULT_TIMEOUT_MS, abort: new AbortController() });
     }
     for (const [id, st] of this.states) {
       if (!keep.has(id)) {
@@ -289,7 +313,7 @@ export class FetchHost {
       st.inflight = true;
       const [plugin] = st.type.split('/');
       const d = deadline(st.abort.signal, st.timeoutMs);
-      const ctx = { ...baseContext(cfg, plugin!, (_s, m) => this.log(st.type, m), now), options: st.options, canvas: CANVAS, signal: d.signal, timeoutMs: st.timeoutMs, sources: this.hub.pick(st.def.sources) };
+      const ctx = { ...baseContext(cfg, plugin!, (_s, m) => this.log(st.type, m), now), options: st.options, canvas: CANVAS, signal: d.signal, timeoutMs: st.timeoutMs, sources: this.hub.pick(st.def.sources, cfg, st.profile) };
       let run: Promise<unknown>;
       try {
         run = Promise.resolve(st.def.fetch!(ctx));

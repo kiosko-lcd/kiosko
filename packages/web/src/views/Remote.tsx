@@ -1,7 +1,8 @@
 /**
  * Kiosko remote screens in the editor (docs/remote-screen.md): pairing with
  * the code the screen shows, and a paired screen's link (with its chip's
- * temperature), brightness, address, firmware update, log and unpairing. The pairing key never reaches these controls:
+ * temperature), brightness and night mode, address, firmware update (the one this Kiosko brings,
+ * or a file), log and unpairing. The pairing key never reaches these controls:
  * the server writes it into the config.
  */
 import { useEffect, useRef, useState } from 'preact/hooks';
@@ -11,6 +12,7 @@ import { ApiError } from '../errors.ts';
 import { Icon } from '../icons.tsx';
 import { clock, errorText, remoteGuideUrl, t, tr } from '../i18n.ts';
 import { followServerConfig, notify } from '../store.ts';
+import { Toggle } from '../forms/SchemaForm.tsx';
 
 type RemoteDevice = Extract<DeviceConfig, { driver: 'remote' }>;
 
@@ -139,11 +141,13 @@ export function RemoteSettings({ s, link, setDevice }: { s: Screen; link?: Remot
       notify(errorText(err), 'error');
     }
   };
-  const update = async (f: File) => {
+  const update = async (f: File | 'release') => {
+    if (f === 'release' && !confirm(t('remote.firmwareOfferConfirm', { id: name, v: link?.firmwareOffer ?? '' }))) return;
     setUpdating(true);
     notify(tr('remote.updating'), 'info');
     try {
-      await api.remoteOta(s.id, f);
+      if (f === 'release') await api.remoteFirmware(s.id);
+      else await api.remoteOta(s.id, f);
       notify(tr('remote.updated'), 'ok');
     } catch (err) {
       notify(errorText(err), 'error');
@@ -164,6 +168,14 @@ export function RemoteSettings({ s, link, setDevice }: { s: Screen; link?: Remot
           {link.lastFrameAt ? ` · ${clock(link.lastFrameAt, { seconds: true })}` : ''}
         </div>
       )}
+      {paired && link?.online && link.firmwareOffer && (
+        <div class="remote-offer" role="status">
+          <span class="small">{t('remote.firmwareOfferHint', { fw: link.fw, v: link.firmwareOffer })}</span>
+          <button class="btn primary small" disabled={updating} onClick={() => void update('release')}>
+            <Icon name={updating ? 'loader' : 'download'} size={13} class={updating ? 'spin' : ''} /> {t('remote.firmwareOffer', { v: link.firmwareOffer })}
+          </button>
+        </div>
+      )}
       <p class="muted small">{tr('remote.rotateHelp')}</p>
       {typeof link?.bright === 'number' || dev.brightness !== undefined ? (
         <>
@@ -182,6 +194,7 @@ export function RemoteSettings({ s, link, setDevice }: { s: Screen; link?: Remot
       ) : (
         link?.online && <p class="muted small">{tr('remote.brightnessOld')}</p>
       )}
+      <NightSettings dev={dev} link={link} setDevice={setDevice} />
       <label class="field-label">{tr('remote.host')}</label>
       <input class="input mono" value={dev.host ?? ''} placeholder={link?.host ?? 'kiosko-…local'} onChange={(e) => {
         const host = (e.target as HTMLInputElement).value.trim();
@@ -230,6 +243,55 @@ export function RemoteSettings({ s, link, setDevice }: { s: Screen; link?: Remot
           <pre class="mono small">{logs}</pre>
         </details>
       )}
+    </div>
+  );
+}
+
+/** Night mode: a window when the backlight goes to its own brightness (0 = off); see core's remote/backlight.ts. */
+function NightSettings({ dev, link, setDevice }: { dev: RemoteDevice; link?: RemoteLink | undefined; setDevice: (d: DeviceConfig) => void }) {
+  const [dragging, setDragging] = useState<number | null>(null);
+  // Firmware 0.1.3 and older can't dim: nothing to set, unless the config already has it.
+  if (link?.dimmable !== true && !dev.night) return link?.online && link.dimmable === false ? <p class="muted small">{tr('remote.nightOld')}</p> : null;
+  const night = dev.night ?? { start: '22:00', end: '07:00', brightness: 10 };
+  const put = (n: RemoteDevice['night'] | null) => {
+    const { night: _n, ...rest } = dev;
+    setDevice(n ? { ...rest, night: n } : rest);
+  };
+  const v = dragging ?? night.brightness;
+  return (
+    <div class="remote-night">
+      <div class="field field-row">
+        <Toggle checked={!!dev.night} onChange={(on) => put(on ? night : null)} />
+        <span>{tr('remote.night')}</span>
+      </div>
+      {dev.night && (
+        <div class="night-hours">
+          <span class="muted small">{tr('screens.quietFrom')}</span>
+          <input class="input" type="time" value={night.start} aria-label={`${tr('remote.night')} · ${tr('screens.quietFrom')}`} onChange={(e) => {
+            const x = (e.target as HTMLInputElement).value;
+            if (/^\d\d:\d\d$/.test(x) && x !== night.end) put({ ...night, start: x });
+          }} />
+          <span class="muted small">{tr('screens.quietTo')}</span>
+          <input class="input" type="time" value={night.end} aria-label={`${tr('remote.night')} · ${tr('screens.quietTo')}`} onChange={(e) => {
+            const x = (e.target as HTMLInputElement).value;
+            if (/^\d\d:\d\d$/.test(x) && x !== night.start) put({ ...night, end: x });
+          }} />
+        </div>
+      )}
+      {dev.night && <label class="field-label">{tr('remote.nightBrightness')}</label>}
+      {dev.night && (
+        <div class="slider-row">
+          <input type="range" min={0} max={100} step={5} value={v} aria-label={tr('remote.nightBrightness')}
+            onInput={(e) => setDragging(Number((e.target as HTMLInputElement).value))}
+            onChange={(e) => {
+              setDragging(null);
+              put({ ...night, brightness: Number((e.target as HTMLInputElement).value) });
+            }} />
+          <span class="slider-value">{v === 0 ? tr('remote.nightOff') : t('remote.brightnessValue', { v })}</span>
+        </div>
+      )}
+      <span class="muted small">{dev.night && link?.dim !== null && link?.dim !== undefined && link.online ? t('remote.nightNow', { v: link.dim }) : tr('remote.nightHelp')}</span>
+      {dev.night && link?.online && link.dimmable === false && <p class="muted small">{tr('remote.nightOld')}</p>}
     </div>
   );
 }

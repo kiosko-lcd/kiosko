@@ -42,7 +42,7 @@ jobs:
         run: sudo apt-get update -qq && sudo apt-get install -y -qq fonts-noto-cjk
       # The whole site (packages/web/landing/build.mjs): the front page, https://kioskolcd.dev/ ; the
       # widget gallery, /gallery/ ; the editor running in the browser with sample data, /demo/ ; the
-      # panel in 3D, /demo/3d/ ; and the config's JSON Schema at its stable address,
+      # panel in 3D, /demo/3d/ ; the screen firmware's installer, /flash/ ; and the config's JSON Schema at its stable address,
       # /schema/v1/config.json (with the official plugins). The same build is checked end to end
       # on a developer's machine by scripts/demo-check-docker.sh.
       # The plugin store reads every plugin's tarball once per version: kept between runs by its
@@ -55,10 +55,19 @@ jobs:
       # ... and the plugin store, /store/ in every language, with its catalogue as data at
       # /store/v1/ (index.json, plugins/<id>.json, withdrawn.json, schema/): from npm, read without
       # running any plugin's code. The token only reads public repositories' stars.
-      - name: Front page, gallery, browser demo, config schema and plugin store
+      # The screen firmware's web installer (/flash/) serves the latest release's full image itself:
+      # a browser can't read a release's files from GitHub (no CORS), and mainland China can't reach
+      # GitHub. Checked against its .sha256 by the build. No release with one yet: the page says
+      # where to download it, and the site is still published.
+      - name: Screen firmware of the latest release, for the web installer
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release download -R "$GITHUB_REPOSITORY" --pattern 'kiosko-screen-*-full.bin*' --dir "$RUNNER_TEMP/firmware" || echo "::warning::no screen firmware in the latest release"
+      - name: Front page, gallery, browser demo, config schema, plugin store and firmware installer
         run: node packages/web/build.mjs --site --out site
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          KIOSKO_SITE_FIRMWARE: ${{ runner.temp }}/firmware
       # The custom domain is also set in Settings → Pages.
       - name: Domain
         run: echo kioskolcd.dev > site/CNAME

@@ -523,7 +523,7 @@ Lo que cambia en el camino:
       `Localized`.
     - Después: documentación (README, `docs/plugins.md`) y la web
       (kioskolcd.dev) en chino, y el resto de idiomas que pida la gente.
-11. **Noticias por tesela, no globales.** Que una pantalla muestre noticias
+11. **Noticias por tesela, no globales.** *Hecho* (2026-11-26): perfiles de fuente en el SDK (`profiles: true` en la fuente; `sourceProfiles` en la configuración, `profile` en el widget), cada perfil leído por separado con sus datos, intervalo, estado y avisos; pestañas en Ajustes → Fuentes de datos y «Nuevo perfil…» en el inspector; sin migración (sin `sourceProfiles` todo sigue igual). `news` 0.3 los declara, agrupa por perfil, descarga una sola vez un feed que esté en dos perfiles y añade `topics` por tesela (con `!` para excluir, sin distinguir mayúsculas ni tildes). Guía en docs/data-sources.md. Lo que sigue era el plan. Que una pantalla muestre noticias
     de un tema (tecnología, deportes, tu ciudad) y otra de otro. Hoy los
     feeds RSS se configuran una vez, en la fuente compartida `news/deck`
     (Ajustes → Fuentes de datos), que los lee, agrupa la misma noticia entre
@@ -1266,21 +1266,31 @@ Lo que cambia en el camino:
     editor), una tarjeta en la portada, *Actualizar firmware…* en la tarjeta
     de cada pantalla (se elige el `.bin` a mano) y los **binarios compilados
     en cada release** (`.github/workflows/firmware.yml`: la aplicación para la
-    OTA y la imagen completa para USB, con su SHA-256). Pendiente:
-    - *Instalar sin ser desarrollador*: instalador desde el navegador en
-      kioskolcd.dev (ESP Web Tools, WebSerial en Chrome y Edge: conectar la
-      placa y pulsar), con la imagen completa de la release.
-    - *Actualizar el firmware sin buscar el fichero*: cuando una versión de
-      Kiosko trae firmware nuevo, ofrecerlo a cada placa emparejada por la OTA
-      autenticada.
+    OTA y la imagen completa para USB, con su SHA-256). Hecho después
+    (2026-11-24, `feat/esp32-night`, firmware 0.1.4):
+    - *Brillo y modo noche*: ventana de noche por pantalla
+      (`device.night`, como las horas tranquilas de las alertas) con su
+      brillo (0 = luz apagada), y la luz se apaga mientras Kiosko muestra la
+      pantalla en negro (apagada desde Home Assistant o la API, dormida,
+      desactivada); las alertas la encienden. `SET dim` temporal que no se
+      guarda y acaba con la sesión; el firmware viejo lo ignora.
+    - *Actualizar el firmware sin buscar el fichero*: Kiosko sabe qué
+      firmware trae (`SCREEN_FIRMWARE`, igual a `version.txt` por un test) y la
+      tarjeta ofrece *Actualizar el firmware a X*; al pulsar, lo descarga de
+      la release de su versión en GitHub, comprueba el SHA-256 y lo manda por
+      la OTA autenticada. Sin GitHub lo dice y no envía nada.
+    - *Instalar sin ser desarrollador*: instalador web en kioskolcd.dev/flash/
+      (5 idiomas) con ESP Web Tools 10.5.2 (Apache-2.0) servido desde el
+      propio sitio; la imagen completa de la última release se copia al sitio
+      al desplegar (GitHub no da CORS en las descargas), y la release de
+      firmware relanza el despliegue. Enlazado desde la guía.
+    Pendiente:
     - *Más placas*: Cheap Yellow Display (320×240, táctil), LilyGO T-Display
       S3, M5Stack, pantallas redondas de 240×240 (GC9A01); hoy solo queda
       preparada la capa de placa.
     - *Entrada desde el dispositivo*: el botón (BOOT u otros) para cambiar de
       página o descartar una alerta; el táctil donde lo haya. El protocolo
       hoy solo va de Kiosko a la pantalla.
-    - *Brillo y modo noche*: bajar o apagar la retroiluminación por horario o
-      cuando Kiosko pausa esa pantalla.
     - *Imágenes más rápidas*: enviar solo la región que cambió (Kiosko sabe
       qué tesela cambia) o imagen en bruto con compresión ligera en pantallas
       pequeñas, en vez de JPEG (decodificar cuesta ~95 ms y limita a ~6–8
@@ -1348,6 +1358,35 @@ Lo que cambia en el camino:
       tema, política de refresco, tamaños comunes como 800×480); (2)
       endpoint compatible con TRMNL; (3) Inkplate y la variante e-ink del
       firmware propio.
+
+63. **El espacio, hoy** (`kiosko-plugin-cosmos`):
+    - *Qué*: la foto astronómica del día de la NASA (**APOD**) y la Tierra
+      entera vista desde el satélite DSCOVR (**EPIC**), con su explicación
+      (resumida, en el idioma del panel cuando se pueda); como widget
+      tranquilo o como interludio a pantalla completa. El primo científico
+      de `art` (punto 53), con el que puede compartir el encaje de imágenes
+      (recorte inteligente en barras largas, completa en cuadradas).
+    - *De dónde*: `api.nasa.gov` (APOD y EPIC; la clave `DEMO_KEY` basta
+      para un panel, o una propia gratuita) y las imágenes de
+      `epic.gsfc.nasa.gov`.
+    - *A tener en cuenta*: algunos APOD son vídeos (mostrar su miniatura o
+      el del día anterior) y algunos tienen copyright de su autor (crédito
+      siempre en pantalla, y solo mostrarlos donde la licencia lo permita).
+
+64. **Tus métricas** (`kiosko-plugin-metrics`): Prometheus y Grafana en el
+    panel, para quien ya mide su infraestructura:
+    - *Qué*: cualquier consulta **PromQL** como número grande, gráfica de
+      la última hora o semáforo con umbrales (CPU de un clúster, latencia
+      p99, errores por minuto, cola de mensajes); las **alertas activas**
+      de Alertmanager (a pantalla completa las críticas, punto 27); y, si
+      se quiere, un **panel de Grafana** renderizado tal cual (su API de
+      render) ajustado a la forma de la tesela.
+    - *De dónde*: la API HTTP de Prometheus (o compatibles: VictoriaMetrics,
+      Thanos, Mimir), la de Alertmanager y la de Grafana con un token de
+      solo lectura.
+    - *A tener en cuenta*: varias instancias (perfiles de fuente, punto 11);
+      consultas caras con intervalo largo; y reutilizar el formateo y los
+      umbrales del widget JSON (punto 18).
 
 ### Decisiones abiertas para ti
 

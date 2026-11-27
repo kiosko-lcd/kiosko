@@ -16,6 +16,7 @@ import { PORT } from './crypto.ts';
 import { ScreenError, T, nextSealed, openSession, sendSealed, type ScreenInfo, type Wire } from './link.ts';
 import { browser, type FoundScreen } from './mdns.ts';
 import type { Session } from './crypto.ts';
+import { firmwareOffer } from './firmware.ts';
 
 export interface RemoteConfig {
   driver: 'remote';
@@ -30,6 +31,8 @@ export interface RemoteConfig {
   port?: number;
   /** Backlight 0-100, pushed on every connection (firmware 0.1.2 on; older ones ignore it). */
   brightness?: number;
+  /** Night mode (see backlight.ts); the runtime works it out and calls `setDim`. */
+  night?: { start: string; end: string; brightness: number };
   jpegQuality?: number;
 }
 
@@ -55,6 +58,12 @@ export interface RemoteStatus {
   tempC: number | null;
   /** Its backlight, 0-100 (firmware 0.1.2 on; null: an older one, without brightness). */
   bright: number | null;
+  /** The dimming Kiosko asks for now (night, a black screen), 0-100; null: none. */
+  dim: number | null;
+  /** Whether its firmware dims (0.1.4 on: it says `dim` in its state); null until it says its state. */
+  dimmable: boolean | null;
+  /** A newer firmware this Kiosko brings for it (see firmware.ts); null: none. */
+  firmwareOffer: string | null;
 }
 
 /** What the driver needs of the mDNS browser (tests: a fake). */
@@ -101,6 +110,8 @@ export class RemoteDevice {
   private fresh = false;
   private led: { rgb: string; blink: number } | null = null;
   private ledDirty = false;
+  private dim: number | null = null;
+  private dimDirty = false;
   private closed = false;
   private paused = 0;
   private wire: Wire | null = null;
@@ -129,7 +140,7 @@ export class RemoteDevice {
       code: 'connecting',
       framesSent: 0,
       lastSentAt: null,
-      remote: { online: false, id: cfg.id ?? cfg.uid, host: cfg.host ?? null, fw: '', model: '', w: 0, h: 0, rot: this.rotate, fps: 0, rttMs: null, decodeMs: null, lastFrameAt: null, dropped: 0, since: null, tempC: null, bright: null },
+      remote: { online: false, id: cfg.id ?? cfg.uid, host: cfg.host ?? null, fw: '', model: '', w: 0, h: 0, rot: this.rotate, fps: 0, rttMs: null, decodeMs: null, lastFrameAt: null, dropped: 0, since: null, tempC: null, bright: null, dim: null, dimmable: null, firmwareOffer: null },
     };
     this.mdns.retain();
     this.mdns.on('found', this.onFound);
@@ -195,6 +206,21 @@ export class RemoteDevice {
     if (this.led && this.led.rgb === next.rgb && this.led.blink === next.blink) return;
     this.led = next;
     this.ledDirty = true;
+    this.notify('frame');
+  }
+
+  /**
+   * Dims the backlight for now (0-100, 0 = off), or back to the screen's own
+   * brightness (null): night mode and black screens (backlight.ts). Never
+   * saved on the screen; it ends with the session, and is sent again on every
+   * connection. Firmware older than 0.1.4 ignores it.
+   */
+  setDim(level: number | null): void {
+    const next = level === null ? null : brightnessOf(level);
+    if (next === this.dim) return;
+    this.dim = next;
+    this.status.remote.dim = next;
+    this.dimDirty = true;
     this.notify('frame');
   }
 
@@ -293,8 +319,9 @@ export class RemoteDevice {
     // Kiosko's screen config is the truth: its rotation (and language, clock) go to the screen.
     const extra = this.deps.settings?.() ?? {};
     const bright = brightnessOf(this.cfg.brightness);
-    sendSealed(wire, session, T.SET, { rot: this.rotate, ...extra, ...(bright !== null ? { bright } : {}) });
+    sendSealed(wire, session, T.SET, { rot: this.rotate, ...extra, ...(bright !== null ? { bright } : {}), ...(this.dim !== null ? { dim: this.dim } : {}) });
     this.rotDirty = false;
+    this.dimDirty = false;
     this.ledDirty = !!this.led;
     // Whatever it shows now is not ours (or may not be): the current frame at once.
     this.fresh = !!this.latest;
@@ -310,6 +337,11 @@ export class RemoteDevice {
       if (this.rotDirty) {
         this.rotDirty = false;
         sendSealed(wire, session, T.SET, { rot: this.rotate });
+        lastTx = Date.now();
+      }
+      if (this.dimDirty) {
+        this.dimDirty = false;
+        sendSealed(wire, session, T.SET, { dim: this.dim ?? -1 });
         lastTx = Date.now();
       }
       if (this.ledDirty && this.led) {
@@ -382,6 +414,8 @@ export class RemoteDevice {
     if (typeof j.h === 'number') r.h = j.h;
     if (typeof j.tempC === 'number' && Number.isFinite(j.tempC)) r.tempC = j.tempC;
     if (typeof j.bright === 'number' && Number.isFinite(j.bright)) r.bright = j.bright;
+    r.dimmable = typeof j.dim === 'number';
+    r.firmwareOffer = firmwareOffer(r.model, r.fw);
   }
 
   /**

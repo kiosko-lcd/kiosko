@@ -76,6 +76,26 @@ test('threads: each screen paints in its own thread, with the data as it changes
   }
 });
 
+test('threads: a widget on a source profile gets that profile\'s data in its thread, and moves when its profile changes', async () => {
+  const tinted = (id: string, profile?: string) => ({ ...screen(id, 'tt/tinted'), pages: [{ ...page('tt/tinted'), tiles: [{ id: 't', x: 0, y: 0, w: 1, h: 1, chrome: 'bare', widgets: [{ id: `w-${id}`, type: 'tt/tinted', options: {}, ...(profile ? { profile } : {}) }] }] }] });
+  const cfg = (bProfile: string | undefined) => normalize({ threads: 'always', sources: { 'tt/tint': { color: '#00ff00' } }, sourceProfiles: { 'tt/tint': { red: { name: 'Red', options: { color: '#ff0000' } }, blue: { name: 'Blue', options: { color: '#0000ff' } } } }, screens: [tinted('a'), tinted('b', bProfile)] });
+  const reg = new Registry();
+  reg.add(plugin, 'test', MODULE);
+  const rt = new Runtime(reg, cfg('red'));
+  rt.start();
+  try {
+    await until(() => !!rt.lastFrame('a') && !!rt.lastFrame('b'), 15_000, 'both screens painted');
+    assert.equal(screenOf(rt, 'b').thread.on, true);
+    await untilColor(rt, 'a', [0, 255, 0], 'the default profile');
+    await untilColor(rt, 'b', [255, 0, 0], 'its own profile, in its thread');
+    rt.apply(cfg('blue'));
+    await untilColor(rt, 'b', [0, 0, 255], 'another profile: its data goes to the thread');
+    await untilColor(rt, 'a', [0, 255, 0], 'the other screen keeps the default one');
+  } finally {
+    rt.stop();
+  }
+});
+
 test('threads: an interlude played from the Play page gets the buttons in its thread, and an alert stops it', async () => {
   const rt = setup('always', [screen('a', 'tt/fill'), screen('b', 'tt/fill')]);
   rt.start();

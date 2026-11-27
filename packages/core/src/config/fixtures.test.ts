@@ -54,6 +54,8 @@ export const demoPlugin: PluginDefinition = definePlugin({
       read: async () => ({}),
       intervalMs: 60_000,
       minIntervalMs: 30_000,
+      // Several accounts: profiles.
+      profiles: true,
     }),
     defineSource({ id: 'push', name: 'Push', watch: () => () => undefined }),
     // May run with no widget, for its alerts: the user's switch, off by default.

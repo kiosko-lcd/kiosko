@@ -3,6 +3,7 @@ import { typed } from '../forms/ime.ts';
 import { useState } from 'preact/hooks';
 import { api, type AppState, type JsonSchema, type PluginInfo } from '../api.ts';
 import { SchemaForm, Toggle } from '../forms/SchemaForm.tsx';
+import { ProfileTabs } from '../editor/Profiles.tsx';
 import { Icon } from '../icons.tsx';
 import { pickLocale } from '@kiosko/sdk/i18n';
 import { openWizard } from '../wizard/Wizard.tsx';
@@ -587,7 +588,9 @@ function ThreadsCard() {
  */
 function SourceRow({ s }: { s: PluginInfo['sources'][number] }) {
   const cfg = config.value!;
-  const st = status.value?.sources.find((x) => x.type === s.type);
+  // The default profile's status (older servers say no key).
+  const st = status.value?.sources.find((x) => (x.key ?? x.type) === s.type) ?? status.value?.sources.find((x) => x.type === s.type);
+  const nProfiles = s.profiles ? Object.keys(cfg.sourceProfiles?.[s.type] ?? {}).length : 0;
   const [open, setOpen] = useState(!!st && !st.ok);
   // Switched on to run with no widget, for its alerts (see SourceDefinition.background).
   const background = !!s.background && cfg.sources[s.type]?.background === true;
@@ -599,6 +602,11 @@ function SourceRow({ s }: { s: PluginInfo['sources'][number] }) {
         <b>{s.name}</b>
         <code class="muted">{s.type}</code>
         {every && <span class="muted small">· {every}</span>}
+        {nProfiles > 0 && (
+          <span class="source-profiles small" title={tr('profiles.title')}>
+            <Icon name="layers" size={13} /> {count('profiles.count', nProfiles + 1)}
+          </span>
+        )}
         {background && (
           <span class="source-bg small">
             <Icon name="bell-ring" size={13} /> {tr('settings.sourceBackgroundOn')}
@@ -610,7 +618,7 @@ function SourceRow({ s }: { s: PluginInfo['sources'][number] }) {
       {open && (
         <div class="source-body">
           <p class="muted small">{s.description}</p>
-          <SchemaForm schema={s.options!} value={cfg.sources[s.type] ?? {}} onChange={(v, k) => edit((d) => (d.sources[s.type] = v), `src-${s.type}-${k}`)} idPrefix={`src-${s.type}`} />
+          {s.profiles ? <ProfileTabs s={s} /> : <SchemaForm schema={s.options!} value={cfg.sources[s.type] ?? {}} onChange={(v, k) => edit((d) => (d.sources[s.type] = v), `src-${s.type}-${k}`)} idPrefix={`src-${s.type}`} />}
         </div>
       )}
     </div>

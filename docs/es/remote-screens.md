@@ -26,6 +26,12 @@ Lo que tienes:
 
 ## Instalar el firmware
 
+**Desde el navegador (lo más fácil).** Abre el
+[instalador web](https://kioskolcd.dev/es/flash/) en Chrome o Edge en un
+ordenador, conecta la placa por USB, pulsa *Conectar e instalar* y elige su
+puerto. Graba la imagen completa de la última versión; sin instalar nada.
+Luego sigue con [Primer arranque y Wi-Fi](#primer-arranque-y-wi-fi).
+
 **Imágenes ya hechas.** Cada versión de Kiosko en
 [GitHub](https://github.com/kiosko-lcd/kiosko/releases/latest) incluye, con su
 SHA-256:
@@ -108,6 +114,15 @@ de **Brillo** (0–100 %). La pantalla lo conserva, también sin Kiosko. Sin
 fijar, usa el suyo: 70 %, o el que elegiste en su página de configuración.
 Con menos brillo se calienta menos.
 
+**Modo noche** (firmware 0.1.4 o posterior en la pantalla): actívalo en la
+tarjeta, elige las horas (por ejemplo de 22:30 a 07:00) y el brillo de noche,
+hasta *luz apagada*. Al acabar la noche la pantalla vuelve a su brillo. Las
+alertas que ocupan la pantalla la encienden igualmente. Y siempre que Kiosko
+muestra la pantalla en negro (apagada desde Home Assistant, o dormida porque
+nada de la página tiene qué enseñar), su retroiluminación se apaga también.
+Nada de esto se guarda en la pantalla: si Kiosko desaparece, la pantalla se
+vuelve a encender.
+
 La línea de estado de la tarjeta muestra también la **temperatura del chip**.
 Marca más que la habitación: unos 35–45 °C es lo normal en este chip.
 
@@ -131,7 +146,14 @@ La pantalla cuenta los segundos mientras mantienes el botón.
 
 ## Actualizar el firmware
 
-En la tarjeta de la pantalla: *Actualizar firmware…*, y elige el `.bin` de la
+Cuando este Kiosko trae un firmware más nuevo que el de la pantalla, su
+tarjeta lo dice y ofrece **Actualizar el firmware a X**. Al pulsarlo, y solo
+entonces, Kiosko descarga el firmware de su propia versión en GitHub,
+comprueba su SHA-256 y lo envía. Sin acceso a internet (o sin llegar a
+GitHub), descarga el fichero de la página de la versión y usa *Actualizar
+firmware…*.
+
+A mano: *Actualizar firmware…* en la tarjeta de la pantalla, y elige el `.bin` de la
 aplicación (no el `-full`). O desde la línea de órdenes:
 
 ```sh

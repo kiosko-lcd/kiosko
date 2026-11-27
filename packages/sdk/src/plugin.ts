@@ -426,6 +426,13 @@ export interface SourceContext<O> extends BaseContext {
   intervalMs: number;
   /** How long one `read` may take (the user's `timeoutMs`), for a per-request budget of your own. */
   timeoutMs: number;
+  /**
+   * The source profile being read (see `SourceDefinition.profiles`): its id,
+   * or undefined for the default one. Each profile is read on its own, with
+   * its own options; use it to keep files of each apart in `cacheDir`.
+   * Kiosko 0.2.12 and later.
+   */
+  profile?: string;
 }
 
 export interface SourceDefinition<OF extends ObjectField<any> = ObjectField<any>, D = unknown> {
@@ -480,6 +487,20 @@ export interface SourceDefinition<OF extends ObjectField<any> = ObjectField<any>
    * Plain and quick: they run when the editor opens a form.
    */
   choices?: Record<string, (data: D, ctx: { locale: string; t: (text: Localized) => string }) => Choice[]>;
+  /**
+   * The user may keep several named configurations of it, **profiles**
+   * (news «General» and «Technology», two GitHub accounts), each with its
+   * own options and read on its own, as if it were another source. A widget
+   * picks one with its `profile` (Kiosko adds the picker to the widgets that
+   * read the source; the plugin adds nothing) and finds that profile's data
+   * in `ctx.sources["plugin/source"]` as usual. Without profiles in the
+   * config, nothing changes: the source's options are
+   * `sources["plugin/source"]`, the default profile. Off unless declared:
+   * a source that reads hardware or the local machine (a battery, a
+   * Bluetooth sensor) has one thing to read. Kiosko 0.2.12 and later; older
+   * ones ignore it (one configuration).
+   */
+  profiles?: boolean;
 }
 
 /** One value the editor offers for an option (see `SourceDefinition.choices`). */
