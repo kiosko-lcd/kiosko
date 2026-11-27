@@ -47,7 +47,7 @@ jobs:
       # on a developer's machine by scripts/demo-check-docker.sh.
       # The plugin store reads every plugin's tarball once per version: kept between runs by its
       # integrity (scripts/store/build-index.ts), with npm's ETags for the rest.
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: tmp/store-cache
           key: store-cache-${{ github.run_id }}
