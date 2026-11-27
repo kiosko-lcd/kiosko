@@ -140,7 +140,7 @@ let minCjkPx = 0;
 let enlarged = Infinity;
 
 export function setMinCjkPx(px: number): void {
-  if (px !== minCjkPx) widths.clear();
+  // The widths stay: they are by font, and a raised CJK character has a font of its own size.
   minCjkPx = Math.max(0, px);
 }
 

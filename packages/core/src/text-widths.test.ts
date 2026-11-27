@@ -27,6 +27,7 @@ test('text widths measured once are kept for the next thread or start: the same 
     kit.clearTextCache();
     keepTextWidths(dir);
     setFontLocale('es');
+    kit.setMinCjkPx(16);
     const first = measure();
     assert.ok(first.calls > 40, 'measured character by character');
     assert.equal(maybeSaveTextWidths(Date.now()), null, 'not at once');
@@ -37,8 +38,11 @@ test('text widths measured once are kept for the next thread or start: the same 
 
     // The next one (a new thread, Kiosko started again): nothing to measure.
     kit.clearTextCache();
+    kit.setMinCjkPx(0);
     keepTextWidths(dir);
     setFontLocale('es');
+    // What every frame sets after the fonts (the smallest CJK a panel can show) keeps them too.
+    kit.setMinCjkPx(16);
     const next = measure();
     assert.equal(next.calls, 0, 'not measured again');
     assert.deepEqual(next.widths, first.widths, 'the same widths');
@@ -55,6 +59,7 @@ test('text widths measured once are kept for the next thread or start: the same 
     assert.ok(wrong.calls > 40, 'measured again');
     assert.deepEqual(wrong.widths, first.widths);
   } finally {
+    kit.setMinCjkPx(0);
     keepTextWidths(null);
     kit.clearTextCache();
   }
