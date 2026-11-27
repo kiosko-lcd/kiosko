@@ -95,6 +95,15 @@ test('clock: follows the config time format unless it has its own', () => {
   assert.equal(draw('12h', '24h'), '9:05:00');
 });
 
+test('clock: repainted every second only when it shows the seconds; without them, once a minute', () => {
+  const redraw = (showSeconds: boolean) => {
+    const options = validate(clock.options!, { showSeconds }).value;
+    return typeof clock.redraw === 'function' ? clock.redraw({ options } as never) : clock.redraw;
+  };
+  assert.equal(redraw(true), 'second');
+  assert.equal(redraw(false), 'minute');
+});
+
 test('clock: on a 12-hour clock it says which half of the day, before the time in Chinese', () => {
   const now = new Date(2026, 10, 10, 16, 50).getTime();
   const draw = (locale: string) => {
