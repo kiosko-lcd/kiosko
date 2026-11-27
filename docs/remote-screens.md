@@ -187,6 +187,8 @@ to the previous firmware by itself.
 - **"Refuses this Kiosko's key".** The screen was reset or paired elsewhere.
   Use *Pair again* on its card.
 - **Offline.** The screen is unplugged or off the Wi-Fi. Kiosko reconnects by
-  itself as soon as it is back, and doesn't fill the log meanwhile.
+  itself as soon as it is back, and doesn't fill the log meanwhile. Nothing is
+  painted for it while it is away (*Panel disconnected · paused*): no CPU
+  spent, and a fresh picture as soon as it is back.
 - **Slow pictures.** Each picture takes about 60–90 ms to decode, so lively
   animations top out at about 8–10 fps. Static pages are not affected.

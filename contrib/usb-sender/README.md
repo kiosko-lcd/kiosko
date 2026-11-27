@@ -40,5 +40,25 @@ For each panel, a folder with its config, e.g. `~/.config/kiosko/senders/left/co
 - `frameDir`: the folder of that screen's Frame file connection.
 - `wheel` (optional): `{ "dirs": [...], "slot": 0, "hours": 2 }` makes the
   panels take turns showing each folder, to share the wear between them.
+- `heartbeat` (optional, default `true`): while its panel is connected the
+  sender touches `.heartbeat` in the folder it is showing, every second.
+
+## Pause screens whose panel is unplugged
+
+Give each Frame file screen in Kiosko a `presence`, and a screen whose panel
+is unplugged (or whose sender is not running) is paused: no CPU spent on it,
+and it comes back with a fresh frame as soon as the panel does
+([docs/usb.md](../../docs/usb.md#unplugged-panels-pause-their-screen-presence)):
+
+```json
+"device": { "driver": "file", "dir": "$XDG_RUNTIME_DIR/kiosko/left", "presence": { "heartbeat": { "path": ".heartbeat" } } }
+```
+
+With `wheel`, use the heartbeat: the folder each panel shows changes every few
+hours, and the heartbeat follows it. Without `wheel`,
+`"presence": { "usb": { "vendorId": "0416", "productId": "5408", "serial": "<the sender's serial>" } }`
+works too and needs nothing from the sender. Update `kiosko-sender.py` before
+turning the heartbeat on in Kiosko: an older one never touches it, and the
+screen would stay paused.
 
 Then `systemctl --user enable --now kiosko-sender@left`.

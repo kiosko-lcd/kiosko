@@ -61,6 +61,15 @@ POLL_S = 0.005
 """Cada cuánto se mira si el daemon ha dejado fotograma nuevo: un `stat`, nada
 más. Es lo que se retrasa, como mucho, un fotograma de una animación."""
 
+HEARTBEAT_S = 1.0
+"""Cada cuánto se toca ``.heartbeat`` en la carpeta que se está enseñando
+mientras el panel está conectado. Kiosko lo mira (``presence.heartbeat`` de la
+pantalla) y deja de pintar esa pantalla, sin gastar CPU, cuando lleva unos
+segundos sin tocarse: el panel se ha desenchufado o este emisor no corre. Con
+la rueda, el latido va a la carpeta del turno, así que sólo se pinta lo que
+algún panel está enseñando de verdad. ``"heartbeat": false`` en config.json lo
+apaga."""
+
 RECONNECT_WAIT_S = 3.0
 MAX_CONSECUTIVE_FAILURES = 40
 
@@ -286,6 +295,8 @@ def main() -> None:
     frame_path = wheel / "frame.jpg" if wheel else own_path
     log.info("fotograma: %s%s", frame_path, " (los paneles se turnan)" if wheel else "")
     next_wheel_check = 0.0
+    beat = bool(cfg.get("heartbeat", True))
+    next_beat = 0.0
     expected_rotate = int(cfg.get("rotate", 180))
     keepalive = min(2.0, max(0.1, float(cfg.get("keepalive", cfg.get("interval", KEEPALIVE_S)))))
     log.info("fotogramas nuevos al momento; el mismo, cada %.2f s", keepalive)
@@ -321,6 +332,19 @@ def main() -> None:
                 if turn_path != frame_path:
                     log.info("cambio de turno: ahora enseña %s", turn_path)
                     frame_path, stamp = turn_path, None
+                    next_beat = 0.0  # que Kiosko sepa ya que esta carpeta vuelve a tener panel
+
+            # El latido: "esta carpeta tiene un panel enchufado detrás". Antes
+            # de mirar si hay fotograma: con el panel en pausa, Kiosko no
+            # escribe nada hasta ver el latido.
+            if beat and time.monotonic() >= next_beat:
+                next_beat = time.monotonic() + HEARTBEAT_S
+                try:
+                    frame_path.parent.mkdir(parents=True, exist_ok=True)
+                    (frame_path.parent / ".heartbeat").touch()
+                except OSError as exc:
+                    log.warning("no se pudo tocar el latido en %s: %s", frame_path.parent, exc)
+                    beat = False
 
             # Sólo se relee el fichero cuando cambia; el resto del tiempo esto
             # es un memcpy sobre el bus y poco más.

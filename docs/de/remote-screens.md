@@ -197,7 +197,8 @@ Bildschirm von selbst zur vorigen zurück.
   zurückgesetzt oder anderswo gekoppelt. *Neu koppeln* auf seiner Karte.
 - **Offline.** Der Bildschirm ist abgesteckt oder nicht im WLAN. Kiosko
   verbindet sich wieder, sobald er zurück ist, und füllt das Protokoll
-  solange nicht.
+  solange nicht. Solange er fehlt, wird für ihn nichts gezeichnet (*Panel
+  getrennt · pausiert*): keine CPU, und ein frisches Bild, sobald er zurück ist.
 - **Langsame Bilder.** Jedes Bild zu dekodieren dauert etwa 60–90 ms, daher
   schaffen lebhafte Animationen etwa 8–10 fps. Ruhige Seiten betrifft das
   nicht.
