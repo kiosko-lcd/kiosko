@@ -319,7 +319,9 @@ export class Registry {
         intervalMs: w.intervalMs ?? null,
         // Defaults of the instance switches, or null when the widget lacks the hook behind them.
         takeOver: w.urgent ? (w.takeOver ?? true) : null,
-        hideWhenEmpty: w.empty ? (w.hideWhenEmpty ?? false) : null,
+        // The widget's own default of the "pass its turn" switch (null: Kiosko's, see compositor's `tileState`), and whether it can tell it's empty.
+        hideWhenEmpty: w.hideWhenEmpty ?? null,
+        empty: !!w.empty,
       })),
       sources: (def.sources ?? []).map((s) => {
         // Its own options plus Kiosko's intervalMs and timeoutMs (polled sources) and the background switch (if it may).

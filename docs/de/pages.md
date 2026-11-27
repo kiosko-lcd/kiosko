@@ -16,6 +16,35 @@ ist.
 - **Zwischenspiele** laufen ab und zu über der aktuellen Seite, und
   **Alarme** übernehmen das Panel über allem.
 
+## Widgets in einer Kachel wechseln sich ab
+
+Eine Kachel kann einen **Stapel** von Widgets haben (im Editor eines auf ein
+anderes ziehen). Sie wechseln sich nach dem *Wechselintervall* ab (`rotateMs`,
+standardmäßig 30 s), nach der Uhr wie die Seiten; ein dringendes (ein
+Termin, der gleich beginnt) behält die Kachel, solange es dringend ist.
+
+- **Nichts anzuzeigen, keine Runde.** Ein Widget, das nichts anzuzeigen hat,
+  gibt seine Runde an die anderen seiner Kachel ab: eine leere Liste (keine
+  Reviews, keine Aufgaben), eines, dessen Daten noch nicht da sind, oder
+  eines, dessen Quelle fehlschlägt. Der Fehler bleibt im Editor und im
+  Status des Widgets sichtbar.
+- **Nie eine leere Kachel.** Allein in seiner Kachel, oder wenn keines der
+  Kachel etwas hat, wird ein Widget wie immer gezeigt: seine Leer-Meldung,
+  *lädt* oder der Fehler. Beim ersten Start zeigt eine Kachel, deren Widgets
+  alle noch laden, das erste, bis ein anderes etwas hat.
+- **Kein Flackern.** Die Runden wechseln weiter im Takt der Uhr. Ein Widget,
+  dem der Inhalt ausgeht, macht frühestens nach einer halben Runde Platz,
+  eines, das zurückkommt, wartet auf die nächste Runde, und was kommt, bleibt
+  mindestens eine halbe Runde.
+- **Du entscheidest.** In den Einstellungen des Widgets, *Wenn es nichts
+  anzuzeigen hat*: **Runde abgeben** (Standard), **Ausblenden** (auch allein
+  in seiner Kachel ausgeblendet, die dann nichts zeigt; nur bei Widgets, die
+  wissen, wann sie leer sind) oder **Immer zeigen** (`hideWhenEmpty`: nicht
+  gesetzt, `true`, `false`).
+
+Ein Widget, das nicht gezeigt wird, wird auch nicht gezeichnet: der Stapel
+kostet für die übersprungenen Widgets keine CPU.
+
 ## Diese Seite zeigen, wenn…
 
 Eine Seite kann auch **von selbst** erscheinen, solange etwas passiert: ein

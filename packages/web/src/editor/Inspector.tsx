@@ -28,6 +28,32 @@ function Segmented<T extends string>({ value, options, onChange }: { value: T; o
   );
 }
 
+type PassMode = 'auto' | 'hide' | 'never';
+const passMode = (v: boolean | undefined | null): PassMode => (v === true ? 'hide' : v === false ? 'never' : 'auto');
+const PASS_HINT = { auto: 'inspector.passTurnAutoHint', hide: 'inspector.passTurnHideHint', never: 'inspector.passTurnNeverHint' } as const;
+
+/**
+ * The instance's `hideWhenEmpty`, as three choices: pass its turn while it
+ * has nothing to show (Kiosko's default), hide it even alone (only for
+ * widgets that can tell they're empty), never skip it. Its default is the
+ * widget's own (`own`); choosing it stores nothing.
+ */
+function PassTurn({ value, own, canBeEmpty, onChange }: { value: boolean | undefined; own: boolean | null; canBeEmpty: boolean; onChange: (v: boolean | undefined) => void }) {
+  const mode = passMode(value ?? own);
+  const modes: PassMode[] = ['auto', 'hide', 'never'].filter((m) => (m !== 'hide' || canBeEmpty || mode === 'hide') && (m !== 'auto' || own === null)) as PassMode[];
+  const label = { auto: tr('inspector.passTurnAuto'), hide: tr('inspector.passTurnHide'), never: tr('inspector.passTurnNever') };
+  return (
+    <div class="field">
+      <label class="field-label">{tr('inspector.passTurn')}</label>
+      <Segmented value={mode} options={modes.map((m) => ({ v: m, label: label[m] }))} onChange={(m) => {
+        const v = m === 'hide' ? true : m === 'never' ? false : undefined;
+        onChange(passMode(own) === m ? undefined : v);
+      }} />
+      <div class="field-help">{tr(PASS_HINT[mode])}</div>
+    </div>
+  );
+}
+
 const whenOptions = () => [
   { v: 'always' as When, label: tr('when.always') },
   { v: 'work' as When, label: tr('when.work'), icon: 'briefcase' },
@@ -222,15 +248,7 @@ function TileInspector({ t }: { t: Tile }) {
               </div>
             </div>
           )}
-          {info?.hideWhenEmpty != null && (
-            <div class="field field-row">
-              <Toggle checked={w.hideWhenEmpty ?? info.hideWhenEmpty} onChange={(v) => setWidget((x) => (x.hideWhenEmpty = v === info.hideWhenEmpty ? undefined : v))} />
-              <div>
-                <span class="field-label inline">{tr('inspector.hideWhenEmpty')}</span>
-                <div class="field-help">{tr('inspector.hideWhenEmptyHint')}</div>
-              </div>
-            </div>
-          )}
+          <PassTurn value={w.hideWhenEmpty} own={info?.hideWhenEmpty ?? null} canBeEmpty={!!info?.empty} onChange={(v) => setWidget((x) => (x.hideWhenEmpty = v))} />
           {/* Edge-to-edge scenes fill their tile whatever the zoom: offered only to reset one. */}
           {(info?.chrome !== 'bare' || (w.zoom ?? 1) !== 1) && <ZoomInput value={w.zoom ?? 1} onChange={(v) => setWidget((x) => (x.zoom = v === 1 ? undefined : v), `zoom-${w.id}`)} />}
           <DataStatus id={w.id} sources={info?.sources ?? []} profile={w.profile} hasFetch={!!info?.hasFetch} />

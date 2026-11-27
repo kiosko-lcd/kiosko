@@ -7,11 +7,14 @@ import { createCanvas, type Canvas } from '@napi-rs/canvas';
 import { DEFAULT_THEME, definePlugin, defineWidget, t } from '@kiosko/sdk';
 import { MIN_LINE_PX, chromeMetrics, composePage, composeWidget, rotateCanvas, tileBoxes } from './compositor.ts';
 import type { Page } from './config/model.ts';
+import type { TurnMemos } from './layout/stack.ts';
 import { normalize as norm } from './config/store.ts';
 import { openDevice } from './devices.ts';
 import { Registry } from './registry.ts';
 
 const calls: string[] = [];
+/** Labels of the `test/slot` widgets painted, in order. */
+const painted: string[] = [];
 const probes: { box: { x: number; y: number; w: number; h: number }; time: string; workday: string; located: boolean }[] = [];
 const reg = new Registry();
 reg.add(
@@ -34,6 +37,19 @@ reg.add(
         urgent: ({ options }) => options.urgent,
       }),
       defineWidget({
+        id: 'slot',
+        name: 'Slot',
+        options: t.object({ label: t.string({ default: 'x' }), empty: t.boolean(), anim: t.boolean() }),
+        // Has a fetch: no data yet is "loading".
+        fetch: async () => 1,
+        render: (_g, { options }) => {
+          painted.push(options.label);
+        },
+        empty: ({ options }) => options.empty,
+        animation: ({ options }) => (options.anim ? { id: 'a', frames: 3, fps: 10 } : null),
+      }),
+      defineWidget({ id: 'fed', name: 'Fed', sources: ['test/feed'], render: (_g, { sources }) => void painted.push(`fed:${String(sources['test/feed'])}`) }),
+      defineWidget({
         id: 'mark',
         name: 'Mark',
         options: t.object({ label: t.string({ default: 'x' }), urgent: t.boolean(), hidden: t.boolean(), idle: t.boolean() }),
@@ -49,6 +65,7 @@ reg.add(
         demo: () => ({ options: { label: 'demo' } }),
       }),
     ],
+    sources: [{ id: 'feed', name: 'Feed', read: async () => 1 }],
   }),
 );
 const cfg = norm({});
@@ -218,14 +235,114 @@ test('takeOver off: an urgent widget takes its turn like the rest', () => {
   assert.equal(compose(tile(false), 1000).tiles[0]!.shown, '2');
 });
 
-test('hideWhenEmpty: an empty widget leaves the rotation only when the user says so', () => {
-  const tile = (hideWhenEmpty?: boolean) => page([{ id: 'a', x: 0, y: 0, w: 4, h: 2, rotateMs: 1000, chrome: 'bare', widgets: [{ ...W('1', 'test/probe', { empty: true }), ...(hideWhenEmpty === undefined ? {} : { hideWhenEmpty }) }, W('2', 'test/probe')] }]);
-  assert.equal(compose(tile()).tiles[0]!.shown, '1');
-  assert.equal(compose(tile(true)).tiles[0]!.shown, '2');
-  assert.equal(compose(tile(true), 1000).tiles[0]!.shown, '2');
-  // Alone and empty: the tile shows nothing.
-  const alone = page([{ id: 'a', x: 0, y: 0, w: 4, h: 2, rotateMs: 0, chrome: 'bare', widgets: [{ ...W('1', 'test/probe', { empty: true }), hideWhenEmpty: true }] }]);
-  assert.equal(compose(alone).tiles[0]!.shown, null);
+// Passing the turn (0.2.15): a widget with nothing to show (empty, no data yet, failing) gives its turn to the others of its tile.
+const slot = (id: string, o: { empty?: boolean; anim?: boolean; hideWhenEmpty?: boolean } = {}) => ({ id, type: 'test/slot', options: { label: id, ...(o.empty ? { empty: true } : {}), ...(o.anim ? { anim: true } : {}) }, ...(o.hideWhenEmpty === undefined ? {} : { hideWhenEmpty: o.hideWhenEmpty }) });
+const stackOf = (widgets: Page['tiles'][number]['widgets'], rotateMs = 10_000) => page([{ id: 'a', x: 0, y: 0, w: 4, h: 2, rotateMs, chrome: 'bare', widgets }]);
+/** A panel: a cache and a turn memory kept between frames, data by instance id, failing ids. */
+function panel(p: Page, o: { data?: Record<string, unknown>; failed?: Set<string>; sources?: Record<string, unknown>; memory?: boolean } = {}) {
+  const cache = new Map();
+  const turns: TurnMemos = new Map();
+  const data: Record<string, unknown> = o.data ?? {};
+  return {
+    data,
+    frame: (now: number) => composePage({ cfg, screen, page: p, theme: DEFAULT_THEME, registry: reg, now, working: true, dataOf: (i) => data[i.id], sourcesOf: (types) => Object.fromEntries((types ?? []).map((x) => [x, o.sources?.[x]])), failedOf: (i) => !!o.failed?.has(i.id), cache, ...(o.memory === false ? {} : { turns }) }),
+  };
+}
+const all = { '1': 1, '2': 1, '3': 1 };
+
+test('skip: an empty widget passes its turn by default when its tile has another to show', () => {
+  const p = panel(stackOf([slot('1', { empty: true }), slot('2'), slot('3')]), { data: { ...all } });
+  const seen = [0, 10_000, 20_000, 30_000, 40_000].map((t) => p.frame(t).tiles[0]!.shown);
+  assert.deepEqual(seen, ['2', '3', '2', '3', '2']);
+  // Without a panel's memory (the editor): the same skip, from the wall clock.
+  assert.equal(compose(stackOf([W('1', 'test/probe', { empty: true }), W('2', 'test/probe')])).tiles[0]!.shown, '2');
+});
+
+test('skip: when every widget of the tile is empty, the first is shown', () => {
+  const p = panel(stackOf([slot('1', { empty: true }), slot('2', { empty: true })]), { data: { ...all } });
+  for (const t of [0, 10_000, 20_000, 35_000]) assert.equal(p.frame(t).tiles[0]!.shown, '1');
+});
+
+test('skip: a widget alone in its tile shows as before, empty, loading or failing', () => {
+  assert.equal(panel(stackOf([slot('1', { empty: true })], 0), { data: { ...all } }).frame(0).tiles[0]!.shown, '1');
+  assert.equal(panel(stackOf([slot('1')], 0)).frame(0).tiles[0]!.shown, '1', 'no data yet');
+  assert.equal(panel(stackOf([slot('1')], 0), { data: { ...all }, failed: new Set(['1']) }).frame(0).tiles[0]!.shown, '1', 'failing');
+  // hideWhenEmpty: true hides it even alone, as it always did.
+  assert.equal(panel(stackOf([slot('1', { empty: true, hideWhenEmpty: true })], 0), { data: { ...all } }).frame(0).tiles[0]!.shown, null);
+});
+
+test('skip: hideWhenEmpty false never skips; true hides it even when it is the only one', () => {
+  const never = panel(stackOf([slot('1', { empty: true, hideWhenEmpty: false }), slot('2')]), { data: { ...all } });
+  assert.deepEqual([0, 10_000, 20_000].map((t) => never.frame(t).tiles[0]!.shown), ['1', '2', '1']);
+  const neverLoading = panel(stackOf([slot('1', { hideWhenEmpty: false }), slot('2')]), { data: { '2': 1 } });
+  assert.deepEqual([0, 10_000, 20_000].map((t) => neverLoading.frame(t).tiles[0]!.shown), ['1', '2', '1'], 'false: not even while loading');
+  const hide = panel(stackOf([slot('1', { empty: true, hideWhenEmpty: true }), slot('2', { empty: true })]), { data: { ...all } });
+  assert.equal(hide.frame(0).tiles[0]!.shown, '2', 'true: out of the rotation, even when the others are empty too');
+});
+
+test('skip: a widget with no data yet, or failing, passes its turn; a tile with only loading widgets shows the first', () => {
+  const loading = panel(stackOf([slot('1'), slot('2'), slot('3')]), { data: { '2': 1, '3': 1 } });
+  assert.deepEqual([0, 10_000, 20_000].map((t) => loading.frame(t).tiles[0]!.shown), ['2', '3', '2']);
+  const failing = panel(stackOf([slot('1'), slot('2'), slot('3')]), { data: { ...all }, failed: new Set(['3']) });
+  assert.deepEqual([0, 10_000, 20_000].map((t) => failing.frame(t).tiles[0]!.shown), ['1', '2', '1']);
+  // A widget that reads a source: no data until the source has delivered.
+  const fed = panel(stackOf([W('1', 'test/fed'), slot('2')]), { data: { '2': 1 } });
+  assert.equal(fed.frame(0).tiles[0]!.shown, '2');
+  const fedOk = panel(stackOf([W('1', 'test/fed'), slot('2')]), { data: { '2': 1 }, sources: { 'test/feed': 7 } });
+  assert.equal(fedOk.frame(0).tiles[0]!.shown, '1');
+  // First run: everything loading shows the first one; it gives way as soon as another has data.
+  const first = panel(stackOf([slot('1'), slot('2')]));
+  assert.equal(first.frame(0).tiles[0]!.shown, '1');
+  assert.equal(first.frame(1000).tiles[0]!.shown, '1');
+  first.data['2'] = 1;
+  assert.equal(first.frame(1500).tiles[0]!.shown, '2');
+});
+
+test('skip: a skipped widget is never painted nor offered an animation, and the tile is not painted again', () => {
+  painted.length = 0;
+  const p = panel(stackOf([slot('1', { empty: true, anim: true }), slot('2', { anim: true })]), { data: { ...all } });
+  const looks: (string | null)[] = [];
+  for (let t = 0; t <= 60_000; t += 2500) {
+    const r = p.frame(t);
+    assert.deepEqual(r.animatable.map((a) => a.instanceId), ['2']);
+    looks.push(r.sameAs);
+  }
+  assert.deepEqual(painted, ['2'], 'painted once, then reused from the cache across turns');
+  assert.equal(new Set(looks).size, 1, 'the same look every frame: nothing to encode again');
+});
+
+test('skip: no flicker: turns keep the wall clock, nothing is on for less than half a turn', () => {
+  // A fake clock walks the tile every 250 ms while widget 1 empties and fills at awkward moments.
+  const data: Record<string, unknown> = { ...all };
+  const empties = new Set<string>();
+  const widgets = () => [slot('1', { empty: empties.has('1') }), slot('2', { empty: empties.has('2') }), slot('3')];
+  const cache = new Map();
+  const turns: TurnMemos = new Map();
+  const frame = (now: number) => composePage({ cfg, screen, page: stackOf(widgets()), theme: DEFAULT_THEME, registry: reg, now, working: true, dataOf: (i) => data[i.id], sourcesOf: () => ({}), cache, turns }).tiles[0]!.shown;
+  const flips: Record<number, () => void> = {
+    // 1 empties early in its own turn and comes back mid-turn; later it empties for good.
+    1000: () => empties.add('1'), 7000: () => empties.delete('1'), 24_000: () => empties.add('1'),
+    // 2 flaps every 750 ms for a while.
+    ...Object.fromEntries(Array.from({ length: 16 }, (_, k) => [30_000 + k * 750, () => (k % 2 ? empties.delete('2') : empties.add('2'))])),
+  };
+  const runs: { id: string | null; from: number; to: number }[] = [];
+  for (let now = 0; now <= 80_000; now += 250) {
+    flips[now]?.();
+    const id = frame(now);
+    const last = runs.at(-1);
+    if (last && last.id === id) last.to = now;
+    else runs.push({ id, from: now, to: now });
+  }
+  // Every run but the last lasted at least half a turn (5 s).
+  for (const r of runs.slice(0, -1)) assert.ok(r.to + 250 - r.from >= 5000, `${r.id} on for ${r.to + 250 - r.from} ms at ${r.from}`);
+  // Changes only on a turn's beat, or half a turn after the widget shown had nothing left (1 at 1 s, then 24 s); 2's flapping changes nothing.
+  assert.deepEqual(runs.map((r) => `${r.id}@${r.from}`), ['1@0', '2@5000', '3@10000', '1@20000', '2@25000', '3@30000', '2@40000', '3@50000', '2@60000', '3@70000', '2@80000']);
+});
+
+test('skip: what changes for existing configs is only the skip: stacks with something to show rotate as before', () => {
+  const p = panel(stackOf([slot('1'), slot('2'), slot('3')]), { data: { ...all } });
+  const stateless = panel(stackOf([slot('1'), slot('2'), slot('3')]), { data: { ...all }, memory: false });
+  for (let t = 0; t < 120_000; t += 1000) assert.equal(p.frame(t).tiles[0]!.shown, stateless.frame(t).tiles[0]!.shown, `at ${t}`);
 });
 
 test('the render context carries fmt (with the config time format), workday and location', () => {

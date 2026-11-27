@@ -163,9 +163,9 @@ export default definePlugin({ id: 'crypto', name: 'Crypto', version: '1.0.0', wi
 | `intervalOf({ options, data })` | Only when the interval depends on the options or the data (a module that declares its own): asked after every fetch, `undefined` keeps `intervalMs`, never under 5 s. An interval the user sets on the instance wins. Declare it after `fetch`. |
 | `render(g, ctx)` | Synchronous and fast. Paint inside `ctx.box`; the tile is clipped for you. |
 | `redraw` | `'never'` (default: only when data changes), `'minute'`, `'second'` or `{ everyMs }`, or a function of `{ options, data, now }` returning one of those. Fewer frames are fewer USB transfers; `{ everyMs: 250 }` is a cheap way to animate, but it repaints the whole page each time (for real animations see `animation`). |
-| `visible(ctx)` | `false` when there's nothing to show: the widget is skipped in its tile's rotation. |
+| `visible(ctx)` | `false` when the widget shouldn't be on at all right now (nothing playing): it leaves its tile's rotation, even alone in it (the tile then shows nothing). For "nothing to list", declare `empty` instead. |
 | `urgent(ctx)` | `true` while it needs the user: it keeps its tile, unless the user turns the widget's **Keep the tile while urgent** switch off (`takeOver` on the instance). `takeOver: false` on the definition makes off the default. |
-| `empty(ctx)` | `true` when the list has nothing to show. Gives the widget a **Hide when empty** switch (`hideWhenEmpty` on the instance): on, an empty widget is skipped like `visible: false`; off, it paints its empty message (`drawEmpty`). `hideWhenEmpty: true` on the definition makes on the default. |
+| `empty(ctx)` | `true` when the widget has genuinely nothing useful to show (no reviews, no prices because the provider is down). **Declare it whenever your widget can have nothing to show**: in a tile with other widgets, an empty one passes its turn to them (Kiosko 0.2.15); alone, or when none has anything, it paints its empty message (`drawEmpty`). "Nothing to show", not "nothing urgent": a healthy idle thing worth seeing is not empty. Kiosko skips a widget whose data hasn't come yet or whose fetch or source is failing by itself. The user decides with the instance's *When it has nothing to show* switch (`hideWhenEmpty`: missing = pass its turn, `false` = always show, `true` = also hide when alone); `hideWhenEmpty` on the definition sets its default. |
 | `alerts(ctx)` | Alerts to show **full-screen**, from the data like `urgent`: `[]` when there is nothing. See *Alerts* below. |
 | `idle(ctx)` | `true` when there's nothing worth lighting the panel for (with *sleep when idle*, the panel goes black when every widget agrees). |
 | `animation(ctx)` | A short animation inside the tile, or `null`. Returns a plan `{ id, frames, fps, params?, interruptible?, hold? }`; the runtime paints every frame by calling `render` with `ctx.anim = { plan, i, t }` (`t` is 0..1; the first and last frame are the still picture and are not sent), then plays them at `min(fps, screen maxFps)` and ends with a real still repaint. Any widget on show may ask, as if it were alone; how many play together on a screen is the runtime's decision (one for now: the others wait their turn, longest wait first). Asked with `ctx.trigger`: `'idle'` now and then (see `animationGap`, default 20-60 s, random in the range) or `'data'` when the instance's data or one of its sources changed (`ctx.prev` has the old ones; see `animationCooldownMs`). Use `ctx.rnd()` instead of `Math.random`. See *Animations* below. |
@@ -280,7 +280,7 @@ export const reviews = defineWidget({
     ...listOptions({ layouts: ['one-line', 'detailed'] }),  // rows (0 = auto), layout (auto | one-line | detailed)
     projects: t.filter({ label: { en: 'Projects', es: 'Proyectos' } }),
   }),
-  empty: ({ options, sources }) => !itemsOf(sources, options).length,  // a "Hide when empty" switch for free
+  empty: ({ options, sources }) => !itemsOf(sources, options).length,  // passes its turn in a stack while empty
   render(g, ctx) {
     const items = itemsOf(ctx.sources, ctx.options);       // filtered with matchFilter(item.project, options.projects)
     if (!items.length) return drawEmpty(g, ctx, ctx.t({ en: 'Nothing to review', es: 'Nada que revisar' }));
@@ -457,9 +457,10 @@ these when you add or rename one.
   `takeOver: false` on the definition if the widget should not keep the tile
   by default, and don't test an option inside `urgent`.
 - **`hideWhenEmpty`** is not a plugin option either: declare `empty(ctx)`
-  and the instance gets the switch; `hideWhenEmpty: true` on the definition
-  for widgets that hide when empty by default. Leave in `visible` only the
-  conditions that are not "the list is empty".
+  when you have nothing to show, and the widget passes its turn in a stack;
+  every instance has the switch. `hideWhenEmpty: true` on the definition
+  only for widgets that should hide when empty even alone in their tile.
+  Leave in `visible` only the conditions that are not "the list is empty".
 - **Lists** use `listOptions`, `listLayout`, `drawMore` and `drawEmpty`
   (see Lists), with the widget's current row heights as `min`/`max` and
   `rows` defaulting to 0, unless the widget had a fixed count (then that).
@@ -493,7 +494,7 @@ these when you add or rename one.
 | `max` (countdown), `rows` 1–8 | `rows` via `listOptions({ rows: 4 })` |
 | `seconds`, `moon`, `cores`, `latestOnly` | `showSeconds`, `showMoon`, `showCores`, `onlyLatest` |
 | `takeOver` option, `urgent: ({ options }) => options.takeOver && …` | instance switch; `takeOver: false` on the definition if off by default |
-| `visible: () => list.length > 0` | `empty: () => !list.length`, `hideWhenEmpty: true` |
+| `visible: () => list.length > 0` | `empty: () => !list.length` (and `hideWhenEmpty: true` only to keep hiding it when alone) |
 | a source's own `intervalMs` or `timeoutMs` option | `intervalMs`, `minIntervalMs`, `timeoutMs` on the definition |
 | `hhmm(ms)`, `age(iso, now, locale)`, `elapsed(ms)` | `ctx.fmt.time`, `ctx.fmt.ago`, `ctx.fmt.duration` |
 | `start`, `end`, `hours`, `holidays` per widget | `ctx.workday`, `scheduleOn(ctx.workday, now)` |

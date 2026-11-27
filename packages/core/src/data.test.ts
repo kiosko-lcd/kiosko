@@ -249,3 +249,46 @@ test('instances of a widget with the same options share one fetch, and each is t
   assert.equal(host.data('right'), undefined);
   host.stop();
 });
+
+test('failed: a fetch or read that fails is told once, and again when it recovers with the same data', async () => {
+  let fail = false;
+  const changes: string[] = [];
+  const r = new Registry();
+  r.add(
+    definePlugin({
+      id: 'f',
+      name: 'F',
+      version: '1',
+      sources: [defineSource({ id: 'src', name: 'Src', intervalMs: 60_000, read: async () => { if (fail) throw new Error('down'); return 1; } })],
+      widgets: [defineWidget({ id: 'w', name: 'W', intervalMs: 60_000, fetch: async () => { if (fail) throw new Error('down'); return 1; }, render: () => undefined })],
+    }),
+  );
+  const cfg = normalize({});
+  const hub = new SourceHub(r, quiet, (k) => changes.push(k));
+  const host = new FetchHost(hub, quiet, (id) => changes.push(id));
+  hub.retain(new Set(['f/src']), cfg);
+  host.retain([{ inst: { id: 'i', type: 'f/w', options: {} }, def: r.widget('f/w')! }]);
+  const round = async () => {
+    host.refresh('i');
+    host.tick(cfg, Date.now());
+    hub.tick(cfg, Date.now() + 120_000);
+    await flush();
+  };
+  await round();
+  assert.deepEqual([host.failed('i'), hub.failed('f/src')], [false, false]);
+  assert.deepEqual(changes.sort(), ['f/src', 'i']);
+  fail = true;
+  changes.length = 0;
+  await round();
+  assert.deepEqual([host.failed('i'), hub.failed('f/src')], [true, true]);
+  assert.deepEqual(changes.sort(), ['f/src', 'i'], 'failing is told');
+  changes.length = 0;
+  await round();
+  assert.deepEqual(changes, [], 'still failing: nothing new');
+  fail = false;
+  await round();
+  assert.deepEqual([host.failed('i'), hub.failed('f/src')], [false, false]);
+  assert.deepEqual(changes.sort(), ['f/src', 'i'], 'recovered with the same data: told too');
+  host.stop();
+  hub.stop();
+});

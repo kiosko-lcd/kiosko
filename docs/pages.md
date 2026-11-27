@@ -15,6 +15,33 @@ This guide covers which one is on the panel at each moment.
 - **Interludes** play every so often over whatever page is on, and **alerts**
   take the panel over above everything.
 
+## Widgets in a tile take turns
+
+A tile can hold a **stack** of widgets (drop one onto another in the
+editor). They take turns every *Turn length* (`rotateMs`, 30 s by default),
+against the wall clock like pages; an urgent one (a meeting about to start)
+keeps the tile while it lasts.
+
+- **Nothing to show, no turn.** A widget that has nothing to show passes its
+  turn to the others of its tile: an empty list (no reviews, no tasks), one
+  whose data hasn't come yet, or one whose source is failing. The error is
+  still in the editor and in the widget's status.
+- **Never a blank tile.** Alone in its tile, or when none of its tile has
+  anything, a widget is shown as always: its empty message, *loading* or the
+  error. On the first run, a tile whose widgets are all loading shows the
+  first one until another has something.
+- **No flicker.** Turns still change on the clock's beat. A widget that runs
+  out of things to show gives way after half a turn at the earliest, one that
+  comes back waits for the next turn, and whatever comes stays at least half
+  a turn.
+- **Your call.** In the widget's settings, *When it has nothing to show*:
+  **Pass its turn** (the default), **Hide** (also hidden when it is alone in
+  its tile, which then shows nothing; only widgets that can tell they are
+  empty) or **Always show** (`hideWhenEmpty`: missing, `true`, `false`).
+
+A widget that isn't shown is not painted either: the stack costs no CPU for
+the widgets skipped.
+
 ## Show this page when…
 
 A page can also come up **by itself** while something is happening: a game
