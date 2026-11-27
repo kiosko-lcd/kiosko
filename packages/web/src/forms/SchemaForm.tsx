@@ -3,7 +3,8 @@
  * hints from @kiosko/sdk's `t` builder). Plugins get a good editor for free.
  */
 import { typed } from './ime.ts';
-import { useEffect, useState } from 'preact/hooks';
+import { createContext } from 'preact';
+import { useContext, useEffect, useState } from 'preact/hooks';
 import { api, type JsonSchema } from '../api.ts';
 import { Icon } from '../icons.tsx';
 import { loc, t, tr } from '../i18n.ts';
@@ -13,9 +14,16 @@ type Value = unknown;
 type Choice = { value: string; label?: string; group?: string };
 const choiceCache = new Map<string, { at: number; list: Choice[] }>();
 
+/**
+ * The source profile the form's choices come from (a widget's `profile`, or the profile being
+ * edited in Settings → Data sources): its values, not the default one's. Undefined: the default.
+ */
+export const ChoicesProfile = createContext<string | undefined>(undefined);
+
 /** The values a source offers for a field (`x-ui.choices`), fetched once and kept for half a minute. */
 function useChoices(ref: { source: string; list: string } | undefined): Choice[] {
-  const key = ref ? `${ref.source}|${ref.list}` : '';
+  const profile = useContext(ChoicesProfile);
+  const key = ref ? `${ref.source}|${ref.list}|${profile ?? ''}` : '';
   const [list, setList] = useState<Choice[]>(() => choiceCache.get(key)?.list ?? []);
   useEffect(() => {
     if (!ref) return;
@@ -23,7 +31,7 @@ function useChoices(ref: { source: string; list: string } | undefined): Choice[]
     if (hit && Date.now() - hit.at < 30_000) return void setList(hit.list);
     let alive = true;
     api
-      .choices(ref.source, ref.list)
+      .choices(ref.source, ref.list, profile)
       .then((r) => {
         choiceCache.set(key, { at: Date.now(), list: r.choices });
         if (alive) setList(r.choices);

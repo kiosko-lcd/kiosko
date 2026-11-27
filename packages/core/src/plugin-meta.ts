@@ -134,7 +134,8 @@ export interface PluginManifest {
   /** Types of other plugins it uses when they are there. */
   optional: { type: string; plugin: string }[];
   widgets: ManifestWidget[];
-  sources: { type: string; name: Localized; description?: Localized; polled: boolean; intervalMs?: number; options: Record<string, unknown> | null }[];
+  /** `profiles`: it may have several named configurations (several accounts, news by topic). */
+  sources: { type: string; name: Localized; description?: Localized; polled: boolean; intervalMs?: number; profiles?: true; options: Record<string, unknown> | null }[];
   interludes: { type: string; name: Localized; description?: Localized; icon?: string; fps: number; input?: boolean; preview?: { video?: string; poster: string } }[];
   templates: { id: string; name: Localized; icon?: string; widgets: string[]; layouts?: ('wide' | 'square' | 'tall')[] }[];
   /** Where it is useful (country codes or `EU`), for the store. */
@@ -280,6 +281,7 @@ export function pluginManifest(def: PluginDefinition, o: { screenshots?: Record<
       ...(s.description ? { description: s.description } : {}),
       polled: !!s.read,
       ...(s.read && s.intervalMs ? { intervalMs: s.intervalMs } : {}),
+      ...(s.profiles === true ? { profiles: true as const } : {}),
       options: s.options ? toJsonSchema(s.options) : null,
     })),
     interludes: (def.interludes ?? []).map((i) => ({ type: `${def.id}/${i.id}`, name: i.name, ...(i.description ? { description: i.description } : {}), ...(i.icon ? { icon: i.icon } : {}), fps: i.fps, ...(i.input ? { input: true } : {}), ...(i.preview ? { preview: i.preview } : {}) })),

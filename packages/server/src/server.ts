@@ -22,9 +22,10 @@ import { StoreCatalog } from './store.ts';
 import { SDK_VERSION } from '@kiosko/sdk';
 import { installableRelease, releaseProblem, type StorePlugin } from '@kiosko/core';
 import { HomeAssistantBridge } from './homeassistant.ts';
-import { remoteApi } from './remote-api.ts';
+import { remoteApi, type RemoteApiContext } from './remote-api.ts';
+import { pushApi, pushFile } from './push-api.ts';
 import { ALERT_LEVELS, type AlertLevel } from '@kiosko/sdk';
-import { AlertError, DEFAULT_SNOOZE_MS, PANEL_PRESETS, checkUpdates, dataPaths, discoverRemote, discoverTrcc, discoverUsb, normalize, npmRegistry, paths, resolveLocale, saveConfig, type Config, type FrameInfo, type Runtime, type Screen, type UpdateCheck } from '@kiosko/core';
+import { AlertError, DEFAULT_SNOOZE_MS, PANEL_PRESETS, checkUpdates, discoverRemote, discoverTrcc, discoverUsb, normalize, npmRegistry, paths, resolveLocale, resolveSourceKey, saveConfig, type Config, type FrameInfo, type Runtime, type Screen, type UpdateCheck, dataPaths } from '@kiosko/core';
 import { currentInstall, updateBlocker, updateInstructions, type InstallInfo } from './install-kind.ts';
 import { KioskoUpdater, UpdateError, readMarker, realRun, restartHow, writeMarker, type Handover, type UpdaterDeps } from './self-update.ts';
 
@@ -50,6 +51,8 @@ export interface ServerOptions {
   /** Folder with the built editor (index.html, assets). */
   webDir?: string;
   version: string;
+  /** How a screen's firmware is fetched from this version's GitHub release (tests). Default: fetch. */
+  firmwareFetch?: RemoteApiContext['fetch'];
   /**
    * Ask npm once a day for newer versions of the plugins (and of Kiosko).
    * Default: on, except in demo mode or with KIOSKO_NO_UPDATE_CHECK=1.
@@ -267,7 +270,9 @@ export function startServer(o: ServerOptions) {
   runtime.on('config', () => thumbs.clear());
   // Home Assistant, over MQTT: connects only when the config has it switched on.
   const bridge = (o.homeassistant ?? !runtime.demoMode) ? new HomeAssistantBridge(runtime, o.version) : null;
-  const fullStatus = () => ({ ...runtime.status(), homeassistant: bridge?.status() ?? { enabled: false, state: 'off', error: null } });
+  // Pushes from scripts (push-api.ts): token-authenticated, kept in Kiosko's folder.
+  const push = pushApi({ runtime, json, ...(runtime.demoMode ? {} : { file: pushFile(home) }) });
+  const fullStatus = () => ({ ...runtime.status(), homeassistant: bridge?.status() ?? { enabled: false, state: 'off', error: null }, push: push.status() });
   const statusTimer = setInterval(() => send('status', fullStatus()), 3000);
 
   const allowedHosts = new Set([`127.0.0.1:${o.port}`, `localhost:${o.port}`, `[::1]:${o.port}`, `${o.host}:${o.port}`]);
@@ -311,6 +316,8 @@ export function startServer(o: ServerOptions) {
 
   const remote = remoteApi({
     runtime,
+    version: o.version,
+    ...(o.firmwareFetch ? { fetch: o.firmwareFetch } : {}),
     json,
     body,
     commit: (cfg) => {
@@ -329,6 +336,8 @@ export function startServer(o: ServerOptions) {
   async function api(req: IncomingMessage, res: ServerResponse, url: URL): Promise<void> {
     const p = url.pathname;
     const m = req.method ?? 'GET';
+    // Before the X-Kiosko check: a push carries its own token instead (see push-api.ts).
+    if (p.startsWith('/api/push/') && (await push.handle(req, res, url))) return;
     if (m !== 'GET' && req.headers['x-kiosko'] !== '1') return json(res, 403, { error: 'missing X-Kiosko header' });
 
     if (p === '/api/state' && m === 'GET') return json(res, 200, state(req));
@@ -498,11 +507,13 @@ export function startServer(o: ServerOptions) {
 
     if (p === '/api/logs' && m === 'GET') return json(res, 200, runtime.logs.slice(-200));
 
-    // Values to offer for an option, from a source's live data (or its demo data before there is any).
+    // Values to offer for an option, from a source's live data (or its demo data before there is any):
+    // of the widget's source profile (`profile`), when it reads one.
     if (p === '/api/choices' && m === 'GET') {
       const source = url.searchParams.get('source') ?? '';
       const list = url.searchParams.get('list') ?? '';
-      return json(res, 200, runtime.registry.choices(source, list, runtime.hub.data(source), uiLocale(req)));
+      const key = resolveSourceKey(runtime.config, source, url.searchParams.get('profile'), runtime.registry.source(source));
+      return json(res, 200, runtime.registry.choices(source, list, runtime.hub.data(key), uiLocale(req)));
     }
 
     // A source's data paths with a value each, for a context rule (live data, or the demo's before there is any).
@@ -702,6 +713,7 @@ export function startServer(o: ServerOptions) {
   function close() {
     clearInterval(statusTimer);
     bridge?.stop();
+    push.close();
     for (const t of updateTimers) clearTimeout(t);
     for (const t of storeTimers) clearTimeout(t);
     // The runtime outlives the server (tests, a restart of the editor only): stop hearing it.

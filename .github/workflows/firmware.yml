@@ -57,6 +57,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write # to attach the images to the release
+      actions: write # to rebuild the site, whose web installer serves the newest full image
     steps:
       - uses: actions/download-artifact@v7
         with:
@@ -68,3 +69,7 @@ jobs:
         run: |
           gh release view "$GITHUB_REF_NAME" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" -R "$GITHUB_REPOSITORY" --title "Kiosko ${GITHUB_REF_NAME#v}" --generate-notes
           gh release upload "$GITHUB_REF_NAME" -R "$GITHUB_REPOSITORY" out/* --clobber
+      - name: Rebuild the site (its /flash/ installer takes the newest release's image)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run pages.yml -R "$GITHUB_REPOSITORY" --ref main || echo "::warning::could not start the site's build; its daily run picks the firmware up"

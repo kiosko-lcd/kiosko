@@ -6,7 +6,8 @@
 import { TIME_FORMATS } from '@kiosko/sdk/format';
 import { DEFAULT_WORKDAY } from '@kiosko/sdk/workday';
 import { suggestGrid } from '../layout/grid.ts';
-import { ALERT_THRESHOLDS, COMPARE_OPS, CONFIG_VERSION, DEFAULT_CONFIG, DEFAULT_MAX_BYTES, TEXT_SCALE, SETUP_STATES, THREADS_MODES, type Config, type ContextTiming, type Screen, type ScreenAlerts, type ShowWhenRule } from './model.ts';
+import { normalizeProfiles } from './profiles.ts';
+import { ALERT_THRESHOLDS, CONFIG_VERSION, PUSH_NAME_PATTERN, DEFAULT_CONFIG, DEFAULT_MAX_BYTES, TEXT_SCALE, SETUP_STATES, THREADS_MODES, type Config, type Screen, type ScreenAlerts, COMPARE_OPS, type ContextTiming, type ShowWhenRule } from './model.ts';
 
 /**
  * Fills gaps of a config written by hand or by an older version. Never throws.
@@ -14,8 +15,9 @@ import { ALERT_THRESHOLDS, COMPARE_OPS, CONFIG_VERSION, DEFAULT_CONFIG, DEFAULT_
  * `configSchema` (schema.ts): change both together.
  */
 export function normalize(raw: unknown): Config {
-  const { $schema, threads, setup, bootAnimation, ...c } = (raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {}) as Partial<Config>;
+  const { $schema, threads, setup, bootAnimation, sourceProfiles, ...c } = (raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {}) as Partial<Config>;
   const screens = Array.isArray(c.screens) ? c.screens.map(normalizeScreen) : [];
+  const profiles = normalizeProfiles(sourceProfiles);
   return {
     ...(typeof $schema === 'string' && $schema ? { $schema } : {}),
     ...DEFAULT_CONFIG,
@@ -25,9 +27,12 @@ export function normalize(raw: unknown): Config {
     // A copy of the defaults: the editor edits the result in place.
     workday: { ...(JSON.parse(JSON.stringify(DEFAULT_WORKDAY)) as typeof DEFAULT_WORKDAY), ...(c.workday ?? {}) },
     sources: c.sources ?? {},
+    // Only when there are any: a config without profiles stays as it was.
+    ...(profiles ? { sourceProfiles: profiles } : {}),
     plugins: { disabled: c.plugins?.disabled ?? [] },
     server: { ...DEFAULT_CONFIG.server, ...(c.server ?? {}) },
     ...(c.homeassistant && typeof c.homeassistant === 'object' ? { homeassistant: normalizeHa(c.homeassistant) } : {}),
+    ...(c.push && typeof c.push === 'object' ? { push: normalizePush(c.push) } : {}),
     ...(THREADS_MODES.includes(threads as never) ? { threads: threads! } : {}),
     ...(SETUP_STATES.includes(setup as never) ? { setup: setup! } : {}),
     // On unless switched off: only `false` is written.
@@ -46,6 +51,20 @@ function normalizeHa(h: Partial<NonNullable<Config['homeassistant']>>): NonNulla
     discoveryPrefix: (typeof h.discoveryPrefix === 'string' && h.discoveryPrefix.trim()) || 'homeassistant',
     nodeId: id || 'kiosko',
   };
+}
+
+/** Push names that can go in a URL, once each; a token kept as written (an empty one lets nobody in). */
+function normalizePush(p: Partial<NonNullable<Config['push']>>): NonNullable<Config['push']> {
+  const seen = new Set<string>();
+  const name = new RegExp(PUSH_NAME_PATTERN);
+  const hooks = (Array.isArray(p.hooks) ? p.hooks : []).flatMap((h) => {
+    if (!h || typeof h !== 'object') return [];
+    const n = String(h.name ?? '').trim().toLowerCase();
+    if (!name.test(n) || seen.has(n)) return [];
+    seen.add(n);
+    return [{ name: n, token: typeof h.token === 'string' ? h.token.trim() : '' }];
+  });
+  return { hooks };
 }
 
 function normalizeScreen(s: Partial<Screen>, i: number): Screen {

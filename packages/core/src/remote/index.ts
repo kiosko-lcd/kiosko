@@ -5,3 +5,5 @@ export { RemoteDevice, type RemoteStatus, type RemoteConfig } from './device.ts'
 export { browser as remoteBrowser, type FoundScreen } from './mdns.ts';
 export { otaUpdate, screenLogs, unpairScreen } from './ops.ts';
 export { posixTz } from './tz.ts';
+export { dimFor, nightOf, type NightBacklight } from './backlight.ts';
+export { SCREEN_FIRMWARE, downloadFirmware, firmwareFiles, firmwareOffer } from './firmware.ts';

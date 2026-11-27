@@ -64,6 +64,8 @@ export interface Device {
   setLed?(rgb: string, blinkMs?: number): void;
   /** Panels that turn the picture themselves (remote screens): the screen's rotation changed. */
   setRotation?(rotate: number): void;
+  /** Panels with a backlight Kiosko can dim (remote screens): 0-100 for now, null back to its own (remote/backlight.ts). */
+  setDim?(level: number | null): void;
 }
 
 export function encodeFor(device: DeviceConfig, jpegQuality: number): 'png' | 'jpeg' {

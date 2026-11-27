@@ -12,6 +12,8 @@
  * agree. Pure (no Node).
  */
 import { t, type Field, type ObjectField, type SourceDefinition } from '@kiosko/sdk';
+import type { Config } from './model.ts';
+import { acceptsProfiles, sourceKey } from './profiles.ts';
 
 /** Interval of a source that doesn't say. */
 export const DEFAULT_SOURCE_MS = 30_000;
@@ -34,14 +36,21 @@ export const canRunInBackground = (def: SourceDefinition<any, any>): boolean => 
  * The sources the user turned on to run with no widget using them
  * (`sources["plugin/source"].background`), of those that may (see
  * `canRunInBackground`) and whose plugin is enabled (`source` finds only
- * those).
+ * those). As source keys: a profile switched on (its `options.background`)
+ * of a source that accepts profiles runs too (see config/profiles.ts).
  */
-export function backgroundSources(cfg: { sources: Record<string, Record<string, unknown>> }, source: (type: string) => SourceDefinition<any, any> | undefined): string[] {
-  return Object.keys(cfg.sources).filter((type) => {
+export function backgroundSources(cfg: { sources: Record<string, Record<string, unknown>>; sourceProfiles?: Config['sourceProfiles'] }, source: (type: string) => SourceDefinition<any, any> | undefined): string[] {
+  const out = Object.keys(cfg.sources).filter((type) => {
     if (cfg.sources[type]?.background !== true) return false;
     const def = source(type);
     return !!def && canRunInBackground(def);
   });
+  for (const [type, list] of Object.entries(cfg.sourceProfiles ?? {})) {
+    const def = source(type);
+    if (!def || !canRunInBackground(def) || !acceptsProfiles(def)) continue;
+    for (const [id, p] of Object.entries(list)) if (p.options?.background === true) out.push(sourceKey(type, id));
+  }
+  return out;
 }
 
 /** `5000` → "5 s", `120000` → "2 min". */

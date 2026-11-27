@@ -20,11 +20,11 @@ const branch = (union: S, tag: string) => union.oneOf.find((b: S) => (b.properti
 // The keys of each type, checked by the compiler: adding a field to model.ts
 // without listing it here fails `npm run check`; the test below then fails
 // until the schema describes it too.
-const CONFIG_KEYS = { $schema: 1, version: 1, locale: 1, timeFormat: 1, theme: 1, location: 1, workday: 1, sources: 1, plugins: 1, screens: 1, server: 1, homeassistant: 1, threads: 1, setup: 1, bootAnimation: 1 } satisfies Record<keyof Config, 1>;
-const SCREEN_KEYS = { id: 1, name: 1, enabled: 1, width: 1, height: 1, rotate: 1, device: 1, pages: 1, pinnedPage: 1, context: 1, interludes: 1, pixelShift: 1, sleepWhenIdle: 1, jpegQuality: 1, maxBytes: 1, maxFps: 1, readingDistance: 1, textScale: 1, diagonalIn: 1, alerts: 1, thread: 1 } satisfies Record<keyof Screen, 1>;
-const PAGE_KEYS = { id: 1, name: 1, enabled: 1, durationMs: 1, when: 1, showWhen: 1, inRotation: 1, grid: 1, gravity: 1, background: 1, tiles: 1 } satisfies Record<keyof Page, 1>;
+const CONFIG_KEYS = { $schema: 1, version: 1, locale: 1, timeFormat: 1, theme: 1, location: 1, workday: 1, sources: 1, plugins: 1, screens: 1, server: 1, homeassistant: 1, push: 1, threads: 1, setup: 1, bootAnimation: 1, sourceProfiles: 1 } satisfies Record<keyof Config, 1>;
+const SCREEN_KEYS = { id: 1, name: 1, enabled: 1, width: 1, height: 1, rotate: 1, device: 1, pages: 1, pinnedPage: 1, interludes: 1, pixelShift: 1, sleepWhenIdle: 1, jpegQuality: 1, maxBytes: 1, maxFps: 1, readingDistance: 1, textScale: 1, diagonalIn: 1, alerts: 1, thread: 1, context: 1 } satisfies Record<keyof Screen, 1>;
+const PAGE_KEYS = { id: 1, name: 1, enabled: 1, durationMs: 1, when: 1, grid: 1, gravity: 1, background: 1, tiles: 1, showWhen: 1, inRotation: 1 } satisfies Record<keyof Page, 1>;
 const TILE_KEYS = { id: 1, x: 1, y: 1, w: 1, h: 1, locked: 1, widgets: 1, rotateMs: 1, chrome: 1 } satisfies Record<keyof Tile, 1>;
-const WIDGET_KEYS = { id: 1, type: 1, title: 1, options: 1, intervalMs: 1, when: 1, disabled: 1, zoom: 1, takeOver: 1, hideWhenEmpty: 1 } satisfies Record<keyof WidgetInstance, 1>;
+const WIDGET_KEYS = { id: 1, type: 1, title: 1, options: 1, intervalMs: 1, when: 1, disabled: 1, zoom: 1, takeOver: 1, hideWhenEmpty: 1, profile: 1 } satisfies Record<keyof WidgetInstance, 1>;
 const INTERLUDE_KEYS = { id: 1, type: 1, enabled: 1, everyMs: 1, maxSeconds: 1, options: 1 } satisfies Record<keyof InterludeSlot, 1>;
 const GRID_KEYS = { cols: 1, rows: 1, gap: 1, padding: 1 } satisfies Record<keyof GridSpec, 1>;
 
@@ -38,6 +38,7 @@ const FULL: Config = {
   location: { latitude: 40.4, longitude: -3.7, name: 'Madrid' },
   workday: { days: [1, 2, 3, 4], start: '08:00', end: '15:30', hours: 7, holidays: ['2026-12-25'], byDay: { '4': { end: '14:00', hours: 6 } } },
   sources: { 'demo/remote': { host: 'example.org', intervalMs: 120_000, timeoutMs: 20_000 }, 'demo/warnings': { background: true } },
+  sourceProfiles: { 'demo/remote': { work: { name: 'Work', options: { host: 'work.example.org' } } } },
   plugins: { disabled: ['demo'] },
   server: { host: '127.0.0.1', port: 7421 },
   homeassistant: { enabled: true, broker: 'mqtt://ha.local:1883', username: 'kiosko', password: 's3cret', discoveryPrefix: 'ha', nodeId: 'desk' },
@@ -71,6 +72,7 @@ const FULL: Config = {
           tiles: [{ id: 't1', x: 1, y: 1, w: 6, h: 3, locked: true, rotateMs: 20_000, chrome: 'card', widgets: [
             { id: 'w1', type: 'demo/clock', title: 'Clock', options: { format: '12h' }, intervalMs: 60_000, when: 'off', disabled: true, zoom: 1.2 },
             { id: 'w2', type: 'demo/list', options: { rows: 4, layout: 'detailed', projects: ['acme/*', '!*-old'] }, zoom: 0.8, takeOver: true, hideWhenEmpty: false },
+            { id: 'w3', type: 'demo/feed', options: {}, profile: 'work' },
           ] }],
         },
       ],
@@ -116,9 +118,10 @@ test('config schema stays in sync with the types and with normalize', () => {
   assert.deepEqual(keysOf(d.screen), keys(SCREEN_KEYS));
   assert.deepEqual(keysOf(d.page), keys(PAGE_KEYS));
   assert.deepEqual(keysOf(d.tile), keys(TILE_KEYS));
-  assert.deepEqual(keysOf(branch(d.widget, 'demo/list')), keys(WIDGET_KEYS));
-  // The switches only where the widget has the hooks behind them.
-  assert.deepEqual(keysOf(branch(d.widget, 'demo/clock')), keys(WIDGET_KEYS).filter((k) => k !== 'takeOver' && k !== 'hideWhenEmpty'));
+  assert.deepEqual(keysOf(branch(d.widget, 'demo/list')), keys(WIDGET_KEYS).filter((k) => k !== 'profile'));
+  // The switches only where the widget has the hooks behind them; the profile only where it reads a source that has profiles.
+  assert.deepEqual(keysOf(branch(d.widget, 'demo/clock')), keys(WIDGET_KEYS).filter((k) => k !== 'takeOver' && k !== 'hideWhenEmpty' && k !== 'profile'));
+  assert.deepEqual(keysOf(branch(d.widget, 'demo/feed')), keys(WIDGET_KEYS).filter((k) => k !== 'takeOver' && k !== 'hideWhenEmpty'));
   assert.deepEqual(keysOf(branch(d.interlude, 'demo/blink')), keys(INTERLUDE_KEYS));
   assert.deepEqual(keysOf(d.grid), keys(GRID_KEYS));
   // Every described field survives normalize, and normalize adds nothing undescribed.

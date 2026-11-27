@@ -197,6 +197,9 @@ export const api: typeof httpApi = {
   remoteOta: async () => {
     throw notHere();
   },
+  remoteFirmware: async () => {
+    throw notHere();
+  },
   remoteLogs: async () => {
     throw notHere();
   },

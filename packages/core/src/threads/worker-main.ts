@@ -11,7 +11,7 @@
 import { parentPort, workerData } from 'node:worker_threads';
 import { PAD_KEYS, themeById, type PluginDefinition, type Theme } from '@kiosko/sdk';
 import type { Image, Canvas } from '@napi-rs/canvas';
-import { isWorking, widgetsOf, type Config, type Screen } from '../config/model.ts';
+import { isWorking, sourceKeysOf, widgetsOf, type Config, type Screen } from '../config/model.ts';
 import type { Device, DeviceStatus } from '../devices.ts';
 import type { LogFn } from '../env.ts';
 import { Registry } from '../registry.ts';
@@ -121,10 +121,14 @@ class Host implements RunnerHost {
   dataOf(instanceId: string): unknown {
     return this.data.get(instanceId);
   }
-  sourcesOf(types: readonly string[] | undefined): Record<string, unknown> {
+  sourcesOf(types: readonly string[] | undefined, profile?: string | null): Record<string, unknown> {
     const out: Record<string, unknown> = {};
-    for (const t of types ?? []) out[t] = this.sources.get(t);
+    for (const [t, key] of this.sourceKeys(types, profile)) out[t] = this.sources.get(key);
     return out;
+  }
+  /** The source keys a widget with `profile` reads, by type (see config/profiles.ts). */
+  sourceKeys(types: readonly string[] | undefined, profile?: string | null): [string, string][] {
+    return sourceKeysOf(this.config, types, profile, (t) => this.registry.source(t));
   }
   paintTime(instance: string, type: string, ms: number, now: number): void {
     this.post({ t: 'paintTime', instance, type, ms, now });
@@ -152,7 +156,7 @@ class Host implements RunnerHost {
       if (!def || widget.disabled) continue;
       if (!r.page || r.page.id === page.id) {
         r.visibleIds.add(widget.id);
-        for (const s of def.sources ?? []) r.sourceTypes.add(s);
+        for (const [, key] of this.sourceKeys(def.sources, widget.profile)) r.sourceTypes.add(key);
       }
     }
   }

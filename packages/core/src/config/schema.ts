@@ -23,7 +23,8 @@
  * Pure (no Node).
  */
 import { localize, THEMES, TIME_FORMATS, toJsonSchema, type Field, type Localized, type PluginDefinition } from '@kiosko/sdk';
-import { CONFIG_SCHEMA_ID, CONFIG_VERSION, DEFAULT_CONFIG, ZOOM } from './model.ts';
+import { CONFIG_SCHEMA_ID, CONFIG_VERSION, DEFAULT_CONFIG, PUSH_NAME_PATTERN, ZOOM } from './model.ts';
+import { PROFILE_ID_PATTERN, acceptsProfiles } from './profiles.ts';
 import { sourceOptionsField } from './sources.ts';
 
 type S = Record<string, unknown>;
@@ -68,6 +69,8 @@ function sizeHint(size: { min?: { w: number; h: number }; preferred?: { w: numbe
 
 /** Builds the schema of the whole config from the plugins' definitions (`registry.list().map(p => p.def)`). */
 export function configSchema(plugins: readonly PluginDefinition[]): S {
+  // The sources that accept profiles (see config/profiles.ts): their widgets get a `profile`.
+  const withProfiles = new Set(plugins.flatMap((p) => (p.sources ?? []).filter((s) => acceptsProfiles(s)).map((s) => `${p.id}/${s.id}`)));
   const sourceUsers = new Map<string, string[]>();
   for (const p of plugins) for (const w of p.widgets ?? []) for (const s of w.sources ?? []) sourceUsers.set(s, [...(sourceUsers.get(s) ?? []), `${p.id}/${w.id}`]);
   for (const p of plugins) for (const i of p.interludes ?? []) for (const s of i.sources ?? []) sourceUsers.set(s, [...(sourceUsers.get(s) ?? []), `${p.id}/${i.id}`]);
@@ -92,6 +95,7 @@ export function configSchema(plugins: readonly PluginDefinition[]): S {
           zoom: { $ref: '#/$defs/zoom' },
           ...(w.urgent ? { takeOver: { ...TAKE_OVER, default: w.takeOver ?? true } } : {}),
           ...(w.empty ? { hideWhenEmpty: { ...HIDE_WHEN_EMPTY, default: w.hideWhenEmpty ?? false } } : {}),
+          ...(w.sources?.some((x) => withProfiles.has(x)) ? { profile: { $ref: '#/$defs/profile', description: `The profile of ${w.sources.filter((x) => withProfiles.has(x)).join(', ')} it reads, by id (see "sourceProfiles"). Missing, or one that isn't there: the default one, "sources".` } } : {}),
         },
         'x-plugin': p.id,
         'x-category': w.category ?? 'info',
@@ -141,6 +145,33 @@ export function configSchema(plugins: readonly PluginDefinition[]): S {
           },
         ];
       }),
+    ),
+  );
+
+  const profiles: S = Object.fromEntries(
+    plugins.flatMap((p) =>
+      (p.sources ?? [])
+        .filter((s) => acceptsProfiles(s))
+        .map((s) => {
+          const type = `${p.id}/${s.id}`;
+          return [
+            type,
+            {
+              type: 'object',
+              description: `Profiles of ${en(s.name)} (${type}) besides the default one, by id.`,
+              propertyNames: { $ref: '#/$defs/profile' },
+              additionalProperties: {
+                type: 'object',
+                additionalProperties: false,
+                required: ['name'],
+                properties: {
+                  name: { type: 'string', description: 'What it is called in the editor: "Technology", "Work account".' },
+                  options: { ...options(sourceOptionsField(s), 'source'), description: `Its options, as "sources" has them for the default one.` },
+                },
+              },
+            },
+          ];
+        }),
     ),
   );
 
@@ -201,6 +232,13 @@ export function configSchema(plugins: readonly PluginDefinition[]): S {
         propertyNames: { pattern: TYPE_PATTERN, 'x-pattern-hint': 'a source type such as "weather/current"' },
         additionalProperties: { type: 'object' },
       },
+      sourceProfiles: {
+        type: 'object',
+        description: 'More named configurations ("profiles") of the sources that accept them, by "plugin/source" and then by profile id: { "news/deck": { "tech": { "name": "Technology", "options": { "feeds": [ … ] } } } }. Each is read on its own; a widget picks one with its "profile". The default profile is still "sources".',
+        properties: profiles,
+        propertyNames: { pattern: TYPE_PATTERN, 'x-pattern-hint': 'a source type such as "news/deck"' },
+        additionalProperties: { type: 'object' },
+      },
       plugins: {
         type: 'object',
         additionalProperties: false,
@@ -242,9 +280,30 @@ export function configSchema(plugins: readonly PluginDefinition[]): S {
           nodeId: { type: 'string', pattern: '^[a-z0-9_-]+$', description: "This Kiosko's id in the topics, so several machines don't collide. Default: kiosko." },
         },
       },
+      push: {
+        type: 'object',
+        additionalProperties: false,
+        description: 'Names scripts may push to with POST /api/push/<name> (a value, a text, a level), for the Push and JSON widgets. Each has its own token. See docs/rest-webhook.md.',
+        properties: {
+          hooks: {
+            type: 'array',
+            default: [],
+            items: {
+              type: 'object',
+              additionalProperties: false,
+              required: ['name', 'token'],
+              properties: {
+                name: { type: 'string', pattern: PUSH_NAME_PATTERN, 'x-pattern-hint': 'lowercase letters, digits, "-" and "_", up to 40', description: 'Goes in the URL: /api/push/<name>.' },
+                token: { type: 'string', 'x-secret': true, description: 'Sent as "Authorization: Bearer <token>" (or ?token=). At least 16 characters; the editor makes a random one.' },
+              },
+            },
+          },
+        },
+      },
     },
     $defs: {
       id: { type: 'string', pattern: ID_PATTERN, 'x-pattern-hint': 'an id of letters, digits, ".", "_" or "-" (no spaces, at most 80)', description: 'Stable id, unique among its siblings (widget ids: unique in the whole config). Generated when missing.' },
+      profile: { type: 'string', pattern: PROFILE_ID_PATTERN, 'x-pattern-hint': 'a profile id: lowercase letters, digits, "-" or "_" (at most 40)' },
       time: { type: 'string', pattern: TIME_PATTERN, 'x-pattern-hint': 'a time as HH:MM (24 h)' },
       when: { enum: ['always', 'work', 'off'], default: 'always', description: 'When it shows: always, only in work hours, or only outside them (see "workday").' },
       zoom: {
@@ -312,6 +371,13 @@ export function configSchema(plugins: readonly PluginDefinition[]): S {
               host: { type: 'string', description: 'Address to use instead of finding it by mDNS (another subnet, a network without multicast).', 'x-risk': 'network' },
               port: { type: 'integer', minimum: 1, maximum: 65535, default: 7428 },
               brightness: { type: 'integer', minimum: 0, maximum: 100, description: 'Backlight brightness, 0-100 (perceived; 0 = off), pushed to the screen on every connection. Screen firmware 0.1.2 or later; older ones ignore it. Empty: the screen keeps its own (70 % unless set on its setup page).' },
+              night: {
+                type: 'object',
+                additionalProperties: false,
+                required: ['start', 'end', 'brightness'],
+                description: 'Night mode: from start to end (local time; start after end goes across midnight) the backlight goes to this brightness (0 = off), and back at the end. Alerts that take the panel over still show at full brightness. Screen firmware 0.1.4 or later; older ones ignore it. Whatever this says, the backlight goes off while Kiosko shows the screen black (switched off, asleep).',
+                properties: { start: { $ref: '#/$defs/time' }, end: { $ref: '#/$defs/time' }, brightness: { type: 'integer', minimum: 0, maximum: 100 } },
+              },
             },
           },
           {

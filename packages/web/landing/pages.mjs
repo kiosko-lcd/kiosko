@@ -27,6 +27,7 @@ function docsFor(id, root) {
   return {
     DOCS_USB: has('usb.md') ? `${at}docs/usb/` : `${REPO}/blob/main/docs/usb.md`,
     DOCS_REMOTE: has('remote-screens.md') ? `${at}docs/remote-screens/` : `${REPO}/blob/main/docs/remote-screens.md`,
+    DOCS_REST: has('rest-webhook.md') ? `${at}docs/rest-webhook/` : `${REPO}/blob/main/docs/rest-webhook.md`,
     DOCS_GUIDE: has('install.md') ? `${at}docs/install/` : `${REPO}#readme`,
   };
 }

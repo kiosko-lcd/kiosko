@@ -27,6 +27,13 @@ Was du bekommst:
 
 ## Firmware installieren
 
+**Im Browser (am einfachsten).** Öffne den
+[Web-Installer](https://kioskolcd.dev/de/flash/) in Chrome oder Edge auf
+einem Computer, schließ das Board per USB an, drück *Verbinden und
+installieren* und wähl seinen Port. Er schreibt das ganze Image des neuesten
+Releases; nichts zu installieren. Weiter mit
+[Erster Start und WLAN](#erster-start-und-wlan).
+
 **Fertige Images.** Jedes Kiosko-Release auf
 [GitHub](https://github.com/kiosko-lcd/kiosko/releases/latest) enthält, mit
 SHA-256:
@@ -111,6 +118,15 @@ die **Helligkeit** (0–100 %). Der Bildschirm behält sie, auch ohne Kiosko.
 Nicht gesetzt, nimmt er seine eigene: 70 % oder die auf seiner
 Einrichtungsseite gewählte. Weniger Helligkeit heißt weniger Wärme.
 
+**Nachtmodus** (Bildschirm-Firmware 0.1.4 oder neuer): auf der Karte
+einschalten, die Uhrzeiten wählen (etwa 22:30 bis 07:00) und die Helligkeit
+nachts, bis *Licht aus*. Wenn die Nacht endet, kehrt der Bildschirm zu seiner
+Helligkeit zurück. Alarme, die den Bildschirm übernehmen, leuchten trotzdem
+hell. Und immer wenn Kiosko den Bildschirm schwarz zeigt (aus Home Assistant
+ausgeschaltet, oder schlafend, weil auf der Seite nichts zu zeigen ist), geht
+auch seine Beleuchtung aus. Nichts davon wird auf dem Bildschirm gespeichert:
+Verschwindet Kiosko, leuchtet der Bildschirm wieder.
+
 Die Statuszeile der Karte zeigt auch die **Temperatur des Chips**. Sie liegt
 über der Raumtemperatur: etwa 35–45 °C sind für diesen Chip normal.
 
@@ -133,7 +149,13 @@ Der Bildschirm zählt die Sekunden mit, während du die Taste hältst.
 
 ## Firmware aktualisieren
 
-Auf der Karte des Bildschirms: *Firmware aktualisieren…*, dann die App-`.bin`
+Bringt dieses Kiosko eine neuere Firmware mit, als der Bildschirm hat, sagt
+es seine Karte und bietet **Firmware auf X aktualisieren** an. Erst bei
+diesem Klick lädt Kiosko die Firmware aus seinem eigenen Release auf GitHub,
+prüft ihre SHA-256 und sendet sie. Ohne Internet (oder ohne GitHub) lade die
+Datei von der Release-Seite und nimm *Firmware aktualisieren…*.
+
+Von Hand: *Firmware aktualisieren…* auf der Karte des Bildschirms, dann die App-`.bin`
 wählen (nicht die `-full`). Oder auf der Kommandozeile:
 
 ```sh

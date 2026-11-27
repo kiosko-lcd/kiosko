@@ -14,14 +14,16 @@ import { availableParallelism } from 'node:os';
 import { localize, themeById, validate, type AlertLevel, type PadEvent, type Theme } from '@kiosko/sdk';
 import { AlertBoard, type ActiveAlert, type PluginAlert } from './alerts.ts';
 import { MAX_CONCURRENT } from './animation.ts';
-import { composePage, composeWidget, tileState, type ComposeResult } from './compositor.ts';
-import { isWorking, whenMatches, widgetsOf, type Config, type Page, type Screen, type WidgetInstance } from './config/model.ts';
+import { composePage, composeWidget, type ComposeResult, tileState } from './compositor.ts';
+import { isWorking, widgetsOf, type Config, type Page, type Screen, type WidgetInstance, whenMatches } from './config/model.ts';
 import { ContextEngine, matchingPages, needsApps, ruleSources, type ContextEnv, type ContextPick, type ContextReason } from './context.ts';
+import { sourceKeysOf } from './config/profiles.ts';
 import { backgroundSources } from './config/sources.ts';
 import { FetchHost, SourceHub } from './data.ts';
 import { ledFor, openDevice, type Device, type DeviceStatus } from './devices.ts';
 import { ProcessWatch, systemProcesses, type ProcessLister } from './processes.ts';
 import { posixTz } from './remote/tz.ts';
+import { dimFor } from './remote/backlight.ts';
 import { resolveLocale, type LogFn } from './env.ts';
 import type { Registry } from './registry.ts';
 import { PLAY_IDLE_MS, ScreenRunner, TICK_MS, type FrameInfo, type Runner, type RunnerHost } from './screen-runner.ts';
@@ -187,11 +189,15 @@ export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
   dataOf(instanceId: string): unknown {
     return this.fetches.data(instanceId);
   }
-  sourceData(type: string): unknown {
-    return this.hub.data(type);
+  sourceData(key: string): unknown {
+    return this.hub.data(key);
   }
-  sourcesOf(types: readonly string[] | undefined): Record<string, unknown> {
-    return this.hub.pick(types);
+  sourcesOf(types: readonly string[] | undefined, profile?: string | null): Record<string, unknown> {
+    return this.hub.pick(types, this.config, profile);
+  }
+  /** The source keys a widget with `profile` reads (see config/profiles.ts). */
+  sourceKeys(types: readonly string[] | undefined, profile?: string | null): string[] {
+    return sourceKeysOf(this.config, types, profile, (t) => this.registry.source(t)).map(([, key]) => key);
   }
   paintTime(instance: string, type: string, ms: number, now: number): void {
     this.paintTimes.record(instance, type, ms, now, this.log);
@@ -228,10 +234,11 @@ export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
         const def = this.registry.widget(widget.type);
         if (!def || widget.disabled) continue;
         instances.push({ inst: widget, def });
-        for (const s of def.sources ?? []) sources.add(s);
+        const keys = this.sourceKeys(def.sources, widget.profile);
+        for (const s of keys) sources.add(s);
         if (!r.page || r.page.id === page.id) {
           r.visibleIds.add(widget.id);
-          for (const s of def.sources ?? []) r.sourceTypes.add(s);
+          for (const s of keys) r.sourceTypes.add(s);
         }
       }
       for (const slot of r.screen.interludes) for (const s of this.registry.interlude(slot.type)?.sources ?? []) if (slot.enabled) sources.add(s);
@@ -354,6 +361,7 @@ export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
       this.refreshAlerts(now);
       this.refreshContext(now);
       await Promise.all([...this.runners.values()].map((r) => r.update(now)));
+      this.refreshBacklights(now);
     };
     this.timer = setInterval(() => void loop(), TICK_MS);
     this.apply(this.config);
@@ -439,13 +447,14 @@ export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
           done.add(widget.id);
           call(widget.type, () => {
             const options = def.options ? (validate(def.options, widget.options).value as Record<string, unknown>) : {};
-            return def.alerts!({ options, data: this.fetches.data(widget.id), sources: this.hub.pick(def.sources), now, working, workday: cfg.workday, ...(cfg.location ? { location: cfg.location } : {}) });
+            return def.alerts!({ options, data: this.fetches.data(widget.id), sources: this.hub.pick(def.sources, cfg, widget.profile), now, working, workday: cfg.workday, ...(cfg.location ? { location: cfg.location } : {}) });
           }, 'widget');
         }
       }
-      for (const { type, options } of this.hub.running()) {
+      // Every profile of a source is asked; the same alert id from two of them is one alert.
+      for (const { key, type, options } of this.hub.running()) {
         const def = this.registry.source(type);
-        if (def?.alerts) call(type, () => def.alerts!({ data: this.hub.data(type), options, now }), 'source');
+        if (def?.alerts) call(type, () => def.alerts!({ data: this.hub.data(key), options, now }), 'source');
       }
     }
     this.alerts.sync(out, now, resolveLocale(this.config));
@@ -513,6 +522,14 @@ export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
     if (sig === this.alertsSig) return;
     this.alertsSig = sig;
     this.emit('alerts', list);
+  }
+
+  /** Remote screens' backlights: off while Kiosko shows them black, the night's brightness in their night window (remote/backlight.ts). */
+  refreshBacklights(now = Date.now()): void {
+    for (const r of this.runners.values()) {
+      if (!r.device.setDim) continue;
+      r.device.setDim(dimFor(r.screen, { sleeping: r.off || !!r.lastInfo?.sleeping, alert: !!r.alert }, now));
+    }
   }
 
   /** Alerts not seen nor expired, highest first; the snoozed ones too. */
@@ -633,7 +650,7 @@ export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
       now: o.now ?? Date.now(),
       working: this.working(o.now ?? Date.now()),
       dataOf: (inst) => this.fetches.data(inst.id),
-      sourcesOf: (types) => this.hub.pick(types),
+      sourcesOf: (types, profile) => this.hub.pick(types, this.config, profile),
       preview: true,
       demo: o.demo ?? true,
       ...(o.forceShown ? { forceShown: o.forceShown } : {}),

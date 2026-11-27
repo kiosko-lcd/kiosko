@@ -145,6 +145,11 @@ screen**, pick your panel model and its connection:
 MQTT), with its page to choose, a switch to turn it off and a button per
 interlude, for your automations: see [docs/homeassistant.md](docs/homeassistant.md).
 
+**Any JSON, and pushes from your scripts**: the JSON widgets show a value
+from any URL that answers JSON, and `curl -X POST … /api/push/<name>` puts
+what a script, cron or CI says on the panel, with no plugin to write: see
+[docs/rest-webhook.md](docs/rest-webhook.md).
+
 ## Concepts
 
 ```
@@ -480,7 +485,9 @@ Some settings work the same for every widget: in the editor's Inspector,
 **Text size** (`zoom`, 0.5–2×), **Keep the tile while urgent** and **Hide when
 empty**; in Settings, the **time format** (24 h, 12 h or as the language),
 the working week (hours due, days with other hours, holidays) and, under
-Data sources, how often each source is read.
+Data sources, how often each source is read. A source with **profiles** (news
+by topic, several accounts) can have several named configurations, and each
+tile picks one: see [Data sources and profiles](docs/data-sources.md).
 
 ## Command line
 
