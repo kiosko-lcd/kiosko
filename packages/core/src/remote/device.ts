@@ -334,26 +334,28 @@ export class RemoteDevice {
     r.online = true;
     this.say(`${r.id}: online at ${host} (${info.model} ${info.fw})`, true, 'remoteOnline', { id: r.id, host });
 
+    // Intervals (round trip, ping, silence, fps) on the monotonic clock: a wall-clock jump
+    // (NTP setting the time at boot) would make them negative or huge.
     let inflight: { num: number; at: number } | null = null;
-    let lastTx = Date.now();
-    let lastRx = Date.now();
+    let lastTx = performance.now();
+    let lastRx = performance.now();
     let reply: Promise<Awaited<ReturnType<typeof nextSealed>>> | null = null;
     while (!this.closed && !wire.closed && !this.paused) {
       // Send what is due: the LED, the newest frame (one at a time), a ping.
       if (this.rotDirty) {
         this.rotDirty = false;
         sendSealed(wire, session, T.SET, { rot: this.rotate });
-        lastTx = Date.now();
+        lastTx = performance.now();
       }
       if (this.dimDirty) {
         this.dimDirty = false;
         sendSealed(wire, session, T.SET, { dim: this.dim ?? -1 });
-        lastTx = Date.now();
+        lastTx = performance.now();
       }
       if (this.ledDirty && this.led) {
         this.ledDirty = false;
         sendSealed(wire, session, T.LED, this.led);
-        lastTx = Date.now();
+        lastTx = performance.now();
       }
       if (!inflight && this.fresh && this.latest) {
         const frame = this.latest;
@@ -366,34 +368,34 @@ export class RemoteDevice {
           const head = Buffer.alloc(4);
           head.writeUInt32BE(num);
           sendSealed(wire, session, T.FRAME, Buffer.concat([head, frame]));
-          inflight = { num, at: Date.now() };
+          inflight = { num, at: performance.now() };
           lastTx = inflight.at;
         }
       }
-      if (Date.now() - lastTx >= this.deps.pingMs) {
+      if (performance.now() - lastTx >= this.deps.pingMs) {
         sendSealed(wire, session, T.PING, {});
-        lastTx = Date.now();
+        lastTx = performance.now();
       }
-      if (Date.now() - lastRx > 3 * this.deps.pingMs + 1000) throw Object.assign(new Error('the screen stopped answering'), { code: 'ETIMEDOUT' });
+      if (performance.now() - lastRx > 3 * this.deps.pingMs + 1000) throw Object.assign(new Error('the screen stopped answering'), { code: 'ETIMEDOUT' });
       // Wait for the screen, a new frame, or the next ping.
       reply ??= nextSealed(wire, session, 3 * this.deps.pingMs + 1000);
-      const waitMs = Math.max(10, this.deps.pingMs - (Date.now() - lastTx));
+      const waitMs = Math.max(10, this.deps.pingMs - (performance.now() - lastTx));
       const got = await Promise.race([reply.then((m) => ({ m })), this.wait(waitMs, inflight ? ['pause'] : ['frame', 'pause']).then(() => null)]);
       if (this.paused) return;
       if (!got) continue;
       reply = null;
-      lastRx = Date.now();
+      lastRx = performance.now();
       const { m } = got;
       if (m.type === T.ACK) {
         const a = m.json() as { n?: number; ok?: boolean; dec?: number; rx?: number };
         if (inflight && a.n === inflight.num) {
-          const now = Date.now();
-          r.rttMs = now - inflight.at;
+          const now = performance.now();
+          r.rttMs = Math.round(now - inflight.at);
           r.decodeMs = typeof a.dec === 'number' ? a.dec : null;
           if (a.ok !== false) {
             this.status.framesSent++;
-            this.status.lastSentAt = now;
-            r.lastFrameAt = now;
+            this.status.lastSentAt = Date.now();
+            r.lastFrameAt = this.status.lastSentAt;
             this.frameTimes.push(now);
             while (this.frameTimes.length && now - this.frameTimes[0]! > 5000) this.frameTimes.shift();
             r.fps = this.frameTimes.length > 1 ? Math.round(((this.frameTimes.length - 1) * 10000) / (now - this.frameTimes[0]!)) / 10 : 0;
