@@ -56,7 +56,8 @@ temp folder (`kiosko-sandboxes-<uid>/<pid>.json`).
   connection to a paired board (`--sandbox-allow-remote`); `kiosko remote` refuses.
 - **The network**: it listens on `127.0.0.1` whatever `--host` or the config
   say (`--sandbox-allow-lan` lets `--host` open it), and doesn't publish to
-  Home Assistant.
+  Home Assistant. The network-screens server for browser screens too: on
+  `127.0.0.1` whatever `networkScreens.host` says, unless `--sandbox-allow-lan`.
 - **The default port**: `--port 7420` is refused, since that is the real
   Kiosko's (`--sandbox-force-port` takes it anyway, e.g. inside a container).
   Without `--port` it takes a free one.

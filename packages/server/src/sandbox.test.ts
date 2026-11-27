@@ -8,7 +8,8 @@ import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
-import { tmpdir } from 'node:os';
+import { connect } from 'node:net';
+import { networkInterfaces, tmpdir } from 'node:os';
 import { join, relative, resolve } from 'node:path';
 import { test, type TestContext } from 'node:test';
 import { DEFAULT_CONFIG, newScreen, newTile, newWidget, type Config } from '@kiosko/core';
@@ -146,13 +147,29 @@ export default { id: 'probe', name: 'Probe', version: '1.0.0', widgets: [{ id: '
 }, render() {} }] };
 `;
 
+/** The network-screens port of the production config the sandbox copies. */
+const NET_PORT = 37488;
+
+/** Whether something accepts a TCP connection at host:port. */
+function accepts(host: string, port: number): Promise<boolean> {
+  return new Promise((ok) => {
+    const c = connect({ host, port });
+    const done = (v: boolean) => (c.destroy(), ok(v));
+    c.setTimeout(2000, () => done(false));
+    c.once('connect', () => done(true));
+    c.once('error', () => done(false));
+  });
+}
+
 function productionConfig(prod: ReturnType<typeof production>, jsonUrl: string): Config {
   const a = newScreen('Frames A', 320, 240, { driver: 'file', dir: '$XDG_RUNTIME_DIR/kiosko-frames/a' });
   a.pages[0]!.tiles = [newTile({ x: 0, y: 0, w: 12, h: 12 }, [newWidget('probe/w'), newWidget('core/json', { url: jsonUrl, select: 'v', chart: 'below' })])];
   const b = newScreen('Frames B', 320, 240, { driver: 'file', dir: join(prod.dirs.run, 'frames-abs') });
   b.pages[0]!.tiles = [newTile({ x: 0, y: 0, w: 12, h: 12 }, [newWidget('core/clock')])];
   const usb = newScreen('USB', 320, 240, { driver: 'usb', serial: 'REAL-PANEL' });
-  return { ...structuredClone(DEFAULT_CONFIG), locale: 'en', screens: [a, b, usb], server: { host: '0.0.0.0', port: 7420 } };
+  // A tablet paired with the real Kiosko, whose network-screens server listens on the LAN.
+  const tablet = newScreen('Tablet', 800, 480, { driver: 'browser', uid: 'abcdefabcdef', key: 'ab'.repeat(32) });
+  return { ...structuredClone(DEFAULT_CONFIG), locale: 'en', screens: [a, b, usb, tablet], server: { host: '0.0.0.0', port: 7420 }, networkScreens: { enabled: true, host: '0.0.0.0', port: NET_PORT } };
 }
 
 test('a sandboxed Kiosko writes nothing outside its folder: config, plugins, caches, Frame files, ~, temp', async (t) => {
@@ -198,6 +215,17 @@ test('a sandboxed Kiosko writes nothing outside its folder: config, plugins, cac
   // Remote screens: refused.
   const remote = await fetch(`${base}/api/remote/discover`, { headers: { 'x-kiosko': '1' } });
   assert.equal(remote.status, 403);
+  // Network screens: on, as in the config, but on 127.0.0.1 only, not on 0.0.0.0 as the config says.
+  let net: { listening: boolean; host: string; port: number; sandboxed?: boolean } | null = null;
+  await until('the network-screens server listens', async () => (net = (await (await fetch(`${base}/api/browser`, { headers: { 'x-kiosko': '1' } })).json()) as typeof net)?.listening === true);
+  assert.deepEqual([net!.host, net!.port, net!.sandboxed], ['127.0.0.1', NET_PORT, true]);
+  assert.ok(await accepts('127.0.0.1', NET_PORT));
+  const lan = Object.values(networkInterfaces()).flatMap((l) => l ?? []).filter((i) => i.family === 'IPv4' && !i.internal).map((i) => i.address);
+  for (const ip of lan) assert.equal(await accepts(ip, NET_PORT), false, `the network-screens server answers on ${ip}`);
+  // Its tablet's screen waits for a browser on this computer; nothing is painted for it meanwhile.
+  const tabletId = state.config.screens.find((s) => s.name === 'Tablet')!.id;
+  const tablet = state.status.screens.find((s) => s.id === tabletId) as unknown as { device: { driver: string } };
+  assert.equal(tablet.device.driver, 'browser');
 
   // The editor saves into the sandbox's copy, never into the config it was copied from.
   const changed = { ...state.config, screens: state.config.screens.map((s) => ({ ...s, name: `${s.name} (edited)` })) };
@@ -216,6 +244,7 @@ test('a sandboxed Kiosko writes nothing outside its folder: config, plugins, cac
   assert.deepEqual(snapshot(prod.root), before, 'the production folders changed');
   assert.match(k.output(), /SANDBOX — this is not the real Kiosko/);
   assert.match(k.output(), /listening on 127\.0\.0\.1, not 0\.0\.0\.0/);
+  assert.match(k.output(), /network-screens.*sandbox: listening on 127\.0\.0\.1, not 0\.0\.0\.0/);
 });
 
 test('a sandbox refuses the default port and a config outside it, before touching anything', async (t) => {
