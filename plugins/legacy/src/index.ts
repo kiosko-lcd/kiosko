@@ -116,7 +116,7 @@ export const module = defineWidget({
 export default definePlugin({
   id: 'legacy',
   name: { en: 'aimonitor compatibility', es: 'Compatibilidad aimonitor', de: 'aimonitor-Kompatibilität', 'zh-Hant': 'aimonitor 相容性', 'zh-Hans': 'aimonitor 兼容' },
-  version: '0.2.14',
+  version: '0.2.15',
   languages: ['en', 'es', 'de', 'zh-Hant', 'zh-Hans'],
   sdk: '^0.2.0',
   // Runs the aimonitor modules you point it at, and reads their folder.
