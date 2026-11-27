@@ -314,6 +314,7 @@ export const zhHant: Dictionary = {
   'threads.never': '永不',
   'settings.threadsNow': '{cores} 個核心 · 主執行緒占用 {load}% · Kiosko 使用 {mem}',
   'threads.own': '獨立執行緒，{mem}',
+  'threads.parked': '獨立執行緒，面板不在時已停止',
   'threads.main': '主執行緒',
   'threads.why.never': '主執行緒（螢幕設定）',
   'threads.why.fewScreens': '主執行緒（只有一個螢幕開啟）',

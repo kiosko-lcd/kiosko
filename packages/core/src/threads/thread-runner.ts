@@ -25,9 +25,19 @@ import type { FrameInfo, Runner } from '../screen-runner.ts';
 import { Unclonable, pack } from './clone.ts';
 import type { FromThread, ThreadInit, ThreadState, ToThread } from './protocol.ts';
 
+/**
+ * A screen whose panel has been missing this long gives its thread back:
+ * a paused thread paints nothing, but holds its plugins, fonts, images and
+ * tile cache (tens of MB). It gets a new one, which paints a full frame
+ * from scratch, when the panel is back.
+ */
+export const PARK_AFTER_MS = 60_000;
+
 /** What a ThreadRunner needs from the Runtime. */
 export interface ThreadOwner {
   readonly config: Config;
+  /** See `PARK_AFTER_MS` (tests shorten it). */
+  readonly parkAfterMs?: number;
   readonly registry: Registry;
   readonly demoMode: boolean;
   readonly maxConcurrent: number;
@@ -78,6 +88,9 @@ export class ThreadRunner implements Runner {
   private failed = false;
   private need = { ids: new Set<string>(), sources: new Set<string>() };
   private images = new Map<number, (b: Buffer | null) => void>();
+  /** Its thread was stopped while its panel is missing (see `PARK_AFTER_MS`). */
+  parked = false;
+  private parkTimer: NodeJS.Timeout | null = null;
   private nextReq = 0;
   readonly stats = { read: (): ScreenFrameStats => this.state.stats };
   private readonly owner: ThreadOwner;
@@ -93,6 +106,7 @@ export class ThreadRunner implements Runner {
     // A panel already known to be missing: the thread starts paused (a message would come after its first paint).
     this.paused = screen.enabled && this.device.presence?.state === 'absent';
     this.start();
+    if (this.paused) this.parkLater();
   }
 
   get page(): Page | null {
@@ -229,7 +243,7 @@ export class ThreadRunner implements Runner {
   /** The last frame's picture, asked of the thread, which has it. */
   private image(): Promise<Buffer> {
     return new Promise((resolve, reject) => {
-      if (!this.worker || this.failed) return reject(new Error('the screen\'s thread is gone'));
+      if (!this.worker || this.failed) return reject(new Error(this.parked ? 'the screen is paused: its panel is missing' : 'the screen\'s thread is gone'));
       const req = ++this.nextReq;
       this.images.set(req, (b) => (b ? resolve(b) : reject(new Error('no frame yet'))));
       this.post({ t: 'image', req });
@@ -262,6 +276,38 @@ export class ThreadRunner implements Runner {
     w.unref();
   }
 
+  private parkLater(): void {
+    this.unpark();
+    const t = setTimeout(() => void this.park(), this.owner.parkAfterMs ?? PARK_AFTER_MS);
+    t.unref();
+    this.parkTimer = t;
+  }
+
+  private unpark(): void {
+    if (this.parkTimer) clearTimeout(this.parkTimer);
+    this.parkTimer = null;
+  }
+
+  /**
+   * Stops the thread of a screen still paused. The editor keeps the last
+   * picture it had (asked of the thread before it goes, one JPEG); the thread
+   * is started again by `setPaused(false)`.
+   */
+  private async park(): Promise<void> {
+    this.parkTimer = null;
+    if (!this.paused || this.parked || this.closed || this.failed || !this.worker) return;
+    const generation = this.generation;
+    const info = this.lastInfo;
+    const picture = info ? await this.image().catch(() => null) : null;
+    // Back meanwhile, or another thread already: nothing to do.
+    if (!this.paused || this.parked || this.closed || this.failed || generation !== this.generation) return;
+    this.stopWorker();
+    this.parked = true;
+    this.state = { ...this.state, interlude: null, animating: null, heapBytes: 0 };
+    if (info && this.lastInfo === info) this.lastInfo = { ...info, image: () => (picture ? Promise.resolve(picture) : Promise.reject(new Error('the screen is paused: its panel is missing'))) };
+    this.owner.log(`screen:${this.screen.name}`, `its panel has been missing for ${Math.round((this.owner.parkAfterMs ?? PARK_AFTER_MS) / 1000)} s: its thread is stopped until it is back`);
+  }
+
   /** The panel, for whoever paints the screen next (the main thread, when this one failed); closing this runner leaves it open. */
   takeDevice(): Device {
     const d = this.device;
@@ -289,7 +335,8 @@ export class ThreadRunner implements Runner {
 
   /** A plugin's code changed: a new thread loads them all again (an ES module can't be unloaded). */
   invalidate(): void {
-    if (this.closed || this.failed) return;
+    // A stopped one loads the new code when it starts again.
+    if (this.closed || this.failed || this.parked) return;
     this.stopWorker();
     this.start();
   }
@@ -327,7 +374,18 @@ export class ThreadRunner implements Runner {
   setPaused(paused: boolean): void {
     if (paused === this.paused) return;
     this.paused = paused;
-    if (paused) this.state = { ...this.state, interlude: null, animating: null };
+    if (paused) {
+      this.state = { ...this.state, interlude: null, animating: null };
+      this.parkLater();
+    } else {
+      this.unpark();
+      if (this.parked) {
+        // A new thread, which paints a full frame from scratch with all the data it needs.
+        this.parked = false;
+        if (!this.closed && !this.failed) this.start();
+        return;
+      }
+    }
     this.post({ t: 'paused', paused });
     // Back: the data it missed meanwhile, all of it again.
     if (!paused) {
@@ -355,6 +413,7 @@ export class ThreadRunner implements Runner {
   close(): void {
     if (this.closed) return;
     this.closed = true;
+    this.unpark();
     this.stopWorker();
     if (this.deviceKey) this.device.close();
   }

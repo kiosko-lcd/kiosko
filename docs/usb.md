@@ -37,6 +37,11 @@ says *Panel disconnected · paused (saving CPU)*, and `kiosko doctor` shows
 each Frame file screen's presence. A screen you switched off stays off:
 presence is not the screen's on/off switch.
 
+A screen painted in a thread of its own also gives that thread back once it
+has been paused for a minute (the thread's memory: its plugins, fonts,
+images and painted tiles, tens of MB), and gets a new one, which paints the
+full frame from scratch, when the panel is back.
+
 - **USB** connection: automatic. The panel is absent when no LY panel with its
   `serial` (any LY panel, without one) is plugged in. Looked up without
   opening it.

@@ -295,3 +295,48 @@ test('presence: a thread started for a screen whose panel is already missing pai
   a.set('present');
   await until(() => a.frames.length >= 1, 4000);
 });
+
+test('presence: a screen missing for a while gives its thread back, and gets a new one that paints a full frame when its panel is back', async (t) => {
+  const a = new FakePanel('present');
+  const b = new FakePanel('present');
+  const rt = threaded(a, b);
+  rt.parkAfterMs = 400;
+  rt.start();
+  t.after(() => rt.stop());
+  await until(() => a.frames.length >= 1 && b.frames.length >= 1 && !!feed.color, 15_000, 'both painted in their threads');
+  const lastSent = a.frames.at(-1)!;
+  const picture = await rt.lastFrame('a')!.image();
+  a.set('absent');
+  await until(() => st(rt, 'a').paused);
+  // Paused but not for long yet: the thread is still there.
+  assert.equal(st(rt, 'a').thread.parked, false);
+  await until(() => st(rt, 'a').thread.parked, 3000, 'its thread stops after a while');
+  const runner = (rt as unknown as { runners: Map<string, { worker: unknown }> }).runners.get('a')!;
+  assert.equal(runner.worker, null, 'no thread at all');
+  assert.equal(st(rt, 'a').thread.on, true);
+  assert.equal(st(rt, 'a').thread.heapBytes, 0);
+  assert.ok((await rt.lastFrame('a')!.image()).equals(picture), 'the editor keeps its last picture');
+  // Meanwhile: a config applied, a plugin reloaded, data changing. Nothing starts it.
+  rt.apply(rt.config);
+  rt.pluginsChanged(['tt']);
+  await sleep(300);
+  assert.equal(runner.worker, null);
+  assert.equal(b.frames.length > 0, true);
+  const sent = a.frames.length;
+  a.set('present');
+  await until(() => a.frames.length > sent, 15_000, 'a new thread paints a frame');
+  assert.equal(st(rt, 'a').paused, false);
+  assert.equal(st(rt, 'a').thread.parked, false);
+  assert.ok(a.frames.at(-1)!.equals(lastSent), 'the same picture as before it went, painted from scratch');
+  await until(() => !!feed.color, 2000, 'its source runs again');
+  const before = a.frames.length;
+  feed.color!({ color: '#00ff00' });
+  await until(() => a.frames.length > before, 4000, 'and its data reaches the new thread');
+  // Gone and back before the delay: the same thread, never stopped.
+  a.set('absent');
+  await until(() => st(rt, 'a').paused);
+  a.set('present');
+  await sleep(600);
+  assert.equal(st(rt, 'a').thread.parked, false);
+  assert.notEqual(runner.worker, null);
+});

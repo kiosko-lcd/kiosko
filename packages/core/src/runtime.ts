@@ -29,7 +29,7 @@ import { resolveLocale, type LogFn } from './env.ts';
 import type { Registry } from './registry.ts';
 import { PLAY_IDLE_MS, ScreenRunner, TICK_MS, type FrameInfo, type Runner, type RunnerHost } from './screen-runner.ts';
 import { planThreads, threadsMode, type ThreadWhy } from './threads/plan.ts';
-import { ThreadRunner, defaultThreadEntry, type ThreadOwner } from './threads/thread-runner.ts';
+import { PARK_AFTER_MS, ThreadRunner, defaultThreadEntry, type ThreadOwner } from './threads/thread-runner.ts';
 
 export { PLAY_IDLE_MS, encodeFit, type FrameInfo } from './screen-runner.ts';
 
@@ -117,6 +117,8 @@ export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
   playIdleMs: number = PLAY_IDLE_MS;
   /** Random numbers for the animations; tests replace it with a seeded one. */
   rnd: () => number = Math.random;
+  /** A screen painted in a thread stops it after its panel has been missing this long (see `PARK_AFTER_MS`). */
+  parkAfterMs: number = PARK_AFTER_MS;
   /** Alerts from the plugins, from outside and the screens' tests (see alerts.ts). */
   readonly alerts = new AlertBoard((m) => this.log('alerts', m));
   /** Data changed since the plugins' alerts were last asked. */
@@ -674,6 +676,8 @@ export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
           why: this.threadless.has(r.screen.id) ? ('failed' as const) : (this.threadWhy.get(r.screen.id) ?? 'setting'),
           error: this.threadless.get(r.screen.id)?.reason ?? null,
           heapBytes: r instanceof ThreadRunner ? r.heapBytes : null,
+          /** Stopped while its panel is missing (see `PARK_AFTER_MS`): started again when it is back. */
+          parked: r instanceof ThreadRunner && r.parked,
         },
       })),
       threads: {
