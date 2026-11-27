@@ -4,6 +4,15 @@ import { ApiError } from './errors.ts';
 import type { StoreIndex, StorePluginFile } from '@kiosko/core/store';
 
 /** The plugin store as this Kiosko sees it (GET /api/store). */
+/** A USB device as listed for presence: ids, serial (when readable) and where. */
+export interface UsbSeen {
+  vid: number;
+  pid: number;
+  serial?: string;
+  location: string;
+  error?: string;
+}
+
 export interface StoreState {
   index: StoreIndex | null;
   /** Where the catalogue came from: the copy that comes with Kiosko, the one kept, or just downloaded. */
@@ -253,7 +262,7 @@ export interface ContextInfo {
 }
 
 export interface Status {
-  screens: { id: string; name: string; page: string | null; pinned: string | null; context?: ContextInfo | null; interlude: string | null; playing?: boolean; device: { driver: string; ok: boolean; message: string; code?: string; params?: Record<string, string | number>; framesSent: number; lastSentAt: number | null; detected?: { width: number; height: number; rotate?: number }; remote?: RemoteLink }; lastFrameAt: number | null; sleeping: boolean; alert?: string | null; frames?: ScreenFrames; thread?: ScreenThread }[];
+  screens: { id: string; name: string; page: string | null; pinned: string | null; context?: ContextInfo | null; interlude: string | null; playing?: boolean; device: { driver: string; ok: boolean; message: string; code?: string; params?: Record<string, string | number>; framesSent: number; lastSentAt: number | null; detected?: { width: number; height: number; rotate?: number }; remote?: RemoteLink }; lastFrameAt: number | null; sleeping: boolean; paused?: boolean; presence?: { state: 'present' | 'absent' | 'unknown'; why: string } | null; alert?: string | null; frames?: ScreenFrames; thread?: ScreenThread }[];
   /** Painting in threads: the setting, the cores, the main thread's heap and the whole process' memory. */
   threads?: { mode: 'auto' | 'always' | 'never'; cores: number; heapBytes: number; rssBytes: number };
   /** How busy the main thread is (0–1). */
@@ -380,6 +389,8 @@ export const api = {
   testAlert: (screenId: string, level: AlertInfo['level']) => fetch(`/api/screens/${encodeURIComponent(screenId)}/test-alert`, { method: 'POST', headers: H, body: JSON.stringify({ level }) }).then((r) => ok<{ ok: true; alert: AlertInfo }>(r)),
   refreshWidget: (id: string) => fetch(`/api/widgets/${encodeURIComponent(id)}/refresh`, { method: 'POST', headers: H, body: '{}' }).then((r) => ok(r)),
   discover: (url?: string) => fetch(`/api/devices/discover${url ? `?url=${encodeURIComponent(url)}` : ''}`).then((r) => ok<{ trcc: { key: string; width: number; height: number }[]; usb: { serial: string; key: string; width: number; height: number; rotate?: number; location: string; error?: string }[]; remote?: RemoteFound[] }>(r)),
+  /** USB devices with this VID:PID plugged in now, with their serials (read only), for a Frame file screen's presence. */
+  usbDevices: (vendorId: string, productId: string) => fetch(`/api/devices/usb?vendorId=${encodeURIComponent(vendorId)}&productId=${encodeURIComponent(productId)}`).then((r) => ok<{ ok: boolean; devices: UsbSeen[]; error?: string }>(r)),
   /** Remote screens: the screen shows a code… */
   pairStart: (uid: string, host?: string) => fetch('/api/remote/pair', { method: 'POST', headers: H, body: JSON.stringify({ uid, ...(host ? { host } : {}) }) }).then((r) => ok<{ pairId: string; ttl: number; screen: { uid: string; id: string; model: string; w: number; h: number; rot: number; fw: string } }>(r)),
   /** …which is typed here: the key goes into that screen's config (or a new screen's). */

@@ -291,6 +291,9 @@ select.input { cursor: pointer; }
 .status-pill { display: inline-flex; gap: 6px; align-items: center; font-size: 12px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--bg-2); color: var(--text-2); max-width: 420px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .status-pill.ok .dot { background: var(--ok); }
 .status-pill.bad .dot { background: var(--bad); }
+.status-pill.paused .dot { background: var(--text-3); }
+.menu-list { display: flex; flex-direction: column; gap: 2px; margin: 6px 0; }
+.menu-item.on { background: var(--panel-2); }
 .panel-glyph { width: 30px; height: 30px; display: inline-grid; place-items: center; flex: none; }
 .panel-glyph span { background: var(--grad); border-radius: 2px; box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.15); }
 .add-screen { position: relative; }
