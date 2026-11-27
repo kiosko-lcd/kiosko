@@ -183,11 +183,11 @@ export class FakeScreen {
         this.inflightMax = Math.max(this.inflightMax, decoding + queued);
         const num = m.payload.readUInt32BE(0);
         this.received.push(num);
-        // At least decodeMs on Date.now(), the clock Kiosko times the round trip with: a timer
-        // alone counts from libuv's cached, whole-millisecond loop time and can come back after
-        // 39.x ms, which Date.now() reads as 39.
-        const start = Date.now();
-        for (let left = this.decodeMs; left > 0; left = this.decodeMs - (Date.now() - start)) await new Promise((r) => setTimeout(r, left));
+        // At least decodeMs on performance.now(), the clock Kiosko times the round trip with: a
+        // timer alone counts from libuv's cached, whole-millisecond loop time and can come back
+        // after 39.x ms.
+        const start = performance.now();
+        for (let left = this.decodeMs; left > 0; left = this.decodeMs - (performance.now() - start)) await new Promise((r) => setTimeout(r, Math.ceil(left)));
         if (this.held && this.stepsAhead) this.stepsAhead--;
         else if (this.held) await new Promise<void>((r) => this.steps.push(r));
         this.frames.push({ num, jpeg: m.payload.subarray(4), at: Date.now() });
