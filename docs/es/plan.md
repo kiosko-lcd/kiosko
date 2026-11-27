@@ -1349,6 +1349,35 @@ Lo que cambia en el camino:
       endpoint compatible con TRMNL; (3) Inkplate y la variante e-ink del
       firmware propio.
 
+63. **El espacio, hoy** (`kiosko-plugin-cosmos`):
+    - *Qué*: la foto astronómica del día de la NASA (**APOD**) y la Tierra
+      entera vista desde el satélite DSCOVR (**EPIC**), con su explicación
+      (resumida, en el idioma del panel cuando se pueda); como widget
+      tranquilo o como interludio a pantalla completa. El primo científico
+      de `art` (punto 53), con el que puede compartir el encaje de imágenes
+      (recorte inteligente en barras largas, completa en cuadradas).
+    - *De dónde*: `api.nasa.gov` (APOD y EPIC; la clave `DEMO_KEY` basta
+      para un panel, o una propia gratuita) y las imágenes de
+      `epic.gsfc.nasa.gov`.
+    - *A tener en cuenta*: algunos APOD son vídeos (mostrar su miniatura o
+      el del día anterior) y algunos tienen copyright de su autor (crédito
+      siempre en pantalla, y solo mostrarlos donde la licencia lo permita).
+
+64. **Tus métricas** (`kiosko-plugin-metrics`): Prometheus y Grafana en el
+    panel, para quien ya mide su infraestructura:
+    - *Qué*: cualquier consulta **PromQL** como número grande, gráfica de
+      la última hora o semáforo con umbrales (CPU de un clúster, latencia
+      p99, errores por minuto, cola de mensajes); las **alertas activas**
+      de Alertmanager (a pantalla completa las críticas, punto 27); y, si
+      se quiere, un **panel de Grafana** renderizado tal cual (su API de
+      render) ajustado a la forma de la tesela.
+    - *De dónde*: la API HTTP de Prometheus (o compatibles: VictoriaMetrics,
+      Thanos, Mimir), la de Alertmanager y la de Grafana con un token de
+      solo lectura.
+    - *A tener en cuenta*: varias instancias (perfiles de fuente, punto 11);
+      consultas caras con intervalo largo; y reutilizar el formateo y los
+      umbrales del widget JSON (punto 18).
+
 ### Decisiones abiertas para ti
 
 - **Nombre**: `Kiosko` es provisional (el paquete npm está como
