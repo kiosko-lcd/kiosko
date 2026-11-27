@@ -1,0 +1,184 @@
+/* The browser screen's page: dark, quiet, nothing but the picture once it comes. */
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: #000;
+  color: #e7e9f2;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  cursor: none;
+}
+
+body.menu-open {
+  cursor: default;
+}
+
+.screen {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  display: block;
+}
+
+.card {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.2vh;
+  padding: 4vh 6vw;
+  box-sizing: border-box;
+  text-align: center;
+  background: radial-gradient(ellipse at 50% 35%, #161a2b 0%, #000 70%);
+}
+
+.card[hidden],
+.code[hidden],
+.steps[hidden],
+.menu[hidden],
+.offline-dot[hidden],
+[hidden] {
+  display: none !important;
+}
+
+.brand {
+  font-weight: 800;
+  letter-spacing: 0.5em;
+  font-size: clamp(12px, 2.2vmin, 22px);
+  color: #8b8fa8;
+  margin-left: 0.5em;
+}
+
+.message {
+  font-size: clamp(18px, 4.2vmin, 44px);
+  font-weight: 600;
+}
+
+body[data-state='connecting'] .message,
+body[data-state='offline'] .message {
+  color: #a9adc4;
+  font-weight: 500;
+}
+
+.code {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
+  font-weight: 700;
+  font-size: min(19vw, 30vh);
+  line-height: 1;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  color: #fff;
+  margin: 1vh 0;
+  background: linear-gradient(135deg, #a78bfa, #22d3ee);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.steps {
+  max-width: 34em;
+  margin: 0;
+  font-size: clamp(14px, 2.6vmin, 28px);
+  line-height: 1.4;
+  color: #c3c6d8;
+}
+
+.who {
+  margin: 2vh 0 0;
+  font-size: clamp(12px, 1.9vmin, 20px);
+  color: #6f7390;
+  font-variant-numeric: tabular-nums;
+}
+
+.offline-dot {
+  position: fixed;
+  left: max(12px, env(safe-area-inset-left));
+  bottom: max(12px, env(safe-area-inset-bottom));
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #f59e0b;
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.55);
+  animation: pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.25;
+  }
+}
+
+.corner {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 64px;
+  height: 64px;
+  border: 0;
+  background: transparent;
+  color: transparent;
+  font-size: 28px;
+  cursor: none;
+}
+
+body.menu-open .corner,
+body[data-state='pairing'] .corner {
+  color: #555a74;
+  cursor: pointer;
+}
+
+.menu {
+  position: fixed;
+  top: 64px;
+  right: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 240px;
+  max-width: 80vw;
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(22, 24, 36, 0.96);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+  border: 1px solid #2a2e45;
+}
+
+.menu button {
+  font: inherit;
+  font-size: 17px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid #2f3450;
+  background: #1d2034;
+  color: #e7e9f2;
+  text-align: left;
+  cursor: pointer;
+}
+
+.menu .awake,
+.menu .hint {
+  margin: 4px 2px 0;
+  font-size: 13px;
+  color: #8b8fa8;
+}
+
+.awake-video {
+  position: fixed;
+  left: 0;
+  bottom: 0;
+  width: 2px;
+  height: 2px;
+  opacity: 0.01;
+  pointer-events: none;
+}

@@ -32,6 +32,7 @@
   "wifi-screens-title": "También pequeñas pantallas Wi-Fi",
   "wifi-screens-body": "Una pantalla ESP32 con el firmware abierto de Kiosko (hoy la Waveshare ESP32-C6-LCD-1.47; vendrán más) se anuncia sola en tu red. La emparejas con el código de su pantalla; se resincroniza sola, admite cualquier orientación y puedes tener varias.",
   "wifi-screens-guide": "Cómo montar una →",
+  "browser-screens-link": "¿Sin ESP32 a mano? También vale una tableta o un móvil viejo, en su navegador →",
   "yours": "La tuya",
   "now-with-your-config": "Ahora con tu configuración.",
   "drop-a-config-json-on": "Suelta un <code>config.json</code> sobre esta página (el tuyo, o uno que te haya escrito un asistente) y el panel enseña sus páginas, un panel por pantalla, con datos de muestra. Se queda en este navegador: no se sube a ningún sitio.",

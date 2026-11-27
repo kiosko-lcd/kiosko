@@ -36,6 +36,8 @@ test('guides: each language links to its own guides on the site, where they exis
   assert.equal(guidePath(docs, 'de', 'usb'), 'de/docs/usb/');
   // The Wi-Fi screens guide in every language.
   for (const [l, path] of [['en', 'docs/remote-screens/'], ['es', 'es/docs/remote-screens/'], ['de', 'de/docs/remote-screens/'], ['zh-Hant', 'zh-Hant/docs/remote-screens/'], ['zh-Hans', 'zh-Hans/docs/remote-screens/']]) assert.equal(guidePath(docs, l!, 'remote-screens'), path);
+  // The browser screens guide too.
+  for (const [l, path] of [['en', 'docs/browser-screens/'], ['es', 'es/docs/browser-screens/'], ['de', 'de/docs/browser-screens/'], ['zh-Hant', 'zh-Hant/docs/browser-screens/'], ['zh-Hans', 'zh-Hans/docs/browser-screens/']]) assert.equal(guidePath(docs, l!, 'browser-screens'), path);
   // Pages, turns and context pages, in every language.
   for (const [l, path] of [['en', 'docs/pages/'], ['es', 'es/docs/pages/'], ['de', 'de/docs/pages/'], ['zh-Hant', 'zh-Hant/docs/pages/'], ['zh-Hans', 'zh-Hans/docs/pages/']]) assert.equal(guidePath(docs, l!, 'pages'), path);
   // The install guide is the README in English (and not translated yet into Spanish or German).

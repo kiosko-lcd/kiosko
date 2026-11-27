@@ -32,6 +32,7 @@
   "wifi-screens-title": "Auch kleine WLAN-Bildschirme",
   "wifi-screens-body": "Ein ESP32-Bildschirm mit Kioskos offener Firmware (heute das Waveshare ESP32-C6-LCD-1.47; weitere folgen) meldet sich selbst in deinem Netz. Gekoppelt wird mit dem Code auf seinem Display; er synchronisiert sich selbst, kann jede Ausrichtung, und du kannst mehrere haben.",
   "wifi-screens-guide": "So richtest du einen ein →",
+  "browser-screens-link": "Kein ESP32 zur Hand? Ein altes Tablet oder Handy geht auch, im Browser →",
   "yours": "Deins",
   "now-with-your-config": "Jetzt mit deiner Konfiguration.",
   "drop-a-config-json-on": "Lege eine <code>config.json</code> auf dieser Seite ab (deine oder eine, die ein Assistent für dich geschrieben hat), und das Panel zeigt ihre Seiten, ein Panel pro Bildschirm, mit Beispieldaten. Sie bleibt in diesem Browser: Nichts wird hochgeladen.",

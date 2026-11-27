@@ -44,6 +44,11 @@
       "source": "./src/release-notes-md.ts",
       "types": "./dist/release-notes-md.d.ts",
       "default": "./dist/release-notes-md.js"
+    },
+    "./viewer-kit": {
+      "source": "./src/browser/viewer-kit.ts",
+      "types": "./dist/browser/viewer-kit.d.ts",
+      "default": "./dist/browser/viewer-kit.js"
     }
   },
   "dependencies": {

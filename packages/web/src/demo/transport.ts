@@ -204,6 +204,14 @@ export const api: typeof httpApi = {
   remoteLogs: async () => {
     throw notHere();
   },
+  // No network-screens server in the browser demo.
+  browserState: async () => ({ enabled: false, host: '0.0.0.0', port: 7429, listening: false, error: null, urls: [], waiting: [], waitSeconds: 0 }),
+  browserPair: async () => {
+    throw notHere();
+  },
+  unpairBrowser: async () => {
+    throw notHere();
+  },
   logs: async () => (await start()).logs(),
   choices: async (source: string, list: string) => (await start()).choices(source, list),
   sourcePaths: async (source: string) => (await start()).sourcePaths(source),

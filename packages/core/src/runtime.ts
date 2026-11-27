@@ -23,6 +23,7 @@ import { FetchHost, SourceHub } from './data.ts';
 import { ledFor, openDevice, type Device, type DeviceStatus } from './devices.ts';
 import { ProcessWatch, systemProcesses, type ProcessLister } from './processes.ts';
 import { posixTz } from './remote/tz.ts';
+import { BrowserHub } from './browser/hub.ts';
 import { dimFor } from './remote/backlight.ts';
 import { resolveLocale, type LogFn } from './env.ts';
 import type { Registry } from './registry.ts';
@@ -132,6 +133,16 @@ export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
   /** The running programs, listed only while an `app` rule needs them; null: none can be (the browser demo). */
   private readonly apps: ProcessWatch | null;
 
+  /**
+   * The browsers showing screens (browser/hub.ts): the network-screens server
+   * hands it their connections; each `browser` screen's driver takes its own.
+   */
+  readonly browsers = new BrowserHub((uid) => {
+    const s = this.config.screens.find((x) => x.device.driver === 'browser' && x.device.uid === uid);
+    const key = s?.device.driver === 'browser' ? s.device.key : undefined;
+    return key && /^[0-9a-f]{64}$/i.test(key) ? Buffer.from(key, 'hex') : null;
+  });
+
   /** The cores `threads: auto` counts on (see threads/plan.ts); tests set it. */
   cores: number = cpuCount();
   /** Where each screen is painted, and why (see threads/plan.ts). */
@@ -209,7 +220,7 @@ export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
     this.refreshWanted();
   }
   openDevice(screen: Screen, log: (m: string) => void): Device {
-    return openDevice(screen.device, log, screen.rotate, { settings: () => ({ lang: resolveLocale(this.config).slice(0, 5), tz: posixTz() }) });
+    return openDevice(screen.device, log, screen.rotate, { settings: () => ({ lang: resolveLocale(this.config).slice(0, 5), tz: posixTz() }), browsers: this.browsers });
   }
 
   private onData(change: { source?: string; instance?: string }): void {
@@ -298,6 +309,8 @@ export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
     this.placeRunners();
     // A device kept across the change (same connection) still has to hear a new rotation.
     for (const s of config.screens) this.runners.get(s.id)?.device.setRotation?.(s.rotate);
+    // A browser whose key went (revoked, paired again, its screen removed) is shown nothing more.
+    this.browsers.recheck();
     this.refreshPresence(false);
     this.refreshWanted();
     this.emit('config', config);
@@ -445,6 +458,7 @@ export class Runtime extends EventEmitter implements RunnerHost, ThreadOwner {
 
   private setPaused(r: Runner, pause: boolean): void {
     r.setPaused(pause);
+    r.device.pausedChanged?.(pause);
     const why = r.device.presence?.why;
     this.log(`screen:${r.screen.name}`, pause ? `panel not connected${why ? ` (${why})` : ''}: paused, painting nothing until it is back` : `panel connected${why ? ` (${why})` : ''}: painting again`);
     this.emit('screen', { screenId: r.screen.id, paused: pause });

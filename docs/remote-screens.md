@@ -3,7 +3,8 @@
 > **New, experimental.** Kiosko can also drive small Wi-Fi screens built on an
 > ESP32, running Kiosko's own open firmware. They show a Kiosko screen like any
 > panel, from anywhere in the house. This guide covers using them; the protocol
-> is in [remote-screen.md](remote-screen.md).
+> is in [remote-screen.md](remote-screen.md). No board? An old tablet or phone
+> can show a screen in its browser: see [browser-screens.md](browser-screens.md).
 
 What you get:
 

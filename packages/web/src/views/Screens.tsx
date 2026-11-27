@@ -11,6 +11,7 @@ import { DemoFrame, dt, exportScreen } from '../demo/ui.tsx';
 import { threadText } from './Others.tsx';
 import { openWizard } from '../wizard/Wizard.tsx';
 import { RemoteFoundItem, RemoteSettings } from './Remote.tsx';
+import { AddBrowserItem, BrowserSettings, NetworkScreensCard } from './Browser.tsx';
 import type { RemoteFound, UsbSeen } from '../api.ts';
 
 export function Screens() {
@@ -50,6 +51,7 @@ export function Screens() {
         {cfg.screens.map((s) => (
           <ScreenCard s={s} key={s.id} />
         ))}
+        {!KIOSKO_DEMO && <NetworkScreensCard />}
       </div>
     </div>
   );
@@ -104,6 +106,10 @@ function AddScreen({ onAdd }: { onAdd: (p?: { width: number; height: number; nam
           }}>
             <Icon name="radar" size={16} /> <span>{tr('screens.detect')}</span> <small>USB · trcc · Wi-Fi</small>
           </button>}
+          {!KIOSKO_DEMO && <AddBrowserItem onPaired={(id) => {
+            screenId.value = id;
+            setOpen(false);
+          }} />}
           {found && !found.length && !usbFound.length && !remoteFound.length && (
             <div class="muted small pad">
               {tr('screens.noneDetected')} <a href={remoteGuideUrl()} target="_blank" rel="noreferrer">{tr('remote.guide')}</a>
@@ -244,9 +250,9 @@ function ScreenCard({ s }: { s: Screen }) {
           <p class="muted small">{portrait ? tr('screens.portraitHelp').replace('{w}', String(s.width)).replace('{h}', String(s.height)) : tr('screens.flippedHelp')}</p>
           <label class="field-label">{tr('screens.driver')}</label>
           <div class="segmented">
-            {(dev.driver === 'remote' ? (['virtual', 'usb', 'trcc', 'file', 'remote'] as const) : (['virtual', 'usb', 'trcc', 'file'] as const)).map((d) => d === 'remote' ? (
+            {(dev.driver === 'remote' || dev.driver === 'browser' ? (['virtual', 'usb', 'trcc', 'file', dev.driver] as const) : (['virtual', 'usb', 'trcc', 'file'] as const)).map((d) => d === 'remote' || d === 'browser' ? (
               <button class="on">
-                <Icon name="wifi" size={13} /> {tr('driver.remote')}
+                <Icon name={d === 'remote' ? 'wifi' : 'tablet-smartphone'} size={13} /> {tr(`driver.${d}`)}
               </button>
             ) : (
               <button class={dev.driver === d ? 'on' : ''} onClick={() => setDevice(d === 'trcc' ? { driver: 'trcc', url: 'http://127.0.0.1:8099' } : d === 'usb' ? { driver: 'usb' } : d === 'file' ? { driver: 'file', dir: '~/.config/kiosko/frames/' + s.id } : { driver: 'virtual' })}>
@@ -272,6 +278,7 @@ function ScreenCard({ s }: { s: Screen }) {
             </div>
           )}
           {dev.driver === 'remote' && <RemoteSettings s={s} link={st?.device.remote} setDevice={setDevice} />}
+          {dev.driver === 'browser' && <BrowserSettings s={s} link={st?.device.browser} setDevice={setDevice} />}
           {dev.driver === 'file' && (
             <div class="sub-form">
               <label class="field-label">{tr('screens.dir')}</label>

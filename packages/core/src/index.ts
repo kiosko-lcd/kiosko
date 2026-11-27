@@ -40,4 +40,7 @@ export * from './store/build.ts';
 export * from './store/tar.ts';
 export * from './welcome.ts';
 export * from './remote/index.ts';
+export { BrowserHub, BrowserError, ViewerSession, type ViewerLink, type ViewerInfo } from './browser/hub.ts';
+export { BrowserDevice, type BrowserStatus } from './browser/device.ts';
+export { BROWSER_PORT, BROWSER_PROTO, MAX_VIEWER_MESSAGE } from './browser/protocol.ts';
 export * from './sandbox.ts';

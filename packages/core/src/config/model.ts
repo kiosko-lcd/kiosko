@@ -68,11 +68,19 @@ export type DeviceConfig =
    * window (`HH:MM` local time, start after end across midnight) when the backlight goes to its
    * own `brightness` (0 = off), for as long as it lasts (firmware 0.1.4 on; see remote/backlight.ts).
    */
-  | { driver: 'remote'; uid: string; id?: string; key?: string; host?: string; port?: number; brightness?: number; night?: { start: string; end: string; brightness: number } };
+  | { driver: 'remote'; uid: string; id?: string; key?: string; host?: string; port?: number; brightness?: number; night?: { start: string; end: string; brightness: number } }
+  /**
+   * A browser (an old tablet, a phone) showing the screen full-screen over the LAN
+   * (docs/browser-screens.md): it connects to the network-screens server with the
+   * id it made (`uid`) and proves the pairing `key` (secret). With `follow` (the
+   * default) the screen takes the browser's size and orientation.
+   */
+  | { driver: 'browser'; uid: string; id?: string; key?: string; follow?: boolean };
 
 /** Whether the panel turns the picture itself (Kiosko then paints it the page's way round). */
 export function deviceRotates(d: DeviceConfig): boolean {
-  return d.driver === 'remote';
+  // A browser shows the picture the way it is held: Kiosko paints it upright.
+  return d.driver === 'remote' || d.driver === 'browser';
 }
 
 /** The angle Kiosko turns the picture by before sending it: the screen's, unless the panel turns it. */
@@ -310,6 +318,20 @@ export type ReadingDistance = 'near' | 'normal' | 'far';
 export const READING_CM: Record<ReadingDistance, number> = { near: 40, normal: 60, far: 90 };
 export const TEXT_SCALE = { min: 0.75, max: 2, step: 0.05 } as const;
 
+/**
+ * The network-screens server (docs/browser-screens.md): a second, separate,
+ * small server for browsers showing a Kiosko screen. It serves only the viewer
+ * page, its pairing and the frames of paired viewers; the editor and its API
+ * stay on `server` (127.0.0.1). Off unless switched on.
+ */
+export interface NetworkScreens {
+  enabled: boolean;
+  /** Where it listens: 0.0.0.0 every interface (the LAN), 127.0.0.1 only this computer (a tablet on a cable with `adb reverse`), or one address. */
+  host: string;
+  port: number;
+}
+export const DEFAULT_NETWORK_SCREENS: NetworkScreens = { enabled: false, host: '0.0.0.0', port: 7429 };
+
 /** Default `maxBytes`: under the ~500 KB LY panels accept, with some margin. */
 export const DEFAULT_MAX_BYTES = 480_000;
 
@@ -340,6 +362,8 @@ export interface Config {
   server: { host: string; port: number };
   /** Kiosko as a device in Home Assistant, over MQTT (see docs/homeassistant.md). Absent = off. */
   homeassistant?: HomeAssistantLink;
+  /** The network-screens server, for browsers showing a screen (see `NetworkScreens`). Absent = off. */
+  networkScreens?: NetworkScreens;
   /** Names scripts may push to (`POST /api/push/<name>`), each with its token (see docs/rest-webhook.md). Absent = none. */
   push?: { hooks: PushHook[] };
   /** Each screen painting in a thread of its own (see `ThreadsMode`). Missing = `auto`. */

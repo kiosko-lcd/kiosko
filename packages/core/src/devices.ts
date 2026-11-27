@@ -8,6 +8,8 @@
  *            sender bound to a serial number, for several identical panels)
  *   remote   a Kiosko remote screen on the network (remote/device.ts,
  *            docs/remote-screen.md)
+ *   browser  a browser showing the screen, connected to the network-screens
+ *            server (browser/device.ts, docs/browser-screens.md)
  */
 import { mkdirSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -18,6 +20,8 @@ import { expandPath } from './paths.ts';
 import { PresenceMonitor, probesFor, usbProbe, type Clock, type PresenceInfo, type Probe, type ProbeDeps } from './presence.ts';
 import { RemoteDevice, type RemoteDeps, type RemoteStatus } from './remote/device.ts';
 import { browser } from './remote/mdns.ts';
+import { BrowserDevice, type BrowserStatus } from './browser/device.ts';
+import type { BrowserHub } from './browser/hub.ts';
 import { confinePath, sandboxAllows } from './sandbox.ts';
 
 export interface DeviceStatus {
@@ -39,6 +43,8 @@ export interface DeviceStatus {
   lastSentAt: number | null;
   /** A remote screen's link: online, where, its firmware, fps and round trip. */
   remote?: RemoteStatus;
+  /** A browser screen's viewer: online, where, its size, fps and round trip. */
+  browser?: BrowserStatus;
 }
 
 /** An error that also says what it is, for the editor (see `DeviceStatus.code`). */
@@ -70,6 +76,12 @@ export interface Device {
    * `unknown`: painted as always.
    */
   readonly presence?: PresenceInfo;
+  /**
+   * The runtime paused its screen (presence absent) or resumed it, which it
+   * does with a full frame. A driver that keeps the last frame for a viewer
+   * to come (browser screens) forgets it on pausing: it would be old.
+   */
+  pausedChanged?(paused: boolean): void;
   /** Panels that turn the picture themselves (remote screens): the screen's rotation changed. */
   setRotation?(rotate: number): void;
   /** Panels with a backlight Kiosko can dim (remote screens): 0-100 for now, null back to its own (remote/backlight.ts). */
@@ -409,13 +421,16 @@ export async function discoverUsb(): Promise<{ serial: string; key: string; widt
   }
 }
 
-export function openDevice(cfg: DeviceConfig, log: (m: string) => void, rotate?: number, remote?: RemoteDeps): Device {
+export function openDevice(cfg: DeviceConfig, log: (m: string) => void, rotate?: number, remote?: RemoteDeps & { browsers?: BrowserHub }): Device {
   // A sandbox leaves the real panels alone: those on USB, those `trcc serve` drives, the remote screens.
+  // A browser screen is left in: it only talks to the network-screens server, which the sandbox confines.
   if ((cfg.driver === 'usb' || cfg.driver === 'trcc') && !sandboxAllows('usb')) return new SandboxedDevice(cfg.driver, 'usb');
   if (cfg.driver === 'remote' && !sandboxAllows('remote')) return new SandboxedDevice(cfg.driver, 'remote');
   switch (cfg.driver) {
     case 'remote':
       return new RemoteDevice(cfg, log, rotate ?? 0, remote);
+    case 'browser':
+      return new BrowserDevice(cfg, log, remote?.browsers ?? null);
     case 'trcc':
       return new TrccDevice(cfg, log);
     case 'usb':

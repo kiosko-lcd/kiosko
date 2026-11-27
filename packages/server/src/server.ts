@@ -24,8 +24,10 @@ import { installableRelease, releaseProblem, type StorePlugin } from '@kiosko/co
 import { HomeAssistantBridge } from './homeassistant.ts';
 import { remoteApi, type RemoteApiContext } from './remote-api.ts';
 import { pushApi, pushFile } from './push-api.ts';
+import { browserApi } from './browser-api.ts';
+import { ScreensServer } from './screens-server.ts';
 import { ALERT_LEVELS, type AlertLevel } from '@kiosko/sdk';
-import { currentSandbox, type Sandbox } from '@kiosko/core';
+import { currentSandbox, isLoopback, type Sandbox } from '@kiosko/core';
 import { AlertError, DEFAULT_SNOOZE_MS, PANEL_PRESETS, checkUpdates, discoverRemote, discoverTrcc, discoverUsb, hexId, listUsbDevices, normalize, npmRegistry, paths, resolveLocale, resolveSourceKey, saveConfig, type Config, type FrameInfo, type Runtime, type Screen, type UpdateCheck, dataPaths } from '@kiosko/core';
 import { currentInstall, updateBlocker, updateInstructions, type InstallInfo } from './install-kind.ts';
 import { KioskoUpdater, UpdateError, readMarker, realRun, restartHow, writeMarker, type Handover, type UpdaterDeps } from './self-update.ts';
@@ -76,6 +78,11 @@ export interface ServerOptions {
    * without touching real ones). Default: ask `trcc serve` at `url` and libusb.
    */
   discover?: (url: string, tokenFile?: string) => Promise<Discovered>;
+  /**
+   * Whether the network-screens server (browser screens) may start when the config switches it on.
+   * Default: yes, except in demo mode.
+   */
+  networkScreens?: boolean;
   /** How "Detect panels" of a Frame file screen lists USB devices by VID:PID (tests). Default: read only, sysfs or libusb (listUsbDevices). */
   usbDevices?: typeof listUsbDevices;
   /**
@@ -176,6 +183,8 @@ export function startServer(o: ServerOptions) {
     instance,
     logFile: join(home, 'kiosko.log'),
     release: async () => {
+      netPaused = true;
+      await syncNet();
       runtime.stop();
       for (const c of clients) c.end();
       clients.clear();
@@ -194,6 +203,8 @@ export function startServer(o: ServerOptions) {
         });
       });
       runtime.start();
+      netPaused = false;
+      void syncNet();
     },
     spawn: () => {
       const out = openSync(join(home, 'kiosko.log'), 'a');
@@ -346,6 +357,56 @@ export function startServer(o: ServerOptions) {
     },
   });
 
+  // The network-screens server (screens-server.ts): a server of its own, started and stopped with the config.
+  const screens = (o.networkScreens ?? !runtime.demoMode) ? new ScreensServer({ hub: runtime.browsers, viewerDir: join(root, 'viewer'), log: (m) => runtime.log('network-screens', m) }) : null;
+  const net: { enabled: boolean; host: string; port: number; listening: boolean; error: string | null; sandboxed?: boolean } = { enabled: false, host: '', port: 0, listening: false, error: null };
+  let netSync: Promise<void> = Promise.resolve();
+  let netClosed = false;
+  /** Stopped while an update hands over to the new Kiosko (which listens there instead). */
+  let netPaused = false;
+  const syncNet = () => {
+    netSync = netSync.then(async () => {
+      if (!screens) return;
+      const want = runtime.config.networkScreens;
+      const on = !netClosed && !netPaused && !!want?.enabled;
+      // A sandbox opens nothing to the LAN unless it may (--sandbox-allow-lan): the browsers on this machine only.
+      const confined = !!want && !!sb && !sb.allow.has('lan') && !isLoopback(want.host);
+      const host = confined ? '127.0.0.1' : (want?.host ?? '');
+      const at = screens.listening;
+      if (on && at && at.host === host && at.port === want!.port) return;
+      if (!on && !at && !net.error && !net.enabled) return;
+      Object.assign(net, { enabled: on, host, port: want?.port ?? 0, listening: false, error: null, ...(confined ? { sandboxed: true } : {}) });
+      if (!confined) delete (net as { sandboxed?: boolean }).sandboxed;
+      if (!on) return screens.close();
+      if (confined) runtime.log('network-screens', `sandbox: listening on 127.0.0.1, not ${want!.host} (--sandbox-allow-lan to open it to the network)`);
+      try {
+        await screens.listen(host, want!.port);
+        net.listening = true;
+      } catch (err) {
+        net.error = err instanceof Error ? err.message : String(err);
+        runtime.log('network-screens', `could not listen on ${host}:${want!.port}: ${net.error}`);
+      }
+      send('config', { rev, by: null });
+    });
+    return netSync;
+  };
+  const onConfigNet = () => void syncNet();
+  runtime.on('config', onConfigNet);
+  void syncNet();
+  const browser = browserApi({
+    runtime,
+    json,
+    body,
+    commit: (cfg) => {
+      const c = normalize(cfg);
+      saveConfig(c, o.configPath);
+      rev++;
+      runtime.apply(c);
+      send('config', { rev, by: null });
+    },
+    state: () => ({ ...net }),
+  });
+
   function findScreen(cfg: Config, id: string): Screen | undefined {
     return cfg.screens.find((s) => s.id === id);
   }
@@ -490,6 +551,7 @@ export function startServer(o: ServerOptions) {
       if (sb && !sb.allow.has('remote')) return json(res, 403, { error: 'sandbox: remote screens are off here (--sandbox-allow-remote)', code: 'sandboxRemote' });
       if (await remote(req, res, p, m)) return;
     }
+    if ((p === '/api/browser' || p.startsWith('/api/browser/') || /^\/api\/screens\/[^/]+\/browser\//.test(p)) && (await browser(req, res, p, m))) return;
 
     if (p === '/api/devices/discover' && m === 'GET') {
       const url0 = url.searchParams.get('url') ?? 'http://127.0.0.1:8099';
@@ -750,9 +812,12 @@ export function startServer(o: ServerOptions) {
     runtime.off('frame', onFrame);
     runtime.off('alerts', onAlerts);
     runtime.off('log', onLog);
+    runtime.off('config', onConfigNet);
+    netClosed = true;
+    void syncNet();
     for (const c of clients) c.end();
     clients.clear();
     server.close();
   }
-  return { server, close, updater };
+  return { server, close, updater, screens, networkScreensReady: () => netSync };
 }

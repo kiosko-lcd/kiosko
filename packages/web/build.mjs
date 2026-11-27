@@ -37,6 +37,36 @@ function editorOptions(outdir, { demo = false } = {}) {
   };
 }
 
+/**
+ * The browser screen's viewer (src/viewer), served by the network-screens server from
+ * dist/viewer: a page of its own, apart from the editor. It may open on an old tablet,
+ * so an older target; ES2020 for BigInt (its crypto is pure JS: no crypto.subtle over http).
+ */
+function viewerOptions(outdir) {
+  return {
+    entryPoints: { viewer: join(here, 'src/viewer/viewer.ts') },
+    outdir,
+    bundle: true,
+    format: 'iife',
+    target: ['es2020', 'chrome80', 'firefox78', 'safari14'],
+    conditions: ['source'],
+    minify: !watch,
+    sourcemap: watch ? 'inline' : false,
+    legalComments: 'linked',
+    logLevel: 'info',
+  };
+}
+
+async function buildViewer(out) {
+  const dir = join(out, 'viewer');
+  mkdirSync(dir, { recursive: true });
+  cpSync(join(here, 'src/viewer/index.html'), join(dir, 'index.html'));
+  cpSync(join(here, 'src/viewer/viewer.css'), join(dir, 'viewer.css'));
+  cpSync(join(here, 'public/icon.svg'), join(dir, 'icon.svg'));
+  if (watch) await (await context(viewerOptions(dir))).watch();
+  else await build(viewerOptions(dir));
+}
+
 if (args.includes('--site')) {
   const { buildSite } = await import('./landing/build.mjs');
   await buildSite({ out: resolve(outArg ?? join(here, '../../site')), editorOptions });
@@ -49,6 +79,7 @@ if (args.includes('--site')) {
   mkdirSync(out, { recursive: true });
   cpSync(join(here, 'public'), out, { recursive: true });
   const options = editorOptions(join(out, 'assets'));
+  await buildViewer(out);
   if (watch) {
     const ctx = await context(options);
     await ctx.watch();
