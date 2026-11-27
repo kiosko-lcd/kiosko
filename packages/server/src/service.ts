@@ -15,7 +15,7 @@ import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir, platform } from 'node:os';
 import { dirname, join, resolve, win32 } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { kioskoHome } from '@kiosko/core';
+import { inSandbox, kioskoHome } from '@kiosko/core';
 
 export interface ServicePlan {
   kind: 'systemd' | 'launchd' | 'schtasks';
@@ -129,6 +129,8 @@ export function runService(action: string, plan: ServicePlan): void {
     for (const c of plan.enable) console.log(`$ ${c.join(' ')}`);
     return;
   }
+  // A sandbox (kiosko start --sandbox) never registers, replaces or removes the real service.
+  if (inSandbox()) throw new Error(`kiosko service ${action}: not in a sandbox (it would change the service of the real Kiosko)`);
   if (action === 'install') {
     if (plan.file) {
       mkdirSync(dirname(plan.file), { recursive: true });

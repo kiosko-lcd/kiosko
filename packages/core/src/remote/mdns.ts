@@ -10,6 +10,7 @@
  * answer it directly (a "legacy unicast" query).
  */
 import { createSocket, type Socket } from 'node:dgram';
+import { sandboxAllows } from '../sandbox.ts';
 import { EventEmitter } from 'node:events';
 import { networkInterfaces } from 'node:os';
 
@@ -155,6 +156,8 @@ export class ScreenBrowser extends EventEmitter {
 
   /** Starts listening (idempotent). */
   start(): Promise<void> {
+    // A sandbox (sandbox.ts) asks the network for no screens unless it may talk to them.
+    if (!sandboxAllows('remote')) return (this.starting ??= Promise.resolve());
     this.starting ??= new Promise<void>((resolve) => {
       const s = createSocket({ type: 'udp4', reuseAddr: true });
       let bound = false;

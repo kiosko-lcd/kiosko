@@ -35,6 +35,11 @@
       "types": "./dist/store/index.d.ts",
       "default": "./dist/store/index.js"
     },
+    "./sandbox": {
+      "source": "./src/sandbox.ts",
+      "types": "./dist/sandbox.d.ts",
+      "default": "./dist/sandbox.js"
+    },
     "./release-notes": {
       "source": "./src/release-notes-md.ts",
       "types": "./dist/release-notes-md.d.ts",
