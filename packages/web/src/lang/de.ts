@@ -80,6 +80,8 @@ export const de: Dictionary = {
   'ctx.appHint': "Der Prozessname, * für beliebiges: steam*, obs*, zoom*. Mehrere durch Kommas getrennt. Wird alle 3 Sekunden geprüft, nur solange eine Regel es braucht.",
   'ctx.source': "Quelle",
   'ctx.sourceNone': "Quelle wählen…",
+  'ctx.profile': "Profil",
+  'ctx.profileHint': "Welches Profil der Quelle die Regel prüft. Es läuft weiter, auch wenn keine Kachel es zeigt.",
   'ctx.path': "Wert bei",
   'ctx.pathHint': "Wo in ihren Daten, mit Punkten: active, items[0].price. Leer: der ganze Wert. Ohne Daten trifft es nie zu.",
   'ctx.pathNow': "Jetzt: {value}",

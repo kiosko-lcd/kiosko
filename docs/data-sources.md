@@ -26,6 +26,8 @@ something unique on this machine (a battery, a sensor) don't.
 - **In a tile**: the inspector shows **Source profile**. Pick one, or
   **New profile…**, which makes a copy of the one the widget reads now, names
   it and lets you change its options right there (**Edit profile**).
+- **In a context page**: a *source's value* condition on a source with
+  profiles has a **Profile** of its own (see [Pages](pages.md#show-this-page-when)).
 
 Each profile has its own data, interval and status: in a widget's inspector
 the data line reads `news/deck#technology`. A profile's options are shared by

@@ -80,6 +80,8 @@ export const zhHant: Dictionary = {
   'ctx.appHint': "程序名稱，* 代表任意字元：steam*、obs*、zoom*。多個以逗號分隔。僅在有規則需要時每 3 秒檢查一次。",
   'ctx.source': "資料來源",
   'ctx.sourceNone': "選擇資料來源…",
+  'ctx.profile': "設定檔",
+  'ctx.profileHint': "規則查看資料來源的哪個設定檔。即使沒有方格顯示它，它也會繼續執行。",
   'ctx.path': "取值路徑",
   'ctx.pathHint': "在其資料中的位置，用點號：active、items[0].price。留空：整個值。尚無資料時永不符合。",
   'ctx.pathNow': "目前：{value}",

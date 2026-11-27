@@ -80,6 +80,8 @@ export const es: Dictionary = {
   'ctx.appHint': "El nombre del proceso, con * para cualquier cosa: steam*, obs*, zoom*. Varios, separados por comas. Se mira cada 3 segundos y solo mientras alguna regla lo necesite.",
   'ctx.source': "Fuente",
   'ctx.sourceNone': "Elige una fuente…",
+  'ctx.profile': "Perfil",
+  'ctx.profileHint': "Qué perfil de la fuente mira la regla. Sigue funcionando aunque ninguna tesela lo muestre.",
   'ctx.path': "Valor en",
   'ctx.pathHint': "Dónde, dentro de sus datos, con puntos: active, items[0].price. Vacío: el valor entero. Sin datos todavía, nunca se cumple.",
   'ctx.pathNow': "Ahora: {value}",

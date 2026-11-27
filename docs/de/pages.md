@@ -68,6 +68,11 @@ Daten geschickt hat, oder ein Pfad, den es nicht gibt, trifft nie zu. Die
 Quelle läuft, auch wenn kein Widget sie zeigt. Die Abstände des Bildschirms
 sind `"context": { "minMs": 20000, "holdMs": 10000 }`.
 
+Eine Quelle mit [Profilen](data-sources.md#profile-eine-quelle-mehrere-konfigurationen) (zwei Nachrichtenseiten,
+zwei GitHub-Konten) zeigt daneben ein **Profil**: Die Bedingung prüft die Daten
+dieses Profils, das dafür weiterläuft. In der Datei `"profile": "tech"` neben
+`"source"`; ohne es, oder wenn das Profil gelöscht wird, das Standardprofil.
+
 ### Programme auf jedem System
 
 Kiosko schaut alle 3 Sekunden nach den laufenden Programmen, und nur solange

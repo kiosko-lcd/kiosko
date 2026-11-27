@@ -78,6 +78,8 @@ export const en = {
   'ctx.appHint': "The process name, with * for anything: steam*, obs*, zoom*. Several, separated by commas. Looked at every 3 seconds, only while a rule needs it.",
   'ctx.source': "Source",
   'ctx.sourceNone': "Choose a source…",
+  'ctx.profile': "Profile",
+  'ctx.profileHint': "Which of the source's profiles the rule looks at. It keeps running even when no tile shows it.",
   'ctx.path': "Value at",
   'ctx.pathHint': "Where in its data, with dots: active, items[0].price. Empty: the whole value. No data yet never counts.",
   'ctx.pathNow': "Now: {value}",

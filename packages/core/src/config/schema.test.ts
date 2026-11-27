@@ -63,7 +63,7 @@ const FULL: Config = {
           when: 'work',
           showWhen: [
             { label: 'Game open', priority: 5, app: 'steam*, obs*' },
-            { source: 'demo/remote', path: 'items[0].price', op: 'gt', value: 0.2, time: { start: '18:00', end: '08:00', days: [1, 5] }, urgent: true },
+            { source: 'demo/remote', profile: 'work', path: 'items[0].price', op: 'gt', value: 0.2, time: { start: '18:00', end: '08:00', days: [1, 5] }, urgent: true },
           ],
           inRotation: true,
           grid: { cols: 16, rows: 6, gap: 8, padding: 8 },

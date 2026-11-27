@@ -17,6 +17,7 @@
  */
 import { minutesOf } from '@kiosko/sdk/workday';
 import { pickPage } from './layout/stack.ts';
+import { resolveSourceKey, type ProfileAware } from './config/profiles.ts';
 import { CONTEXT_TIMING, whenMatches, type CompareOp, type Config, type Page, type Screen, type ShowWhenRule } from './config/model.ts';
 
 /** Why a context page is on screen: what the rule that holds saw. */
@@ -27,6 +28,8 @@ export interface ContextReason {
   app?: string;
   /** The source, and its value at the path, that matched. */
   source?: string;
+  /** The source's profile the rule read (missing: its default one). */
+  profile?: string;
   path?: string;
   value?: string;
   /** The time window that holds, `09:00–17:00`. */
@@ -51,8 +54,8 @@ export interface ContextEnv {
   now: number;
   /** Names of the running programs (see processes.ts); null: not known (yet). */
   apps: readonly string[] | null;
-  /** A source's latest data (undefined: none yet). */
-  source(type: string): unknown;
+  /** A source's latest data (undefined: none yet): its default profile's, or `profile`'s (see config/profiles.ts). */
+  source(type: string, profile?: string): unknown;
   /** The type of an urgent widget on that page, or null. */
   urgent(page: Page): string | null;
 }
@@ -178,9 +181,10 @@ export function evalRule(rule: ShowWhenRule, page: Page, env: ContextEnv): Conte
     why.app = hit;
   }
   if (rule.source) {
-    const v = valueAt(env.source(rule.source), rule.path);
+    const v = valueAt(rule.profile ? env.source(rule.source, rule.profile) : env.source(rule.source), rule.path);
     if (!compareValue(v, rule.op, rule.value)) return null;
     why.source = rule.source;
+    if (rule.profile) why.profile = rule.profile;
     if (rule.path) why.path = rule.path;
     why.value = shown(v);
   }
@@ -327,9 +331,14 @@ export function needsApps(cfg: Pick<Config, 'screens'>): boolean {
   return cfg.screens.some((s) => s.enabled && s.pages.some((p) => p.enabled !== false && p.showWhen?.some((r) => !!r.app?.trim())));
 }
 
-/** The sources the rules of the enabled screens read: they must run even with no widget showing them. */
-export function ruleSources(cfg: Pick<Config, 'screens'>): Set<string> {
+/**
+ * The sources the rules of the enabled screens read, as source keys (a
+ * rule's `profile`, when the source accepts profiles and the config has it:
+ * `news/deck#tech`, see config/profiles.ts): they must run even with no
+ * widget showing them. `source` tells whether a type accepts profiles.
+ */
+export function ruleSources(cfg: Pick<Config, 'screens' | 'sourceProfiles'>, source: (type: string) => ProfileAware | undefined = () => undefined): Set<string> {
   const out = new Set<string>();
-  for (const s of cfg.screens) if (s.enabled) for (const p of s.pages) if (p.enabled !== false) for (const r of p.showWhen ?? []) if (r.source) out.add(r.source);
+  for (const s of cfg.screens) if (s.enabled) for (const p of s.pages) if (p.enabled !== false) for (const r of p.showWhen ?? []) if (r.source) out.add(resolveSourceKey(cfg, r.source, r.profile, source(r.source)));
   return out;
 }

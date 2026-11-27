@@ -87,6 +87,12 @@ export function checkConfig(raw: unknown, plugins: readonly PluginDefinition[]):
       if (!isObj(p) || !Array.isArray(p.tiles)) return;
       p.showWhen?.forEach((r, ri) => {
         if (r.source && !sources.has(r.source)) warnings.push(issue([...pp, 'showWhen', ri, 'source'], `no installed plugin provides the source ${JSON.stringify(r.source)}, so this rule never holds${near(r.source, [...sources.keys()])}`));
+        else if (r.source && r.profile) {
+          const rp: PathSeg[] = [...pp, 'showWhen', ri, 'profile'];
+          const names = Object.keys(profilesOf(cfg, r.source));
+          if (!acceptsProfiles(sources.get(r.source))) warnings.push(issue(rp, `the source ${JSON.stringify(r.source)} has no profiles, so it is ignored and the rule reads its only configuration`));
+          else if (!names.includes(r.profile)) warnings.push(issue(rp, `no profile ${JSON.stringify(r.profile)} in sourceProfiles[${JSON.stringify(r.source)}], so the rule reads the default one${near(r.profile, names)}`));
+        }
       });
       repeated(p.tiles, [...pp, 'tiles'], 'tile', errors);
       const grid = validGrid(p.grid) ? p.grid : null;

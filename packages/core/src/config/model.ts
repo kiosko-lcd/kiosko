@@ -187,6 +187,12 @@ export interface ShowWhenRule {
   app?: string;
   /** A source's value (`plugin/source`), at `path` in its data, compared with `op` and `value`. */
   source?: string;
+  /**
+   * Which profile of the source (a `sourceProfiles[source]` id, see
+   * config/profiles.ts) the rule reads; missing, or a profile that is gone:
+   * its default one.
+   */
+  profile?: string;
   /** Dots and brackets into the source's data (`active`, `items[0].price`); empty: the data itself. */
   path?: string;
   /** Default: `eq` with a `value`, `truthy` without. */

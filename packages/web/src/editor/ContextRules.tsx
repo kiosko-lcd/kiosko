@@ -3,13 +3,14 @@
  * page inspector, and the line that says why a page is on the panel now.
  */
 import { useEffect, useState } from 'preact/hooks';
-import { COMPARE_OPS, CONTEXT_TIMING, type CompareOp, type Page, type Screen, type ShowWhenRule } from '@kiosko/core/model';
+import { COMPARE_OPS, CONTEXT_TIMING, profilesOf, type CompareOp, type Page, type Screen, type ShowWhenRule } from '@kiosko/core/model';
 import { api, type ContextInfo } from '../api.ts';
 import { DurationInput, Toggle } from '../forms/SchemaForm.tsx';
 import { typed } from '../forms/ime.ts';
 import { Icon } from '../icons.tsx';
 import { t, tr, uiLanguage, type TKey } from '../i18n.ts';
-import { app, widgets } from '../store.ts';
+import { app, config, widgets } from '../store.ts';
+import { profileSources } from './Profiles.tsx';
 
 type Kind = 'app' | 'source' | 'time' | 'urgent';
 const KINDS: { kind: Kind; icon: string; make: () => ShowWhenRule }[] = [
@@ -127,15 +128,18 @@ function AppField({ id, value, onChange }: { id: string; value: string; onChange
 
 function SourceField({ id, rule: r, set }: { id: string; rule: ShowWhenRule; set: (fn: (r: ShowWhenRule) => void, key?: string) => void }) {
   const sources = (app.value?.catalog ?? []).filter((p) => p.enabled).flatMap((p) => p.sources.map((s) => ({ ...s, plugin: p.name })));
+  // Its profiles (core's config/profiles.ts), when it accepts them and has some besides the default.
+  const profiles = r.source && profileSources().has(r.source) ? profilesOf(config.value!, r.source) : {};
+  const profile = r.profile && Object.hasOwn(profiles, r.profile) ? r.profile : undefined;
   const [paths, setPaths] = useState<{ path: string; value: string }[]>([]);
   useEffect(() => {
     if (!r.source) return setPaths([]);
     let alive = true;
-    api.sourcePaths(r.source).then((x) => alive && setPaths(x.paths), () => alive && setPaths([]));
+    api.sourcePaths(r.source, profile).then((x) => alive && setPaths(x.paths), () => alive && setPaths([]));
     return () => {
       alive = false;
     };
-  }, [r.source]);
+  }, [r.source, profile]);
   const op = r.op ?? (r.value === undefined ? 'truthy' : 'eq');
   const here = paths.find((x) => x.path === (r.path ?? ''));
   return (
@@ -144,6 +148,7 @@ function SourceField({ id, rule: r, set }: { id: string; rule: ShowWhenRule; set
       <select id={`${id}-src`} class="input" value={r.source} onChange={(e) => set((x) => {
         x.source = (e.target as HTMLSelectElement).value;
         delete x.path;
+        delete x.profile;
       })}>
         <option value="">{tr('ctx.sourceNone')}</option>
         {r.source && !sources.some((s) => s.type === r.source) && <option value={r.source}>{r.source}</option>}
@@ -151,6 +156,23 @@ function SourceField({ id, rule: r, set }: { id: string; rule: ShowWhenRule; set
           <option value={s.type}>{s.name} · {s.type}</option>
         ))}
       </select>
+      {(Object.keys(profiles).length > 0 || r.profile) && (
+        <>
+          <label class="field-label" for={`${id}-profile`}>{tr('ctx.profile')}</label>
+          <select id={`${id}-profile`} class="input" value={r.profile ?? ''} onChange={(e) => set((x) => {
+            const v = (e.target as HTMLSelectElement).value;
+            if (v) x.profile = v;
+            else delete x.profile;
+          })}>
+            <option value="">{tr('profiles.default')}</option>
+            {r.profile && !profile && <option value={r.profile}>{r.profile}</option>}
+            {Object.entries(profiles).map(([pid, p]) => (
+              <option value={pid}>{p.name}</option>
+            ))}
+          </select>
+          <div class="field-help">{tr('ctx.profileHint')}</div>
+        </>
+      )}
       <label class="field-label" for={`${id}-path`}>{tr('ctx.path')}</label>
       <input id={`${id}-path`} class="input mono" value={r.path ?? ''} placeholder={paths[0]?.path || 'active'} list={`${id}-paths`} spellcheck={false} {...typed((v) => set((x) => (v.trim() ? (x.path = v) : delete x.path), `${id}-path`))} />
       <datalist id={`${id}-paths`}>{paths.map((x) => <option value={x.path}>{x.value}</option>)}</datalist>
@@ -225,6 +247,8 @@ function TimeField({ id, time, set }: { id: string; time: NonNullable<ShowWhenRu
 export function contextWhy(c: ContextInfo): string {
   const r = c.reason;
   const name = (type: string) => widgets.value.get(type)?.name ?? type;
+  // A rule on a profile: the source with that profile's name, «news/deck · Technology».
+  const source = r.source && r.profile ? `${r.source} · ${(config.value && profilesOf(config.value, r.source)[r.profile]?.name) ?? r.profile}` : r.source;
   // With a name of its own ("game open"), the details alone: "game open (steam)".
   if (r.label) {
     const bare = [r.app, r.source && `${r.path ?? r.source} = ${r.value ?? ''}`, r.time, r.urgent && name(r.urgent)].filter(Boolean);
@@ -232,7 +256,7 @@ export function contextWhy(c: ContextInfo): string {
   }
   const parts = [
     r.app && t('ctx.why.app', { name: r.app }),
-    r.source && t('ctx.why.source', { source: `${r.source}${r.path ? ` · ${r.path}` : ''}`, value: r.value ?? '' }),
+    r.source && t('ctx.why.source', { source: `${source}${r.path ? ` · ${r.path}` : ''}`, value: r.value ?? '' }),
     r.time && t('ctx.why.time', { time: r.time }),
     r.urgent && t('ctx.why.urgent', { widget: name(r.urgent) }),
   ].filter(Boolean) as string[];

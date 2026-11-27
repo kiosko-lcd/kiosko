@@ -66,6 +66,12 @@ fuente que aún no ha mandado datos, o una ruta que no está, nunca se cumple.
 La fuente funciona aunque ningún widget la enseñe. Los márgenes de la
 pantalla son `"context": { "minMs": 20000, "holdMs": 10000 }`.
 
+Una fuente con [perfiles](data-sources.md#perfiles-una-fuente-varias-configuraciones) (dos portadas de noticias,
+dos cuentas de GitHub) muestra al lado un **Perfil**: la condición mira los
+datos de ese perfil, que sigue funcionando por ella. En el fichero,
+`"profile": "tech"` junto a `"source"`; sin él, o si el perfil se borra, el de
+por defecto.
+
 ### Los programas en cada sistema
 
 Kiosko mira los programas abiertos cada 3 segundos, y solo mientras alguna
