@@ -12,7 +12,9 @@
  *   kiosko remote [list|pair|ota|logs|unpair]   (see remote-cli.ts)
  *   kiosko start --sandbox [dir] …, kiosko sandbox list|stop   (see sandbox-cli.ts)
  */
-// First of all: a sandbox points every path at its folder before any module reads one.
+// First of all: on Linux, `start` starts again with malloc tuned (before a sandbox makes its folder).
+import './malloc-boot.ts';
+// Then a sandbox points every path at its folder before any module reads one.
 import { boot } from './sandbox-boot.ts';
 import { spawn } from 'node:child_process';
 import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
