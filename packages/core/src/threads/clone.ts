@@ -115,16 +115,20 @@ export function pack(value: unknown): unknown {
 }
 
 /**
- * The other end: makes pictures again. `pictures` keeps the ones already
- * made by id (the same picture in new data is the same object); it forgets
- * the oldest past `keep`.
+ * The other end: makes pictures again. `pictures` has the ones already made
+ * by id (the same picture in new data is the same object); `used` gets the
+ * ids of those in `value`. Nothing is forgotten here: `PictureCache` does
+ * that.
  */
-export function unpack(value: unknown, pictures: Map<number, Image | Canvas>, keep = 256): unknown {
+export function unpack(value: unknown, pictures: Map<number, Image | Canvas>, used?: Set<number>): unknown {
   const seen = new Map<object, unknown>();
   const walk = (v: unknown): unknown => {
     if (v === null || typeof v !== 'object') return v;
     if (seen.has(v)) return seen.get(v);
-    if ((v as PackedPicture)[PICTURE]) return picture(v as PackedPicture, pictures, keep);
+    if ((v as PackedPicture)[PICTURE]) {
+      used?.add((v as PackedPicture).id);
+      return picture(v as PackedPicture, pictures);
+    }
     const buf = (v as { [BUFFER]?: Uint8Array })[BUFFER];
     if (buf) return Buffer.from(buf.buffer, buf.byteOffset, buf.byteLength);
     if (ArrayBuffer.isView(v) || CLONED_AS_IS.some((c) => v instanceof c)) return v;
@@ -152,14 +156,50 @@ export function unpack(value: unknown, pictures: Map<number, Image | Canvas>, ke
   return walk(value);
 }
 
-function picture(p: PackedPicture, pictures: Map<number, Image | Canvas>, keep: number): Image | Canvas {
-  const known = pictures.get(p.id);
-  if (known) {
-    // Most recently used last.
-    pictures.delete(p.id);
-    pictures.set(p.id, known);
-    return known;
+/**
+ * The pictures a thread has made, kept while some widget's or source's
+ * latest data shows them, and only then. They used to be kept by number
+ * (the last 256), whatever showed them: every new rain radar, traffic map
+ * or news photo stayed decoded in the thread long after the data that
+ * brought it had been replaced, hundreds of MB outside V8's heap after a
+ * few hours (a 1920×1080 photo is 8 MB decoded).
+ */
+export class PictureCache {
+  private readonly byId = new Map<number, Image | Canvas>();
+  /** The ids each key's (`instance:…`, `source:…`) latest data shows. */
+  private readonly held = new Map<string, Set<number>>();
+
+  /** Pictures kept now. */
+  get size(): number {
+    return this.byId.size;
   }
+  values(): IterableIterator<Image | Canvas> {
+    return this.byId.values();
+  }
+
+  /** `value`, the latest data of each of `keys`, with its pictures made again; those no key's data shows any more are let go. */
+  unpack(value: unknown, keys: string[]): unknown {
+    const used = new Set<number>();
+    const out = unpack(value, this.byId, used);
+    for (const k of keys) {
+      if (value === undefined || !used.size) this.held.delete(k);
+      else this.held.set(k, used);
+    }
+    this.prune();
+    return out;
+  }
+
+  private prune(): void {
+    if (!this.byId.size) return;
+    const keep = new Set<number>();
+    for (const ids of this.held.values()) for (const id of ids) keep.add(id);
+    for (const id of this.byId.keys()) if (!keep.has(id)) this.byId.delete(id);
+  }
+}
+
+function picture(p: PackedPicture, pictures: Map<number, Image | Canvas>): Image | Canvas {
+  const known = pictures.get(p.id);
+  if (known) return known;
   let made: Image | Canvas;
   if (p[PICTURE] === 'image') {
     const img = new Image();
@@ -174,6 +214,5 @@ function picture(p: PackedPicture, pictures: Map<number, Image | Canvas>, keep: 
     made = c;
   }
   pictures.set(p.id, made);
-  while (pictures.size > keep) pictures.delete(pictures.keys().next().value!);
   return made;
 }
