@@ -19,7 +19,7 @@ import { execFileSync } from 'node:child_process';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const out = join(root, 'dist', 'kiosko');
 const rootPkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
-const version = rootPkg.version ?? '0.2.15';
+const version = rootPkg.version ?? '0.2.16';
 
 rmSync(out, { recursive: true, force: true });
 mkdirSync(out, { recursive: true });
